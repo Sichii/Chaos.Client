@@ -1,0 +1,36 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Chaos.Client", "Chaos.Client\Chaos.Client.csproj", "{03852D4B-CF36-421C-8DC5-209AFE3918BE}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Chaos.Client.Common", "Chaos.Client.Common\Chaos.Client.Common.csproj", "{CBFEDD82-5907-4D43-AC5A-C7183E2BAAF8}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Chaos.Client.Data", "Chaos.Client.Data\Chaos.Client.Data.csproj", "{189BC249-65E6-408E-812B-CE5456CEEDAC}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Chaos.Client.Networking", "Chaos.Client.Networking\Chaos.Client.Networking.csproj", "{367F3474-6977-488C-9E95-F5D7A4E0A37E}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Chaos.Client.Rendering", "Chaos.Client.Rendering\Chaos.Client.Rendering.csproj", "{D91598A0-0ECE-4181-8426-F3F4903A19CC}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "build", "build", "{AFD8FAB9-8EE3-44A4-8CF5-E3F7FB9749F9}"
+	ProjectSection(SolutionItems) = preProject
+		Directory.Build.props = Directory.Build.props
+		Directory.Packages.props = Directory.Packages.props
+	EndProjectSection
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{03852D4B-CF36-421C-8DC5-209AFE3918BE}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{03852D4B-CF36-421C-8DC5-209AFE3918BE}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{CBFEDD82-5907-4D43-AC5A-C7183E2BAAF8}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{CBFEDD82-5907-4D43-AC5A-C7183E2BAAF8}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{189BC249-65E6-408E-812B-CE5456CEEDAC}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{189BC249-65E6-408E-812B-CE5456CEEDAC}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{367F3474-6977-488C-9E95-F5D7A4E0A37E}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{367F3474-6977-488C-9E95-F5D7A4E0A37E}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{D91598A0-0ECE-4181-8426-F3F4903A19CC}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{D91598A0-0ECE-4181-8426-F3F4903A19CC}.Debug|Any CPU.Build.0 = Debug|Any CPU
+	EndGlobalSection
+EndGlobal

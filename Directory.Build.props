@@ -1,0 +1,36 @@
+<Project>
+    <PropertyGroup>
+        <LangVersion>12.0</LangVersion>
+        <TargetFramework>net8.0</TargetFramework>
+        <TieredPGO>true</TieredPGO>
+        <TieredCompilation>true</TieredCompilation>
+        <TieredCompilationQuickJit>true</TieredCompilationQuickJit>
+        <TieredCompilationQuickJitForLoops>true</TieredCompilationQuickJitForLoops>
+        <ImplicitUsings>enable</ImplicitUsings>
+        <Nullable>enable</Nullable>
+        <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
+        <GenerateDocumentationFile>false</GenerateDocumentationFile>
+        <IsPackable>true</IsPackable>
+        <!--<ServerGarbageCollection>true</ServerGarbageCollection>
+                <ConcurrentGarbageCollection>true</ConcurrentGarbageCollection>-->
+    </PropertyGroup>
+    <PropertyGroup>
+        <Company>Chaotic Minds</Company>
+        <NeutralLanguage>en</NeutralLanguage>
+        <Copyright>Copyright @ Sichi 2018-2023</Copyright>
+        <PackageProjectUrl>https://docs.chaos-server.net/</PackageProjectUrl>
+        <RepositoryUrl>https://github.com/Sichii/Chaos-Server</RepositoryUrl>
+        <IncludeSymbols>true</IncludeSymbols>
+        <SymbolPackageFormat>snupkg</SymbolPackageFormat>
+        <PackageLicenseExpression>AGPL-3.0-or-later</PackageLicenseExpression>
+        <Authors>Sichi</Authors>
+        <PackageTags>darkages; doomvas; private server;</PackageTags>
+        <Version>0.1.0</Version>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <PackageReference Include="Nerdbank.GitVersioning" Condition="!Exists('packages.config')">
+            <PrivateAssets>all</PrivateAssets>
+        </PackageReference>
+    </ItemGroup>
+</Project>
