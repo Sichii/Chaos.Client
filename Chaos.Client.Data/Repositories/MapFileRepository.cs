@@ -1,12 +1,14 @@
-﻿using Chaos.Client.Common.Abstractions;
+﻿#region
+using Chaos.Client.Common.Abstractions;
 using DALib.Data;
 using DALib.Extensions;
+#endregion
 
 namespace Chaos.Client.Data.Repositories;
 
 public sealed class MapFileRepository : RepositoryBase
 {
-    public MapFile? Get(string key, int width, int height)
+    public MapFile? GetMapFile(string key, int width, int height)
     {
         try
         {

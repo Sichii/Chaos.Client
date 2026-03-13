@@ -1,7 +1,9 @@
+#region
 using System.Collections.Frozen;
 using Chaos.Client.Common.Abstractions;
 using DALib.Drawing;
 using DALib.Utility;
+#endregion
 
 namespace Chaos.Client.Data.Repositories;
 
@@ -24,10 +26,9 @@ public class CreatureSpriteRepository : RepositoryBase
         }
     }
 
-    private Palettized<MpfFile> LoadCreatureSprite(int spriteId)
-        => new()
-        {
-            Entity = MpfFile.FromArchive($"mns{spriteId:D3}", DatArchives.Hades),
-            Palette = Palettes[spriteId]
-        };
+    private Palettized<MpfFile> LoadCreatureSprite(int spriteId) => new()
+    {
+        Entity = MpfFile.FromArchive($"mns{spriteId:D3}", DatArchives.Hades),
+        Palette = Palettes[spriteId]
+    };
 }

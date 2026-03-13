@@ -1,6 +1,8 @@
+#region
 using Chaos.Client.Common.Abstractions;
 using DALib.Drawing;
 using DALib.Utility;
+#endregion
 
 namespace Chaos.Client.Data.Repositories;
 
@@ -8,7 +10,7 @@ public class EffectsRepository : RepositoryBase
 {
     private readonly PaletteLookup EffectPalettes = PaletteLookup.FromArchive("effpal", "eff", DatArchives.Roh);
 
-    public EfaFile? GetEfaFile(int effectId)
+    public EfaFile? GetEfaEffect(int effectId)
     {
         if (effectId == 0)
             return null;
@@ -22,7 +24,7 @@ public class EffectsRepository : RepositoryBase
         }
     }
 
-    public Palettized<EpfFile>? GetEpfFile(int effectId)
+    public Palettized<EpfFile>? GetEpfEffect(int effectId)
     {
         if (effectId == 0)
             return null;

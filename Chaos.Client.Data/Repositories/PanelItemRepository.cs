@@ -1,6 +1,8 @@
+#region
 using Chaos.Client.Common.Abstractions;
 using DALib.Drawing;
 using DALib.Utility;
+#endregion
 
 namespace Chaos.Client.Data.Repositories;
 
@@ -13,7 +15,10 @@ public class PanelItemRepository : RepositoryBase
 
     private int GetFileNumber(int itemId) => Convert.ToInt32(Math.Ceiling((decimal)itemId / IMAGES_PER_FILE));
 
-    public Palettized<EpfFrame>? GetItem(int itemId)
+    private EpfFile GetItemSpriteSheet(int fileId)
+        => GetOrCreate(ConstructKeyForItemSpriteSheet(fileId), () => LoadItemSpriteSheet(fileId));
+
+    public Palettized<EpfFrame>? GetPanelItemSprite(int itemId)
     {
         if (itemId == 0)
             return null;
@@ -34,9 +39,6 @@ public class PanelItemRepository : RepositoryBase
             return null;
         }
     }
-
-    private EpfFile GetItemSpriteSheet(int fileId)
-        => GetOrCreate(ConstructKeyForItemSpriteSheet(fileId), () => LoadItemSpriteSheet(fileId));
 
     private EpfFile LoadItemSpriteSheet(int fileId) => EpfFile.FromArchive($"item{fileId:D3}", DatArchives.Legend);
 }
