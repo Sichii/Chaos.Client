@@ -1,6 +1,8 @@
-﻿using Chaos.Extensions.Common;
+﻿#region
+using Chaos.Extensions.Common;
 using DALib.Data;
 using DALib.Extensions;
+#endregion
 
 namespace Chaos.Client.Data;
 
@@ -58,8 +60,10 @@ public static class DatArchives
         key = key.WithExtension(".dat");
 
         if (key.StartsWithI("npcbase"))
-            return DataArchive.FromFile($"npc/{key}");
+            return DataArchive.FromFile(Path.Combine(DataContext.DataPath, "npc", key));
 
-        return DataArchive.FromFile(key);
+        var archive = DataArchive.FromFile(Path.Combine(DataContext.DataPath, key));
+
+        return archive;
     }
 }

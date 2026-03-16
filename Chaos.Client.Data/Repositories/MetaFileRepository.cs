@@ -1,5 +1,7 @@
+#region
 using Chaos.Client.Common.Abstractions;
 using DALib.Data;
+#endregion
 
 namespace Chaos.Client.Data.Repositories;
 
@@ -16,5 +18,5 @@ public sealed class MetaFileRepository : RepositoryBase
         }
     }
 
-    private MetaFile LoadMetaFile(string key) => MetaFile.FromFile($"metafile/{key}", true);
+    private MetaFile LoadMetaFile(string key) => MetaFile.FromFile(Path.Combine(DataContext.DataPath, "metafile", key), true);
 }

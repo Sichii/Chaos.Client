@@ -1,1 +1,8 @@
-﻿<Project Sdk="Microsoft.NET.Sdk"/>
+<Project Sdk="Microsoft.NET.Sdk">
+    <ItemGroup>
+        <ProjectReference Include="..\Chaos.Client.Common\Chaos.Client.Common.csproj"/>
+    </ItemGroup>
+    <ItemGroup>
+        <PackageReference Include="Chaos.Networking"/>
+    </ItemGroup>
+</Project>

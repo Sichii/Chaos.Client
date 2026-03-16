@@ -1,10 +1,12 @@
+#region
 using Chaos.Client.Common.Abstractions;
 using DALib.Drawing;
 using DALib.Utility;
+#endregion
 
 namespace Chaos.Client.Data.Repositories;
 
-public class TileRepository : RepositoryBase
+public sealed class TileRepository : RepositoryBase
 {
     private readonly PaletteLookup BackgroundPalettes = PaletteLookup.FromArchive("mpt", DatArchives.Seo);
     private readonly PaletteLookup ForegroundPalettes = PaletteLookup.FromArchive("stc", DatArchives.Ia);
@@ -47,7 +49,7 @@ public class TileRepository : RepositoryBase
         => new()
         {
             Entity = HpfFile.FromArchive($"stc{tileId:D5}", DatArchives.Ia),
-            Palette = ForegroundPalettes.GetPaletteForId(tileId)
+            Palette = ForegroundPalettes.GetPaletteForId(tileId + 1)
         };
 
     public void ToggleSnowTileset()

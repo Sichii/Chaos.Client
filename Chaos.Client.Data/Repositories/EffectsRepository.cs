@@ -6,7 +6,7 @@ using DALib.Utility;
 
 namespace Chaos.Client.Data.Repositories;
 
-public class EffectsRepository : RepositoryBase
+public sealed class EffectsRepository : RepositoryBase
 {
     private readonly PaletteLookup EffectPalettes = PaletteLookup.FromArchive("effpal", "eff", DatArchives.Roh);
 

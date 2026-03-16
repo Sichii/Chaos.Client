@@ -7,7 +7,7 @@ using DALib.Utility;
 
 namespace Chaos.Client.Data.Repositories;
 
-public class CreatureSpriteRepository : RepositoryBase
+public sealed class CreatureSpriteRepository : RepositoryBase
 {
     private readonly IDictionary<int, Palette> Palettes = Palette.FromArchive("mns", DatArchives.Hades)
                                                                  .ToFrozenDictionary();
@@ -26,9 +26,20 @@ public class CreatureSpriteRepository : RepositoryBase
         }
     }
 
-    private Palettized<MpfFile> LoadCreatureSprite(int spriteId) => new()
+    private Palettized<MpfFile>? LoadCreatureSprite(int spriteId)
     {
-        Entity = MpfFile.FromArchive($"mns{spriteId:D3}", DatArchives.Hades),
-        Palette = Palettes[spriteId]
-    };
+        if (!DatArchives.Hades.TryGetValue($"mns{spriteId:D3}.mpf", out var entry))
+            return null;
+
+        var mpfFile = MpfFile.FromEntry(entry);
+
+        if (Palettes.TryGetValue(mpfFile.PaletteNumber, out var palette))
+            return new Palettized<MpfFile>
+            {
+                Entity = mpfFile,
+                Palette = palette
+            };
+
+        return null;
+    }
 }

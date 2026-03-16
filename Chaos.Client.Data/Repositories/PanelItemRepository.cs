@@ -6,10 +6,10 @@ using DALib.Utility;
 
 namespace Chaos.Client.Data.Repositories;
 
-public class PanelItemRepository : RepositoryBase
+public sealed class PanelItemRepository : RepositoryBase
 {
     private const int IMAGES_PER_FILE = 266;
-    private readonly PaletteLookup ItemPalettes = PaletteLookup.FromArchive("itempal", "item", DatArchives.Seo);
+    private readonly PaletteLookup ItemPalettes = PaletteLookup.FromArchive("itempal", "item", DatArchives.Legend);
 
     private string ConstructKeyForItemSpriteSheet(int fileId) => $"ITEMS_{fileId}";
 

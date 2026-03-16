@@ -1,10 +1,12 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
     <ItemGroup>
-        <PackageReference Include="Chaos.Extensions.Common"/>
+        <PackageReference Include="Chaos.Common"/>
+        <PackageReference Include="Chaos.DarkAges"/>
         <PackageReference Include="Chaos.Geometry"/>
-        <PackageReference Include="DALib"/>
     </ItemGroup>
+
     <ItemGroup>
         <ProjectReference Include="..\Chaos.Client.Common\Chaos.Client.Common.csproj"/>
+        <ProjectReference Include="..\..\dalib\DALib\DALib.csproj"/>
     </ItemGroup>
 </Project>

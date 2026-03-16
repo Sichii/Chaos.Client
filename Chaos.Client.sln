@@ -16,6 +16,8 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "build", "build", "{AFD8FAB9
 		Directory.Packages.props = Directory.Packages.props
 	EndProjectSection
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "DALib", "..\dalib\DALib\DALib.csproj", "{0B5EB2B9-037B-4F7F-A6C3-67610FDBD9AF}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -32,5 +34,9 @@ Global
 		{367F3474-6977-488C-9E95-F5D7A4E0A37E}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{D91598A0-0ECE-4181-8426-F3F4903A19CC}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{D91598A0-0ECE-4181-8426-F3F4903A19CC}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{0B5EB2B9-037B-4F7F-A6C3-67610FDBD9AF}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{0B5EB2B9-037B-4F7F-A6C3-67610FDBD9AF}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{0B5EB2B9-037B-4F7F-A6C3-67610FDBD9AF}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{0B5EB2B9-037B-4F7F-A6C3-67610FDBD9AF}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 EndGlobal

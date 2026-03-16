@@ -9,12 +9,121 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="4136568e-96d1-456c-bb9d-6d03bdb2ff06" name="Changes" comment="">
-      <change afterPath="$PROJECT_DIR$/Chaos.Client.Networking/Client.cs" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/.claude/agent-memory/reverse-engineer/MEMORY.md" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/.claude/agent-memory/reverse-engineer/re_darkages_ui_system.md" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/.claude/agent-memory/reverse-engineer/re_guibackpane_controls.md" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/.claude/agent-memory/reverse-engineer/re_hud_data_systems.md" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/.claude/agent-memory/reverse-engineer/re_persistent_message.md" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/.claude/agent-memory/reverse-engineer/re_system_message_overlay.md" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/.claude/agent-memory/reverse-engineer/re_topleft_overlay.md" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/.claude/agent-memory/reverse-engineer/re_userinfopane_shiftf.md" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/.claude/settings.local.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/.mcp.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/.serena/.gitignore" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/.serena/project.yml" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/CLAUDE.md" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/Chaos.Client.Data/Models/ControlPrefab.cs" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/Chaos.Client.Data/Repositories/UiComponentRepository.cs" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/Chaos.Client.Networking/ConnectionManager.cs" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/Chaos.Client.Networking/ConnectionState.cs" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/Chaos.Client.Networking/GameClient.cs" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/Chaos.Client.Networking/NETWORKING_SPEC.md" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/Chaos.Client.Networking/ServerTableData.cs" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/Chaos.Client.Rendering/ANIMATION_SPEC.md" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/Chaos.Client.Rendering/AislingRenderer.cs" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/Chaos.Client.Rendering/Camera.cs" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/Chaos.Client.Rendering/CreatureRenderer.cs" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/Chaos.Client.Rendering/MapRenderer.cs" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/Chaos.Client.Rendering/SpriteAnimation.cs" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/Chaos.Client.Rendering/SpriteFrame.cs" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/Chaos.Client.Rendering/TextRenderer.cs" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/Chaos.Client.Rendering/TextureConverter.cs" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/Chaos.Client/AssemblyLoader.cs" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/Chaos.Client/ChaosGame.cs" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/Chaos.Client/Collections/WorldState.cs" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/Chaos.Client/Controls/Components/CachedText.cs" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/Chaos.Client/Controls/Components/DebugOverlay.cs" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/Chaos.Client/Controls/Components/PrefabPanel.cs" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/Chaos.Client/Controls/Components/UIAnimatedImage.cs" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/Chaos.Client/Controls/Components/UIButton.cs" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/Chaos.Client/Controls/Components/UIElement.cs" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/Chaos.Client/Controls/Components/UIImage.cs" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/Chaos.Client/Controls/Components/UILabel.cs" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/Chaos.Client/Controls/Components/UIPanel.cs" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/Chaos.Client/Controls/Components/UITextBox.cs" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/Chaos.Client/Controls/Generic/LoadingControl.cs" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/Chaos.Client/Controls/Generic/MapLoadingControl.cs" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/Chaos.Client/Controls/Generic/OkPopupMessageControl.cs" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/Chaos.Client/Controls/LobbyLogin/CharacterCreationControl.cs" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/Chaos.Client/Controls/LobbyLogin/EulaNoticeControl.cs" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/Chaos.Client/Controls/LobbyLogin/LobbyLoginControl.cs" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/Chaos.Client/Controls/LobbyLogin/LoginControl.cs" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/Chaos.Client/Controls/LobbyLogin/PasswordChangeControl.cs" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/Chaos.Client/Controls/LobbyLogin/ServerSelectControl.cs" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/Chaos.Client/Controls/World/ChatPanel.cs" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/Chaos.Client/Controls/World/ExchangeControl.cs" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/Chaos.Client/Controls/World/ExtendedStatsControl.cs" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/Chaos.Client/Controls/World/FriendsListControl.cs" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/Chaos.Client/Controls/World/GameHudPanel.cs" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/Chaos.Client/Controls/World/GoldExchangeControl.cs" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/Chaos.Client/Controls/World/GroupControl.cs" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/Chaos.Client/Controls/World/HotkeyHelpControl.cs" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/Chaos.Client/Controls/World/HudTab.cs" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/Chaos.Client/Controls/World/InventoryPanel.cs" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/Chaos.Client/Controls/World/MacroMenuControl.cs" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/Chaos.Client/Controls/World/MailListControl.cs" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/Chaos.Client/Controls/World/MailReadControl.cs" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/Chaos.Client/Controls/World/MailSendControl.cs" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/Chaos.Client/Controls/World/NpcDialogControl.cs" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/Chaos.Client/Controls/World/OptionsDialogControl.cs" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/Chaos.Client/Controls/World/OrangeBarControl.cs" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/Chaos.Client/Controls/World/OrbDisplay.cs" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/Chaos.Client/Controls/World/PanelBaseControl.cs" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/Chaos.Client/Controls/World/SettingsControl.cs" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/Chaos.Client/Controls/World/SkillBookPanel.cs" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/Chaos.Client/Controls/World/SpellBookPanel.cs" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/Chaos.Client/Controls/World/StatsControl.cs" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/Chaos.Client/Controls/World/StatusBookControl.cs" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/Chaos.Client/Controls/World/ToolsPanel.cs" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/Chaos.Client/Controls/World/WorldListControl.cs" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/Chaos.Client/InputBuffer.cs" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/Chaos.Client/Models/WorldEntity.cs" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/Chaos.Client/Screens/IScreen.cs" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/Chaos.Client/Screens/LobbyLoginScreen.cs" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/Chaos.Client/Screens/MapTestScreen.cs" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/Chaos.Client/Screens/ScreenManager.cs" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/Chaos.Client/Screens/WorldScreen.cs" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/RENDERING_ARCHITECTURE.md" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/controlFileList.txt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/.idea.Chaos.Client/.idea/vcs.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/.idea.Chaos.Client/.idea/vcs.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/.idea.Chaos.Client/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/.idea.Chaos.Client/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Chaos.Client.Data/Chaos.Client.Data.csproj" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client.Data/Chaos.Client.Data.csproj" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Chaos.Client.Data/DatArchives.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client.Data/DatArchives.cs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Chaos.Client.Data/DataContext.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client.Data/DataContext.cs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Chaos.Client.Data/Models/ControlDetails.cs" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/Chaos.Client.Data/Models/UserControlDetails.cs" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/Chaos.Client.Data/Repositories/AislingBodyAnimationRepository.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client.Data/Repositories/AislingBodyAnimationRepository.cs" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/Chaos.Client.Data/Repositories/CreatureSpriteRepository.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client.Data/Repositories/CreatureSpriteRepository.cs" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/Chaos.Client.Data/Repositories/EffectsRepository.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client.Data/Repositories/EffectsRepository.cs" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/Chaos.Client.Data/Repositories/MapFileRepository.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client.Data/Repositories/MapFileRepository.cs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Chaos.Client.Data/Repositories/MetaFileRepository.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client.Data/Repositories/MetaFileRepository.cs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Chaos.Client.Data/Repositories/PanelIconRepository.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client.Data/Repositories/PanelIconRepository.cs" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/Chaos.Client.Data/Repositories/PanelItemRepository.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client.Data/Repositories/PanelItemRepository.cs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Chaos.Client.Data/Repositories/SoundRepository.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client.Data/Repositories/SoundRepository.cs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Chaos.Client.Data/Repositories/TileRepository.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client.Data/Repositories/TileRepository.cs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Chaos.Client.Data/Repositories/UserControlRepository.cs" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/Chaos.Client.Data/Utilities/ControlInfoParser.cs" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/Chaos.Client.Data/Utilities/Helpers.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client.Data/Utilities/Helpers.cs" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/Chaos.Client.Networking/Chaos.Client.Networking.csproj" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client.Networking/Chaos.Client.Networking.csproj" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Chaos.Client.Networking/Client.cs" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/Chaos.Client.Rendering/Chaos.Client.Rendering.csproj" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client.Rendering/Chaos.Client.Rendering.csproj" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Chaos.Client.sln" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client.sln" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Chaos.Client/Chaos.Client.csproj" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client/Chaos.Client.csproj" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Chaos.Client/Controls/Control.cs" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/Chaos.Client/Extensions/MemoryCacheExtensions.cs" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/Chaos.Client/Extensions/StringExtensions.cs" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/Chaos.Client/Program.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client/Program.cs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Directory.Build.props" beforeDir="false" afterPath="$PROJECT_DIR$/Directory.Build.props" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/Directory.Packages.props" beforeDir="false" afterPath="$PROJECT_DIR$/Directory.Packages.props" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
@@ -29,6 +138,13 @@
   </component>
   <component name="CodyActiveAccount">
     <option name="activeAccountId" value="61dbda6e-1946-48d5-94f6-c4af6cf99cfc" />
+  </component>
+  <component name="DpaMonitoringSettings">
+    <option name="firstShow" value="false" />
+  </component>
+  <component name="EmbeddingIndexingInfo">
+    <option name="cachedIndexableFilesCount" value="144" />
+    <option name="fileBasedEmbeddingIndicesEnabled" value="true" />
   </component>
   <component name="Git.Settings">
     <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
@@ -46,39 +162,72 @@
   }
 }</component>
   <component name="HighlightingSettingsPerFile">
+    <setting file="file://$USER_HOME$/AppData/Local/JetBrains/Shared/vAny/DecompilerCache/decompiler/3d3e32f1d08a447b8fa322b24867d73f75a38/43/6ba02d5d/SKImage.cs" root0="SKIP_HIGHLIGHTING" />
     <setting file="file://$USER_HOME$/AppData/Local/JetBrains/Shared/vAny/DecompilerCache/decompiler/40a2d96099864940803b3ab1f707115614400/25/8afdacd3/DataArchive.cs" root0="SKIP_HIGHLIGHTING" />
+    <setting file="file://$USER_HOME$/AppData/Local/JetBrains/Shared/vAny/DecompilerCache/decompiler/49bab08708434a08802510b75a8ea3691b3400/28/0fcc4d9d/SpriteSortMode.cs" root0="FORCE_HIGHLIGHTING" />
     <setting file="file://$USER_HOME$/AppData/Local/JetBrains/Shared/vAny/DecompilerCache/decompiler/dba29a82de3544e5bfc26b0c636470bcd1a0/13/e6eb3467/WindowExtensions.cs" root0="FORCE_HIGHLIGHTING" />
     <setting file="file://$USER_HOME$/AppData/Local/JetBrains/Shared/vAny/DecompilerCache/decompiler/dba29a82de3544e5bfc26b0c636470bcd1a0/1b/efcadbb5/WindowOptions.cs" root0="SKIP_HIGHLIGHTING" />
     <setting file="file://$USER_HOME$/AppData/Local/JetBrains/Shared/vAny/DecompilerCache/decompiler/dba29a82de3544e5bfc26b0c636470bcd1a0/9b/29edead8/IWindow.cs" root0="FORCE_HIGHLIGHTING" />
     <setting file="file://$USER_HOME$/AppData/Local/JetBrains/Shared/vAny/DecompilerCache/decompiler/dba29a82de3544e5bfc26b0c636470bcd1a0/a7/4c8f9348/Window.cs" root0="FORCE_HIGHLIGHTING" />
     <setting file="file://$USER_HOME$/AppData/Local/JetBrains/Shared/vAny/DecompilerCache/decompiler/dba29a82de3544e5bfc26b0c636470bcd1a0/c6/bbe7663c/IView.cs" root0="FORCE_HIGHLIGHTING" />
+    <setting file="file://$USER_HOME$/AppData/Local/JetBrains/Shared/vAny/SourcesCache/136c194f96aa8e1cd2c89d11507015b454740f5e6972a94e1e767e37b376dd/ArgumentOutOfRangeException.cs" root0="FORCE_HIGHLIGHTING" />
+    <setting file="file://$USER_HOME$/AppData/Local/JetBrains/Shared/vAny/SourcesCache/1675dc7b710feeeb3e0bc8728be8a947537155c199480fb23b776e81d459/Encoding.cs" root0="FORCE_HIGHLIGHTING" />
     <setting file="file://$USER_HOME$/AppData/Local/JetBrains/Shared/vAny/SourcesCache/1e4e25c7f193f8419cb19448e47bfd7f3bb272e7725165663f2f21ef19dc17c3/ClassicDesktopStyleApplicationLifetime.cs" root0="SKIP_HIGHLIGHTING" />
+    <setting file="file://$USER_HOME$/AppData/Local/JetBrains/Shared/vAny/SourcesCache/228bff957d5b9f32cfbedd8bf82a5d3e862ec3e051593a67913b95ae288287/ThrowHelper.cs" root0="FORCE_HIGHLIGHTING" />
     <setting file="file://$USER_HOME$/AppData/Local/JetBrains/Shared/vAny/SourcesCache/24f2bc2f34acd2f18a58dc387a794496d3e71d543498db8da419e3bd3028f5b4/MemoryCacheExtensions.cs" root0="SKIP_HIGHLIGHTING" />
+    <setting file="file://$USER_HOME$/AppData/Local/JetBrains/Shared/vAny/SourcesCache/33817227ea1e2decd83b8c975663a119f9f362f4a7e2fec59f4f9777e1054f2/Socket.Tasks.cs" root0="FORCE_HIGHLIGHTING" />
+    <setting file="file://$USER_HOME$/AppData/Local/JetBrains/Shared/vAny/SourcesCache/3518f6fb0e4dc8cb9d070c71ba8eb738c7c6b733121b616bf8c37532ff19a/PacketConverterBase.cs" root0="FORCE_HIGHLIGHTING" />
+    <setting file="file://$USER_HOME$/AppData/Local/JetBrains/Shared/vAny/SourcesCache/38ee259c3f13871b8802f735d406ced8494250bf2376d821d37890e86c5971/ConnectionInfoArgs.cs" root0="SKIP_HIGHLIGHTING" />
+    <setting file="file://$USER_HOME$/AppData/Local/JetBrains/Shared/vAny/SourcesCache/3b4737cec271f1738a06bc6bab8b1592e78d86db154dbab7d2bf8f575e6c/Packet.cs" root0="FORCE_HIGHLIGHTING" />
     <setting file="file://$USER_HOME$/AppData/Local/JetBrains/Shared/vAny/SourcesCache/3c4280f0a977a39f282a11b34aced32e6c562b96dc6fd22351cd3f9a0b2/Window.cs" root0="SKIP_HIGHLIGHTING" />
     <setting file="file://$USER_HOME$/AppData/Local/JetBrains/Shared/vAny/SourcesCache/4cbc81bfb0be479d2fb2785d6cbd711b73644e4a29e1ca732edc741ece121/AppBuilder.cs" root0="SKIP_HIGHLIGHTING" />
+    <setting file="file://$USER_HOME$/AppData/Local/JetBrains/Shared/vAny/SourcesCache/6bc56cbd8f3683e925c3ac41392b43fb9730b83db7ec9b9b6ea3dfad087b991/IMemoryCache.cs" root0="SKIP_HIGHLIGHTING" />
+    <setting file="file://$USER_HOME$/AppData/Local/JetBrains/Shared/vAny/SourcesCache/75a0de2ec7cb5efe9e04d6c27f921e6c7e5726d6208edfb6d81e5350df4a7e/RuntimeHandles.cs" root0="FORCE_HIGHLIGHTING" />
+    <setting file="file://$USER_HOME$/AppData/Local/JetBrains/Shared/vAny/SourcesCache/76bfc310d2c1ee89b5a3bb7f318b5c55015f66ebdf298211386b17a57fc25b/Type.CoreCLR.cs" root0="FORCE_HIGHLIGHTING" />
+    <setting file="file://$USER_HOME$/AppData/Local/JetBrains/Shared/vAny/SourcesCache/7b7e5683622c5ee03960b6a3aaf8e81659f039d6a919f43d21e53ce331ef39/Socket.cs" root0="SKIP_HIGHLIGHTING" />
+    <setting file="file://$USER_HOME$/AppData/Local/JetBrains/Shared/vAny/SourcesCache/83109d359ceb7b679a22cf4e7021a847e42d8ccd3ad248f9d340105d1dbc6963/IPacketConverter.cs" root0="SKIP_HIGHLIGHTING" />
+    <setting file="file://$USER_HOME$/AppData/Local/JetBrains/Shared/vAny/SourcesCache/85cf8e1d49f9cd5979d8f256c15aada1e93e68b6cba0bf5a895a51b81df0a7ca/StringExtensions.cs" root0="FORCE_HIGHLIGHTING" />
+    <setting file="file://$USER_HOME$/AppData/Local/JetBrains/Shared/vAny/SourcesCache/956cb9a33d5b40dce9d772d273b7e816dc16a81296065849e5178eb689107d/SpanExtensions.cs" root0="FORCE_HIGHLIGHTING" />
+    <setting file="file://$USER_HOME$/AppData/Local/JetBrains/Shared/vAny/SourcesCache/9ad4618c2942eba9539c36c888984d8bf32cca2a70c2f4e2a876e6398b98f33/PacketSerializer.cs" root0="FORCE_HIGHLIGHTING" />
+    <setting file="file://$USER_HOME$/AppData/Local/JetBrains/Shared/vAny/SourcesCache/9ddfdee61c904953fdd1f4ed4478e6cce44296cdfe63bf969d8bb9f67fe40/SafeFileHandle.Windows.cs" root0="FORCE_HIGHLIGHTING" />
+    <setting file="file://$USER_HOME$/AppData/Local/JetBrains/Shared/vAny/SourcesCache/b0e5167e7cbbca7b2c62c5c459afb18d8055e9fbeef2c3aee163b0775ac3026/Crypto.cs" root0="SKIP_HIGHLIGHTING" />
     <setting file="file://$USER_HOME$/AppData/Local/JetBrains/Shared/vAny/SourcesCache/b430e084ab33d5b318f28876dedabb8aa879f7f7b6e60df3a5da1dd196ecda2/Window.cs" root0="SKIP_HIGHLIGHTING" />
     <setting file="file://$USER_HOME$/AppData/Local/JetBrains/Shared/vAny/SourcesCache/bd8b7843bd9757ea520c22cc618a346c5a57ecb15a313f889543dca8ab8669/MemoryCacheOptions.cs" root0="SKIP_HIGHLIGHTING" />
+    <setting file="file://$USER_HOME$/AppData/Local/JetBrains/Shared/vAny/SourcesCache/c24d475d83442e0a97ce97fdd4d43d6b5a3977b2a474c7996b895330c6b0/Span.cs" root0="SKIP_HIGHLIGHTING" />
     <setting file="file://$USER_HOME$/AppData/Local/JetBrains/Shared/vAny/SourcesCache/c5b7a434cb3a2fe127dd9387eef6ac251b6e454ea3f38e524ff4492968647f/MemoryCacheEntryExtensions.cs" root0="FORCE_HIGHLIGHTING" />
+    <setting file="file://$USER_HOME$/AppData/Local/JetBrains/Shared/vAny/SourcesCache/c7a8d392c1c1906dc3e080a07e20845f865041a4c245476357a3da53d3757/ThrowHelper.cs" root0="FORCE_HIGHLIGHTING" />
+    <setting file="file://$USER_HOME$/AppData/Local/JetBrains/Shared/vAny/SourcesCache/c89af5fb8f0a731e9126cc0be764b56112db7b4fc2ca28a1bb5f6f705fa5ae/GoldDropConverter.cs" root0="SKIP_HIGHLIGHTING" />
     <setting file="file://$USER_HOME$/AppData/Local/JetBrains/Shared/vAny/SourcesCache/c92622defca782b725d744e2fbf4b187cbb381c423c8196879647ff4b54f781/AppBuilderDesktopExtensions.cs" root0="SKIP_HIGHLIGHTING" />
     <setting file="file://$USER_HOME$/AppData/Local/JetBrains/Shared/vAny/SourcesCache/d9953ccb43c29d78a4581a51c60cbc84c14eec77e91f9c3fdbc25c29e/SkiaApplicationExtensions.cs" root0="SKIP_HIGHLIGHTING" />
+    <setting file="file://$USER_HOME$/AppData/Local/JetBrains/Shared/vAny/SourcesCache/da84f74377f34ac77f562a3b2afc71123c6bbe56c851a71e7416e70257c56/MemoryCache.cs" root0="FORCE_HIGHLIGHTING" />
+    <setting file="file://$USER_HOME$/AppData/Local/JetBrains/Shared/vAny/SourcesCache/de8a243f75215d958afa80cf80a41b4981a44efea7db93bffcdaf7bd6ba378c0/Number.Parsing.cs" root0="FORCE_HIGHLIGHTING" />
+    <setting file="file://$USER_HOME$/AppData/Local/JetBrains/Shared/vAny/SourcesCache/e0306dfc6d545048ae7589a71e7a61fcd7e2f2f1f6dcd8fbb4e633b756a78/TypeExtensions.cs" root0="SKIP_HIGHLIGHTING" />
     <setting file="file://$USER_HOME$/AppData/Local/JetBrains/Shared/vAny/SourcesCache/e9ab36d97f5243f070c9a179aa55cc824024319e138e2af8581d1b177a379/MemoryCacheEntryOptions.cs" root0="FORCE_HIGHLIGHTING" />
     <setting file="file://$USER_HOME$/AppData/Local/JetBrains/Shared/vAny/SourcesCache/ea93131d74d7f0468d388ae3214f7a6f4dffd3dbe9aeacd325994edb6fa72fe/MemoryCache.cs" root0="FORCE_HIGHLIGHTING" />
+    <setting file="file://$USER_HOME$/AppData/Local/JetBrains/Shared/vAny/SourcesCache/eabafafbeed23dab31f6a8184bdb1fe5a4c2237f39efe53885612b2ccdd3cd/MemoryCacheExtensions.cs" root0="SKIP_HIGHLIGHTING" />
     <setting file="file://$USER_HOME$/AppData/Local/JetBrains/Shared/vAny/SourcesCache/f97fb0c9dd76f493133bf8fc4060fc18cebd9248a0291667f162acf8b547fb7/CacheEntryExtensions.cs" root0="SKIP_HIGHLIGHTING" />
+    <setting file="file://$PROJECT_DIR$/.claude/settings.local.json" root0="FORCE_HIGHLIGHTING" />
+    <setting file="file://$PROJECT_DIR$/.mcp.json" root0="FORCE_HIGHLIGHTING" />
     <setting file="file://$PROJECT_DIR$/Chaos.Client.Common/Abstractions/RepositoryBase.cs" root0="FORCE_HIGHLIGHTING" />
     <setting file="file://$PROJECT_DIR$/Chaos.Client.Common/Extensions/MemoryCacheExtensions.cs" root0="FORCE_HIGHLIGHTING" />
+    <setting file="file://$PROJECT_DIR$/../dalib/DALib/Drawing/HeaFile.cs" root0="FORCE_HIGHLIGHTING" />
   </component>
   <component name="MarkdownSettingsMigration">
     <option name="stateVersion" value="1" />
   </component>
+  <component name="McpProjectServerCommands">
+    <commands />
+    <urls />
+  </component>
   <component name="MetaFilesCheckinStateConfiguration" checkMetaFiles="true" />
   <component name="ProblemsViewState">
-    <option name="selectedTabId" value="CurrentFile" />
+    <option name="selectedTabId" value="Toolset" />
   </component>
   <component name="ProjectColorInfo">{
   &quot;associatedIndex&quot;: 2
 }</component>
   <component name="ProjectId" id="2YS8r1HQzuKj7BzBJuh2odrnFRo" />
-  <component name="ProjectLevelVcsManager" settingsEditedManually="true">
+  <component name="ProjectLevelVcsManager">
     <ConfirmationsSetting value="2" id="Add" />
   </component>
   <component name="ProjectViewState">
@@ -88,11 +237,16 @@
   </component>
   <component name="PropertiesComponent">{
   &quot;keyToString&quot;: {
+    &quot;.NET Project.Chaos.Client.executor&quot;: &quot;Debug&quot;,
     &quot;ASKED_ADD_EXTERNAL_FILES&quot;: &quot;true&quot;,
     &quot;ASKED_SHARE_PROJECT_CONFIGURATION_FILES&quot;: &quot;true&quot;,
     &quot;RunOnceActivity.CodyProjectSettingsMigration&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.MCP Project settings loaded&quot;: &quot;true&quot;,
     &quot;RunOnceActivity.OpenProjectViewOnStart&quot;: &quot;true&quot;,
     &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.TerminalTabsStorage.copyFrom.TerminalArrangementManager.252&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.git.unshallow&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.typescript.service.memoryLimit.init&quot;: &quot;true&quot;,
     &quot;WebServerToolWindowFactoryState&quot;: &quot;false&quot;,
     &quot;git-widget-placeholder&quot;: &quot;main&quot;,
     &quot;ignore.virus.scanning.warn.message&quot;: &quot;true&quot;,
@@ -101,39 +255,18 @@
     &quot;node.js.selected.package.eslint&quot;: &quot;(autodetect)&quot;,
     &quot;node.js.selected.package.tslint&quot;: &quot;(autodetect)&quot;,
     &quot;nodejs_package_manager_path&quot;: &quot;npm&quot;,
-    &quot;settings.editor.selected.configurable&quot;: &quot;RiderNuGetOptionsPageId&quot;,
+    &quot;settings.editor.selected.configurable&quot;: &quot;editing.templates&quot;,
     &quot;vue.rearranger.settings.migration&quot;: &quot;true&quot;
-  },
-  &quot;keyToStringList&quot;: {
-    &quot;rider.external.source.directories&quot;: [
-      &quot;C:\\Users\\Despe\\AppData\\Local\\JetBrains\\Shared\\vAny\\DecompilerCache&quot;,
-      &quot;C:\\Users\\Despe\\AppData\\Local\\JetBrains\\Shared\\vAny\\SourcesCache&quot;,
-      &quot;C:\\Users\\Despe\\AppData\\Local\\Symbols\\src&quot;
-    ]
   }
 }</component>
-  <component name="RunManager" selected=".NET Project.Chaos.Client">
-    <configuration name="AvaloniaApplication1" type="DotNetProject" factoryName=".NET Project">
-      <option name="EXE_PATH" value="" />
-      <option name="PROGRAM_PARAMETERS" value="" />
-      <option name="WORKING_DIRECTORY" value="" />
-      <option name="PASS_PARENT_ENVS" value="1" />
-      <option name="ENV_FILE_PATHS" value="" />
-      <option name="REDIRECT_INPUT_PATH" value="" />
-      <option name="MIXED_MODE_DEBUG" value="0" />
-      <option name="USE_MONO" value="0" />
-      <option name="RUNTIME_ARGUMENTS" value="" />
-      <option name="AUTO_ATTACH_CHILDREN" value="0" />
-      <option name="PROJECT_PATH" value="$PROJECT_DIR$/AvaloniaApplication1/AvaloniaApplication1.csproj" />
-      <option name="PROJECT_EXE_PATH_TRACKING" value="1" />
-      <option name="PROJECT_ARGUMENTS_TRACKING" value="1" />
-      <option name="PROJECT_WORKING_DIRECTORY_TRACKING" value="1" />
-      <option name="PROJECT_KIND" value="DotNetCore" />
-      <option name="PROJECT_TFM" value="" />
-      <method v="2">
-        <option name="Build" />
-      </method>
-    </configuration>
+  <component name="RecapSpentCounter">
+    <option name="endsOfQuotaMs" value="1773511227231" />
+    <option name="spentUsd" value="0.27136385" />
+  </component>
+  <component name="RecapUselessUpdatesCounter">
+    <option name="suspendCountdown" value="0" />
+  </component>
+  <component name="RunManager">
     <configuration name="Chaos.Client" type="DotNetProject" factoryName=".NET Project">
       <option name="EXE_PATH" value="" />
       <option name="PROGRAM_PARAMETERS" value="" />
@@ -181,6 +314,9 @@
       <workItem from="1704847764205" duration="997000" />
       <workItem from="1704921115610" duration="1286000" />
       <workItem from="1716313141533" duration="162000" />
+      <workItem from="1773371984738" duration="113812000" />
+      <workItem from="1773537805361" duration="35416000" />
+      <workItem from="1773661472624" duration="1856000" />
     </task>
     <task id="LOCAL-00001" summary="initial push">
       <option name="closed" value="true" />
@@ -190,7 +326,15 @@
       <option name="project" value="LOCAL" />
       <updated>1704100917252</updated>
     </task>
-    <option name="localTasksCounter" value="2" />
+    <task id="LOCAL-00002" summary="xxx">
+      <option name="closed" value="true" />
+      <created>1773372030993</created>
+      <option name="number" value="00002" />
+      <option name="presentableId" value="LOCAL-00002" />
+      <option name="project" value="LOCAL" />
+      <updated>1773372030993</updated>
+    </task>
+    <option name="localTasksCounter" value="3" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -205,13 +349,82 @@
     </ignored-roots>
     <option name="CLEAR_INITIAL_COMMIT_MESSAGE" value="true" />
     <MESSAGE value="initial push" />
-    <option name="LAST_COMMIT_MESSAGE" value="initial push" />
+    <MESSAGE value="xxx" />
+    <option name="LAST_COMMIT_MESSAGE" value="xxx" />
     <option name="OPTIMIZE_IMPORTS_BEFORE_PROJECT_COMMIT" value="true" />
     <option name="REFORMAT_BEFORE_PROJECT_COMMIT" value="true" />
     <option name="REARRANGE_BEFORE_PROJECT_COMMIT" value="true" />
   </component>
+  <component name="XDebuggerManager">
+    <breakpoint-manager>
+      <breakpoints>
+        <breakpoint enabled="true" type="DotNet_Exception_Breakpoints">
+          <properties exception="System.OperationCanceledException" breakIfHandledByOtherCode="false" displayValue="System.OperationCanceledException" />
+          <option name="timeStamp" value="1" />
+        </breakpoint>
+        <breakpoint enabled="true" type="DotNet_Exception_Breakpoints">
+          <properties exception="System.Threading.Tasks.TaskCanceledException" breakIfHandledByOtherCode="false" displayValue="System.Threading.Tasks.TaskCanceledException" />
+          <option name="timeStamp" value="2" />
+        </breakpoint>
+        <breakpoint enabled="true" type="DotNet_Exception_Breakpoints">
+          <properties exception="System.Threading.ThreadAbortException" breakIfHandledByOtherCode="false" displayValue="System.Threading.ThreadAbortException" />
+          <option name="timeStamp" value="3" />
+        </breakpoint>
+        <breakpoint enabled="true" type="DotNet_Exception_Breakpoints">
+          <properties exception="System.InvalidOperationException" isInternal="false" displayValue="InvalidOperationException" namespaceName="System">
+            <option name="internal" value="false" />
+          </properties>
+          <option name="timeStamp" value="11" />
+        </breakpoint>
+        <breakpoint enabled="true" type="DotNet_Exception_Breakpoints">
+          <properties exception="System.FormatException" isInternal="false" displayValue="FormatException" namespaceName="System">
+            <option name="internal" value="false" />
+          </properties>
+          <option name="timeStamp" value="12" />
+        </breakpoint>
+        <breakpoint enabled="true" type="DotNet_Exception_Breakpoints">
+          <properties exception="System.Collections.Generic.KeyNotFoundException" isInternal="false" displayValue="KeyNotFoundException" namespaceName="System.Collections.Generic">
+            <option name="internal" value="false" />
+          </properties>
+          <option name="timeStamp" value="36" />
+        </breakpoint>
+        <line-breakpoint enabled="true" type="DotNet Breakpoints">
+          <url>file://$USER_HOME$/AppData/Local/JetBrains/Shared/vAny/SourcesCache/e0306dfc6d545048ae7589a71e7a61fcd7e2f2f1f6dcd8fbb4e633b756a78/TypeExtensions.cs</url>
+          <line>102</line>
+          <properties documentPath="C:\Users\Despe\AppData\Local\JetBrains\Shared\vAny\SourcesCache\e0306dfc6d545048ae7589a71e7a61fcd7e2f2f1f6dcd8fbb4e633b756a78\TypeExtensions.cs" containingFunctionPresentation="Method 'ExtractGenericBaseType'">
+            <startOffsets>
+              <option value="3746" />
+            </startOffsets>
+            <endOffsets>
+              <option value="3758" />
+            </endOffsets>
+          </properties>
+          <option name="timeStamp" value="26" />
+        </line-breakpoint>
+      </breakpoints>
+      <default-breakpoints>
+        <breakpoint enabled="true" type="DotNet_Exception_Breakpoints">
+          <properties breakIfHandledByUserCode="true" />
+        </breakpoint>
+      </default-breakpoints>
+    </breakpoint-manager>
+    <pin-to-top-manager>
+      <pinned-members>
+        <PinnedItemInfo parentTag="Type#SkiaSharp.SKImage" memberName="Width" />
+        <PinnedItemInfo parentTag="Type#SkiaSharp.SKImage" memberName="Height" />
+      </pinned-members>
+    </pin-to-top-manager>
+  </component>
   <component name="XSLT-Support.FileAssociations.UIState">
     <expand />
     <select />
+  </component>
+  <component name="github-copilot-workspace">
+    <instructionFileLocations>
+      <option value=".github/instructions" />
+    </instructionFileLocations>
+    <promptFileLocations>
+      <option value=".github/prompts" />
+    </promptFileLocations>
   </component>
 </project>

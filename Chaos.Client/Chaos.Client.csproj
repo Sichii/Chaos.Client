@@ -1,4 +1,4 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
     <PropertyGroup>
         <OutputType>WinExe</OutputType>
         <IsPackable>false</IsPackable>
@@ -6,9 +6,11 @@
 
     <ItemGroup>
         <ProjectReference Include="..\Chaos.Client.Data\Chaos.Client.Data.csproj"/>
+        <ProjectReference Include="..\Chaos.Client.Rendering\Chaos.Client.Rendering.csproj"/>
+        <ProjectReference Include="..\Chaos.Client.Networking\Chaos.Client.Networking.csproj"/>
     </ItemGroup>
 
     <ItemGroup>
-        <PackageReference Include="Silk.NET"/>
+        <PackageReference Include="MonoGame.Framework.DesktopGL"/>
     </ItemGroup>
 </Project>

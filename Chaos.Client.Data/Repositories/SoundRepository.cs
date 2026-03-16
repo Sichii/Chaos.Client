@@ -1,8 +1,10 @@
+#region
 using Chaos.Client.Common.Abstractions;
+#endregion
 
 namespace Chaos.Client.Data.Repositories;
 
-public class SoundRepository : RepositoryBase
+public sealed class SoundRepository : RepositoryBase
 {
     private string ConstructKeyForEffectSound(int soundId) => $"EFFECTSOUND_{soundId}";
     private string ConstructKeyForMusic(int musicId) => $"MUSIC_{musicId}";

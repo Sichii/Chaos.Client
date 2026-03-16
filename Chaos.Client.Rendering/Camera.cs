@@ -1,0 +1,182 @@
+#region
+using Microsoft.Xna.Framework;
+using Microsoft.Xna.Framework.Graphics;
+#endregion
+
+namespace Chaos.Client.Rendering;
+
+/// <summary>
+///     Isometric camera that converts between world pixel coordinates and screen coordinates. Uses the same isometric tile
+///     math as DALib's Graphics.RenderMap.
+/// </summary>
+public sealed class Camera
+{
+    private const int HALF_TILE_WIDTH = 28;
+    private const int HALF_TILE_HEIGHT = 14;
+    private const int TILE_MARGIN = 2;
+
+    /// <summary>
+    ///     World pixel position of the camera center.
+    /// </summary>
+    public Vector2 Position { get; set; }
+
+    /// <summary>
+    ///     Viewport height in screen pixels.
+    /// </summary>
+    public int ViewportHeight { get; private set; }
+
+    /// <summary>
+    ///     Viewport width in screen pixels.
+    /// </summary>
+    public int ViewportWidth { get; private set; }
+
+    /// <summary>
+    ///     Zoom level. 1.0 = no zoom. Greater values zoom in.
+    /// </summary>
+    public float Zoom { get; set; } = 1.0f;
+
+    public Camera(int viewportWidth, int viewportHeight)
+    {
+        ViewportWidth = viewportWidth;
+        ViewportHeight = viewportHeight;
+    }
+
+    /// <summary>
+    ///     Returns the range of tile coordinates currently visible on screen, clamped to map bounds.
+    /// </summary>
+    /// <param name="mapWidth">
+    ///     Map width in tiles
+    /// </param>
+    /// <param name="mapHeight">
+    ///     Map height in tiles
+    /// </param>
+    /// <param name="extraMargin">
+    ///     Additional tile rows to expand the min bounds by, beyond the base margin. Used for foreground tiles whose tall
+    ///     images extend upward beyond their base tile.
+    /// </param>
+    public (int MinX, int MinY, int MaxX, int MaxY) GetVisibleTileBounds(int mapWidth, int mapHeight, int extraMargin = 0)
+    {
+        var topLeft = ScreenToWorld(Vector2.Zero);
+        var topRight = ScreenToWorld(new Vector2(ViewportWidth, 0));
+        var bottomLeft = ScreenToWorld(new Vector2(0, ViewportHeight));
+        var bottomRight = ScreenToWorld(new Vector2(ViewportWidth, ViewportHeight));
+
+        var tl = WorldToTile(topLeft.X, topLeft.Y, mapHeight);
+        var tr = WorldToTile(topRight.X, topRight.Y, mapHeight);
+        var bl = WorldToTile(bottomLeft.X, bottomLeft.Y, mapHeight);
+        var br = WorldToTile(bottomRight.X, bottomRight.Y, mapHeight);
+
+        var minMargin = TILE_MARGIN + extraMargin;
+
+        var minTileX = (int)MathF.Floor(
+                           Min(
+                               tl.X,
+                               tr.X,
+                               bl.X,
+                               br.X))
+                       - minMargin;
+
+        var minTileY = (int)MathF.Floor(
+                           Min(
+                               tl.Y,
+                               tr.Y,
+                               bl.Y,
+                               br.Y))
+                       - minMargin;
+
+        var maxTileX = (int)MathF.Ceiling(
+                           Max(
+                               tl.X,
+                               tr.X,
+                               bl.X,
+                               br.X))
+                       + TILE_MARGIN;
+
+        var maxTileY = (int)MathF.Ceiling(
+                           Max(
+                               tl.Y,
+                               tr.Y,
+                               bl.Y,
+                               br.Y))
+                       + TILE_MARGIN;
+
+        minTileX = Math.Clamp(minTileX, 0, mapWidth - 1);
+        minTileY = Math.Clamp(minTileY, 0, mapHeight - 1);
+        maxTileX = Math.Clamp(maxTileX, 0, mapWidth - 1);
+        maxTileY = Math.Clamp(maxTileY, 0, mapHeight - 1);
+
+        return (minTileX, minTileY, maxTileX, maxTileY);
+    }
+
+    private static float Max(
+        float a,
+        float b,
+        float c,
+        float d)
+        => MathF.Max(MathF.Max(a, b), MathF.Max(c, d));
+
+    private static float Min(
+        float a,
+        float b,
+        float c,
+        float d)
+        => MathF.Min(MathF.Min(a, b), MathF.Min(c, d));
+
+    /// <summary>
+    ///     Converts a screen pixel position to a world pixel position.
+    /// </summary>
+    public Vector2 ScreenToWorld(Vector2 screenPos)
+    {
+        var center = new Vector2(ViewportWidth / 2f, ViewportHeight / 2f);
+
+        return (screenPos - center) / Zoom + Position;
+    }
+
+    /// <summary>
+    ///     Converts tile coordinates to world pixel position using the same isometric formula as DALib's Graphics.RenderMap:
+    ///     <br />
+    ///     pixelX = (mapHeight - 1 + tileX - tileY) * 28
+    ///     <br />
+    ///     pixelY = (tileX + tileY) * 14
+    /// </summary>
+    public static Vector2 TileToWorld(int tileX, int tileY, int mapHeight)
+    {
+        var pixelX = (mapHeight - 1 + tileX - tileY) * HALF_TILE_WIDTH;
+        var pixelY = (tileX + tileY) * HALF_TILE_HEIGHT;
+
+        return new Vector2(pixelX, pixelY);
+    }
+
+    /// <summary>
+    ///     Updates the viewport dimensions from a MonoGame Viewport.
+    /// </summary>
+    public void Update(Viewport viewport)
+    {
+        ViewportWidth = viewport.Width;
+        ViewportHeight = viewport.Height;
+    }
+
+    /// <summary>
+    ///     Converts a world pixel position to a screen pixel position.
+    /// </summary>
+    public Vector2 WorldToScreen(Vector2 worldPos)
+    {
+        var center = new Vector2(ViewportWidth / 2f, ViewportHeight / 2f);
+
+        return (worldPos - Position) * Zoom + center;
+    }
+
+    /// <summary>
+    ///     Converts world pixel coordinates back to fractional tile coordinates.
+    /// </summary>
+    public static Vector2 WorldToTile(float worldX, float worldY, int mapHeight)
+    {
+        var col = worldX / HALF_TILE_WIDTH;
+        var row = worldY / HALF_TILE_HEIGHT;
+
+        var tileX = (col + row - mapHeight + 1) / 2f;
+        var tileY = (row - col + mapHeight - 1) / 2f;
+
+        return new Vector2(tileX, tileY);
+    }
+}

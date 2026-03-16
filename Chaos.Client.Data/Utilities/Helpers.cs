@@ -1,5 +1,7 @@
+#region
 using Chaos.Client.Data.Definitions;
-using Chaos.Common.Definitions;
+using Chaos.DarkAges.Definitions;
+#endregion
 
 namespace Chaos.Client.Data.Utilities;
 

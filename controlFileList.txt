@@ -1,0 +1,385 @@
+_nagree.spf   - agreement on open page
+_nbk_l.spf    - Large (/) play screen
+_nbk_s.spf    - small (non /) play screen
+_nbkgrp.spf   - group button lower right corner
+_nbkhlp.spf   - help button lower right corner
+_nbklgd.spf   - legend button lower right corner
+_nbktwn.spf   - town button lower right corner
+_nbsflag.spf  - unknown use (actual flag)
+_nbswbk.spf   - old map in Korean do not use
+_nbtn.spf     - mail buttons
+_ncarrow.spf  - green arrow buttons (character creation screen)
+_ncb1.spf     - ok button (character creation screen)
+_ncb2.spf     - cancel button (character creation screen)<CCC
+_ncbg.spf     - boy girl toggle ^ CCC
+_ncbh.spf     - help button ^CCC
+_ncbnn.spf    - account creation (ID) ^CCC
+_nccolor.spf  - CCC color palate^CCC
+_nchatbk.spf  - F talk tab (full)
+_ncreate.spf  - CCC screen (the main CCC screen)
+_nemot.spf    - status button (awake/DND/daydreaming/needgroup/grouped/fishing/grouphunting/needhelp)
+_nemots.spf   - ^ but smaller (for vita list)
+_nexch.spf    - exchange panel
+_nfriend.spf  - friendslist
+_ngb00.spf    - right side of screen buttons (mail/status/worldlist)
+_ngb01.spf    - right side settings button
+_ngbi0.spf    - bottom of screen buttons ( asdfgh right side buttons)
+_ngbi0b.spf   - ^ large (/) screen buttons bottom (asdfgh)
+_ngbmb.spf    - ^ ngbi0b's keyring
+_ngcbtn.spf   - group page buttons (change/join/okay/group)
+_ngcbtn1.spf  - group page quit group button
+_ngcbtnb.spf  - group page manage/invite buttons green
+_ngcbtns.spf  - group page? manage/invite buttons wood
+_ngcdlg0.spf  - group main page
+_ngcdlg1.spf  - group create menu
+_nhk_bk.spf   - hotkey screen (hit help button)
+_nhk_m.spf    - hotkey ?overlay?
+_nhkk00.spf   - hotkey overlay compressed buttons asdfgh
+_nhkk01.spf   - hotkey overlay compressed buttons qwerty
+_nhkk02.spf   - hotkey overlay compressed buttons zxcv and (up/down/left/right)
+_nhkk021.spf  - hotkey overlay compressed buttons zxcv 
+_nhkk022.spf  - hotkey overlay compressed buttons (up/down/left/right)
+_nhkk03.spf   - hotkey overlay compressed buttons "enter 
+_nhkk04.spf   - hotkey overlay compressed buttons ~!tab
+_nhkk05.spf   - hotkey overlay compressed buttons f1f3f4
+_nhkk06.spf   - hotkey overlay compressed buttons f5f7f8
+_nhkk07.spf   - hotkey overlay compressed buttons f9f12
+_nhkk08.spf   - hotkey overlay compressed buttons page up page down
+_nhkk09.spf   - hotkey overlay compressed buttons 1234567890-
+_nhkk10.spf   - hotkey overlay compressed buttons spacebar
+_nhkk11.spf   - hotkey overlay compressed buttons b
+_nhkk12.spf   - hotkey overlay compressed buttons j
+_nhkk13.spf   - hotkey overlay compressed buttons /
+_ni_chlo.spf  - large screen / button
+_ni_exp.spf   - expand inv ext button
+_ni_expb.spf  - large screens expand view button
+_ni_gr0.spf   - leave group button small
+_ni_gr0b.spf  - leave group button large
+_ni_grp.spf   - group button small
+_ni_grpb.spf  - group button large
+_ni_maib.spf  - mail button large
+_ni_mail.spf  - mail button small
+_ni_sb.spf    -  unknown
+_ni_sbb.spf   - unknown
+_ni_scrs.spf  - large screen screenshot button
+_ni_sett.spf  - large screen settings button
+_ni_shob.spf  - large  screen portrait button
+_ni shot.spf  - small screen portrait button
+_ni_ws.spf    - eshop button?
+_ni_wsb.spf   - unknown ^?
+_ninv1.spf    - showing 1 line inventory panel
+_ninv3.spf    -  ^      3 panel
+_ninv5.spf    -  ^      5 panel
+_ninvbk.spf   -  ^      3 leather
+_ninvbke.spf  -  ^      5 leather
+_ninvbks.spf  -  ^      1 leather
+_ninvn.spf    - inventory numbering 1-=
+_ninvs1.spf   - h pane 1 line
+_ninvs3.spf   - h pane 3 line
+_nload.spf    - in game load screen 
+_nloadb0.spf  - 1%
+_nloadb1.spf  - 2-98%
+_nloadb2.spf  - 99-100%
+_nloadm.spf   - in game load map screen
+_nlogin.spf   - main screen log in typing screen
+_nmacros.spf  - f3 menu
+_nmailb.spf   - mail button
+_nmaill.spf   - mail screen
+_nmailr.spf   - recieve mail screen
+_nmails.spf   - send mail screen
+_nmoney.spf   - trade gold miniscreen
+_noptbtn.spf  - macro settings friends sounds button (stone?)
+_noptdlg.spf  - options dialog
+_noptext.spf  - exit game buttons
+_norb_hb.spf  - large screen hp
+_norb_hp.spf  - small screen hp
+_norb_mb.spf  - large screen mp
+_norb_mp.spf  - small screen mp
+_nping.spf    - ping indicator
+_nportbk.spf  - portrait backer
+_npw.spf      - new password screen
+_npw2.spf     - DOB screen
+_nsb1.spf     - create button main screen
+_nsb2.spf     - continue 
+_nsb3.spf     - password
+_nsb4.spf     - credit
+_nsb5.spf     - homepage
+_nsb6.spf     - exit
+_nsett.spf    - settings backboard
+_nsettb.spf   - settings numbers
+_nslogo.spf   - start screen middle orb
+_nslogo1.spf  - currently blank?
+_nsmbk.spf    - unknown looks like text box
+_nstart.spf   - main screen 
+_nstater.spf  - shift g pane / version
+_nstatex.spf  - shift g normal
+_nstatur.spf  - g /version
+_nstatus.spf  - g normal
+_nsvr1.spf    - login server selection (not usually seen)
+_nsvr2.spf    - ^ part 2
+_nsvr3.spf    - ^ bottom part
+_nui_al.spf   - album screen
+_nui_alb.spf  - album portraits
+_nui_alc.spf  - unknown
+_nui_b1.spf   - title button presentation screen
+_nui_ba.spf   - album save delete
+_nui_bn.spf   - album/event  next button
+_nui_bp.spf   - album/event prev button
+_nui_dr.spf   - legend page
+_nui_egb.spf  - group ungroup toggle
+_nui_eq.spf   - equip/ presentation page stat'd
+_nui_eqa.spf  - ^ no stats
+_nui_eqi.spf  - equip items icons?
+_nui_ev.spf   - quest log 11-40
+_nui_ev0.spf  - 41-70 71-98
+_nui_ev1.spf  - 99+ master
+_nui_eve.spf  - events question screen
+_nui_fm.spf   - family screen
+_nui_leg.spf  - legend icons
+_nui_nat.spf  - shields
+_nui_sk.spf   - spell/skill page
+_nui_ske.spf  - spell/skill reqs
+_nui_ski.spf  - legend/skill pages "fillable"
+_nui_tb1.spf  - tabs for status book
+_nui_tb2.spf  - active tabs for status book
+_nui_tba.spf  - save delete?
+_nui_tbc.spf  - close status book
+_nusers.spf   - worldlist
+_nusersb.spf  - class buttons world list
+addimg.spf    - ?
+backgrnd.spf  - leather playable background
+DlgBack2.spf  - ? diaglog background?
+exchange.spf  - exchange window
+f001.spf      - Korean words
+f002.spf      - ^
+f003.spf      - ^
+f004.spf      - ^
+f005.spf      - ^
+f006.spf      - ^
+f007.spf      - ^
+f008.spf      - ^
+f009.spf      - ^
+f00bm.spf     - balloon man world map
+f00bw.spf     - balloon woman world map
+f010.spf      - Korean words
+f011.spf      - ^
+f012.spf      - ^
+f013.spf      - ^
+f014.spf      - ^
+f015.spf      - ^
+f016.spf      - ^
+f017.spf      - ^
+f018.spf      - ^
+f019.spf      - ^
+f020.spf      - ^
+f021.spf      - ^
+f022.spf      - ^
+f022a.spf     - map house lights on/off
+f023.spf      - Korean words
+f024.spf      - ^
+f024a.spf     - ferris wheel moving world map
+f025.spf      - Korean words 
+f026.spf      - ^
+fw01.spf      - alsaids
+fw02.spf      - andarion
+fw03.spf      - nageling
+fw04.spf      - noes
+fw05.spf      - selaime
+fw06.spf      - silion
+gc_btnu.spf   - Korean button
+gc_dlg0.spf   -  leather group window
+gc_dlg1.spf   - Korean leather form group window
+gc_dbtn0.spf  - join button
+gc_gbtn1.spf  - reset button
+gc_gbtn2.spf  - cance?l button
+gc_gbtn3.spf  - ok button 
+gc_gbtn4.spf  - Korean word button
+gc_gbtn5.spf  - ^
+gc_gbtn6.spf  - ^
+gc_gbtn7.spf  - ^
+gc_gbtn8.spf  - ^
+gc_pane.spf   - group fillable
+gc_pane2.spf  - blue box?
+gc_tab00.spf  - Korean word button
+gc_tab01.spf  - ^
+gc_tab10.spf  - ^
+gc_tab11.spf  - ^
+lemap.spf     - mythosia map
+manufac.spf   - manufacture window
+manunext.spf  - next arrow ^
+manuprev.spf  - perv arrow ^
+mercback.spf  - Korean merch window 
+merccn.spf    -  next arrow ^
+merccp.spf    - back arrow ^
+mercnext.spf  - Korean word button
+mercprev.spf  - ^
+merctab.spf   - flash green button 
+money.spf     - money exchange screen
+nd_arw.spd    - up/down button
+nd_btns.spf   - Korean words buttons
+nd_f01.spf    - top left corner unknown
+nd_f02.spf    - top right corner 
+nd_f03.spf    - bottom left corner
+nd_f04.spf    - bottom right corner
+nd_f05.spf    - bottom/top?
+nd_f06.spf    - right/left?
+nd_f07.spf    - right/left?
+nd_f08.spf    - bottom/top?
+nd_f08_1.spf  - bottom/top?
+nd_mback.spf  - shop screen 4 items
+nd_mcn.spf    - next button >
+nd_mcp.spf    - back button <
+nd_mnext.spf  - next button
+nd_mprev.spf  - back button 
+nd_mtab.spf   - yellowish flash button 
+nd_n00.spf    -? text box
+nd_n00on.spf  -?
+nd_n01.spf    -?
+nd_n01on.spf  -?
+nd_n02.spf    -?
+nd_n02on.spf  -?
+nd_npcbg.spf  - npc image
+nd_talk.spf   - npc text
+sb_back.spf   -  leather -shop bag?
+sb_back2.spf  - panel - shop bag?
+sb_close.spf  - Korean words
+sb_get.spf    - ^
+sb_gift.spf   - ribbon
+sb_next.spf   - Korean words
+sb_next2.spf  - ^
+sb_prev.spf   - ^ 
+sb_prev2.spf  - ^
+sbbtn.spf     - ?
+term.spf      - Korean terms page
+termexit.spf  - exit button
+tileb.spf     - red tile?
+wsbtn.spf     - eshop button?
+
+
+
+_nagree.txt   - opening page agreement (ya'lls acknowledgement page on startup)
+_narlist.txt  - possibly mail screen homepage
+_narti.txt    - personal mail screen
+_nartin.txt   - read mail screen ?
+_nbdlist.txt  - mail listed 
+_nbk_l.txt    - playing in / mode
+_nbk_s.txt    - playing normal
+_nbworld.txt  - probably original world map
+_ncreate.txt  - character creation screen
+_nexch.txt    - exchange screen
+_nfriend.txt  - friendslist screen popup
+_ngcdlg0.txt  - group screen (no names)
+_ngcdlg1.txt  - form group screen
+_ngcmain.txt  - group screen (with names)
+_nhotkem.txt  - help screen nothing highlighted
+_nhotkey.txt  - help screen with sert of hotkeys highlighted
+_nload.txt    - first login load screen
+_nloadm.txt   - map load screen
+_nlogin.txt   - main login (type username/pw)
+_nmacro.txt   - f3 menu pulldown
+_nmaill.txt   - mail main screen
+_nmailr.txt   - mail reading screen
+_nmails.txt   - mail sending screen
+_nmoney.txt   - start money exchange miniscreen
+_noptdlg.txt  - option screen
+_npw.txt      - change password (mainscreen)
+_npw2.txt     - DOB confirmation to ^
+_nsett.txt    - f4 menu
+_nstart.txt   - main screen 
+_nstatur.txt  - playing g screen /screen 
+_nstatus.txt  - playing g screen normal
+_nsvr.txt     - sever select screen (usually unseen autoselected)
+_nui.txt      - status book first page
+_nui_al.txt   - status book album page?
+_nui_alb.txt  - status book album page?
+_nui_dr.txt   - status book legend page
+_nui_eq.txt   - status book equipment page stats
+_nui_eqa.txt  - status book equipment page no stats
+_nui_ev.txt   - status book event pages
+_nui_eve.txt  - status book looking AT event
+_nui_fm.txt   - status book family
+_nui_pi.txt   -  ? possible status book album?
+_nui_sk.txt   - status book skill page
+_nui_ske.txt  - status book looking AT skill
+_nui_ski.txt  - status book -skills-
+_nusers.txt   - world list pages
+field001-010.txt - no.
+lagre.txt     - legends agreement
+larlist.txt   - legends
+larre.txt     - legends
+larti.txt     - legends
+lback.txt     - legends
+lbang.txt     - legends
+lbdlist.txt   - legends
+lbgrp.txt     - legends
+lbworld.txt   - legends
+lcreate.txt   - legends character creation
+lemot.txt     - legends
+lequip.txt    - legends 
+lexch.txt     - legends (might still be used exchange)
+lexchai.txt   - legends exchange confirmation
+lfamily.txt   - legends
+lfriends.txt  - legends 
+lgcdlg0.txt   - legends grouping
+lgcdlg1.txt   - legends form group
+lgcmain.txt   - legends group filling
+lgcpane.txt   - legends grouping 
+litemex.txt   - legends
+lkey.txt      - legends 
+llalbum.txt   - legends 
+lldi.txt      - legends 
+llegend2.txt  - legends 
+llegends.txt  - legends 
+llevent.txt   - legends 
+llgui.txt     - legends 
+llinfo.txt    - legends 
+llmi.txt      - legends 
+llodmap.txt   - legends 
+llodusr.txt   - legends 
+llogin.txt    - legends 
+llspell.txt   - legends 
+llsprop.txt   - legends 
+lmacro.txt    - legends 
+lmail.txt     - legends 
+lmain.txt     - legends 
+lmanu.txt     - legends  manufacturing
+lmanu2.txt    - legends  manufacturing
+lmerc.txt     - legends 
+lmerc2.txt    - legends 
+lmerd.txt     - legends 
+lmllist.txt   - legends 
+lmoney.txt    - legends  money exchange screen
+lmsg.txt      - legends
+lnewa.txt     - legends 
+lnewm.txt     - legends 
+lnpcd.txt     - legends NPC conversing
+lnpcd2.txt    - legends NPC conversing
+lnpcd3.txt    - legends NPC conversing
+lnpcd4.txt    - Legends NPC conversing
+lnpcnid.txt   - legends account creation?
+lopt.txt      - legends options
+lpasswd.txt   - legends  password changer
+lpasswd1.txt  - legends  password changer confirmation
+lpopup.txt    - popup confirmation?
+lscroll.txt   - legends 
+lset.txt      - legends 
+lshop0.txt    - legends item shop
+lshop1.txt    - legends item shop
+lshop2.txt    - legends item shop
+lshopba2.txt  - legends item shop bought
+lshopbag.txt  - legends item shop bought
+lssback.txt   - legends
+lssbook.txt   - legends status book
+lstat.txt     - legends stats
+lsvr.txt      - legends server message
+lsvrb.txt     - legends
+lterm.txt     - legends terms and conditions
+lterm2.txt    - legends^
+ltermset.txt  - ^
+luser.txt     - legends account creation
+
+
+
+
+
+

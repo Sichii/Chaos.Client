@@ -23,7 +23,7 @@ public sealed class MapFileRepository : RepositoryBase
 
     private MapFile LoadMapFile(string key, int width, int height)
     {
-        var path = $"map/{key}";
+        var path = Path.Combine(DataContext.DataPath, "maps", key);
 
         return MapFile.FromFile(path, width, height);
     }

@@ -1,8 +1,10 @@
-﻿using Silk.NET.Maths;
-using Silk.NET.Windowing;
+#region
+using System.Text;
+using Chaos.Client;
+#endregion
 
-var windowOptions = WindowOptions.Default;
-windowOptions.Size = new Vector2D<int>(640, 480);
-windowOptions.Title = "Darkages";
+Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);
+AssemblyLoader.EnsureLoaded();
 
-var window = Window.Create(windowOptions);
+using var game = new ChaosGame();
+game.Run();
