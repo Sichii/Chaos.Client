@@ -5,6 +5,7 @@ using Microsoft.Xna.Framework.Graphics;
 
 namespace Chaos.Client.Controls.Components;
 
+// ReSharper disable once ClassCanBeSealed.Global
 public class UIAnimatedImage : UIElement
 {
     private int FrameDirection = 1;
@@ -27,6 +28,8 @@ public class UIAnimatedImage : UIElement
     {
         if (!Visible || (Frames.Length == 0))
             return;
+
+        base.Draw(spriteBatch);
 
         var frame = Frames[CurrentFrame];
 

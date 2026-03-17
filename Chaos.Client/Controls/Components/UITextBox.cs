@@ -1,4 +1,5 @@
 #region
+using Chaos.Client.Definitions;
 using Chaos.Client.Rendering;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
@@ -7,13 +8,13 @@ using Microsoft.Xna.Framework.Input;
 
 namespace Chaos.Client.Controls.Components;
 
+// ReSharper disable once ClassCanBeSealed.Global
 public class UITextBox : UIElement
 {
     private const int CURSOR_BLINK_MS = 530;
-    private const float FONT_SIZE = 12f;
     private const int CURSOR_WIDTH = 1;
 
-    private readonly Texture2D PixelTexture;
+    private readonly GraphicsDevice Device;
     private readonly CachedText TextCache;
     private double CursorTimer;
     private bool CursorVisible;
@@ -29,7 +30,18 @@ public class UITextBox : UIElement
     public Color? FocusedBackgroundColor { get; set; }
 
     public bool IsFocusable { get; set; } = true;
-    public bool IsFocused { get; set; }
+
+    public bool IsFocused
+    {
+        get => field;
+
+        set
+        {
+            field = value;
+            BackgroundColor = value ? FocusedBackgroundColor : null;
+        }
+    }
+
     public bool IsMasked { get; set; }
     public bool IsReadOnly { get; set; }
     public bool IsSelectable { get; set; } = true;
@@ -62,9 +74,8 @@ public class UITextBox : UIElement
 
     public UITextBox(GraphicsDevice device)
     {
+        Device = device;
         TextCache = new CachedText(device);
-        PixelTexture = new Texture2D(device, 1, 1);
-        PixelTexture.SetData([Color.White]);
     }
 
     /// <summary>
@@ -98,7 +109,6 @@ public class UITextBox : UIElement
     {
         TextCache.Dispose();
         PrefixCache?.Dispose();
-        PixelTexture.Dispose();
 
         base.Dispose();
     }
@@ -108,31 +118,22 @@ public class UITextBox : UIElement
         if (!Visible)
             return;
 
+        base.Draw(spriteBatch);
+
         var displayText = IsMasked ? new string('*', Text.Length) : Text;
         var sx = ScreenX;
         var sy = ScreenY;
         var textY = sy + PaddingY;
         var textHeight = Height - PaddingY * 2;
 
-        // Focused background overlay
-        if (IsFocused && FocusedBackgroundColor.HasValue)
-            spriteBatch.Draw(
-                PixelTexture,
-                new Rectangle(
-                    sx,
-                    sy,
-                    Width,
-                    Height),
-                FocusedBackgroundColor.Value);
-
         // Prefix offset — non-editable text rendered before editable content
         var prefixWidth = 0;
 
         if ((Prefix.Length > 0) && IsFocused)
         {
-            prefixWidth = (int)TextRenderer.MeasureWidth(Prefix, FONT_SIZE);
-            PrefixCache ??= new CachedText(PixelTexture.GraphicsDevice);
-            PrefixCache.Update(Prefix, FONT_SIZE, TextColor);
+            prefixWidth = TextRenderer.MeasureWidth(Prefix);
+            PrefixCache ??= new CachedText(Device);
+            PrefixCache.Update(Prefix, TextColor);
             PrefixCache.Draw(spriteBatch, new Vector2(sx + PaddingX, textY));
         }
 
@@ -146,12 +147,13 @@ public class UITextBox : UIElement
             var selStartX = textStartX;
 
             if (selStart > 0)
-                selStartX += (int)TextRenderer.MeasureWidth(displayText[..selStart], FONT_SIZE);
+                selStartX += TextRenderer.MeasureWidth(displayText[..selStart]);
 
-            var selWidth = (int)TextRenderer.MeasureWidth(displayText[selStart..selEnd], FONT_SIZE);
+            var selWidth = TextRenderer.MeasureWidth(displayText[selStart..selEnd]);
 
-            spriteBatch.Draw(
-                PixelTexture,
+            DrawRect(
+                spriteBatch,
+                Device,
                 new Rectangle(
                     selStartX,
                     textY,
@@ -164,7 +166,7 @@ public class UITextBox : UIElement
                     150));
         }
 
-        TextCache.Update(displayText, FONT_SIZE, TextColor);
+        TextCache.Update(displayText, TextColor);
 
         if ((Alignment != TextAlignment.Left) && !IsFocused)
         {
@@ -190,10 +192,11 @@ public class UITextBox : UIElement
         var clampedPos = Math.Min(CursorPosition, displayText.Length);
 
         if (clampedPos > 0)
-            cursorX += (int)TextRenderer.MeasureWidth(displayText[..clampedPos], FONT_SIZE) + 1;
+            cursorX += TextRenderer.MeasureWidth(displayText[..clampedPos]) + 1;
 
-        spriteBatch.Draw(
-            PixelTexture,
+        DrawRect(
+            spriteBatch,
+            Device,
             new Rectangle(
                 cursorX,
                 textY,
@@ -382,7 +385,7 @@ public class UITextBox : UIElement
     {
         // Offset by prefix width when focused
         if ((Prefix.Length > 0) && IsFocused)
-            localX -= (int)TextRenderer.MeasureWidth(Prefix, FONT_SIZE);
+            localX -= TextRenderer.MeasureWidth(Prefix);
 
         if ((Text.Length == 0) || (localX <= 0))
             return 0;
@@ -391,8 +394,8 @@ public class UITextBox : UIElement
 
         for (var i = 1; i <= displayText.Length; i++)
         {
-            var charWidth = TextRenderer.MeasureWidth(displayText[..i], FONT_SIZE);
-            var prevWidth = i > 1 ? TextRenderer.MeasureWidth(displayText[..(i - 1)], FONT_SIZE) : 0;
+            var charWidth = TextRenderer.MeasureWidth(displayText[..i]);
+            var prevWidth = i > 1 ? TextRenderer.MeasureWidth(displayText[..(i - 1)]) : 0;
 
             var midpoint = (prevWidth + charWidth) / 2;
 

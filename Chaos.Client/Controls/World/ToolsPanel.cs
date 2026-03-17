@@ -8,16 +8,22 @@ using Microsoft.Xna.Framework.Graphics;
 namespace Chaos.Client.Controls.World;
 
 /// <summary>
-///     Tools/utility panel (H key). Secondary inventory-style panel for additional items or quick-access tools. Background
-///     loaded from _ninvs1.spf (1-line variant). Uses the same grid layout as InventoryPanel (PanelBaseControl).
+///     Tools/utility panel (H key). Uses _ninvs3.spf (3-line variant) as background.
+///     Same grid layout as InventoryPanel (PanelBaseControl).
 /// </summary>
-public class ToolsPanel : PanelBaseControl
+public sealed class ToolsPanel : PanelBaseControl
 {
     private const int TOOL_SLOTS = 36;
 
     public ToolsPanel(GraphicsDevice device, ControlPrefabSet hudPrefabSet)
         : base(device, hudPrefabSet, TOOL_SLOTS)
-        => Name = "Tools";
+    {
+        Name = "Tools";
+
+        // Override the default InventoryBackground with the tools-specific background
+        Background?.Dispose();
+        Background = TextureConverter.LoadSpfTexture(device, "_ninvs3.spf");
+    }
 
     protected override Texture2D? RenderIcon(ushort spriteId)
         => TextureConverter.RenderSprite(Device, DataContext.PanelItems.GetPanelItemSprite(spriteId));

@@ -4,6 +4,7 @@ using System.Runtime.InteropServices;
 using Chaos.Client.Data;
 using DALib.Drawing;
 using DALib.Utility;
+using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using SkiaSharp;
 #endregion
@@ -36,6 +37,16 @@ public static class TextureConverter
     }
 
     /// <summary>
+    ///     Loads a single frame from an SPF file in national.dat and returns it as a Texture2D.
+    /// </summary>
+    public static Texture2D? LoadNationalSpfTexture(GraphicsDevice device, string fileName, int frameIndex = 0)
+    {
+        using var image = DataContext.UserControls.GetNationalSpfImage(fileName, frameIndex);
+
+        return image is not null ? ToTexture2D(device, image) : null;
+    }
+
+    /// <summary>
     ///     Loads a single frame from an SPF file in setoa.dat and returns it as a Texture2D.
     /// </summary>
     public static Texture2D? LoadSpfTexture(GraphicsDevice device, string fileName, int frameIndex = 0)
@@ -47,6 +58,7 @@ public static class TextureConverter
 
     /// <summary>
     ///     Loads all frames from an SPF file in setoa.dat as Texture2D[].
+    ///     Null/empty frames in the SPF are returned as a 1x1 transparent texture to preserve index alignment.
     /// </summary>
     public static Texture2D[] LoadSpfTextures(GraphicsDevice device, string fileName)
     {
@@ -58,12 +70,17 @@ public static class TextureConverter
         var textures = new Texture2D[images.Length];
 
         for (var i = 0; i < images.Length; i++)
-        {
-            textures[i] = ToTexture2D(device, images[i]);
+            if (images[i] is { } image)
+            {
+                textures[i] = ToTexture2D(device, image);
+                image.Dispose();
+            } else
+            {
+                textures[i] = new Texture2D(device, 1, 1);
 
-            images[i]
-                .Dispose();
-        }
+                textures[i]
+                    .SetData([Color.Transparent]);
+            }
 
         return textures;
     }

@@ -1,10 +1,10 @@
 #region
+using Chaos.Client.Definitions;
 using Chaos.Client.Models;
 using Chaos.Client.Rendering;
 using Chaos.DarkAges.Definitions;
 using Chaos.Geometry.Abstractions.Definitions;
 using Chaos.Networking.Entities.Server;
-using EntityType = Chaos.Client.Models.EntityType;
 #endregion
 
 namespace Chaos.Client.Collections;
@@ -15,7 +15,7 @@ namespace Chaos.Client.Collections;
 public sealed class WorldState
 {
     private readonly Dictionary<uint, WorldEntity> Entities = new();
-    private readonly List<WorldEntity> SortBuffer = new();
+    private readonly List<WorldEntity> SortBuffer = [];
 
     /// <summary>
     ///     The player's entity ID, assigned by the server.
@@ -39,17 +39,17 @@ public sealed class WorldState
             entity = new WorldEntity
             {
                 Id = args.Id,
-                Type = EntityType.Aisling
+                Type = ClientEntityType.Aisling
             };
 
             Entities[args.Id] = entity;
         }
 
-        entity.Type = EntityType.Aisling;
+        entity.Type = ClientEntityType.Aisling;
         entity.TileX = args.X;
         entity.TileY = args.Y;
         entity.Direction = args.Direction;
-        entity.Name = args.Name ?? string.Empty;
+        entity.Name = args.Name;
 
         // Check for morph mode (creature form)
         if (args.Sprite.HasValue)
@@ -79,7 +79,7 @@ public sealed class WorldState
                 Accessory1Color = args.AccessoryColor1,
                 Accessory2Sprite = args.AccessorySprite2,
                 Accessory2Color = args.AccessoryColor2,
-                PantsColor = args.PantsColor.HasValue ? args.PantsColor.Value : null
+                PantsColor = args.PantsColor
             };
         }
     }
@@ -108,14 +108,14 @@ public sealed class WorldState
             switch (obj)
             {
                 case CreatureInfo creature:
-                    entity.Type = EntityType.Creature;
+                    entity.Type = ClientEntityType.Creature;
                     entity.Direction = creature.Direction;
                     entity.Name = creature.Name ?? string.Empty;
 
                     break;
 
                 case GroundItemInfo:
-                    entity.Type = EntityType.GroundItem;
+                    entity.Type = ClientEntityType.GroundItem;
 
                     break;
             }
@@ -140,7 +140,7 @@ public sealed class WorldState
                 continue;
 
             // Prefer clickable entities over ground items
-            if (entity.Type is EntityType.Aisling or EntityType.Creature)
+            if (entity.Type is ClientEntityType.Aisling or ClientEntityType.Creature)
                 return entity;
 
             groundItem ??= entity;
@@ -157,7 +157,7 @@ public sealed class WorldState
     /// <summary>
     ///     Returns the player entity, or null if not yet tracked.
     /// </summary>
-    public WorldEntity? GetPlayerEntity() => Entities.TryGetValue(PlayerEntityId, out var entity) ? entity : null;
+    public WorldEntity? GetPlayerEntity() => Entities.GetValueOrDefault(PlayerEntityId);
 
     /// <summary>
     ///     Returns all entities sorted by depth (TileX + TileY), then by TileX ascending. Reuses an internal buffer to avoid

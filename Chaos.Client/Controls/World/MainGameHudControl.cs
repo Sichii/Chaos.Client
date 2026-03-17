@@ -1,6 +1,7 @@
 #region
 using Chaos.Client.Controls.Components;
 using Chaos.Client.Data;
+using Chaos.Client.Definitions;
 using Chaos.Client.Rendering;
 using Chaos.Networking.Entities.Server;
 using Microsoft.Xna.Framework;
@@ -14,17 +15,18 @@ namespace Chaos.Client.Controls.World;
 ///     area, HP/MP orbs, info text fields, and all action buttons. Manages the shared "center bottom" tab area where
 ///     Inventory/Skills/Spells/Chat/Stats panels swap.
 /// </summary>
-public class GameHudPanel : PrefabPanel
+public sealed class MainGameHudControl : PrefabPanel
 {
     private readonly UILabel CoordsLabel;
+    private readonly UILabel? DescriptionLabel;
 
     // HP/MP numeric displays
     private readonly UILabel HpNumLabel;
 
     // HP/MP orbs
-    private readonly OrbDisplay HpOrb;
+    private readonly VerticalBarControl HpOrb;
     private readonly UILabel MpNumLabel;
-    private readonly OrbDisplay MpOrb;
+    private readonly VerticalBarControl MpOrb;
 
     // Orange bar
     private readonly OrangeBarControl OrangeBar;
@@ -36,6 +38,8 @@ public class GameHudPanel : PrefabPanel
     // Info text
     private readonly UILabel PlayerNameLabel;
 
+    private readonly UILabel? ServerNameLabel;
+
     // Tab panel system — shared center-bottom area
     private readonly UIPanel?[] TabPanels = new UIPanel?[Enum.GetValues<HudTab>()
                                                              .Length];
@@ -43,7 +47,7 @@ public class GameHudPanel : PrefabPanel
     private readonly UILabel WeightLabel;
     private readonly UILabel ZoneNameLabel;
     public HudTab ActiveTab { get; private set; } = HudTab.Inventory;
-    public ChatPanel ChatDisplay { get; private set; } = null!;
+    public ChatPanelControl ChatDisplay { get; private set; } = null!;
     public ExtendedStatsControl ExtendedStatsPanel { get; private set; } = null!;
     public InventoryPanel Inventory { get; private set; } = null!;
     public SkillBookPanel SkillBook { get; private set; } = null!;
@@ -56,6 +60,7 @@ public class GameHudPanel : PrefabPanel
 
     // Chat
     public UITextBox ChatInput { get; }
+    public UIButton? EmoteButton { get; }
     public UIButton? ExpandButton { get; }
     public UIButton? GroupButton { get; }
     public UIButton? GroupIndicator { get; }
@@ -83,7 +88,7 @@ public class GameHudPanel : PrefabPanel
     // Viewport — the area where the game world renders
     public Rectangle ViewportBounds { get; }
 
-    public GameHudPanel(GraphicsDevice device)
+    public MainGameHudControl(GraphicsDevice device)
         : base(device, "_nbk_s", false)
     {
         Name = "GameHud";
@@ -103,8 +108,8 @@ public class GameHudPanel : PrefabPanel
         InventoryBounds = GetRect("InventoryRect");
 
         // HP/MP orbs
-        HpOrb = new OrbDisplay(device, PrefabSet, "ORB_HP");
-        MpOrb = new OrbDisplay(device, PrefabSet, "ORB_MP");
+        HpOrb = new VerticalBarControl(device, PrefabSet, "ORB_HP");
+        MpOrb = new VerticalBarControl(device, PrefabSet, "ORB_MP");
 
         // HP/MP numeric text
         HpNumLabel = CreateLabel("NUM_HP", TextAlignment.Right)!;
@@ -115,6 +120,8 @@ public class GameHudPanel : PrefabPanel
         ZoneNameLabel = CreateLabel("SZ_ZONE", TextAlignment.Center)!;
         WeightLabel = CreateLabel("SZ_WEIGHT", TextAlignment.Center)!;
         CoordsLabel = CreateLabel("SZ_XY")!;
+        ServerNameLabel = CreateLabel("SZ_SERVER", TextAlignment.Center);
+        DescriptionLabel = CreateLabel("SZ_DESCRIPTION");
 
         // Buttons — right side
         OptionButton = CreateButton("BTN_OPTION");
@@ -133,6 +140,9 @@ public class GameHudPanel : PrefabPanel
         MailButton = CreateButton("CMail");
         GroupIndicator = CreateButton("CGroup");
         ScreenshotButton = CreateButton("CShot");
+
+        // Emote/status button
+        EmoteButton = CreateButton("BTN_EMOT");
 
         // Conditional buttons (may not exist in all client versions)
         CreateButton("BTN_SETTING");
@@ -184,11 +194,12 @@ public class GameHudPanel : PrefabPanel
             AddChild(PersistentMessagePanel);
         }
 
+        // Orange bar — created before tab panels (MessageHistoryPanel needs its history list),
+        // but added as child after so it draws on top
+        OrangeBar = new OrangeBarControl(device, PrefabSet);
+
         // Tab panels — shared center-bottom area
         CreateTabPanels();
-
-        // Orange bar — created here, added as child after tab panels so it draws on top
-        OrangeBar = new OrangeBarControl(device, PrefabSet);
 
         // Orange bar drawn after tab panels so it renders on top
         AddChild(OrangeBar);
@@ -239,8 +250,7 @@ public class GameHudPanel : PrefabPanel
     {
         // Hide ALL unique panels to prevent stale visibility
         foreach (var panel in TabPanels)
-            if (panel is not null)
-                panel.Visible = false;
+            panel?.Visible = false;
 
         // Deselect old tab button
         var oldButtonIndex = GetTabButtonIndex(ActiveTab);
@@ -253,8 +263,7 @@ public class GameHudPanel : PrefabPanel
 
         var next = TabPanels[(int)tab];
 
-        if (next is not null)
-            next.Visible = true;
+        next?.Visible = true;
 
         // Select new tab button
         var newButtonIndex = GetTabButtonIndex(tab);
@@ -300,7 +309,7 @@ public class GameHudPanel : PrefabPanel
 
         // Chat (F)
         var chatDisplayBounds = GetRect("ChattingRect");
-        ChatDisplay = new ChatPanel(Device, chatDisplayBounds);
+        ChatDisplay = new ChatPanelControl(Device, chatDisplayBounds);
         RegisterTab(HudTab.Chat, ChatDisplay, tabRect);
 
         // Stats (G) / Extended Stats (Shift+G) — both load from _nstatus prefab
@@ -312,6 +321,11 @@ public class GameHudPanel : PrefabPanel
 
         // Tools (H)
         RegisterTab(HudTab.Tools, new ToolsPanel(Device, PrefabSet), tabRect);
+
+        // Message History (Shift+F) — displays orange bar messages in a tab panel
+        var msgHistoryBounds = GetRect("ChattingRect");
+        var msgHistoryPanel = new MessageHistoryPanel(Device, msgHistoryBounds, OrangeBar.GetHistory());
+        RegisterTab(HudTab.MessageHistory, msgHistoryPanel, tabRect);
 
         // Wire tab button clicks: BTN_INV0=A, BTN_INV1=S, BTN_INV2=D, BTN_INV3=F, BTN_INV4=G, BTN_INV5=H
         HudTab[] tabMapping =
@@ -372,9 +386,19 @@ public class GameHudPanel : PrefabPanel
 
     public void SetCoords(int x, int y) => CoordsLabel.SetText($"{x},{y}");
 
+    public void SetServerName(string name) => ServerNameLabel?.SetText(name);
+
+    /// <summary>
+    ///     Shows a description text in the SZ_DESCRIPTION area (item/skill/spell name on hover). Color 0x14 = green/teal,
+    ///     matching original client.
+    /// </summary>
+    public void SetDescription(string? text) => DescriptionLabel?.SetText(text ?? string.Empty);
+
     public void AddChatMessage(string text, Color color) => ChatDisplay.AddMessage(text, color);
 
     public void ShowOrangeBarMessage(string text) => OrangeBar.ShowMessage(text);
+
+    public IReadOnlyList<string> GetMessageHistory() => OrangeBar.GetHistory();
 
     /// <summary>
     ///     Displays a persistent message in the EmoticonDialog panel. Remains until the server sends an empty string to clear

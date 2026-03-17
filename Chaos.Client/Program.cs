@@ -1,10 +1,9 @@
 #region
-using System.Text;
+using System.Runtime.CompilerServices;
 using Chaos.Client;
 #endregion
 
-Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);
-AssemblyLoader.EnsureLoaded();
+RuntimeHelpers.RunClassConstructor(typeof(GlobalSettings).TypeHandle);
 
 using var game = new ChaosGame();
 game.Run();

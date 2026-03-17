@@ -1,6 +1,7 @@
 #region
 using Chaos.Client.Data;
 using Chaos.Client.Data.Models;
+using Chaos.Client.Definitions;
 using Chaos.Client.Rendering;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
@@ -12,10 +13,9 @@ namespace Chaos.Client.Controls.World;
 ///     Spell book panel (D key, Shift+D for secondary). 89 slots total. Spell icons rendered from Setoa.dat spell EPFs
 ///     with gui06 palette. Cooldown: full blue icon for the entire duration.
 /// </summary>
-public class SpellBookPanel : PanelBaseControl
+public sealed class SpellBookPanel : PanelBaseControl
 {
     private const int MAX_SLOTS = 89;
-    private readonly Texture2D?[] BlueIconCache = new Texture2D?[MAX_SLOTS];
 
     private readonly float[] CooldownRemaining = new float[MAX_SLOTS];
     private readonly ushort[] SpriteIds = new ushort[MAX_SLOTS];
@@ -25,6 +25,7 @@ public class SpellBookPanel : PanelBaseControl
             device,
             hudPrefabSet,
             MAX_SLOTS,
+            CooldownStyle.Swap,
             secondary)
         => Name = secondary ? "SpellBookAlt" : "SpellBook";
 
@@ -32,14 +33,19 @@ public class SpellBookPanel : PanelBaseControl
     {
         var index = slot - 1;
 
-        if ((index >= 0) && (index < MAX_SLOTS))
+        if (index is >= 0 and < MAX_SLOTS)
         {
             SpriteIds[index] = 0;
             CooldownRemaining[index] = 0;
+        }
 
-            BlueIconCache[index]
-                ?.Dispose();
-            BlueIconCache[index] = null;
+        var control = FindSlot(slot);
+
+        if (control is not null)
+        {
+            control.CooldownTexture?.Dispose();
+            control.CooldownTexture = null;
+            control.CooldownPercent = 0;
         }
 
         base.ClearSlot(slot);
@@ -47,27 +53,13 @@ public class SpellBookPanel : PanelBaseControl
 
     public override void Dispose()
     {
-        foreach (var icon in BlueIconCache)
-            icon?.Dispose();
-
-        base.Dispose();
-    }
-
-    protected override void DrawSlotIcon(
-        SpriteBatch spriteBatch,
-        int slotIndex,
-        int x,
-        int y,
-        Texture2D icon)
-    {
-        if ((CooldownRemaining[slotIndex] > 0) && BlueIconCache[slotIndex] is { } blueIcon)
+        foreach (var slot in Slots)
         {
-            spriteBatch.Draw(blueIcon, new Vector2(x, y), Color.White);
-
-            return;
+            slot.CooldownTexture?.Dispose();
+            slot.CooldownTexture = null;
         }
 
-        spriteBatch.Draw(icon, new Vector2(x, y), Color.White);
+        base.Dispose();
     }
 
     private Texture2D? RenderBlueIcon(ushort spriteId)
@@ -85,24 +77,35 @@ public class SpellBookPanel : PanelBaseControl
 
         CooldownRemaining[index] = durationSecs * 1000f;
 
+        var control = FindSlot(slot);
+
+        if (control is null)
+            return;
+
         // Lazy-load blue variant
         var spriteId = SpriteIds[index];
 
         if (spriteId > 0)
-            BlueIconCache[index] ??= RenderBlueIcon(spriteId);
+            control.CooldownTexture ??= RenderBlueIcon(spriteId);
+
+        control.CooldownPercent = 1f;
     }
 
     public override void SetSlot(byte slot, ushort sprite)
     {
         var index = slot - 1;
 
-        if ((index >= 0) && (index < MAX_SLOTS))
+        if (index is >= 0 and < MAX_SLOTS)
         {
             SpriteIds[index] = sprite;
 
-            BlueIconCache[index]
-                ?.Dispose();
-            BlueIconCache[index] = null;
+            var control = FindSlot(slot);
+
+            if (control is not null)
+            {
+                control.CooldownTexture?.Dispose();
+                control.CooldownTexture = null;
+            }
         }
 
         base.SetSlot(slot, sprite);
@@ -123,6 +126,10 @@ public class SpellBookPanel : PanelBaseControl
 
             if (CooldownRemaining[i] < 0)
                 CooldownRemaining[i] = 0;
+
+            var control = FindSlot((byte)(i + 1));
+
+            control?.CooldownPercent = CooldownRemaining[i] > 0 ? 1f : 0;
         }
     }
 }

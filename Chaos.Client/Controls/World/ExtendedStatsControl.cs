@@ -1,6 +1,7 @@
 #region
 using Chaos.Client.Controls.Components;
 using Chaos.Client.Data.Models;
+using Chaos.Client.Definitions;
 using Chaos.Client.Rendering;
 using Chaos.DarkAges.Definitions;
 using Chaos.Networking.Entities.Server;
@@ -15,7 +16,7 @@ namespace Chaos.Client.Controls.World;
 ///     uses only the "ExtraStatus" sub-image as its background, and offsets all e_ label positions so they are relative to
 ///     the ExtraStatus origin rather than the anchor origin.
 /// </summary>
-public class ExtendedStatsControl : UIPanel
+public sealed class ExtendedStatsControl : UIPanel
 {
     private readonly UILabel? AcLabel;
     private readonly UILabel? AttackLabel;

@@ -1,6 +1,7 @@
 #region
 using Chaos.Client.Controls.Components;
 using Chaos.Client.Controls.Generic;
+using Chaos.Client.Models;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using Microsoft.Xna.Framework.Input;
@@ -12,48 +13,31 @@ namespace Chaos.Client.Controls.World;
 ///     Mail list panel using _nmaill prefab. Displays a scrollable list of mail posts with author, date, and subject.
 ///     Buttons: View, New, Reply, Delete, Up (back to boards), Quit (close).
 /// </summary>
-public class MailListControl : PrefabPanel
+public sealed class MailListControl : PrefabPanel
 {
     private const int ROW_HEIGHT = 16;
     private const int DATE_WIDTH = 40;
     private const int AUTHOR_WIDTH = 100;
     private const int SUBJECT_OFFSET_X = 145;
+    private readonly CachedText[] AuthorCaches;
 
-    private readonly GraphicsDevice DeviceRef;
+    private readonly CachedText[] DateCaches;
+
     private readonly Rectangle MailListRect;
     private readonly int MaxVisibleRows;
-    private readonly ScrollBar ScrollBar;
-    private readonly CachedText[] AuthorCaches = [];
+    private readonly ScrollBarControl ScrollBar;
+    private readonly CachedText[] SubjectCaches;
     private int DataVersion;
-
-    private readonly CachedText[] DateCaches = [];
 
     private List<MailEntry> Entries = [];
 
-    private Texture2D? PixelTextureField;
     private int RenderedVersion = -1;
     private int ScrollOffset;
     private int SelectedIndex = -1;
-    private readonly CachedText[] SubjectCaches = [];
 
     public ushort BoardId { get; private set; }
     public UIButton? DeleteButton { get; }
     public UIButton? NewButton { get; }
-
-    // Shared 1x1 pixel for selection highlight
-    private Texture2D? PixelTexture
-    {
-        get
-        {
-            if (PixelTextureField is null)
-            {
-                PixelTextureField = new Texture2D(DeviceRef, 1, 1);
-                PixelTextureField.SetData([Color.White]);
-            }
-
-            return PixelTextureField;
-        }
-    }
 
     public UIButton? QuitButton { get; }
     public UIButton? ReplyButton { get; }
@@ -64,7 +48,6 @@ public class MailListControl : PrefabPanel
     public MailListControl(GraphicsDevice device)
         : base(device, "_nmaill")
     {
-        DeviceRef = device;
         Name = "MailList";
         Visible = false;
 
@@ -113,7 +96,7 @@ public class MailListControl : PrefabPanel
         MaxVisibleRows = MailListRect.Height > 0 ? MailListRect.Height / ROW_HEIGHT : 0;
 
         // Scrollbar
-        ScrollBar = new ScrollBar(device)
+        ScrollBar = new ScrollBarControl(device)
         {
             Name = "ScrollBar",
             X = MailListRect.X + MailListRect.Width - 16,
@@ -153,8 +136,6 @@ public class MailListControl : PrefabPanel
         foreach (var c in SubjectCaches)
             c.Dispose();
 
-        PixelTexture?.Dispose();
-
         base.Dispose();
     }
 
@@ -184,8 +165,9 @@ public class MailListControl : PrefabPanel
 
             // Selection highlight
             if (entryIndex == SelectedIndex)
-                spriteBatch.Draw(
-                    PixelTexture,
+                DrawRect(
+                    spriteBatch,
+                    Device,
                     new Rectangle(
                         listX,
                         rowY,
@@ -234,23 +216,23 @@ public class MailListControl : PrefabPanel
                 var textColor = entry.IsHighlighted ? Color.Yellow : Color.White;
 
                 DateCaches[i]
-                    .Update($"{entry.Month}/{entry.Day}", 0, textColor);
+                    .Update($"{entry.Month}/{entry.Day}", textColor);
 
                 AuthorCaches[i]
-                    .Update(entry.Author, 0, textColor);
+                    .Update(entry.Author, textColor);
 
                 SubjectCaches[i]
-                    .Update(entry.Subject, 0, textColor);
+                    .Update(entry.Subject, textColor);
             } else
             {
                 DateCaches[i]
-                    .Update(string.Empty, 0, Color.White);
+                    .Update(string.Empty, Color.White);
 
                 AuthorCaches[i]
-                    .Update(string.Empty, 0, Color.White);
+                    .Update(string.Empty, Color.White);
 
                 SubjectCaches[i]
-                    .Update(string.Empty, 0, Color.White);
+                    .Update(string.Empty, Color.White);
             }
         }
     }
@@ -317,14 +299,3 @@ public class MailListControl : PrefabPanel
         }
     }
 }
-
-/// <summary>
-///     A single entry in the mail list.
-/// </summary>
-public record MailEntry(
-    short PostId,
-    string Author,
-    int Month,
-    int Day,
-    string Subject,
-    bool IsHighlighted);

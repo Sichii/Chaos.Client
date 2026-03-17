@@ -6,6 +6,7 @@ using Chaos.Client.Controls.Components;
 using Chaos.Client.Controls.Generic;
 using Chaos.Client.Controls.LobbyLogin;
 using Chaos.Client.Data;
+using Chaos.Client.Definitions;
 using Chaos.Client.Networking;
 using Chaos.Cryptography;
 using Chaos.DarkAges.Definitions;
@@ -19,7 +20,6 @@ namespace Chaos.Client.Screens;
 
 public sealed class LobbyLoginScreen : IScreen
 {
-    private const float STATUS_FONT_SIZE = 12f;
     private bool AwaitingCharFinalize;
     private uint? CachedNoticeCheckSum;
     private bool ChangingPassword;
@@ -36,69 +36,24 @@ public sealed class LobbyLoginScreen : IScreen
     private LoginControl LoginControl = null!;
     private PasswordChangeControl PasswordChangeControl = null!;
     private OkPopupMessageControl PopupMessage = null!;
+    private IReadOnlyList<ServerTableEntry> ServerList = [];
     private ServerSelectControl ServerSelectControl = null!;
 
     // UI panels
     private LobbyLoginControl StartPanel = null!;
-    private Color StatusColor = Color.LightGray;
-    private string StatusMessage = "Connecting...";
-
-    // Status display
-    private CachedText StatusText = null!;
+    private UILabel StatusLabel = null!;
 
     /// <inheritdoc />
     public UIPanel? Root { get; private set; }
 
     /// <inheritdoc />
-    public void Dispose()
-    {
-        StatusText?.Dispose();
-        Root?.Dispose();
-    }
+    public void Dispose() => Root?.Dispose();
 
     /// <inheritdoc />
     public void Draw(SpriteBatch spriteBatch, GameTime gameTime)
     {
-        spriteBatch.Begin(SpriteSortMode.Deferred, samplerState: SamplerState.PointClamp);
-
-        if (CharCreateControl.Visible)
-
-            // Full-screen overlay — skip everything behind it
-            CharCreateControl.Draw(spriteBatch);
-        else
-        {
-            StartPanel.Draw(spriteBatch);
-
-            if (ServerSelectControl.Visible)
-                ServerSelectControl.Draw(spriteBatch);
-
-            if (LoginControl.Visible)
-                LoginControl.Draw(spriteBatch);
-
-            if (PasswordChangeControl.Visible)
-                PasswordChangeControl.Draw(spriteBatch);
-
-            if (EulaNoticeControl.Visible)
-                EulaNoticeControl.Draw(spriteBatch);
-        }
-
-        if (PopupMessage.Visible)
-            PopupMessage.Draw(spriteBatch);
-
-        // Status text at bottom of screen
-        if (StatusMessage.Length > 0)
-        {
-            StatusText.Update(StatusMessage, STATUS_FONT_SIZE, StatusColor);
-
-            if (StatusText.Texture is not null)
-            {
-                var statusX = (ChaosGame.VIRTUAL_WIDTH - StatusText.Texture.Width) / 2;
-                var statusY = ChaosGame.VIRTUAL_HEIGHT - 20;
-
-                StatusText.Draw(spriteBatch, new Vector2(statusX, statusY));
-            }
-        }
-
+        spriteBatch.Begin(samplerState: GlobalSettings.Sampler);
+        Root!.Draw(spriteBatch);
         spriteBatch.End();
     }
 
@@ -122,8 +77,6 @@ public sealed class LobbyLoginScreen : IScreen
     {
         Device = graphicsDevice;
 
-        StatusText = new CachedText(Device);
-
         StartPanel = new LobbyLoginControl(Device);
         LoginControl = new LoginControl(Device);
         ServerSelectControl = new ServerSelectControl(Device);
@@ -132,15 +85,15 @@ public sealed class LobbyLoginScreen : IScreen
         PasswordChangeControl = new PasswordChangeControl(Device);
 
         // Wire button events
-        StartPanel.ContinueButton.OnClick += OnContinueClicked;
-        StartPanel.ExitButton.OnClick += OnExitClicked;
-        StartPanel.CreateButton.OnClick += OnCreateClicked;
-        StartPanel.PasswordButton.OnClick += OnPasswordClicked;
-        StartPanel.CreditButton.OnClick += OnCreditClicked;
-        StartPanel.HomepageButton.OnClick += OnHomepageClicked;
+        StartPanel.ContinueButton?.OnClick += OnContinueClicked;
+        StartPanel.ExitButton?.OnClick += OnExitClicked;
+        StartPanel.SubmitCreateButton?.OnClick += OnCreateClicked;
+        StartPanel.PasswordButton?.OnClick += OnPasswordClicked;
+        StartPanel.CreditButton?.OnClick += OnCreditClicked;
+        StartPanel.HomepageButton?.OnClick += OnHomepageClicked;
 
-        LoginControl.OkButton.OnClick += OnLoginOkClicked;
-        LoginControl.CancelButton.OnClick += OnLoginCancelClicked;
+        LoginControl.OkButton?.OnClick += OnLoginOkClicked;
+        LoginControl.CancelButton?.OnClick += OnLoginCancelClicked;
 
         ServerSelectControl.OnServerSelected += OnServerSelected;
 
@@ -153,10 +106,23 @@ public sealed class LobbyLoginScreen : IScreen
         PasswordChangeControl.OnOk += OnPasswordChangeOkClicked;
         PasswordChangeControl.OnCancel += OnPasswordChangeCancelClicked;
 
-        PopupMessage = new OkPopupMessageControl(Device);
+        PopupMessage = new OkPopupMessageControl(Device)
+        {
+            ZIndex = 1
+        };
         PopupMessage.OnOk += OnPopupMessageOk;
 
-        // Root panel for debug overlay traversal
+        StatusLabel = new UILabel(Device)
+        {
+            Name = "StatusText",
+            X = 0,
+            Y = ChaosGame.VIRTUAL_HEIGHT - 20,
+            Width = ChaosGame.VIRTUAL_WIDTH,
+            Height = 12,
+            Alignment = TextAlignment.Center,
+            ZIndex = 2
+        };
+
         Root = new UIPanel
         {
             Name = "LobbyRoot",
@@ -170,6 +136,7 @@ public sealed class LobbyLoginScreen : IScreen
         Root.AddChild(CharCreateControl);
         Root.AddChild(PasswordChangeControl);
         Root.AddChild(PopupMessage);
+        Root.AddChild(StatusLabel);
 
         // Auto-connect to lobby
         BeginLobbyConnect();
@@ -264,11 +231,7 @@ public sealed class LobbyLoginScreen : IScreen
             ServerSelectControl.Update(gameTime, input);
     }
 
-    private void SetStatus(string message, Color color)
-    {
-        StatusMessage = message;
-        StatusColor = color;
-    }
+    private void SetStatus(string message, Color color) => StatusLabel.SetText(message, color);
 
     #region Button Handlers
     private void OnContinueClicked()
@@ -292,9 +255,9 @@ public sealed class LobbyLoginScreen : IScreen
 
     private void OnCharCreateOkClicked()
     {
-        var name = CharCreateControl.NameField.Text;
-        var password = CharCreateControl.PasswordField.Text;
-        var passwordConfirm = CharCreateControl.PasswordConfirmField.Text;
+        var name = CharCreateControl.NameField?.Text;
+        var password = CharCreateControl.PasswordField?.Text;
+        var passwordConfirm = CharCreateControl.PasswordConfirmField?.Text;
 
         if (string.IsNullOrWhiteSpace(name) || string.IsNullOrWhiteSpace(password))
         {
@@ -306,8 +269,8 @@ public sealed class LobbyLoginScreen : IScreen
         if (password != passwordConfirm)
         {
             PopupMessage.Show("Passwords do not match.");
-            CharCreateControl.PasswordField.Text = string.Empty;
-            CharCreateControl.PasswordConfirmField.Text = string.Empty;
+            CharCreateControl.PasswordField?.Text = string.Empty;
+            CharCreateControl.PasswordConfirmField?.Text = string.Empty;
 
             return;
         }
@@ -337,10 +300,10 @@ public sealed class LobbyLoginScreen : IScreen
 
     private void OnPasswordChangeOkClicked()
     {
-        var name = PasswordChangeControl.NameField.Text;
-        var currentPassword = PasswordChangeControl.CurrentPasswordField.Text;
-        var newPassword = PasswordChangeControl.NewPasswordField.Text;
-        var confirmPassword = PasswordChangeControl.ConfirmPasswordField.Text;
+        var name = PasswordChangeControl.NameField?.Text ?? string.Empty;
+        var currentPassword = PasswordChangeControl.CurrentPasswordField?.Text ?? string.Empty;
+        var newPassword = PasswordChangeControl.NewPasswordField?.Text ?? string.Empty;
+        var confirmPassword = PasswordChangeControl.ConfirmPasswordField?.Text ?? string.Empty;
 
         if (string.IsNullOrWhiteSpace(name) || string.IsNullOrWhiteSpace(currentPassword) || string.IsNullOrWhiteSpace(newPassword))
         {
@@ -352,8 +315,8 @@ public sealed class LobbyLoginScreen : IScreen
         if (newPassword != confirmPassword)
         {
             PopupMessage.Show("New passwords do not match.");
-            PasswordChangeControl.NewPasswordField.Text = string.Empty;
-            PasswordChangeControl.ConfirmPasswordField.Text = string.Empty;
+            PasswordChangeControl.NewPasswordField?.Text = string.Empty;
+            PasswordChangeControl.ConfirmPasswordField?.Text = string.Empty;
 
             return;
         }
@@ -382,17 +345,23 @@ public sealed class LobbyLoginScreen : IScreen
             return;
         }
 
-        Process.Start(
-            new ProcessStartInfo(HomepageUrl)
-            {
-                UseShellExecute = true
-            });
+        try
+        {
+            Process.Start(
+                new ProcessStartInfo(HomepageUrl)
+                {
+                    UseShellExecute = true
+                });
+        } catch
+        {
+            SetStatus("Could not open browser.", Color.Yellow);
+        }
     }
 
     private void OnLoginOkClicked()
     {
-        var username = LoginControl.UsernameField.Text;
-        var password = LoginControl.PasswordField.Text;
+        var username = LoginControl.UsernameField?.Text ?? string.Empty;
+        var password = LoginControl.PasswordField?.Text ?? string.Empty;
 
         if (string.IsNullOrWhiteSpace(username) || string.IsNullOrWhiteSpace(password))
         {
@@ -419,6 +388,12 @@ public sealed class LobbyLoginScreen : IScreen
     {
         ServerSelectControl.Visible = false;
         SetStatus("Selecting server...", Color.LightBlue);
+
+        var server = ServerList.FirstOrDefault(s => s.Id == serverId);
+
+        if (server is not null)
+            Game.Connection.ServerName = server.Name;
+
         Game.Connection.SelectServer(serverId);
     }
     #endregion
@@ -469,7 +444,9 @@ public sealed class LobbyLoginScreen : IScreen
 
     private void OnServerTableReceived(ServerTableData data)
     {
-        if (data.ShowServerList && (data.Servers.Count > 1))
+        ServerList = data.Servers;
+
+        if (data is { ShowServerList: true, Servers.Count: > 1 })
         {
             SetStatus("Select a server.", Color.LightBlue);
             ServerSelectControl.SetServers(data.Servers);
@@ -478,6 +455,7 @@ public sealed class LobbyLoginScreen : IScreen
         {
             // Auto-select the first (or only) server
             SetStatus("Selecting server...", Color.LightBlue);
+            Game.Connection.ServerName = data.Servers[0].Name;
             Game.Connection.SelectServer(data.Servers[0].Id);
         } else
             SetStatus("No servers available.", Color.IndianRed);
@@ -511,8 +489,13 @@ public sealed class LobbyLoginScreen : IScreen
         // Login failed — show login again for retry, clear password
         Connecting = false;
         LoginControl.Visible = true;
-        LoginControl.PasswordField.Text = string.Empty;
-        LoginControl.PasswordField.IsFocused = true;
+
+        if (LoginControl.PasswordField is not null)
+        {
+            LoginControl.PasswordField.Text = string.Empty;
+            LoginControl.PasswordField.IsFocused = true;
+        }
+
         PopupMessage.Show(args.Message ?? "Login failed.");
     }
 
@@ -548,12 +531,25 @@ public sealed class LobbyLoginScreen : IScreen
         Connecting = false;
         AwaitingCharFinalize = false;
 
-        if (args.LoginMessageType == LoginMessageType.ClearNameMessage)
-            CharCreateControl.NameField.Text = string.Empty;
-        else if (args.LoginMessageType == LoginMessageType.ClearPswdMessage)
+        switch (args.LoginMessageType)
         {
-            CharCreateControl.PasswordField.Text = string.Empty;
-            CharCreateControl.PasswordConfirmField.Text = string.Empty;
+            case LoginMessageType.ClearNameMessage:
+                CharCreateControl.NameField?.Text = string.Empty;
+
+                break;
+            case LoginMessageType.ClearPswdMessage:
+                CharCreateControl.PasswordField?.Text = string.Empty;
+                CharCreateControl.PasswordConfirmField?.Text = string.Empty;
+
+                break;
+            case LoginMessageType.Confirm:
+                break;
+            case LoginMessageType.CharacterDoesntExist:
+                break;
+            case LoginMessageType.WrongPassword:
+                break;
+            default:
+                throw new ArgumentOutOfRangeException();
         }
 
         PopupMessage.Show(args.Message ?? "Character creation failed.");

@@ -1,21 +1,12 @@
 #region
 using Chaos.Client.Collections;
+using Chaos.Client.Definitions;
 using Chaos.Client.Rendering;
 using Chaos.Geometry.Abstractions.Definitions;
 using Microsoft.Xna.Framework;
 #endregion
 
 namespace Chaos.Client.Models;
-
-/// <summary>
-///     The type of a visible entity in the game world.
-/// </summary>
-public enum EntityType : byte
-{
-    Aisling,
-    Creature,
-    GroundItem
-}
 
 /// <summary>
 ///     Represents a visible entity in the game world. Tracked by <see cref="WorldState" /> and rendered by GameScreen.
@@ -38,7 +29,7 @@ public sealed class WorldEntity
     // Position
     public int TileX { get; set; }
     public int TileY { get; set; }
-    public EntityType Type { get; set; }
+    public ClientEntityType Type { get; set; }
 
     // Movement interpolation (snap for now, lerp later)
     public Vector2 VisualOffset { get; set; }

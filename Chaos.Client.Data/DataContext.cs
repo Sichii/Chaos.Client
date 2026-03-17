@@ -9,30 +9,54 @@ public static class DataContext
     /// <summary>
     ///     The client version sent during the lobby handshake.
     /// </summary>
-    public static ushort ClientVersion { get; set; } = 741;
+    public static ushort ClientVersion { get; private set; }
+
+    public static CreatureSpriteRepository CreatureSprites { get; private set; } = null!;
 
     /// <summary>
     ///     The root path to the Dark Ages installation directory. Must be set before accessing any repositories or archives.
     /// </summary>
-    public static string DataPath { get; set; } = @"C:\Users\Despe\Desktop\Unora\Unora"; //@"C:\Users\Despe\Desktop\Dark Ages";
+    public static string DataPath { get; private set; } = null!;
+
+    public static EffectsRepository Effects { get; private set; } = null!;
 
     /// <summary>
     ///     The lobby server hostname or IP address.
     /// </summary>
-    public static string LobbyHost { get; set; } = "127.0.0.1"; //"da0.kru.com";
+    public static string LobbyHost { get; private set; } = null!;
 
     /// <summary>
     ///     The lobby server port.
     /// </summary>
-    public static int LobbyPort { get; set; } = 4200; //2610;
+    public static int LobbyPort { get; private set; }
 
-    public static CreatureSpriteRepository CreatureSprites { get; } = new();
-    public static EffectsRepository Effects { get; } = new();
-    public static MapFileRepository MapsFiles { get; } = new();
-    public static MetaFileRepository MetaFiles { get; } = new();
-    public static PanelIconRepository PanelIcons { get; } = new();
-    public static PanelItemRepository PanelItems { get; } = new();
-    public static SoundRepository Sounds { get; } = new();
-    public static TileRepository Tiles { get; } = new();
-    public static UiComponentRepository UserControls { get; } = new();
+    public static MapFileRepository MapsFiles { get; private set; } = null!;
+    public static MetaFileRepository MetaFiles { get; private set; } = null!;
+    public static PanelIconRepository PanelIcons { get; private set; } = null!;
+    public static PanelItemRepository PanelItems { get; private set; } = null!;
+    public static SoundRepository Sounds { get; private set; } = null!;
+    public static TileRepository Tiles { get; private set; } = null!;
+    public static UiComponentRepository UserControls { get; private set; } = null!;
+
+    public static void Initialize(
+        ushort clientVersion,
+        string dataPath,
+        string lobbyHost,
+        int lobbyPort)
+    {
+        ClientVersion = clientVersion;
+        DataPath = dataPath;
+        LobbyHost = lobbyHost;
+        LobbyPort = lobbyPort;
+
+        CreatureSprites = new CreatureSpriteRepository();
+        Effects = new EffectsRepository();
+        MapsFiles = new MapFileRepository();
+        MetaFiles = new MetaFileRepository();
+        PanelIcons = new PanelIconRepository();
+        PanelItems = new PanelItemRepository();
+        Sounds = new SoundRepository();
+        Tiles = new TileRepository();
+        UserControls = new UiComponentRepository();
+    }
 }

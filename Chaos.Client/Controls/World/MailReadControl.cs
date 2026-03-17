@@ -12,19 +12,18 @@ namespace Chaos.Client.Controls.World;
 ///     Mail reading panel using _nmailr prefab. Displays a received mail message with author, title, date, and body text.
 ///     Buttons: Prev, Next, New, Reply, Delete, Up (back to list), Quit (close).
 /// </summary>
-public class MailReadControl : PrefabPanel
+public sealed class MailReadControl : PrefabPanel
 {
     private const int LINE_HEIGHT = 12;
 
     private readonly UILabel? AuthorLabel;
     private readonly Rectangle ContentRect;
     private readonly UILabel? DateLabel;
+    private readonly CachedText[] LineCaches;
 
-    private readonly GraphicsDevice DeviceRef;
     private readonly int MaxVisibleLines;
     private readonly UILabel? TitleLabel;
     private int DataVersion;
-    private readonly CachedText[] LineCaches = [];
     private int RenderedVersion = -1;
     private int ScrollOffset;
     private List<string> WrappedLines = [];
@@ -44,7 +43,6 @@ public class MailReadControl : PrefabPanel
     public MailReadControl(GraphicsDevice device)
         : base(device, "_nmailr")
     {
-        DeviceRef = device;
         Name = "MailRead";
         Visible = false;
 
@@ -137,25 +135,6 @@ public class MailReadControl : PrefabPanel
         }
     }
 
-    private static int FindLineBreak(string text, int maxWidth)
-    {
-        var width = 0;
-        var lastSpace = -1;
-
-        for (var i = 0; i < text.Length; i++)
-        {
-            if (text[i] == ' ')
-                lastSpace = i;
-
-            width += TextRenderer.MeasureCharWidth(text[i]);
-
-            if (width > maxWidth)
-                return lastSpace > 0 ? lastSpace + 1 : Math.Max(1, i);
-        }
-
-        return text.Length;
-    }
-
     public event Action? OnClose;
     public event Action<short>? OnDeletePost;
     public event Action? OnNewMail;
@@ -174,12 +153,8 @@ public class MailReadControl : PrefabPanel
         {
             var lineIndex = ScrollOffset + i;
 
-            if (lineIndex < WrappedLines.Count)
-                LineCaches[i]
-                    .Update(WrappedLines[lineIndex], 0, Color.White);
-            else
-                LineCaches[i]
-                    .Update(string.Empty, 0, Color.White);
+            LineCaches[i]
+                .Update(lineIndex < WrappedLines.Count ? WrappedLines[lineIndex] : string.Empty, Color.White);
         }
     }
 
@@ -204,11 +179,10 @@ public class MailReadControl : PrefabPanel
         TitleLabel?.SetText(subject);
         DateLabel?.SetText($"{month}/{day}");
 
-        if (PrevButton is not null)
-            PrevButton.Enabled = enablePrev;
+        PrevButton?.Enabled = enablePrev;
 
         // Word-wrap message into lines
-        WrappedLines = WrapText(message, ContentRect.Width);
+        WrappedLines = TextRenderer.WrapLines(message, ContentRect.Width);
 
         Show();
     }
@@ -235,36 +209,5 @@ public class MailReadControl : PrefabPanel
 
             DataVersion++;
         }
-    }
-
-    private static List<string> WrapText(string text, int maxWidth)
-    {
-        var lines = new List<string>();
-
-        if ((maxWidth <= 0) || string.IsNullOrEmpty(text))
-            return lines;
-
-        // Split on explicit newlines first
-        foreach (var paragraph in text.Split('\n'))
-        {
-            var remaining = paragraph;
-
-            while (remaining.Length > 0)
-            {
-                var lineEnd = FindLineBreak(remaining, maxWidth);
-
-                lines.Add(
-                    remaining[..lineEnd]
-                        .TrimEnd());
-
-                remaining = remaining[lineEnd..]
-                    .TrimStart();
-            }
-
-            if (paragraph.Length == 0)
-                lines.Add(string.Empty);
-        }
-
-        return lines;
     }
 }

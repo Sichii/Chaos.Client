@@ -1,7 +1,9 @@
 #region
 using Chaos.Client.Controls.Components;
+using Chaos.Client.Controls.Generic;
 using Chaos.Client.Controls.World;
 using Chaos.Client.Data;
+using Chaos.Client.Definitions;
 using Chaos.Client.Models;
 using Chaos.Client.Rendering;
 using Chaos.DarkAges.Definitions;
@@ -12,18 +14,19 @@ using DALib.Data;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using Microsoft.Xna.Framework.Input;
-using PublicMessageType = Chaos.DarkAges.Definitions.PublicMessageType;
-using ServerMessageType = Chaos.DarkAges.Definitions.ServerMessageType;
-using DialogArgsType = Chaos.DarkAges.Definitions.DialogArgsType;
-using NpcEntityType = Chaos.DarkAges.Definitions.EntityType;
-using PanelType = Chaos.DarkAges.Definitions.PanelType;
-using ExchangeRequestType = Chaos.DarkAges.Definitions.ExchangeRequestType;
-using ExchangeResponseType = Chaos.DarkAges.Definitions.ExchangeResponseType;
 using BoardOrResponseType = Chaos.DarkAges.Definitions.BoardOrResponseType;
 using BoardRequestType = Chaos.DarkAges.Definitions.BoardRequestType;
+using ClientGroupSwitch = Chaos.DarkAges.Definitions.ClientGroupSwitch;
 using CONSTANTS = DALib.Definitions.CONSTANTS;
-using EntityType = Chaos.Client.Models.EntityType;
+using DialogArgsType = Chaos.DarkAges.Definitions.DialogArgsType;
+using ExchangeRequestType = Chaos.DarkAges.Definitions.ExchangeRequestType;
+using ExchangeResponseType = Chaos.DarkAges.Definitions.ExchangeResponseType;
 using MarkColor = Chaos.DarkAges.Definitions.MarkColor;
+using NpcEntityType = Chaos.DarkAges.Definitions.EntityType;
+using PanelType = Chaos.DarkAges.Definitions.PanelType;
+using PublicMessageType = Chaos.DarkAges.Definitions.PublicMessageType;
+using ServerMessageType = Chaos.DarkAges.Definitions.ServerMessageType;
+using UserOption = Chaos.DarkAges.Definitions.UserOption;
 #endregion
 
 namespace Chaos.Client.Screens;
@@ -63,10 +66,12 @@ public sealed class WorldScreen : IScreen
     private ChaosGame Game = null!;
     private GroupControl GroupPanel = null!;
     private HotkeyHelpControl HotkeyHelp = null!;
-    private GameHudPanel Hud = null!;
+    private MainGameHudControl Hud = null!;
+    private MacroMenuControl MacroMenu = null!;
     private MailListControl MailList = null!;
     private MailReadControl MailRead = null!;
     private MailSendControl MailSend = null!;
+    private MainOptionsControl MainOptions = null!;
 
     private MapFile? MapFile;
     private bool MapPreloaded;
@@ -74,10 +79,10 @@ public sealed class WorldScreen : IScreen
 
     // Overlay panels (rendered on top of HUD)
     private NpcDialogControl NpcDialog = null!;
-    private OptionsDialogControl OptionsDialog = null!;
     private RasterizerState ScissorRasterizerState = null!;
     private SettingsControl SettingsDialog = null!;
-    private StatusBookControl StatusBook = null!;
+    private SelfProfileTabControl StatusBook = null!;
+    private TextPopupControl TextPopup = null!;
     private float WalkTimer;
     private WorldListControl WorldList = null!;
 
@@ -90,7 +95,7 @@ public sealed class WorldScreen : IScreen
     /// <inheritdoc />
     public void Draw(SpriteBatch spriteBatch, GameTime gameTime)
     {
-        // World rendering — clipped to the HUD viewport area
+        // Pass 1: World rendering — clipped to the HUD viewport area, camera transform
         if (MapFile is not null && MapPreloaded)
         {
             var viewportRect = Hud.ViewportBounds;
@@ -98,7 +103,7 @@ public sealed class WorldScreen : IScreen
 
             var transform = Matrix.CreateTranslation(viewportRect.X, viewportRect.Y, 0);
 
-            spriteBatch.Begin(samplerState: SamplerState.PointClamp, rasterizerState: ScissorRasterizerState, transformMatrix: transform);
+            spriteBatch.Begin(samplerState: GlobalSettings.Sampler, rasterizerState: ScissorRasterizerState, transformMatrix: transform);
 
             MapRenderer.DrawBackground(spriteBatch, MapFile, Camera);
             DrawForegroundAndEntities(spriteBatch);
@@ -106,50 +111,9 @@ public sealed class WorldScreen : IScreen
             spriteBatch.End();
         }
 
-        // HUD overlay — full screen, no transform
-        spriteBatch.Begin(samplerState: SamplerState.PointClamp);
-        Hud.Draw(spriteBatch);
-
-        // Overlay panels on top of HUD
-        if (NpcDialog.Visible)
-            NpcDialog.Draw(spriteBatch);
-
-        if (OptionsDialog.Visible)
-            OptionsDialog.Draw(spriteBatch);
-
-        if (SettingsDialog.Visible)
-            SettingsDialog.Draw(spriteBatch);
-
-        if (HotkeyHelp.Visible)
-            HotkeyHelp.Draw(spriteBatch);
-
-        if (GroupPanel.Visible)
-            GroupPanel.Draw(spriteBatch);
-
-        if (WorldList.Visible)
-            WorldList.Draw(spriteBatch);
-
-        if (FriendsList.Visible)
-            FriendsList.Draw(spriteBatch);
-
-        if (Exchange.Visible)
-            Exchange.Draw(spriteBatch);
-
-        if (MailList.Visible)
-            MailList.Draw(spriteBatch);
-
-        if (MailRead.Visible)
-            MailRead.Draw(spriteBatch);
-
-        if (MailSend.Visible)
-            MailSend.Draw(spriteBatch);
-
-        if (StatusBook.Visible)
-            StatusBook.Draw(spriteBatch);
-
-        if (ContextMenu.Visible)
-            ContextMenu.Draw(spriteBatch);
-
+        // Pass 2: UI overlay — full screen, no transform
+        spriteBatch.Begin(samplerState: GlobalSettings.Sampler);
+        Root!.Draw(spriteBatch);
         spriteBatch.End();
     }
 
@@ -228,6 +192,10 @@ public sealed class WorldScreen : IScreen
 
         // Light level
         Game.Connection.OnLightLevel += HandleLightLevel;
+
+        // Notepad popups
+        Game.Connection.OnDisplayReadonlyNotepad += HandleDisplayReadonlyNotepad;
+        Game.Connection.OnDisplayEditableNotepad += HandleDisplayEditableNotepad;
     }
 
     /// <inheritdoc />
@@ -236,7 +204,7 @@ public sealed class WorldScreen : IScreen
         Device = graphicsDevice;
 
         // HUD defines the viewport bounds for world rendering
-        Hud = new GameHudPanel(graphicsDevice);
+        Hud = new MainGameHudControl(graphicsDevice);
 
         var viewport = Hud.ViewportBounds;
         Camera = new Camera(viewport.Width, viewport.Height);
@@ -247,30 +215,80 @@ public sealed class WorldScreen : IScreen
             ScissorTestEnable = true
         };
 
-        // Overlay panels
+        // Overlay panels — ZIndex: -2 sub-panels, -1 slide panels, 0 standard (default), 1 popups, 2 context menu
         NpcDialog = new NpcDialogControl(graphicsDevice);
         WireNpcDialog();
 
-        OptionsDialog = new OptionsDialogControl(graphicsDevice);
+        MainOptions = new MainOptionsControl(graphicsDevice)
+        {
+            ZIndex = -1
+        };
+        MainOptions.SetViewportBounds(Hud.ViewportBounds);
         WireOptionsDialog();
 
-        SettingsDialog = new SettingsControl(graphicsDevice);
+        // Sub-panels slide out from MainOptions' left edge, render behind it
+        var optionsAnchorX = Hud.ViewportBounds.X + Hud.ViewportBounds.Width - MainOptions.Width + 10;
+        var optionsAnchorY = Hud.ViewportBounds.Y;
+
+        SettingsDialog = new SettingsControl(graphicsDevice)
+        {
+            ZIndex = -2
+        };
+        SettingsDialog.SetSlideAnchor(optionsAnchorX, optionsAnchorY);
+
+        SettingsDialog.OnSettingToggled += (index, _) =>
+        {
+            var option = (UserOption)(index + 1);
+            Game.Connection.SendOptionToggle(option);
+        };
+
+        MacroMenu = new MacroMenuControl(graphicsDevice)
+        {
+            ZIndex = -2
+        };
+        MacroMenu.SetSlideAnchor(optionsAnchorX, optionsAnchorY);
 
         HotkeyHelp = new HotkeyHelpControl(graphicsDevice);
+
         GroupPanel = new GroupControl(graphicsDevice);
-        WorldList = new WorldListControl(graphicsDevice);
+
+        GroupPanel.OnInvite += () =>
+        {
+            // Open chat in "Group: " mode for typing an invite target name
+            FocusChat("Group invite: ", new Color(154, 205, 50));
+        };
+
+        WorldList = new WorldListControl(graphicsDevice)
+        {
+            ZIndex = -1
+        };
         WorldList.SetViewportBounds(Hud.ViewportBounds);
-        FriendsList = new FriendsListControl(graphicsDevice);
+
+        FriendsList = new FriendsListControl(graphicsDevice)
+        {
+            ZIndex = -2
+        };
+        FriendsList.SetSlideAnchor(optionsAnchorX, optionsAnchorY);
+
         Exchange = new ExchangeControl(graphicsDevice);
         MailList = new MailListControl(graphicsDevice);
         MailRead = new MailReadControl(graphicsDevice);
         MailSend = new MailSendControl(graphicsDevice);
         WireExchange();
         WireMailControls();
-        StatusBook = new StatusBookControl(graphicsDevice);
-        ContextMenu = new ContextMenu(graphicsDevice);
 
-        // Root panel for debug overlay traversal
+        StatusBook = new SelfProfileTabControl(graphicsDevice);
+
+        TextPopup = new TextPopupControl(graphicsDevice)
+        {
+            ZIndex = 1
+        };
+
+        ContextMenu = new ContextMenu(graphicsDevice)
+        {
+            ZIndex = 2
+        };
+
         Root = new UIPanel
         {
             Name = "WorldRoot",
@@ -279,8 +297,9 @@ public sealed class WorldScreen : IScreen
         };
         Root.AddChild(Hud);
         Root.AddChild(NpcDialog);
-        Root.AddChild(OptionsDialog);
+        Root.AddChild(MainOptions);
         Root.AddChild(SettingsDialog);
+        Root.AddChild(MacroMenu);
         Root.AddChild(HotkeyHelp);
         Root.AddChild(GroupPanel);
         Root.AddChild(WorldList);
@@ -290,11 +309,12 @@ public sealed class WorldScreen : IScreen
         Root.AddChild(MailRead);
         Root.AddChild(MailSend);
         Root.AddChild(StatusBook);
+        Root.AddChild(TextPopup);
         Root.AddChild(ContextMenu);
 
         // Wire HUD buttons
         if (Hud.OptionButton is not null)
-            Hud.OptionButton.OnClick += () => OptionsDialog.Show();
+            Hud.OptionButton.OnClick += () => MainOptions.Show();
 
         if (Hud.HelpButton is not null)
             Hud.HelpButton.OnClick += () => HotkeyHelp.Show();
@@ -317,7 +337,7 @@ public sealed class WorldScreen : IScreen
             };
 
         if (Hud.BulletinButton is not null)
-            Hud.BulletinButton.OnClick += () => Hud.ShowOrangeBarMessage("Bulletin boards are not yet implemented.");
+            Hud.BulletinButton.OnClick += () => Game.Connection.SendBoardInteraction(BoardRequestType.BoardList);
 
         if (Hud.LegendButton is not null)
             Hud.LegendButton.OnClick += () => Game.Connection.RequestSelfProfile();
@@ -326,10 +346,11 @@ public sealed class WorldScreen : IScreen
             Hud.TownMapButton.OnClick += () => Hud.ShowOrangeBarMessage("Town map is not yet implemented.");
 
         if (Hud.ExpandButton is not null)
-            Hud.ExpandButton.OnClick += () => ShowStatusBook();
+            Hud.ExpandButton.OnClick += () => Hud.ShowOrangeBarMessage("Hud expant is not yet implmented.");
 
-        // Set the player entity ID from the connection
+        // Set the player entity ID and server name from the connection
         Game.World.PlayerEntityId = Game.Connection.AislingId;
+        Hud.SetServerName(Game.Connection.ServerName);
 
         // If we already have map info from the connection (world entry completed before screen switch),
         // build the map file and try to preload
@@ -362,6 +383,9 @@ public sealed class WorldScreen : IScreen
             Hud.SpellBookAlt.SetSlotName(slot, name);
         }
 
+        // Request current server settings (populates setting names/values)
+        Game.Connection.SendOptionToggle(UserOption.Request);
+
         // Wire panel click-to-use events
         Hud.Inventory.OnSlotClicked += HandleInventorySlotClicked;
         Hud.Inventory.OnSlotSwapped += (s, t) => Game.Connection.SwapSlot(PanelType.Inventory, s, t);
@@ -374,6 +398,13 @@ public sealed class WorldScreen : IScreen
         Hud.SpellBook.OnSlotSwapped += (s, t) => Game.Connection.SwapSlot(PanelType.SpellBook, s, t);
         Hud.SpellBookAlt.OnSlotClicked += HandleSpellSlotClicked;
         Hud.SpellBookAlt.OnSlotSwapped += (s, t) => Game.Connection.SwapSlot(PanelType.SpellBook, s, t);
+
+        // Wire hover description for all grid panels
+        Hud.Inventory.OnSlotHovered += Hud.SetDescription;
+        Hud.SkillBook.OnSlotHovered += Hud.SetDescription;
+        Hud.SkillBookAlt.OnSlotHovered += Hud.SetDescription;
+        Hud.SpellBook.OnSlotHovered += Hud.SetDescription;
+        Hud.SpellBookAlt.OnSlotHovered += Hud.SetDescription;
 
         // Apply player name from entity if already tracked
         var player = Game.World.GetPlayerEntity();
@@ -420,6 +451,8 @@ public sealed class WorldScreen : IScreen
         Game.Connection.OnExitResponse -= HandleExitResponse;
         Game.Connection.OnHealthBar -= HandleHealthBar;
         Game.Connection.OnLightLevel -= HandleLightLevel;
+        Game.Connection.OnDisplayReadonlyNotepad -= HandleDisplayReadonlyNotepad;
+        Game.Connection.OnDisplayEditableNotepad -= HandleDisplayEditableNotepad;
 
         // Unwire panel click-to-use events
         Hud.Inventory.OnSlotClicked -= HandleInventorySlotClicked;
@@ -428,8 +461,8 @@ public sealed class WorldScreen : IScreen
         Hud.SpellBook.OnSlotClicked -= HandleSpellSlotClicked;
         Hud.SpellBookAlt.OnSlotClicked -= HandleSpellSlotClicked;
 
-        MapRenderer?.Dispose();
-        ScissorRasterizerState?.Dispose();
+        MapRenderer.Dispose();
+        ScissorRasterizerState.Dispose();
         Root?.Dispose();
         ClearAislingCache();
         ClearGroundItemCache();
@@ -449,9 +482,28 @@ public sealed class WorldScreen : IScreen
             return;
         }
 
-        if (OptionsDialog.Visible)
+        if (MainOptions.Visible)
         {
-            OptionsDialog.Update(gameTime, input);
+            // Sub-panels slide out from MainOptions — update them alongside it
+            // If a sub-panel is open, it gets input priority (consumes Escape before MainOptions)
+            var subPanelOpen = false;
+
+            if (MacroMenu.Visible)
+            {
+                MacroMenu.Update(gameTime, input);
+                subPanelOpen = true;
+            } else if (SettingsDialog.Visible)
+            {
+                SettingsDialog.Update(gameTime, input);
+                subPanelOpen = true;
+            } else if (FriendsList.Visible)
+            {
+                FriendsList.Update(gameTime, input);
+                subPanelOpen = true;
+            }
+
+            if (!subPanelOpen)
+                MainOptions.Update(gameTime, input);
 
             return;
         }
@@ -459,6 +511,13 @@ public sealed class WorldScreen : IScreen
         if (SettingsDialog.Visible)
         {
             SettingsDialog.Update(gameTime, input);
+
+            return;
+        }
+
+        if (MacroMenu.Visible)
+        {
+            MacroMenu.Update(gameTime, input);
 
             return;
         }
@@ -515,6 +574,13 @@ public sealed class WorldScreen : IScreen
         if (MailList.Visible)
         {
             MailList.Update(gameTime, input);
+
+            return;
+        }
+
+        if (TextPopup.Visible)
+        {
+            TextPopup.Update(gameTime, input);
 
             return;
         }
@@ -589,21 +655,32 @@ public sealed class WorldScreen : IScreen
             var shift = input.IsKeyHeld(Keys.LeftShift) || input.IsKeyHeld(Keys.RightShift);
 
             if (input.WasKeyPressed(Keys.A))
-                Hud.ShowTab(HudTab.Inventory);
-            else if (input.WasKeyPressed(Keys.S))
+            {
+                if (Hud.ActiveTab == HudTab.Inventory)
+                    Game.Connection.RequestSelfProfile();
+                else
+                    Hud.ShowTab(HudTab.Inventory);
+            } else if (input.WasKeyPressed(Keys.S))
                 Hud.ShowTab(shift ? HudTab.SkillsAlt : HudTab.Skills);
             else if (input.WasKeyPressed(Keys.D))
                 Hud.ShowTab(shift ? HudTab.SpellsAlt : HudTab.Spells);
             else if (input.WasKeyPressed(Keys.F))
-                Hud.ShowTab(HudTab.Chat);
+                Hud.ShowTab(shift ? HudTab.MessageHistory : HudTab.Chat);
             else if (input.WasKeyPressed(Keys.G))
                 Hud.ShowTab(shift ? HudTab.ExtendedStats : HudTab.Stats);
             else if (input.WasKeyPressed(Keys.H))
                 Hud.ShowTab(HudTab.Tools);
+            else if (input.WasKeyPressed(Keys.T))
+                if (!Hud.ChatInput.IsFocused)
+                    FocusChat(string.Empty, Color.White);
 
             // F1 — hotkey help
             if (input.WasKeyPressed(Keys.F1))
                 HotkeyHelp.Show();
+
+            // F3 — macro menu
+            if (input.WasKeyPressed(Keys.F3))
+                MacroMenu.Show();
 
             // F4 — settings
             if (input.WasKeyPressed(Keys.F4))
@@ -612,6 +689,23 @@ public sealed class WorldScreen : IScreen
             // F5 — refresh
             if (input.WasKeyPressed(Keys.F5))
                 Game.Connection.RequestRefresh();
+
+            // F7 — mail
+            if (input.WasKeyPressed(Keys.F7))
+                Game.Connection.SendBoardInteraction(BoardRequestType.ViewBoard);
+
+            // F8 — group panel
+            if (input.WasKeyPressed(Keys.F8))
+                GroupPanel.Show();
+
+            // F9 — focus chat input
+            if (input.WasKeyPressed(Keys.F9))
+                if (!Hud.ChatInput.IsFocused)
+                    FocusChat(string.Empty, Color.White);
+
+            // F10 — friends list
+            if (input.WasKeyPressed(Keys.F10))
+                FriendsList.Show();
 
             // Spacebar — assail
             if (input.WasKeyPressed(Keys.Space))
@@ -883,31 +977,34 @@ public sealed class WorldScreen : IScreen
     }
     #endregion
 
-    #region Options Dialog Wiring
-    private void WireOptionsDialog()
-    {
-        OptionsDialog.OnClose += () => OptionsDialog.Hide();
-
-        OptionsDialog.OnSettings += () =>
-        {
-            OptionsDialog.Hide();
-            SettingsDialog.Show();
-        };
-
-        OptionsDialog.OnFriends += () =>
-        {
-            OptionsDialog.Hide();
-            FriendsList.Show();
-        };
-        OptionsDialog.OnExit += () => Game.Connection.RequestExit();
-    }
-    #endregion
-
     private record struct AislingCacheEntry(
         AislingAppearance Appearance,
         int FrameIndex,
         bool Flip,
         Texture2D? Texture);
+
+    #region Options Dialog Wiring
+    private void WireOptionsDialog()
+    {
+        MainOptions.OnMacro += () => ToggleSubPanel(MacroMenu);
+        MainOptions.OnSettings += () => ToggleSubPanel(SettingsDialog);
+        MainOptions.OnFriends += () => ToggleSubPanel(FriendsList);
+
+        MainOptions.OnExit += () => Game.Connection.RequestExit();
+    }
+
+    private static void ToggleSubPanel(PrefabPanel panel)
+    {
+        if (panel.Visible)
+            panel.Hide();
+        else if (panel is MacroMenuControl macro)
+            macro.SlideIn();
+        else if (panel is SettingsControl settings)
+            settings.SlideIn();
+        else if (panel is FriendsListControl friends)
+            friends.SlideIn();
+    }
+    #endregion
 
     #region Entity Rendering
     private void DrawEntity(SpriteBatch spriteBatch, WorldEntity entity)
@@ -921,7 +1018,7 @@ public sealed class WorldScreen : IScreen
 
         switch (entity.Type)
         {
-            case EntityType.Aisling:
+            case ClientEntityType.Aisling:
                 DrawAisling(
                     spriteBatch,
                     entity,
@@ -930,7 +1027,7 @@ public sealed class WorldScreen : IScreen
 
                 break;
 
-            case EntityType.Creature:
+            case ClientEntityType.Creature:
                 DrawCreature(
                     spriteBatch,
                     entity,
@@ -939,7 +1036,7 @@ public sealed class WorldScreen : IScreen
 
                 break;
 
-            case EntityType.GroundItem:
+            case ClientEntityType.GroundItem:
                 DrawGroundItem(
                     spriteBatch,
                     entity,
@@ -1132,7 +1229,7 @@ public sealed class WorldScreen : IScreen
         MapFile = LoadMapFile(mapInfo.MapId, mapInfo.Width, mapInfo.Height);
         MapPreloaded = false;
 
-        Hud.SetZoneName(mapInfo.Name ?? string.Empty);
+        Hud.SetZoneName(mapInfo.Name);
 
         // Preload tiles immediately if we have the map
         if (MapFile is not null)
@@ -1147,7 +1244,7 @@ public sealed class WorldScreen : IScreen
     private void HandleMapInfo(MapInfoArgs args)
     {
         // New map — dispose old caches, load fresh MapFile from local files
-        MapRenderer?.Dispose();
+        MapRenderer.Dispose();
         MapRenderer = new MapRenderer();
         MapFile = LoadMapFile(args.MapId, args.Width, args.Height);
         MapPreloaded = false;
@@ -1159,7 +1256,7 @@ public sealed class WorldScreen : IScreen
         ClearAislingCache();
         ClearGroundItemCache();
 
-        Hud.SetZoneName(args.Name ?? string.Empty);
+        Hud.SetZoneName(args.Name);
     }
 
     private void HandleMapData(MapDataArgs args)
@@ -1194,7 +1291,7 @@ public sealed class WorldScreen : IScreen
 
     private void HandleMapLoadComplete()
     {
-        if (MapFile is null || Device is null)
+        if (MapFile is null)
             return;
 
         if (!MapPreloaded)
@@ -1243,7 +1340,7 @@ public sealed class WorldScreen : IScreen
 
         // Update player name in HUD when the player's own aisling is displayed
         if (args.Id == Game.Connection.AislingId)
-            Hud.SetPlayerName(args.Name ?? string.Empty);
+            Hud.SetPlayerName(args.Name);
     }
 
     private void HandleRemoveEntity(uint id)
@@ -1335,10 +1432,80 @@ public sealed class WorldScreen : IScreen
 
                 break;
 
+            case ServerMessageType.ScrollWindow:
+                TextPopup.Show(args.Message);
+
+                break;
+
+            case ServerMessageType.NonScrollWindow:
+                TextPopup.Show(args.Message, PopupStyle.NonScroll);
+
+                break;
+
+            case ServerMessageType.WoodenBoard:
+                TextPopup.Show(args.Message, PopupStyle.Wooden);
+
+                break;
+
+            case ServerMessageType.UserOptions:
+                ParseUserOptions(args.Message);
+
+                break;
+
+            case ServerMessageType.ClosePopup:
+                TextPopup.Hide();
+
+                break;
+
             default:
                 Hud.ShowOrangeBarMessage(args.Message);
 
                 break;
+        }
+    }
+
+    /// <summary>
+    ///     Parses the server's UserOptions response. Format is tab-delimited entries, each formatted as
+    ///     "{optionNum}{description,-25}:{ON/OFF,-3}". A full request response has a leading "0" prefix before all entries.
+    /// </summary>
+    private void ParseUserOptions(string message)
+    {
+        var entries = message.Split('\t', StringSplitOptions.RemoveEmptyEntries);
+
+        foreach (var entry in entries)
+        {
+            if (entry.Length < 2)
+                continue;
+
+            // First char is option number (1-based), or '0' for the leading prefix
+            var numChar = entry[0];
+
+            if (numChar == '0')
+                continue;
+
+            if (!char.IsDigit(numChar))
+                continue;
+
+            var optionIndex = numChar - '1';
+
+            if (optionIndex is < 0 or >= 13)
+                continue;
+
+            // Parse "description   :ON " or "description   :OFF"
+            var colonIdx = entry.LastIndexOf(':');
+
+            if (colonIdx < 1)
+                continue;
+
+            var name = entry[1..colonIdx]
+                .TrimEnd();
+
+            var stateStr = entry[(colonIdx + 1)..]
+                .Trim();
+            var isOn = stateStr.StartsWith("ON", StringComparison.OrdinalIgnoreCase);
+
+            SettingsDialog.SetSettingName(optionIndex, name);
+            SettingsDialog.SetSettingValue(optionIndex, isOn);
         }
     }
 
@@ -1414,6 +1581,16 @@ public sealed class WorldScreen : IScreen
     private void ShowStatusBook()
     {
         StatusBook.RefreshEquipment(Game.Connection.Equipment);
+
+        if (Game.Connection.Attributes is { } attrs)
+            StatusBook.UpdateEquipmentStats(
+                attrs.Str,
+                attrs.Int,
+                attrs.Wis,
+                attrs.Con,
+                attrs.Dex,
+                attrs.Ac);
+
         StatusBook.Show();
     }
 
@@ -1440,7 +1617,7 @@ public sealed class WorldScreen : IScreen
     {
         var entries = args.CountryList
                           .Select(m => new WorldListEntry(
-                              m.Name ?? string.Empty,
+                              m.Name,
                               m.Title,
                               m.BaseClass,
                               m.IsMaster,
@@ -1550,7 +1727,9 @@ public sealed class WorldScreen : IScreen
     {
         var prefix = Hud.ChatInput.Prefix;
 
-        if (prefix.StartsWithI("Group"))
+        if (prefix.StartsWithI("Group invite"))
+            Game.Connection.SendGroupInvite(ClientGroupSwitch.TryInvite, message);
+        else if (prefix.StartsWithI("Group"))
             Game.Connection.SendGroupMessage(message);
         else if (prefix.EndsWithI("! "))
             Game.Connection.SendShout(message);
@@ -1645,7 +1824,7 @@ public sealed class WorldScreen : IScreen
         if (entity is null)
             return;
 
-        if ((entity.Type == EntityType.Aisling) && (entity.Id != Game.Connection.AislingId))
+        if ((entity.Type == ClientEntityType.Aisling) && (entity.Id != Game.Connection.AislingId))
         {
             var name = entity.Name;
 
@@ -1665,12 +1844,12 @@ public sealed class WorldScreen : IScreen
         {
             case ExchangeResponseType.StartExchange:
                 if (args.OtherUserId.HasValue)
-                    Exchange.StartExchange(args.OtherUserId.Value, args.OtherUserName ?? string.Empty);
+                    Exchange.StartExchange(args.OtherUserId.Value, args.OtherUserName);
 
                 break;
 
             case ExchangeResponseType.AddItem:
-                if (args.RightSide.HasValue && args.ItemSprite.HasValue && args.ExchangeIndex.HasValue)
+                if (args is { RightSide: not null, ItemSprite: not null, ExchangeIndex: not null })
                     Exchange.AddItem(
                         args.RightSide.Value,
                         args.ExchangeIndex.Value,
@@ -1680,7 +1859,7 @@ public sealed class WorldScreen : IScreen
                 break;
 
             case ExchangeResponseType.SetGold:
-                if (args.RightSide.HasValue && args.GoldAmount.HasValue)
+                if (args is { RightSide: not null, GoldAmount: not null })
                     Exchange.SetGold(args.RightSide.Value, args.GoldAmount.Value);
 
                 break;
@@ -1710,8 +1889,9 @@ public sealed class WorldScreen : IScreen
     {
         switch (args.Type)
         {
+            case BoardOrResponseType.PublicBoard:
             case BoardOrResponseType.MailBoard:
-                if (args.Board is { } board && board.Posts is not null)
+                if (args.Board is { } board)
                 {
                     var entries = board.Posts
                                        .Select(p => new MailEntry(
@@ -1728,6 +1908,7 @@ public sealed class WorldScreen : IScreen
 
                 break;
 
+            case BoardOrResponseType.PublicPost:
             case BoardOrResponseType.MailPost:
                 if (args.Post is { } post)
                 {
@@ -1739,7 +1920,7 @@ public sealed class WorldScreen : IScreen
                         post.MonthOfYear,
                         post.DayOfMonth,
                         post.Subject,
-                        post.Message ?? string.Empty,
+                        post.Message,
                         args.EnablePrevBtn);
                 }
 
@@ -1747,6 +1928,7 @@ public sealed class WorldScreen : IScreen
 
             case BoardOrResponseType.SubmitPostResponse:
             case BoardOrResponseType.DeletePostResponse:
+            case BoardOrResponseType.HighlightPostResponse:
                 if (args.ResponseMessage is not null)
                     Hud.ShowOrangeBarMessage(args.ResponseMessage);
 
@@ -1755,48 +1937,64 @@ public sealed class WorldScreen : IScreen
     }
 
     private void HandleDisplayGroupInvite(DisplayGroupInviteArgs args)
-        =>
+    {
+        var sourceName = args.SourceName;
 
-            // Auto-accept or show a confirmation dialog
-            // For now, show as orange bar message
-            Hud.ShowOrangeBarMessage($"{args.SourceName} invites you to join a group.");
+        Hud.ShowOrangeBarMessage($"{sourceName} invites you to join a group.");
+
+        // Show accept/decline context menu at center of viewport
+        var vp = Hud.ViewportBounds;
+        var menuX = vp.X + vp.Width / 2;
+        var menuY = vp.Y + vp.Height / 2;
+
+        ContextMenu.Show(
+            menuX,
+            menuY,
+            ($"Accept {sourceName}'s invite", () => Game.Connection.SendGroupInvite(ClientGroupSwitch.AcceptInvite, sourceName)),
+            ("Decline", () => { }));
+    }
 
     private void HandleSelfProfile(SelfProfileArgs args)
     {
         // Populate and show the status book
         StatusBook.SetPlayerInfo(
-            args.Name ?? string.Empty,
-            args.DisplayClass ?? string.Empty,
+            Hud.PlayerName,
+            args.DisplayClass,
             args.GuildName ?? string.Empty,
             args.GuildRank ?? string.Empty,
             args.Title ?? string.Empty);
 
         // Legend marks
-        if (args.LegendMarks is not null)
-        {
-            var marks = args.LegendMarks
-                            .Select(m => new LegendMarkEntry(
-                                m.Text ?? string.Empty,
-                                MapMarkColor(m.Color),
-                                (byte)m.Icon,
-                                m.Key ?? string.Empty))
-                            .ToList();
+        var marks = args.LegendMarks
+                        .Select(m => new LegendMarkEntry(
+                            m.Text,
+                            MapMarkColor(m.Color),
+                            (byte)m.Icon,
+                            m.Key))
+                        .ToList();
 
-            StatusBook.SetLegendMarks(marks);
-        }
+        StatusBook.SetLegendMarks(marks);
 
         // Family info
-        StatusBook.SetFamilyInfo(args.Name ?? string.Empty, args.SpouseName ?? string.Empty);
+        StatusBook.SetFamilyInfo(args.Name, args.SpouseName ?? string.Empty);
+
+        // Paperdoll — render the player's full aisling at south-facing idle
+        var playerEntity = Game.World.GetPlayerEntity();
+
+        if (playerEntity?.Appearance is { } appearance)
+            StatusBook.SetPaperdoll(Game.AislingRenderer, in appearance);
+
+        // Group open state
+        StatusBook.SetGroupOpen(args.GroupOpen);
 
         ShowStatusBook();
     }
 
     private void HandleOtherProfile(OtherProfileArgs args)
-    {
-        // For now, show other player info as an orange bar message
-        if (args.Name is not null)
+        =>
+
+            // For now, show other player info as an orange bar message
             Hud.ShowOrangeBarMessage($"Viewing profile of {args.Name}");
-    }
 
     private static Color MapMarkColor(MarkColor color)
         => color switch
@@ -1839,5 +2037,9 @@ public sealed class WorldScreen : IScreen
     {
         // TODO: apply darkness overlay based on light level
     }
+
+    private void HandleDisplayReadonlyNotepad(DisplayReadonlyNotepadArgs args) => TextPopup.Show(args.Message);
+
+    private void HandleDisplayEditableNotepad(DisplayEditableNotepadArgs args) => TextPopup.Show(args.Message);
     #endregion
 }

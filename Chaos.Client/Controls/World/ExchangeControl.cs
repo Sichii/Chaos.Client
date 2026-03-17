@@ -1,6 +1,7 @@
 #region
 using Chaos.Client.Controls.Components;
 using Chaos.Client.Data;
+using Chaos.Client.Definitions;
 using Chaos.Client.Rendering;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
@@ -14,15 +15,12 @@ namespace Chaos.Client.Controls.World;
 ///     items/gold). Up to 4 items per side (169x144 grid area, ~36px per row). Server drives all state via
 ///     DisplayExchangeArgs.
 /// </summary>
-public class ExchangeControl : PrefabPanel
+public sealed class ExchangeControl : PrefabPanel
 {
     private const int MAX_ITEMS_PER_SIDE = 4;
     private const int ITEM_ROW_HEIGHT = 36;
-    private const int ICON_SIZE = 32;
     private const int ICON_PADDING = 2;
     private const int TEXT_OFFSET_X = 36;
-
-    private readonly GraphicsDevice DeviceRef;
 
     // Item grid rects
     private readonly Rectangle MyExchangeRect;
@@ -51,7 +49,6 @@ public class ExchangeControl : PrefabPanel
     public ExchangeControl(GraphicsDevice device)
         : base(device, "_nexch")
     {
-        DeviceRef = device;
         Name = "Exchange";
         Visible = false;
 
@@ -81,8 +78,7 @@ public class ExchangeControl : PrefabPanel
         // YourACK indicator — the second image (pressed OK) shows when other player accepts
         YourAckImage = elements.GetValueOrDefault("YourACK") as UIImage;
 
-        if (YourAckImage is not null)
-            YourAckImage.Visible = false;
+        YourAckImage?.Visible = false;
     }
 
     /// <summary>
@@ -101,10 +97,10 @@ public class ExchangeControl : PrefabPanel
         ref var slot = ref slots[exchangeIndex];
 
         slot.IconTexture?.Dispose();
-        slot.IconTexture = TextureConverter.RenderSprite(DeviceRef, DataContext.PanelItems.GetPanelItemSprite(itemSprite));
+        slot.IconTexture = TextureConverter.RenderSprite(Device, DataContext.PanelItems.GetPanelItemSprite(itemSprite));
         slot.Name = itemName ?? string.Empty;
-        slot.NameCache ??= new CachedText(DeviceRef);
-        slot.NameCache.Update(slot.Name, 0, Color.White);
+        slot.NameCache ??= new CachedText(Device);
+        slot.NameCache.Update(slot.Name, Color.White);
         slot.Occupied = true;
     }
 
@@ -184,7 +180,7 @@ public class ExchangeControl : PrefabPanel
             if (slot.IconTexture is not null)
                 spriteBatch.Draw(slot.IconTexture, new Vector2(gridX + ICON_PADDING, rowY + ICON_PADDING), Color.White);
 
-            slot.NameCache?.Draw(spriteBatch, new Vector2(gridX + TEXT_OFFSET_X, rowY + (ITEM_ROW_HEIGHT - 12) / 2));
+            slot.NameCache?.Draw(spriteBatch, new Vector2(gridX + TEXT_OFFSET_X, rowY + Convert.ToInt32((ITEM_ROW_HEIGHT - 12.0) / 2.0)));
         }
     }
 
@@ -204,11 +200,7 @@ public class ExchangeControl : PrefabPanel
     /// <summary>
     ///     Shows the other player's accept indicator.
     /// </summary>
-    public void ShowOtherAccepted()
-    {
-        if (YourAckImage is not null)
-            YourAckImage.Visible = true;
-    }
+    public void ShowOtherAccepted() => YourAckImage?.Visible = true;
 
     /// <summary>
     ///     Initializes a new exchange session with the other player.
@@ -223,8 +215,7 @@ public class ExchangeControl : PrefabPanel
         MyMoneyLabel?.SetText("0");
         YourMoneyLabel?.SetText("0");
 
-        if (YourAckImage is not null)
-            YourAckImage.Visible = false;
+        YourAckImage?.Visible = false;
 
         Show();
     }

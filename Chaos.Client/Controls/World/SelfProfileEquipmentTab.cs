@@ -1,0 +1,489 @@
+#region
+using Chaos.Client.Controls.Components;
+using Chaos.Client.Data;
+using Chaos.Client.Definitions;
+using Chaos.Client.Rendering;
+using Chaos.DarkAges.Definitions;
+using Microsoft.Xna.Framework;
+using Microsoft.Xna.Framework.Graphics;
+#endregion
+
+namespace Chaos.Client.Controls.World;
+
+/// <summary>
+///     Equipment tab page within the status book, loaded from _nui_eq prefab. Displays 18 equipment slots as a paper doll
+///     layout with item icons. Each slot has a fixed position from the prefab and maps to an <see cref="EquipmentSlot" />.
+///     Empty slots show a placeholder icon from _nui_eqi; occupied slots show the item's panel icon.
+/// </summary>
+public sealed class SelfProfileEquipmentTab : PrefabPanel
+{
+    /// <summary>
+    ///     Maps control names from the _nui_eq prefab to their corresponding <see cref="EquipmentSlot" /> values. The control
+    ///     names match those defined in the _nui_eq.txt control file: WEAPON=1, ARMOR=2, SHIELD=3, HEAD=Helmet(4),
+    ///     EAR=Earrings(5), NECK=Necklace(6), LHAND=LeftRing(7), RHAND=RightRing(8), LARM=LeftGaunt(9), RARM=RightGaunt(10),
+    ///     BELT=11, LEG=Greaves(12), FOOT=Boots(13), CAPE=Accessory1(14), ARMOR2=Overcoat(15), HEAD2=OverHelm(16),
+    ///     CAPE2=Accessory2(17), CAPE3=Accessory3(18).
+    /// </summary>
+    private static readonly (string ControlName, EquipmentSlot Slot)[] SlotMappings =
+    [
+        ("WEAPON", EquipmentSlot.Weapon),
+        ("ARMOR", EquipmentSlot.Armor),
+        ("SHIELD", EquipmentSlot.Shield),
+        ("HEAD", EquipmentSlot.Helmet),
+        ("EAR", EquipmentSlot.Earrings),
+        ("NECK", EquipmentSlot.Necklace),
+        ("LHAND", EquipmentSlot.LeftRing),
+        ("RHAND", EquipmentSlot.RightRing),
+        ("LARM", EquipmentSlot.LeftGaunt),
+        ("RARM", EquipmentSlot.RightGaunt),
+        ("BELT", EquipmentSlot.Belt),
+        ("LEG", EquipmentSlot.Greaves),
+        ("FOOT", EquipmentSlot.Boots),
+        ("CAPE", EquipmentSlot.Accessory1),
+        ("ARMOR2", EquipmentSlot.Overcoat),
+        ("HEAD2", EquipmentSlot.OverHelm),
+        ("CAPE2", EquipmentSlot.Accessory2),
+        ("CAPE3", EquipmentSlot.Accessory3)
+    ];
+
+    // Emoticon status icon frame index → _nemots.spf frame
+    private const int EMOTICON_FRAME_COUNT = 8;
+
+    // Idle frame for south-facing direction (walk anim frames 5-9, idle = 5)
+    private const int PAPERDOLL_IDLE_FRAME = 5;
+
+    private readonly UILabel? AcLabel;
+    private readonly UILabel? ClanLabel;
+    private readonly UILabel? ClanTitleLabel;
+    private readonly UILabel? ClassLabel;
+    private readonly UILabel? ConLabel;
+
+    private readonly UILabel? DexLabel;
+
+    // Emoticon status
+    private readonly Texture2D?[] EmoticonIcons;
+
+    private readonly UILabel? EmoticonLabel;
+    private readonly UIButton? GroupBtn;
+    private readonly UIElement? GroupBtnDisabled;
+    private readonly Rectangle HumanIconRect;
+    private readonly Rectangle HumanStateRect;
+    private readonly UILabel? IntLabel;
+
+    // Player info labels
+    private readonly UILabel? NameLabel;
+
+    // Nation icon
+    private readonly Rectangle NationRect;
+
+    // Paperdoll
+    private readonly Rectangle PaperdollRect;
+
+    // Equipment slot rendering: maps EquipmentSlot to its visual state
+    private readonly Dictionary<EquipmentSlot, EquipmentSlotVisual> SlotVisuals = new();
+
+    // Stat labels from the _nui_eq prefab (N_ prefix)
+    private readonly UILabel? StrLabel;
+    private readonly UILabel? TitleLabel;
+
+    // Tooltip for hovered equipment slot
+    private readonly UILabel TooltipLabel;
+    private readonly UILabel? WisLabel;
+    private byte EmoticonState;
+    private EquipmentSlot? HoveredSlot;
+    private Texture2D? NationIconTexture;
+    private byte NationId; // retained for future use (e.g. nation-specific UI logic)
+    private Texture2D? PaperdollTexture;
+
+    public SelfProfileEquipmentTab(GraphicsDevice device, string prefabName)
+        : base(device, prefabName, false)
+    {
+        Name = prefabName;
+        Visible = false;
+
+        // Create all non-anchor controls via AutoPopulate, then extract the slot elements
+        var elements = AutoPopulate();
+
+        // Build slot visuals from the prefab-created elements.
+        // AutoPopulate creates UIImage elements for DoesNotReturnValue controls that have images.
+        // Each slot image initially shows its _nui_eqi placeholder icon.
+        foreach ((var controlName, var slot) in SlotMappings)
+        {
+            if (!elements.TryGetValue(controlName, out var element))
+                continue;
+
+            if (element is not UIImage slotImage)
+                continue;
+
+            // The placeholder texture was already set by AutoPopulate from the _nui_eqi frame
+            var visual = new EquipmentSlotVisual
+            {
+                Image = slotImage,
+                PlaceholderTexture = slotImage.Texture
+            };
+
+            SlotVisuals[slot] = visual;
+        }
+
+        // Stat labels — right-aligned numeric values
+        StrLabel = FindOrCreateLabel(elements, "N_STR", TextAlignment.Right);
+        IntLabel = FindOrCreateLabel(elements, "N_INT", TextAlignment.Right);
+        WisLabel = FindOrCreateLabel(elements, "N_WIS", TextAlignment.Right);
+        ConLabel = FindOrCreateLabel(elements, "N_CON", TextAlignment.Right);
+        DexLabel = FindOrCreateLabel(elements, "N_DEX", TextAlignment.Right);
+        AcLabel = FindOrCreateLabel(elements, "N_AC", TextAlignment.Right);
+
+        // Player info labels — left-aligned text
+        NameLabel = FindOrCreateLabel(elements, "NAME");
+        ClassLabel = FindOrCreateLabel(elements, "CLASSTEXT");
+        ClanLabel = FindOrCreateLabel(elements, "CLANTEXT");
+        ClanTitleLabel = FindOrCreateLabel(elements, "CLANTITLETEXT");
+        TitleLabel = FindOrCreateLabel(elements, "TITLETEXT");
+
+        // Group button — toggle between enabled/disabled based on GroupOpen
+        GroupBtn = elements.GetValueOrDefault("GroupBtn") as UIButton;
+
+        if (elements.TryGetValue("GroupBtn_Disabled", out var disabledGroupBtn))
+        {
+            GroupBtnDisabled = disabledGroupBtn;
+            disabledGroupBtn.Visible = false;
+        }
+
+        // Nation icon area
+        NationRect = GetRect("Nation");
+
+        // Paperdoll area (HumanImage control rect)
+        PaperdollRect = GetRect("HumanImage");
+
+        // Hide the HumanImage element created by AutoPopulate — we render the paperdoll manually
+        if (elements.TryGetValue("HumanImage", out var humanImageElement))
+            humanImageElement.Visible = false;
+
+        // Emoticon status areas
+        HumanIconRect = GetRect("HumanIcon");
+        HumanStateRect = GetRect("HumanState");
+
+        // Hide auto-populated elements for emoticon — we render these manually
+        if (elements.TryGetValue("HumanIcon", out var humanIconElement))
+            humanIconElement.Visible = false;
+
+        if (elements.TryGetValue("HumanState", out var humanStateElement))
+            humanStateElement.Visible = false;
+
+        // Load emoticon icons from _nemots.spf (frames 0-7)
+        EmoticonIcons = TextureConverter.LoadSpfTextures(device, "_nemots.spf");
+
+        // Emoticon status text label — centered in HumanState rect
+        if (HumanStateRect != Rectangle.Empty)
+        {
+            EmoticonLabel = new UILabel(device)
+            {
+                Name = "EmoticonText",
+                X = HumanStateRect.X,
+                Y = HumanStateRect.Y,
+                Width = HumanStateRect.Width,
+                Height = HumanStateRect.Height,
+                Alignment = TextAlignment.Center
+            };
+
+            AddChild(EmoticonLabel);
+        }
+
+        // Tooltip label — hidden by default, follows cursor when an equipment slot is hovered
+        TooltipLabel = new UILabel(device)
+        {
+            Name = "Tooltip",
+            Visible = false,
+            PaddingLeft = 4,
+            PaddingTop = 4,
+            BackgroundColor = new Color(
+                0,
+                0,
+                0,
+                128),
+            BorderColor = Color.White,
+            ZIndex = 1
+        };
+
+        AddChild(TooltipLabel);
+    }
+
+    /// <summary>
+    ///     Clears all equipment slot icons, restoring placeholders.
+    /// </summary>
+    public void ClearAllSlots()
+    {
+        foreach ((_, var visual) in SlotVisuals)
+        {
+            if (visual.ItemTexture is not null)
+            {
+                visual.ItemTexture.Dispose();
+                visual.ItemTexture = null;
+            }
+
+            visual.Image.Texture = visual.PlaceholderTexture;
+        }
+    }
+
+    /// <summary>
+    ///     Clears the item icon for a specific equipment slot, restoring the placeholder.
+    /// </summary>
+    public void ClearSlot(EquipmentSlot slot)
+    {
+        if (!SlotVisuals.TryGetValue(slot, out var visual))
+            return;
+
+        if (visual.ItemTexture is not null)
+        {
+            visual.ItemTexture.Dispose();
+            visual.ItemTexture = null;
+        }
+
+        visual.Image.Texture = visual.PlaceholderTexture;
+    }
+
+    public override void Dispose()
+    {
+        foreach ((_, var visual) in SlotVisuals)
+            if (visual.ItemTexture is not null)
+            {
+                if (visual.Image.Texture == visual.ItemTexture)
+                    visual.Image.Texture = null;
+
+                visual.ItemTexture.Dispose();
+            }
+
+        SlotVisuals.Clear();
+        NationIconTexture?.Dispose();
+        PaperdollTexture?.Dispose();
+
+        base.Dispose();
+    }
+
+    public override void Draw(SpriteBatch spriteBatch)
+    {
+        if (!Visible)
+            return;
+
+        base.Draw(spriteBatch);
+
+        var sx = ScreenX;
+        var sy = ScreenY;
+
+        // Nation icon
+        if (NationIconTexture is not null && (NationRect != Rectangle.Empty))
+            spriteBatch.Draw(NationIconTexture, new Vector2(sx + NationRect.X, sy + NationRect.Y), Color.White);
+
+        // Paperdoll — anchored at body center (28, 42) within composited texture
+        if (PaperdollTexture is not null && (PaperdollRect != Rectangle.Empty))
+        {
+            var centerX = sx + PaperdollRect.X + PaperdollRect.Width / 2;
+            var centerY = sy + PaperdollRect.Y + PaperdollRect.Height - 20;
+
+            var drawX = centerX - PaperdollTexture.Width / 2;
+            var drawY = centerY - PaperdollTexture.Height;
+
+            spriteBatch.Draw(PaperdollTexture, new Vector2(drawX, drawY), Color.White);
+        }
+
+        // Emoticon icon — draw at HumanIcon rect origin
+        if ((HumanIconRect != Rectangle.Empty)
+            && (EmoticonState < EmoticonIcons.Length)
+            && EmoticonIcons[EmoticonState] is { } emoticonIcon)
+            spriteBatch.Draw(emoticonIcon, new Vector2(sx + HumanIconRect.X, sy + HumanIconRect.Y), Color.White);
+    }
+
+    /// <summary>
+    ///     Finds an existing UILabel from AutoPopulate results, or creates one from the prefab if it was created as a UIImage
+    ///     (DoesNotReturnValue type with no images = no-op). For stat/text areas that need label behavior.
+    /// </summary>
+    private UILabel? FindOrCreateLabel(Dictionary<string, UIElement> elements, string name, TextAlignment alignment = TextAlignment.Left)
+    {
+        if (elements.TryGetValue(name, out var element) && element is UILabel existingLabel)
+        {
+            existingLabel.Alignment = alignment;
+
+            return existingLabel;
+        }
+
+        return CreateLabel(name, alignment);
+    }
+
+    /// <summary>
+    ///     Renders an item icon from the panel item sprite sheet using the same pipeline as inventory icons.
+    /// </summary>
+    private Texture2D? RenderItemIcon(ushort spriteId)
+        => TextureConverter.RenderSprite(Device, DataContext.PanelItems.GetPanelItemSprite(spriteId));
+
+    /// <summary>
+    ///     Sets the emoticon/social status icon and text. State 0-7 maps to _nemots.spf frames.
+    /// </summary>
+    public void SetEmoticonState(byte state, string statusText)
+    {
+        EmoticonState = state;
+        EmoticonLabel?.SetText(statusText);
+    }
+
+    /// <summary>
+    ///     Toggles the group button between enabled (accepting invites) and disabled (closed) states.
+    /// </summary>
+    public void SetGroupOpen(bool groupOpen)
+    {
+        GroupBtn?.Visible = groupOpen;
+
+        GroupBtnDisabled?.Visible = !groupOpen;
+    }
+
+    /// <summary>
+    ///     Sets the nation icon (from _nui_nat.spf, frame = nationId - 1).
+    /// </summary>
+    public void SetNation(byte nationId)
+    {
+        NationId = nationId;
+        NationIconTexture?.Dispose();
+        NationIconTexture = null;
+
+        if (nationId > 0)
+            NationIconTexture = TextureConverter.LoadSpfTexture(Device, "_nui_nat.spf", nationId - 1);
+    }
+
+    /// <summary>
+    ///     Renders the paperdoll using the player's current appearance. Uses the full AislingRenderer at the south-facing idle
+    ///     frame (same composition as the world aisling, just frozen).
+    /// </summary>
+    public void SetPaperdoll(AislingRenderer renderer, in AislingAppearance appearance)
+    {
+        PaperdollTexture?.Dispose();
+
+        // South-facing (direction=2) = Right idle frame (5) + horizontal flip
+        PaperdollTexture = renderer.Render(
+            Device,
+            in appearance,
+            PAPERDOLL_IDLE_FRAME,
+            flipHorizontal: true);
+    }
+
+    /// <summary>
+    ///     Updates the player identity labels (name, class, clan, title).
+    /// </summary>
+    public void SetPlayerInfo(
+        string name,
+        string className,
+        string clanName,
+        string clanTitle,
+        string title)
+    {
+        NameLabel?.SetText(name, Color.White);
+        ClassLabel?.SetText(className, Color.White);
+        ClanLabel?.SetText(clanName, Color.White);
+        ClanTitleLabel?.SetText(clanTitle, Color.White);
+        TitleLabel?.SetText(title, Color.White);
+    }
+
+    /// <summary>
+    ///     Sets the item icon for a specific equipment slot.
+    /// </summary>
+    public void SetSlot(EquipmentSlot slot, ushort sprite, string? itemName = null)
+    {
+        if (!SlotVisuals.TryGetValue(slot, out var visual))
+            return;
+
+        // Dispose previous item texture (not the placeholder — that's shared/owned by the prefab)
+        if (visual.ItemTexture is not null)
+        {
+            visual.ItemTexture.Dispose();
+            visual.ItemTexture = null;
+        }
+
+        visual.ItemName = itemName ?? string.Empty;
+
+        var texture = RenderItemIcon(sprite);
+
+        if (texture is not null)
+        {
+            visual.ItemTexture = texture;
+            visual.Image.Texture = texture;
+        } else
+            visual.Image.Texture = visual.PlaceholderTexture;
+    }
+
+    public override void Update(GameTime gameTime, InputBuffer input)
+    {
+        if (!Visible || !Enabled)
+            return;
+
+        base.Update(gameTime, input);
+
+        // Hover detection for equipment slot tooltips
+        HoveredSlot = null;
+        var mx = input.MouseX;
+        var my = input.MouseY;
+
+        foreach ((var slot, var visual) in SlotVisuals)
+        {
+            if (visual.ItemName.Length == 0)
+                continue;
+
+            if (visual.Image.ContainsPoint(mx, my))
+            {
+                HoveredSlot = slot;
+
+                break;
+            }
+        }
+
+        // Position tooltip label at cursor
+        if (HoveredSlot.HasValue && SlotVisuals.TryGetValue(HoveredSlot.Value, out var hovered) && (hovered.ItemName.Length > 0))
+        {
+            TooltipLabel.SetText(hovered.ItemName);
+
+            var textWidth = TextRenderer.MeasureWidth(hovered.ItemName);
+            var padding = TooltipLabel.PaddingLeft;
+            var tipW = textWidth + padding * 2;
+            var tipH = 12 + padding * 2;
+            var tipX = mx - tipW / 2;
+            var tipY = my + 20;
+
+            if ((tipX + tipW) > 640)
+                tipX = 640 - tipW;
+
+            if ((tipY + tipH) > 480)
+                tipY = 480 - tipH;
+
+            // Convert screen-space position to parent-relative
+            TooltipLabel.X = tipX - ScreenX;
+            TooltipLabel.Y = tipY - ScreenY;
+            TooltipLabel.Width = tipW;
+            TooltipLabel.Height = tipH;
+            TooltipLabel.Visible = true;
+        } else
+            TooltipLabel.Visible = false;
+    }
+
+    /// <summary>
+    ///     Updates the stat display labels on the equipment page.
+    /// </summary>
+    public void UpdateStats(
+        int str,
+        int intel,
+        int wis,
+        int con,
+        int dex,
+        int ac)
+    {
+        StrLabel?.SetText($"{str}");
+        IntLabel?.SetText($"{intel}");
+        WisLabel?.SetText($"{wis}");
+        ConLabel?.SetText($"{con}");
+        DexLabel?.SetText($"{dex}");
+        AcLabel?.SetText($"{ac}");
+    }
+
+    private sealed class EquipmentSlotVisual
+    {
+        public required UIImage Image { get; init; }
+        public string ItemName { get; set; } = string.Empty;
+        public Texture2D? ItemTexture { get; set; }
+        public Texture2D? PlaceholderTexture { get; init; }
+    }
+}

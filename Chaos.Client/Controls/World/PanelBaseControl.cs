@@ -1,6 +1,7 @@
 #region
 using Chaos.Client.Controls.Components;
 using Chaos.Client.Data.Models;
+using Chaos.Client.Definitions;
 using Chaos.Client.Rendering;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
@@ -9,79 +10,94 @@ using Microsoft.Xna.Framework.Graphics;
 namespace Chaos.Client.Controls.World;
 
 /// <summary>
-///     Base class for icon grid panels (inventory, skill book, spell book). Handles background loading, grid layout, icon
-///     caching, click detection, and draw. Subclasses provide the icon rendering method.
+///     Base class for icon grid panels (inventory, skill book, spell book). Creates a grid of
+///     <see cref="PanelSlotControl" /> children and manages slot assignment, drag-and-drop, and
+///     the dragged icon ghost. Subclasses provide icon rendering.
 /// </summary>
 public abstract class PanelBaseControl : UIPanel
 {
-    // Double-click detection
-    private const float DOUBLE_CLICK_MS = 300f;
+    private const int ICON_SIZE = 32;
+    private const int CELL_WIDTH = 36;
+    private const int CELL_HEIGHT = 33;
+    private const int COLUMNS = 12;
+    private const int VISIBLE_SLOTS = 36;
 
     protected readonly GraphicsDevice Device;
-    protected readonly Texture2D?[] IconCache;
-    protected readonly int MaxSlots;
-    protected readonly string?[] SlotNames;
     protected readonly int SlotOffset;
+    protected readonly PanelSlotControl[] Slots;
+    private bool DragActive;
     private int DragMouseX;
     private int DragMouseY;
 
     // Drag state
-    private int DragSourceSlotIndex = -1;
-    private int HoveredSlotIndex = -1;
-    private int LastClickedSlotIndex = -1;
-    private float LastClickTime;
-    private CachedText? TooltipText;
-    protected virtual int CellHeight => 33;
-    protected virtual int CellWidth => 36;
-    protected virtual int Columns => 12;
-    protected virtual int GridOffsetX => 8;
-    protected virtual int GridOffsetY => 6;
-    protected virtual int VisibleSlots => 36;
+    private PanelSlotControl? DragSource;
+
+    // Hover tracking
+    private PanelSlotControl? LastHoveredSlot;
 
     protected PanelBaseControl(
         GraphicsDevice device,
         ControlPrefabSet hudPrefabSet,
         int maxSlots,
-        bool secondary = false)
+        CooldownStyle cooldownStyle = CooldownStyle.None,
+        bool secondary = false,
+        int gridOffsetX = 8,
+        int gridOffsetY = 6)
     {
         Device = device;
-        MaxSlots = maxSlots;
-        IconCache = new Texture2D?[maxSlots];
-        SlotNames = new string?[maxSlots];
+        SlotOffset = secondary ? VISIBLE_SLOTS : 0;
 
-        if (!hudPrefabSet.Contains("InventoryBackground"))
-            return;
+        if (hudPrefabSet.Contains("InventoryBackground"))
+        {
+            var prefab = hudPrefabSet["InventoryBackground"];
 
-        var prefab = hudPrefabSet["InventoryBackground"];
+            if (prefab.Images.Count > 0)
+                Background = TextureConverter.ToTexture2D(device, prefab.Images[0]);
+        }
 
-        if (prefab.Images.Count > 0)
-            Background = TextureConverter.ToTexture2D(device, prefab.Images[0]);
+        // Create slot controls for the visible grid cells
+        Slots = new PanelSlotControl[VISIBLE_SLOTS];
 
-        SlotOffset = secondary ? 36 : 0;
+        for (var i = 0; i < VISIBLE_SLOTS; i++)
+        {
+            var slotIndex = SlotOffset + i;
+
+            if (slotIndex >= maxSlots)
+                break;
+
+            var col = i % COLUMNS;
+            var row = i / COLUMNS;
+
+            var slot = new PanelSlotControl
+            {
+                Name = $"Slot{slotIndex}",
+                Slot = (byte)(slotIndex + 1),
+                X = gridOffsetX + col * CELL_WIDTH,
+                Y = gridOffsetY + row * CELL_HEIGHT,
+                Width = ICON_SIZE,
+                Height = ICON_SIZE,
+                CooldownStyle = cooldownStyle
+            };
+
+            slot.OnDoubleClick += s => OnSlotClicked?.Invoke(s);
+            slot.OnDragStart += OnDragStarted;
+
+            Slots[i] = slot;
+            AddChild(slot);
+        }
     }
 
     public virtual void ClearSlot(byte slot)
     {
-        var index = slot - 1;
+        var control = FindSlot(slot);
 
-        if ((index < 0) || (index >= MaxSlots))
+        if (control is null)
             return;
 
-        IconCache[index]
-            ?.Dispose();
-        IconCache[index] = null;
-        SlotNames[index] = null;
-    }
-
-    public override void Dispose()
-    {
-        foreach (var icon in IconCache)
-            icon?.Dispose();
-
-        Array.Clear(IconCache);
-        TooltipText?.Dispose();
-
-        base.Dispose();
+        control.NormalTexture?.Dispose();
+        control.NormalTexture = null;
+        control.SlotName = null;
+        control.CooldownPercent = 0;
     }
 
     public override void Draw(SpriteBatch spriteBatch)
@@ -91,94 +107,37 @@ public abstract class PanelBaseControl : UIPanel
 
         base.Draw(spriteBatch);
 
-        if (Columns == 0)
-            return;
-
-        var sx = ScreenX;
-        var sy = ScreenY;
-
-        for (var i = 0; i < VisibleSlots; i++)
-        {
-            var slotIndex = SlotOffset + i;
-
-            if (slotIndex >= MaxSlots)
-                break;
-
-            if (IconCache[slotIndex] is not { } icon)
-                continue;
-
-            var col = i % Columns;
-            var row = i / Columns;
-            var x = sx + GridOffsetX + col * CellWidth;
-            var y = sy + GridOffsetY + row * CellHeight;
-
-            DrawSlotIcon(
-                spriteBatch,
-                slotIndex,
-                x,
-                y,
-                icon);
-        }
-
         // Dragged icon follows mouse (semi-transparent)
-        if ((DragSourceSlotIndex >= 0) && IconCache[DragSourceSlotIndex] is { } dragIcon)
-            spriteBatch.Draw(dragIcon, new Vector2(DragMouseX - dragIcon.Width / 2, DragMouseY - dragIcon.Height / 2), Color.White * 0.7f);
-
-        // Tooltip for hovered slot (not while dragging)
-        if ((DragSourceSlotIndex < 0) && (HoveredSlotIndex >= 0) && SlotNames[HoveredSlotIndex] is { Length: > 0 } name)
-        {
-            TooltipText ??= new CachedText(Device);
-            TooltipText.Update(name, 0, Color.White);
-
-            if (TooltipText.Texture is not null)
-            {
-                var tipX = sx + GridOffsetX;
-                var tipY = sy - TooltipText.Texture.Height - 2;
-                spriteBatch.Draw(TooltipText.Texture, new Vector2(tipX, tipY), Color.White);
-            }
-        }
+        if (DragActive && DragSource?.NormalTexture is { } dragIcon)
+            spriteBatch.Draw(
+                dragIcon,
+                new Vector2(DragMouseX - Convert.ToInt32(dragIcon.Width / 2.0), DragMouseY - Convert.ToInt32(dragIcon.Height / 2.0)),
+                Color.White * 0.7f);
     }
 
     /// <summary>
-    ///     Draws a single slot's icon. Override in subclasses for custom rendering (e.g. cooldown overlays).
+    ///     Finds the PanelSlotControl for a 1-based slot number, or null if out of range or not visible.
     /// </summary>
-    protected virtual void DrawSlotIcon(
-        SpriteBatch spriteBatch,
-        int slotIndex,
-        int x,
-        int y,
-        Texture2D icon)
-        => spriteBatch.Draw(icon, new Vector2(x, y), Color.White);
-
-    private int HitTestSlot(int mouseX, int mouseY)
+    protected PanelSlotControl? FindSlot(byte slot)
     {
-        var gridX = mouseX - ScreenX - GridOffsetX;
-        var gridY = mouseY - ScreenY - GridOffsetY;
+        var index = slot - 1;
 
-        if ((gridX < 0) || (gridY < 0))
-            return -1;
+        if ((index < SlotOffset) || (index >= (SlotOffset + VISIBLE_SLOTS)))
+            return null;
 
-        var col = gridX / CellWidth;
-        var row = gridY / CellHeight;
+        var gridIndex = index - SlotOffset;
 
-        if (col >= Columns)
-            return -1;
+        return gridIndex < Slots.Length ? Slots[gridIndex] : null;
+    }
 
-        var gridIndex = row * Columns + col;
-
-        if ((gridIndex < 0) || (gridIndex >= VisibleSlots))
-            return -1;
-
-        var slotIndex = SlotOffset + gridIndex;
-
-        if (slotIndex >= MaxSlots)
-            return -1;
-
-        return slotIndex;
+    private void OnDragStarted(PanelSlotControl source)
+    {
+        DragSource = source;
+        DragActive = true;
     }
 
     /// <summary>
-    ///     Fired when the user clicks an occupied slot. Parameter is the 1-based slot number.
+    ///     Fired when the user double-clicks an occupied slot. Parameter is the 1-based slot number.
     /// </summary>
     public event Action<byte>? OnSlotClicked;
 
@@ -186,6 +145,11 @@ public abstract class PanelBaseControl : UIPanel
     ///     Fired when the user drags a slot icon and releases outside the panel. Parameter is the 1-based slot number.
     /// </summary>
     public event Action<byte>? OnSlotDroppedOutside;
+
+    /// <summary>
+    ///     Fired when the hovered slot changes. Parameter is the slot name (or null when unhovered).
+    /// </summary>
+    public event Action<string?>? OnSlotHovered;
 
     /// <summary>
     ///     Fired when the user drags a slot icon onto another slot. Parameters are 1-based slot numbers (source, target).
@@ -196,81 +160,69 @@ public abstract class PanelBaseControl : UIPanel
 
     public virtual void SetSlot(byte slot, ushort sprite)
     {
-        var index = slot - 1;
+        var control = FindSlot(slot);
 
-        if ((index < 0) || (index >= MaxSlots))
+        if (control is null)
             return;
 
-        IconCache[index]
-            ?.Dispose();
-        IconCache[index] = RenderIcon(sprite);
+        control.NormalTexture?.Dispose();
+        control.NormalTexture = RenderIcon(sprite);
     }
 
     public void SetSlotName(byte slot, string? name)
     {
-        var index = slot - 1;
+        var control = FindSlot(slot);
 
-        if ((index >= 0) && (index < MaxSlots))
-            SlotNames[index] = name;
+        control?.SlotName = name;
     }
 
     public override void Update(GameTime gameTime, InputBuffer input)
     {
         base.Update(gameTime, input);
 
-        if (!Visible || !Enabled || (Columns == 0))
+        if (!Visible || !Enabled)
         {
-            HoveredSlotIndex = -1;
-            DragSourceSlotIndex = -1;
+            DragActive = false;
+            DragSource = null;
 
             return;
         }
 
-        var mouseX = input.MouseX;
-        var mouseY = input.MouseY;
+        // Hover event — find which slot the mouse is over
+        PanelSlotControl? hoveredSlot = null;
 
-        // Hit test — find which slot the mouse is over
-        var hitSlotIndex = HitTestSlot(mouseX, mouseY);
-        HoveredSlotIndex = hitSlotIndex;
+        foreach (var slot in Slots)
+            if (slot.NormalTexture is not null && slot.ContainsPoint(input.MouseX, input.MouseY))
+            {
+                hoveredSlot = slot;
+
+                break;
+            }
+
+        if (hoveredSlot != LastHoveredSlot)
+        {
+            LastHoveredSlot = hoveredSlot;
+            OnSlotHovered?.Invoke(hoveredSlot?.SlotName);
+        }
 
         // Drag tracking
-        if (DragSourceSlotIndex >= 0)
+        if (DragActive)
         {
-            DragMouseX = mouseX;
-            DragMouseY = mouseY;
+            DragMouseX = input.MouseX;
+            DragMouseY = input.MouseY;
 
             if (!input.IsLeftButtonHeld)
             {
-                var sourceSlot = (byte)(DragSourceSlotIndex + 1);
+                if (DragSource is not null)
+                {
+                    if (hoveredSlot is not null && (hoveredSlot != DragSource))
+                        OnSlotSwapped?.Invoke(DragSource.Slot, hoveredSlot.Slot);
+                    else if (hoveredSlot is null)
+                        OnSlotDroppedOutside?.Invoke(DragSource.Slot);
+                }
 
-                if ((hitSlotIndex >= 0) && (hitSlotIndex != DragSourceSlotIndex))
-                    OnSlotSwapped?.Invoke(sourceSlot, (byte)(hitSlotIndex + 1));
-                else if (hitSlotIndex < 0)
-                    OnSlotDroppedOutside?.Invoke(sourceSlot);
-
-                DragSourceSlotIndex = -1;
-            }
-
-            return;
-        }
-
-        // Click/drag start + double-click detection
-        if (input.WasLeftButtonPressed && (hitSlotIndex >= 0))
-        {
-            DragSourceSlotIndex = hitSlotIndex;
-            DragMouseX = mouseX;
-            DragMouseY = mouseY;
-
-            var now = (float)gameTime.TotalGameTime.TotalMilliseconds;
-
-            if ((hitSlotIndex == LastClickedSlotIndex) && ((now - LastClickTime) < DOUBLE_CLICK_MS))
-            {
-                OnSlotClicked?.Invoke((byte)(hitSlotIndex + 1));
-                LastClickedSlotIndex = -1;
-            } else
-            {
-                LastClickedSlotIndex = hitSlotIndex;
-                LastClickTime = now;
+                DragActive = false;
+                DragSource = null;
             }
         }
     }

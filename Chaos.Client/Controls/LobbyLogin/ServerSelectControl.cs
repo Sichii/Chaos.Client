@@ -1,97 +1,40 @@
 #region
 using Chaos.Client.Controls.Components;
-using Chaos.Client.Data;
 using Chaos.Client.Networking;
-using Chaos.Client.Rendering;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 #endregion
 
 namespace Chaos.Client.Controls.LobbyLogin;
 
-public class ServerSelectControl : UIPanel
+public sealed class ServerSelectControl : PrefabPanel
 {
-    private const float SERVER_FONT_SIZE = 12f;
     private const int ROW_HEIGHT = 20;
     private const int FIRST_ROW_Y = 37;
     private const int NAME_X = 28;
     private const int DESC_X = 108;
 
-    private readonly GraphicsDevice Device;
     private List<ServerTableEntry> Servers = [];
     private List<(CachedText Name, CachedText Description)> ServerTextCache = [];
 
     public ServerSelectControl(GraphicsDevice device)
+        : base(device, "_nsvr")
     {
-        Device = device;
         Name = "ServerSelect";
         Visible = false;
 
-        var prefabSet = DataContext.UserControls.Get("_nsvr");
+        AutoPopulate();
+    }
 
-        if (prefabSet is null)
-            throw new InvalidOperationException("Failed to load _nsvr control prefab set");
+    public override void Dispose()
+    {
+        foreach ((var name, var desc) in ServerTextCache)
+        {
+            name.Dispose();
+            desc.Dispose();
+        }
 
-        // Load the panel images
-        var topPrefab = prefabSet["ServerTopImage"];
-        var midPrefab = prefabSet["ServerMidImage"];
-        var botPrefab = prefabSet["ServerBotImage"];
-
-        var topTexture = topPrefab.Images.Count > 0 ? TextureConverter.ToTexture2D(device, topPrefab.Images[0]) : null;
-
-        var midTexture = midPrefab.Images.Count > 0 ? TextureConverter.ToTexture2D(device, midPrefab.Images[0]) : null;
-
-        var botTexture = botPrefab.Images.Count > 0 ? TextureConverter.ToTexture2D(device, botPrefab.Images[0]) : null;
-
-        // Panel dimensions from the top image
-        var panelWidth = topTexture?.Width ?? 421;
-        var panelHeight = (topTexture?.Height ?? 133) + (midTexture?.Height ?? 20) + (botTexture?.Height ?? 23);
-
-        Width = panelWidth;
-        Height = panelHeight;
-
-        // Center on screen
-        X = (640 - panelWidth) / 2;
-        Y = (480 - panelHeight) / 2;
-
-        // Top image
-        if (topTexture is not null)
-            AddChild(
-                new UIImage
-                {
-                    Name = "TopImage",
-                    X = 0,
-                    Y = 0,
-                    Width = topTexture.Width,
-                    Height = topTexture.Height,
-                    Texture = topTexture
-                });
-
-        // Mid image
-        if (midTexture is not null)
-            AddChild(
-                new UIImage
-                {
-                    Name = "MidImage",
-                    X = 0,
-                    Y = topTexture?.Height ?? 133,
-                    Width = midTexture.Width,
-                    Height = midTexture.Height,
-                    Texture = midTexture
-                });
-
-        // Bot image
-        if (botTexture is not null)
-            AddChild(
-                new UIImage
-                {
-                    Name = "BotImage",
-                    X = 0,
-                    Y = (topTexture?.Height ?? 133) + (midTexture?.Height ?? 20),
-                    Width = botTexture.Width,
-                    Height = botTexture.Height,
-                    Texture = botTexture
-                });
+        base.Dispose();
     }
 
     public override void Draw(SpriteBatch spriteBatch)
@@ -101,7 +44,6 @@ public class ServerSelectControl : UIPanel
 
         base.Draw(spriteBatch);
 
-        // Draw server names and descriptions from cache
         var sx = ScreenX;
         var sy = ScreenY;
 
@@ -136,8 +78,8 @@ public class ServerSelectControl : UIPanel
             var nameCache = new CachedText(Device);
             var descCache = new CachedText(Device);
 
-            nameCache.Update(server.Name, SERVER_FONT_SIZE, Color.White);
-            descCache.Update(server.Description, SERVER_FONT_SIZE, Color.LightGray);
+            nameCache.Update(server.Name, Color.White);
+            descCache.Update(server.Description, Color.LightGray);
 
             ServerTextCache.Add((nameCache, descCache));
         }

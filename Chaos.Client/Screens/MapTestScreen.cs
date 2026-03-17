@@ -35,7 +35,7 @@ public sealed class MapTestScreen : IScreen
         if (MapFile is null)
             return;
 
-        spriteBatch.Begin(samplerState: SamplerState.PointClamp);
+        spriteBatch.Begin(samplerState: GlobalSettings.Sampler);
         MapRenderer.Draw(spriteBatch, MapFile, Camera);
         spriteBatch.End();
     }
@@ -61,7 +61,7 @@ public sealed class MapTestScreen : IScreen
     }
 
     /// <inheritdoc />
-    public void UnloadContent() => MapRenderer?.Dispose();
+    public void UnloadContent() => MapRenderer.Dispose();
 
     /// <inheritdoc />
     public void Update(GameTime gameTime)

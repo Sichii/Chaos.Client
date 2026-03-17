@@ -1,6 +1,7 @@
 #region
 using Chaos.Client.Data;
 using Chaos.Client.Data.Models;
+using Chaos.Client.Definitions;
 using Chaos.Client.Rendering;
 using DALib.Definitions;
 using Microsoft.Xna.Framework;
@@ -15,6 +16,105 @@ namespace Chaos.Client.Controls.Components;
 /// </summary>
 public abstract class PrefabPanel : UIPanel
 {
+    // The DAT control files store almost everything as type 7 (DoesNotReturnValue).
+    // The original client identifies buttons by name in code. This set contains all
+    // known button control names across all prefabs.
+    private static readonly HashSet<string> ButtonNames = new(StringComparer.OrdinalIgnoreCase)
+    {
+        // Common buttons (_nbtn.spf) — HashSet is case-insensitive, no need for duplicate casings
+        "OK",
+        "Cancel",
+        "Close",
+        "Quit",
+        "Delete",
+        "Send",
+        "Reply",
+        "View",
+        "New",
+        "Up",
+        "Down",
+        "Prev",
+        "Next",
+
+        // Options dialog (_noptdlg)
+        "Friends",
+        "Macro",
+        "Setting",
+        "ExitGame",
+
+        // Start screen (_nstart)
+        "Create",
+        "Continue",
+        "Password",
+        "Credit",
+        "Homepage",
+        "Exit",
+
+        // Character creation (_ncreate)
+        "AngleLeft",
+        "AngleRight",
+        "HairLeft",
+        "HairRight",
+        "Help",
+
+        // HUD buttons (_nbk_s)
+        "BTN_GROUP",
+        "BTN_HELP",
+        "BTN_TOWNMAP",
+        "BTN_OPTION",
+        "BTN_BULLETIN",
+        "BTN_USERS",
+        "BTN_LEGEND",
+        "BTN_EXPAND",
+        "BTN_CHANGELAYOUT",
+        "BTN_SETTING",
+        "BTN_SCREENSHOT",
+        "BTN_EMOT",
+        "BTN_INV0",
+        "BTN_INV1",
+        "BTN_INV2",
+        "BTN_INV3",
+        "BTN_INV4",
+        "BTN_INV5",
+        "CMail",
+        "CGroup",
+        "CGroup0",
+        "CShot",
+
+        // Group dialog (_ngcdlg0, _ngcdlg1)
+        "B_BTN0",
+        "BTN_OK",
+        "BTN_MODIFY",
+        "BTN_RESET",
+        "BTN_CANCEL",
+        "BTN_QUERY_JOIN",
+        "BTN_BEGIN",
+
+        // NPC dialog (lnpcd)
+        "TopBtn",
+        "CloseBtn",
+        "PrevBtn",
+        "NextBtn",
+        "UpArrow",
+        "DownArrow",
+
+        // Equipment tab (_nui_eq)
+        "GroupBtn",
+
+        // Status book (_nui) tabs + close
+        "TAB_INTRO",
+        "TAB_LEGEND",
+        "TAB_SKILL",
+        "TAB_EVENT",
+        "TAB_ALBUM",
+        "TAB_FAMILY",
+        "TAB_CLOSE",
+
+        // World list (_nusers)
+        "CountryBtn",
+        "MasterBtn"
+    };
+
     protected GraphicsDevice Device { get; }
     protected ControlPrefabSet PrefabSet { get; }
 
@@ -24,10 +124,7 @@ public abstract class PrefabPanel : UIPanel
 
         var prefabSet = DataContext.UserControls.Get(prefabName);
 
-        if (prefabSet is null)
-            throw new InvalidOperationException($"Failed to load {prefabName} control prefab set");
-
-        PrefabSet = prefabSet;
+        PrefabSet = prefabSet ?? throw new InvalidOperationException($"Failed to load {prefabName} control prefab set");
 
         // Anchor — panel dimensions and background
         var anchor = prefabSet[0];
@@ -67,12 +164,17 @@ public abstract class PrefabPanel : UIPanel
             if (prefab.Control.Rect is null)
                 continue;
 
-            UIElement? element = prefab.Control.Type switch
-            {
-                ControlType.ReturnsValue or ControlType.Returns0 => CreateButtonFromPrefab(prefab),
-                ControlType.EditableText                         => CreateTextBoxFromPrefab(prefab),
-                _                                                => CreateImageFromPrefab(prefab)
-            };
+            // Most controls in the DAT archives are type 7 (DoesNotReturnValue) regardless of
+            // actual function. The original client identifies buttons by name in code.
+            // A control is a button if: type 3/4, OR its name is in the known button set.
+            var isButton = prefab.Control.Type is ControlType.ReturnsValue or ControlType.Returns0
+                           || ButtonNames.Contains(prefab.Control.Name);
+
+            UIElement? element = isButton
+                ? CreateButtonFromPrefab(prefab)
+                : prefab.Control.Type == ControlType.EditableText
+                    ? CreateTextBoxFromPrefab(prefab)
+                    : CreateImageFromPrefab(prefab);
 
             if (element is not null)
             {
@@ -106,6 +208,8 @@ public abstract class PrefabPanel : UIPanel
 
         var r = rect.Value;
 
+        var pressedTexture = prefab.Images.Count > 1 ? TextureConverter.ToTexture2D(Device, prefab.Images[1]) : null;
+
         return new UIButton
         {
             Name = prefab.Control.Name,
@@ -114,8 +218,8 @@ public abstract class PrefabPanel : UIPanel
             Width = (int)r.Width,
             Height = (int)r.Height,
             NormalTexture = prefab.Images.Count > 0 ? TextureConverter.ToTexture2D(Device, prefab.Images[0]) : null,
-            PressedTexture = prefab.Images.Count > 1 ? TextureConverter.ToTexture2D(Device, prefab.Images[1]) : null,
-            SelectedTexture = prefab.Images.Count > 1 ? TextureConverter.ToTexture2D(Device, prefab.Images[1]) : null
+            PressedTexture = pressedTexture,
+            SelectedTexture = pressedTexture
         };
     }
 
@@ -235,7 +339,7 @@ public abstract class PrefabPanel : UIPanel
             (int)r.Height);
     }
 
-    public void Hide() => Visible = false;
+    public virtual void Hide() => Visible = false;
 
-    public void Show() => Visible = true;
+    public virtual void Show() => Visible = true;
 }

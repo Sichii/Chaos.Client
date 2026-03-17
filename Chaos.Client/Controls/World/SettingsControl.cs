@@ -1,5 +1,6 @@
 #region
 using Chaos.Client.Controls.Components;
+using Chaos.Client.Definitions;
 using Chaos.Client.Rendering;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
@@ -9,48 +10,65 @@ using Microsoft.Xna.Framework.Input;
 namespace Chaos.Client.Controls.World;
 
 /// <summary>
-///     Settings panel using _nsett prefab. Triggered by F4 key. Shows a list of toggle settings with checkboxes. TopButton
-///     is a checkbox toggle (16x16, _nsettb.spf: 0=unchecked, 1=checked). TopText/BottomText/RightText are setting labels.
-///     OK/Cancel buttons at bottom.
+///     Settings panel using _nsett prefab. Triggered by F4 key. 13 toggle settings in 2 columns (10 left, 3 right).
+///     Number buttons from _nsettb.spf (2 frames per setting: normal, pressed). Layout derived from TopButton/TopText/
+///     BottomText/RightText prefab rects: ROW_HEIGHT=21, COLUMN_OFFSET=211, ROWS_PER_COLUMN=10.
 /// </summary>
-public class SettingsControl : PrefabPanel
+public sealed class SettingsControl : PrefabPanel
 {
-    private const int SETTING_COUNT = 8;
+    private const int SETTING_COUNT = 13;
+    private const int ROWS_PER_COLUMN = 10;
     private const int ROW_HEIGHT = 21;
-    private const int CHECKBOX_X = 15;
-    private const int CHECKBOX_START_Y = 40;
-    private const int CHECKBOX_SIZE = 16;
-    private const int LABEL_OFFSET_X = 35;
-    private readonly Texture2D? CheckedTexture;
+    private const int BUTTON_X = 15;
+    private const int BUTTON_Y = 40;
+    private const int BUTTON_SIZE = 16;
+    private const int LABEL_X = 40;
+    private const int LABEL_Y = 42;
+    private const int COLUMN_OFFSET = 211;
+    private const float SLIDE_DURATION_MS = 250f;
 
-    private readonly GraphicsDevice DeviceRef;
+    private const int LABEL_WIDTH = 170;
 
-    private readonly CachedText[] SettingNameCaches = new CachedText[SETTING_COUNT];
-
-    private readonly string[] SettingNames =
+    // Server settings (0-indexed): 0-5, 7 send opcode 0x1B to server on toggle
+    // Client-local settings: 6, 8-12 toggle locally with :ON/:OFF label suffix
+    private static readonly bool[] IsServerSetting =
     [
-        "Show Names",
-        "Show Spell Effects",
-        "Show Whisper Names",
-        "Filter Profanity",
-        "Auto-Join Group",
-        "Auto-Run",
-        "Fast Walk",
-        "Show Damage Numbers"
+        true,
+        true,
+        true,
+        true,
+        true,
+        true, // 0-5
+        false, // 6
+        true, // 7
+        false,
+        false,
+        false,
+        false,
+        false // 8-12
     ];
 
+    private readonly string[] SettingBaseNames = new string[SETTING_COUNT];
+
+    private readonly UILabel[] SettingLabels = new UILabel[SETTING_COUNT];
     private readonly bool[] SettingValues = new bool[SETTING_COUNT];
-    private readonly Texture2D? UncheckedTexture;
-    private int DataVersion;
-    private int RenderedVersion = -1;
+    private int OffScreenX;
+    private int SlideAnchorY;
+    private bool SlideMode;
+    private float SlideTimer;
+    private bool Sliding;
+    private bool SlidingOut;
+
+    // Slide animation
+    private int TargetX;
+
     public UIButton? CancelButton { get; }
 
     public UIButton? OkButton { get; }
 
     public SettingsControl(GraphicsDevice device)
-        : base(device, "_nsett")
+        : base(device, "_nsett", false)
     {
-        DeviceRef = device;
         Name = "Settings";
         Visible = false;
 
@@ -60,101 +78,191 @@ public class SettingsControl : PrefabPanel
         CancelButton = elements.GetValueOrDefault("Cancel") as UIButton;
 
         if (OkButton is not null)
-            OkButton.OnClick += () =>
-            {
-                Hide();
-                OnClose?.Invoke();
-            };
+            OkButton.OnClick += Close;
 
         if (CancelButton is not null)
-            CancelButton.OnClick += () =>
-            {
-                Hide();
-                OnClose?.Invoke();
-            };
+            CancelButton.OnClick += Close;
 
-        // Load checkbox textures from _nsettb.spf
-        var checkboxFrames = TextureConverter.LoadSpfTextures(device, "_nsettb.spf");
+        // Hide the template TopButton from AutoPopulate
+        if (elements.TryGetValue("TopButton", out var topButton))
+            topButton.Visible = false;
 
-        if (checkboxFrames.Length > 0)
-            UncheckedTexture = checkboxFrames[0];
-
-        if (checkboxFrames.Length > 1)
-            CheckedTexture = checkboxFrames[1];
-
-        for (var i = 0; i < SETTING_COUNT; i++)
-            SettingNameCaches[i] = new CachedText(device);
-
-        DataVersion++;
-    }
-
-    public override void Dispose()
-    {
-        foreach (var c in SettingNameCaches)
-            c.Dispose();
-
-        // Don't dispose checkbox textures — they may be shared SPF frames
-        // (TextureConverter.LoadSpfTextures returns owned textures though, so dispose them)
-        UncheckedTexture?.Dispose();
-        CheckedTexture?.Dispose();
-
-        base.Dispose();
-    }
-
-    public override void Draw(SpriteBatch spriteBatch)
-    {
-        if (!Visible)
-            return;
-
-        base.Draw(spriteBatch);
-
-        RefreshCaches();
-
-        var sx = ScreenX;
-        var sy = ScreenY;
+        // Create per-setting number buttons from _nsettb.spf (2 frames per setting: normal, pressed)
+        // 2-column layout: settings 0-9 in left column, 10-12 in right column
+        var settingFrames = TextureConverter.LoadSpfTextures(device, "_nsettb.spf");
 
         for (var i = 0; i < SETTING_COUNT; i++)
         {
-            var rowY = sy + CHECKBOX_START_Y + i * ROW_HEIGHT;
+            var settingIndex = i;
+            var row = i % ROWS_PER_COLUMN;
+            var col = i / ROWS_PER_COLUMN;
+            var normalIdx = i * 2;
+            var pressedIdx = i * 2 + 1;
 
-            // Checkbox
-            var checkboxTex = SettingValues[i] ? CheckedTexture : UncheckedTexture;
+            var btn = new UIButton
+            {
+                Name = $"Setting{i}",
+                X = BUTTON_X + col * COLUMN_OFFSET,
+                Y = BUTTON_Y + row * ROW_HEIGHT,
+                Width = BUTTON_SIZE,
+                Height = BUTTON_SIZE,
+                NormalTexture = normalIdx < settingFrames.Length ? settingFrames[normalIdx] : null,
+                PressedTexture = pressedIdx < settingFrames.Length ? settingFrames[pressedIdx] : null
+            };
 
-            if (checkboxTex is not null)
-                spriteBatch.Draw(checkboxTex, new Vector2(sx + CHECKBOX_X, rowY), Color.White);
+            btn.OnClick += () => ToggleSetting(settingIndex);
 
-            // Label
-            SettingNameCaches[i]
-                .Draw(spriteBatch, new Vector2(sx + LABEL_OFFSET_X, rowY + 2));
+            AddChild(btn);
+
+            var label = new UILabel(device)
+            {
+                Name = $"SettingLabel{i}",
+                X = LABEL_X + col * COLUMN_OFFSET,
+                Y = LABEL_Y + row * ROW_HEIGHT,
+                Width = LABEL_WIDTH,
+                Height = 12,
+                PaddingLeft = 0,
+                PaddingTop = 0,
+                Alignment = TextAlignment.Left
+            };
+
+            SettingLabels[i] = label;
+            AddChild(label);
+        }
+
+        // Default names for client-local settings (server settings populated via SendOptionToggle(Request))
+        SetSettingName(6, "Use Group Window");
+        SetSettingName(8, "Scroll Screen");
+        SetSettingName(9, "the Shift key.");
+        SetSettingName(10, "click character profile");
+        SetSettingName(11, "NPC Record Mundane Chat");
+        SetSettingName(12, "group recruiting");
+    }
+
+    private void Close()
+    {
+        if (SlideMode)
+            SlideOut();
+        else
+        {
+            Hide();
+            OnClose?.Invoke();
         }
     }
 
     /// <summary>
     ///     Gets or sets a setting toggle value by index.
     /// </summary>
-    public bool GetSetting(int index) => (index >= 0) && (index < SETTING_COUNT) && SettingValues[index];
+    public bool GetSetting(int index) => index is >= 0 and < SETTING_COUNT && SettingValues[index];
 
-    public event Action? OnClose;
-
-    private void RefreshCaches()
+    public override void Hide()
     {
-        if (RenderedVersion == DataVersion)
-            return;
+        Visible = false;
+        Sliding = false;
 
-        RenderedVersion = DataVersion;
-
-        for (var i = 0; i < SETTING_COUNT; i++)
-            SettingNameCaches[i]
-                .Update(SettingNames[i], 0, Color.White);
+        if (SlideMode)
+            X = OffScreenX;
     }
 
-    public void SetSetting(int index, bool value)
+    public event Action? OnClose;
+    public event Action<int, bool>? OnSettingToggled;
+
+    private void RefreshLabel(int index)
     {
-        if ((index < 0) || (index >= SETTING_COUNT))
+        var baseName = SettingBaseNames[index];
+
+        if (string.IsNullOrEmpty(baseName))
+            return;
+
+        var text = index switch
+        {
+            // "Scroll Screen : Rough" / "Scroll Screen : Smooth"
+            8 => $"Scroll Screen : {(SettingValues[index] ? "Smooth" : "Rough")}",
+
+            // "the Shift key." / "not use the Shift key."
+            9 => SettingValues[index] ? "the Shift key." : "not use the Shift key.",
+
+            // Server settings — name only (server controls the display)
+            _ when IsServerSetting[index] => baseName,
+
+            // Other local settings — ":ON" / ":OFF" suffix
+            _ => $"{baseName} :{(SettingValues[index] ? "ON" : "OFF")}"
+        };
+
+        SettingLabels[index]
+            .SetText(text, Color.White);
+    }
+
+    public void SetSettingName(int index, string name)
+    {
+        if (index is < 0 or >= SETTING_COUNT)
+            return;
+
+        SettingBaseNames[index] = name;
+        RefreshLabel(index);
+    }
+
+    public void SetSettingValue(int index, bool value)
+    {
+        if (index is < 0 or >= SETTING_COUNT)
             return;
 
         SettingValues[index] = value;
-        DataVersion++;
+        RefreshLabel(index);
+    }
+
+    public void SetSlideAnchor(int anchorX, int anchorY)
+    {
+        OffScreenX = anchorX;
+        TargetX = anchorX - Width;
+        SlideAnchorY = anchorY;
+    }
+
+    /// <summary>
+    ///     Shows immediately at top-center of screen (hotkey mode).
+    /// </summary>
+    public override void Show()
+    {
+        X = (640 - Width) / 2;
+        Y = 0;
+        Visible = true;
+        Sliding = false;
+        SlideMode = false;
+    }
+
+    /// <summary>
+    ///     Slides out from the left edge of MainOptionsControl (button mode).
+    /// </summary>
+    public void SlideIn()
+    {
+        if (Visible)
+            return;
+
+        X = OffScreenX;
+        Y = SlideAnchorY;
+        Visible = true;
+        Sliding = true;
+        SlidingOut = false;
+        SlideMode = true;
+        SlideTimer = 0;
+    }
+
+    private void SlideOut()
+    {
+        Sliding = true;
+        SlidingOut = true;
+        SlideTimer = 0;
+    }
+
+    private void ToggleSetting(int index)
+    {
+        var newValue = !SettingValues[index];
+        SettingValues[index] = newValue;
+
+        if (IsServerSetting[index])
+            OnSettingToggled?.Invoke(index, newValue);
+        else
+            RefreshLabel(index);
     }
 
     public override void Update(GameTime gameTime, InputBuffer input)
@@ -162,32 +270,42 @@ public class SettingsControl : PrefabPanel
         if (!Visible || !Enabled)
             return;
 
+        if (Sliding)
+        {
+            SlideTimer += (float)gameTime.ElapsedGameTime.TotalMilliseconds;
+            var t = Math.Clamp(SlideTimer / SLIDE_DURATION_MS, 0f, 1f);
+            var eased = 1f - (1f - t) * (1f - t);
+
+            if (SlidingOut)
+            {
+                X = (int)MathHelper.Lerp(TargetX, OffScreenX, eased);
+
+                if (t >= 1f)
+                {
+                    Hide();
+                    OnClose?.Invoke();
+
+                    return;
+                }
+            } else
+            {
+                X = (int)MathHelper.Lerp(OffScreenX, TargetX, eased);
+
+                if (t >= 1f)
+                {
+                    X = TargetX;
+                    Sliding = false;
+                }
+            }
+        }
+
         if (input.WasKeyPressed(Keys.Escape) || input.WasKeyPressed(Keys.F4))
         {
-            Hide();
-            OnClose?.Invoke();
+            Close();
 
             return;
         }
 
         base.Update(gameTime, input);
-
-        // Click to toggle checkboxes
-        if (input.WasLeftButtonPressed)
-        {
-            var localX = input.MouseX - ScreenX;
-            var localY = input.MouseY - ScreenY - CHECKBOX_START_Y;
-
-            if ((localX >= CHECKBOX_X) && (localX < (CHECKBOX_X + 200)) && (localY >= 0))
-            {
-                var index = localY / ROW_HEIGHT;
-
-                if ((index >= 0) && (index < SETTING_COUNT))
-                {
-                    SettingValues[index] = !SettingValues[index];
-                    DataVersion++;
-                }
-            }
-        }
     }
 }

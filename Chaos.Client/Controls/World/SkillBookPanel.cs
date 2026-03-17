@@ -1,6 +1,7 @@
 #region
 using Chaos.Client.Data;
 using Chaos.Client.Data.Models;
+using Chaos.Client.Definitions;
 using Chaos.Client.Rendering;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
@@ -12,12 +13,11 @@ namespace Chaos.Client.Controls.World;
 ///     Skill book panel (S key, Shift+S for secondary). 89 slots total. Skill icons rendered from Setoa.dat skill EPFs
 ///     with gui06 palette. Cooldown: grey icon with blue progressively covering from bottom to top.
 /// </summary>
-public class SkillBookPanel : PanelBaseControl
+public sealed class SkillBookPanel : PanelBaseControl
 {
     private const int MAX_SLOTS = 89;
-    private readonly Texture2D?[] BlueIconCache = new Texture2D?[MAX_SLOTS];
-    private readonly float[] CooldownDuration = new float[MAX_SLOTS];
 
+    private readonly float[] CooldownDuration = new float[MAX_SLOTS];
     private readonly float[] CooldownRemaining = new float[MAX_SLOTS];
     private readonly ushort[] SpriteIds = new ushort[MAX_SLOTS];
 
@@ -26,6 +26,7 @@ public class SkillBookPanel : PanelBaseControl
             device,
             hudPrefabSet,
             MAX_SLOTS,
+            CooldownStyle.Progressive,
             secondary)
         => Name = secondary ? "SkillBookAlt" : "SkillBook";
 
@@ -33,15 +34,20 @@ public class SkillBookPanel : PanelBaseControl
     {
         var index = slot - 1;
 
-        if ((index >= 0) && (index < MAX_SLOTS))
+        if (index is >= 0 and < MAX_SLOTS)
         {
             SpriteIds[index] = 0;
             CooldownRemaining[index] = 0;
             CooldownDuration[index] = 0;
+        }
 
-            BlueIconCache[index]
-                ?.Dispose();
-            BlueIconCache[index] = null;
+        var control = FindSlot(slot);
+
+        if (control is not null)
+        {
+            control.CooldownTexture?.Dispose();
+            control.CooldownTexture = null;
+            control.CooldownPercent = 0;
         }
 
         base.ClearSlot(slot);
@@ -49,49 +55,13 @@ public class SkillBookPanel : PanelBaseControl
 
     public override void Dispose()
     {
-        foreach (var icon in BlueIconCache)
-            icon?.Dispose();
+        foreach (var slot in Slots)
+        {
+            slot.CooldownTexture?.Dispose();
+            slot.CooldownTexture = null;
+        }
 
         base.Dispose();
-    }
-
-    protected override void DrawSlotIcon(
-        SpriteBatch spriteBatch,
-        int slotIndex,
-        int x,
-        int y,
-        Texture2D icon)
-    {
-        // Normal icon always drawn as base
-        spriteBatch.Draw(icon, new Vector2(x, y), Color.White);
-
-        if ((CooldownRemaining[slotIndex] <= 0) || (CooldownDuration[slotIndex] <= 0))
-            return;
-
-        if (BlueIconCache[slotIndex] is not { } blueIcon)
-            return;
-
-        // Blue icon at 80% opacity over the entire normal icon
-        spriteBatch.Draw(blueIcon, new Vector2(x, y), Color.White * 0.33f);
-
-        // Full opaque blue icon progressively covering top to bottom as cooldown elapses
-        var elapsed = 1f - CooldownRemaining[slotIndex] / CooldownDuration[slotIndex];
-        var revealHeight = (int)(blueIcon.Height * elapsed);
-
-        if (revealHeight > 0)
-        {
-            var srcRect = new Rectangle(
-                0,
-                0,
-                blueIcon.Width,
-                revealHeight);
-
-            spriteBatch.Draw(
-                blueIcon,
-                new Vector2(x, y),
-                srcRect,
-                Color.White);
-        }
     }
 
     private Texture2D? RenderBlueIcon(ushort spriteId)
@@ -111,26 +81,35 @@ public class SkillBookPanel : PanelBaseControl
         CooldownRemaining[index] = duration;
         CooldownDuration[index] = duration;
 
-        // Lazy-load blue/grey variants
-        var spriteId = SpriteIds[index];
+        var control = FindSlot(slot);
 
-        if (spriteId == 0)
+        if (control is null)
             return;
 
-        BlueIconCache[index] ??= RenderBlueIcon(spriteId);
+        // Lazy-load blue variant
+        var spriteId = SpriteIds[index];
+
+        if (spriteId > 0)
+            control.CooldownTexture ??= RenderBlueIcon(spriteId);
+
+        control.CooldownPercent = 1f;
     }
 
     public override void SetSlot(byte slot, ushort sprite)
     {
         var index = slot - 1;
 
-        if ((index >= 0) && (index < MAX_SLOTS))
+        if (index is >= 0 and < MAX_SLOTS)
         {
             SpriteIds[index] = sprite;
 
-            BlueIconCache[index]
-                ?.Dispose();
-            BlueIconCache[index] = null;
+            var control = FindSlot(slot);
+
+            if (control is not null)
+            {
+                control.CooldownTexture?.Dispose();
+                control.CooldownTexture = null;
+            }
         }
 
         base.SetSlot(slot, sprite);
@@ -154,6 +133,11 @@ public class SkillBookPanel : PanelBaseControl
                 CooldownRemaining[i] = 0;
                 CooldownDuration[i] = 0;
             }
+
+            // Update the slot control's cooldown percent
+            var control = FindSlot((byte)(i + 1));
+
+            control?.CooldownPercent = CooldownDuration[i] > 0 ? CooldownRemaining[i] / CooldownDuration[i] : 0;
         }
     }
 }

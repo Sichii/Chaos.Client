@@ -11,7 +11,7 @@ namespace Chaos.Client.Controls.Generic;
 ///     Vertical scrollbar using scroll.epf assets from setoa.dat. Up/down arrows (16x16), tiled track, fixed 16x16 thumb.
 ///     5 hit zones: up arrow, page up, thumb (draggable), page down, down arrow.
 /// </summary>
-public class ScrollBar : UIElement
+public sealed class ScrollBarControl : UIElement
 {
     private const int BUTTON_SIZE = 16;
 
@@ -36,12 +36,11 @@ public class ScrollBar : UIElement
     public int Value { get; set; }
     public int VisibleItems { get; set; }
 
-    public ScrollBar(GraphicsDevice device)
+    public ScrollBarControl(GraphicsDevice device)
     {
         Width = BUTTON_SIZE;
 
-        if (SharedFrames is null)
-            SharedFrames = TextureConverter.LoadEpfTextures(device, "scroll.epf");
+        SharedFrames ??= TextureConverter.LoadEpfTextures(device, "scroll.epf");
 
         SharedFrameRefCount++;
     }

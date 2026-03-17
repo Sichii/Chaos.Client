@@ -1,6 +1,5 @@
 #region
 using Chaos.Client.Controls.Components;
-using Chaos.Client.Data;
 using Chaos.Client.Rendering;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
@@ -9,44 +8,26 @@ using Microsoft.Xna.Framework.Graphics;
 namespace Chaos.Client.Controls.Generic;
 
 /// <summary>
-///     Loading/progress screen using _nload prefab. Displays a background with an animated progress bar composed of
-///     _nloadb0.spf (start cap), _nloadb1.spf (fill), _nloadb2.spf (end cap).
+///     Loading/progress screen using _nload prefab. Displays a background with an animated progress bar
+///     composed of _nloadb0.spf (start cap), _nloadb1.spf (fill), _nloadb2.spf (end cap).
 /// </summary>
-public class LoadingControl : UIPanel
+public class LoadingControl : PrefabPanel
 {
     private readonly Texture2D? BarEndTexture;
     private readonly Texture2D? BarFillTexture;
     private readonly int BarMaxWidth;
     private readonly Texture2D? BarStartTexture;
     private readonly int BarY;
-    private readonly GraphicsDevice Device;
 
     private float Progress;
 
     public LoadingControl(GraphicsDevice device)
+        : base(device, "_nload")
     {
-        Device = device;
         Name = "Loading";
         Visible = false;
 
-        var prefabSet = DataContext.UserControls.Get("_nload");
-
-        if (prefabSet is null)
-            throw new InvalidOperationException("Failed to load _nload control prefab set");
-
-        // Anchor — panel dimensions and background
-        var anchor = prefabSet[0];
-        var anchorRect = anchor.Control.Rect!.Value;
-
-        Width = (int)anchorRect.Width;
-        Height = (int)anchorRect.Height;
-        X = (640 - Width) / 2;
-        Y = (480 - Height) / 2;
-
-        if (anchor.Images.Count > 0)
-            Background = TextureConverter.ToTexture2D(device, anchor.Images[0]);
-
-        // Load progress bar segments from SPF files
+        // Load progress bar segments from SPF files (not part of the prefab)
         BarStartTexture = TextureConverter.LoadSpfTexture(device, "_nloadb0.spf");
         BarFillTexture = TextureConverter.LoadSpfTexture(device, "_nloadb1.spf");
         BarEndTexture = TextureConverter.LoadSpfTexture(device, "_nloadb2.spf");
@@ -111,8 +92,6 @@ public class LoadingControl : UIPanel
         if (Progress >= 0.99f)
             spriteBatch.Draw(BarEndTexture, new Vector2(fillX + filledWidth, barDrawY), Color.White);
     }
-
-    public void Hide() => Visible = false;
 
     public void SetProgress(float progress) => Progress = Math.Clamp(progress, 0f, 1f);
 

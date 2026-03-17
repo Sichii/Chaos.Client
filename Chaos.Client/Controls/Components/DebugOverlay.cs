@@ -11,8 +11,6 @@ namespace Chaos.Client.Controls.Components;
 /// </summary>
 public static class DebugOverlay
 {
-    private static Texture2D? Pixel;
-
     public static bool IsActive { get; set; }
 
     public static void Draw(SpriteBatch spriteBatch, GraphicsDevice device, UIPanel root)
@@ -20,13 +18,7 @@ public static class DebugOverlay
         if (!IsActive)
             return;
 
-        if (Pixel is null || Pixel.IsDisposed)
-        {
-            Pixel = new Texture2D(device, 1, 1);
-            Pixel.SetData([Color.White]);
-        }
-
-        spriteBatch.Begin(SpriteSortMode.Immediate, samplerState: SamplerState.PointClamp);
+        spriteBatch.Begin(SpriteSortMode.Immediate, samplerState: GlobalSettings.Sampler);
 
         foreach (var child in root.Children)
             DrawElement(spriteBatch, device, child);
@@ -65,40 +57,13 @@ public static class DebugOverlay
 
             var borderColor = color * 0.8f;
 
-            // Outline
-            spriteBatch.Draw(
-                Pixel!,
+            UIElement.DrawBorder(
+                spriteBatch,
+                device,
                 new Rectangle(
                     sx,
                     sy,
                     w,
-                    1),
-                borderColor);
-
-            spriteBatch.Draw(
-                Pixel!,
-                new Rectangle(
-                    sx,
-                    sy + h - 1,
-                    w,
-                    1),
-                borderColor);
-
-            spriteBatch.Draw(
-                Pixel!,
-                new Rectangle(
-                    sx,
-                    sy,
-                    1,
-                    h),
-                borderColor);
-
-            spriteBatch.Draw(
-                Pixel!,
-                new Rectangle(
-                    sx + w - 1,
-                    sy,
-                    1,
                     h),
                 borderColor);
 
@@ -108,30 +73,24 @@ public static class DebugOverlay
                 : element.GetType()
                          .Name;
 
-            var nameTexture = TextRenderer.RenderText(
+            var nameTexture = TextRenderer.RenderText(device, name, color);
+
+            var tw = nameTexture.Width;
+            var th = nameTexture.Height;
+            var tx = sx + (w - tw) / 2;
+            var ty = sy + (h - th) / 2;
+
+            UIElement.DrawRect(
+                spriteBatch,
                 device,
-                name,
-                0,
-                color);
-
-            if (nameTexture is not null)
-            {
-                var tw = nameTexture.Width;
-                var th = nameTexture.Height;
-                var tx = sx + (w - tw) / 2;
-                var ty = sy + (h - th) / 2;
-
-                spriteBatch.Draw(
-                    Pixel!,
-                    new Rectangle(
-                        tx - 1,
-                        ty - 1,
-                        tw + 2,
-                        th + 2),
-                    Color.Black * 0.7f);
-                spriteBatch.Draw(nameTexture, new Vector2(tx, ty), Color.White);
-                nameTexture.Dispose();
-            }
+                new Rectangle(
+                    tx - 1,
+                    ty - 1,
+                    tw + 2,
+                    th + 2),
+                Color.Black * 0.7f);
+            spriteBatch.Draw(nameTexture, new Vector2(tx, ty), Color.White);
+            nameTexture.Dispose();
         }
 
         if (element is UIPanel panel)

@@ -12,25 +12,26 @@ namespace Chaos.Client.Controls.World;
 ///     Orange bar message display above inventory. Shows the latest server message; supports drag-expand to reveal
 ///     history. Background from SystemMessagePane (_nsmbk.spf).
 /// </summary>
-public class OrangeBarControl : UIElement
+public sealed class OrangeBarControl : UIElement
 {
     private const int MAX_HISTORY = 100;
     private const int MAX_EXPAND_LINES = 10;
     private const int GLYPH_HEIGHT = 12;
+    private readonly GraphicsDevice Device;
     private readonly List<string> History = [];
     private readonly CachedText[] HistoryTextures;
     private readonly Texture2D? PaneBg;
-    private readonly Texture2D PixelTexture;
 
     private readonly Rectangle TextBounds;
-    private readonly Rectangle WrapBounds;
 
     private bool Dragging;
     private int DragMouseStartY;
     private int ExpandedLines;
+    private Rectangle WrapBounds;
 
     public OrangeBarControl(GraphicsDevice device, ControlPrefabSet hudPrefabSet)
     {
+        Device = device;
         Name = "OrangeBar";
 
         TextBounds = PrefabPanel.GetRect(hudPrefabSet, "SystemMessage");
@@ -44,9 +45,6 @@ public class OrangeBarControl : UIElement
                 PaneBg = TextureConverter.ToTexture2D(device, prefab.Images[0]);
         }
 
-        PixelTexture = new Texture2D(device, 1, 1);
-        PixelTexture.SetData([Color.White]);
-
         HistoryTextures = new CachedText[MAX_EXPAND_LINES];
 
         for (var i = 0; i < MAX_EXPAND_LINES; i++)
@@ -55,7 +53,6 @@ public class OrangeBarControl : UIElement
 
     public override void Dispose()
     {
-        PixelTexture.Dispose();
         PaneBg?.Dispose();
 
         foreach (var texture in HistoryTextures)
@@ -80,8 +77,9 @@ public class OrangeBarControl : UIElement
         var totalHeight = expandY - topY + contentHeight;
 
         // Solid opaque fill
-        spriteBatch.Draw(
-            PixelTexture,
+        DrawRect(
+            spriteBatch,
+            Device,
             new Rectangle(
                 paneX,
                 topY,
@@ -127,7 +125,7 @@ public class OrangeBarControl : UIElement
                 var textY = bottomY - slot * GLYPH_HEIGHT;
 
                 HistoryTextures[slot]
-                    .Update(History[i], 0, Color.Orange);
+                    .Update(History[i], Color.Orange);
 
                 HistoryTextures[slot]
                     .Draw(spriteBatch, new Vector2(textX, textY));
@@ -135,6 +133,11 @@ public class OrangeBarControl : UIElement
             }
         }
     }
+
+    /// <summary>
+    ///     Returns the message history for external display (e.g. Shift+F popup).
+    /// </summary>
+    public IReadOnlyList<string> GetHistory() => History;
 
     public void ShowMessage(string text)
     {

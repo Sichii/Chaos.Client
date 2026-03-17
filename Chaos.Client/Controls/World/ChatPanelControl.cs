@@ -11,7 +11,7 @@ namespace Chaos.Client.Controls.World;
 ///     Chat display panel (F key). Shows chat message history with word-wrap. Background loaded from _nchatbk.spf (shown
 ///     in tab area). Text rendered at ChatDisplayBounds (separate area of the HUD).
 /// </summary>
-public class ChatPanel : UIPanel
+public sealed class ChatPanelControl : UIPanel
 {
     private const int MAX_CHAT_LINES = 200;
     private const int GLYPH_HEIGHT = 12;
@@ -24,7 +24,7 @@ public class ChatPanel : UIPanel
     private int RenderedVersion = -1;
     private int ScrollOffset;
 
-    public ChatPanel(GraphicsDevice device, Rectangle displayBounds)
+    public ChatPanelControl(GraphicsDevice device, Rectangle displayBounds)
     {
         Name = "Chat";
         DisplayBounds = displayBounds;
@@ -49,7 +49,7 @@ public class ChatPanel : UIPanel
 
         while (remaining.Length > 0)
         {
-            var lineEnd = FindLineBreak(remaining, maxWidth);
+            var lineEnd = TextRenderer.FindLineBreak(remaining, maxWidth);
 
             var line = remaining[..lineEnd]
                 .TrimEnd();
@@ -102,25 +102,6 @@ public class ChatPanel : UIPanel
         }
     }
 
-    private static int FindLineBreak(string text, int maxWidth)
-    {
-        var width = 0;
-        var lastSpace = -1;
-
-        for (var i = 0; i < text.Length; i++)
-        {
-            if (text[i] == ' ')
-                lastSpace = i;
-
-            width += TextRenderer.MeasureCharWidth(text[i]);
-
-            if (width > maxWidth)
-                return lastSpace > 0 ? lastSpace + 1 : Math.Max(1, i);
-        }
-
-        return text.Length;
-    }
-
     private void RefreshDisplay()
     {
         if (RenderedVersion == LogVersion)
@@ -136,13 +117,13 @@ public class ChatPanel : UIPanel
             var line = ChatLog[i];
 
             LineTextures[lineIndex]
-                .Update(line.Text, 0, line.Color);
+                .Update(line.Text, line.Color);
             lineIndex++;
         }
 
         for (; lineIndex < MaxVisibleLines; lineIndex++)
             LineTextures[lineIndex]
-                .Update(string.Empty, 0, Color.White);
+                .Update(string.Empty, Color.White);
     }
 
     public override void Update(GameTime gameTime, InputBuffer input)

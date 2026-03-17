@@ -11,13 +11,13 @@ namespace Chaos.Client.Controls.World;
 ///     Animated orb display (HP or MP). Selects a frame based on current/max percentage. Frames loaded from a named
 ///     control in the HUD prefab set.
 /// </summary>
-public class OrbDisplay : IDisposable
+public sealed class VerticalBarControl : IDisposable
 {
     private readonly Texture2D[] Frames;
     private readonly Rectangle Rect;
     private int CurrentFrame;
 
-    public OrbDisplay(GraphicsDevice device, ControlPrefabSet prefabSet, string name)
+    public VerticalBarControl(GraphicsDevice device, ControlPrefabSet prefabSet, string name)
     {
         if (!prefabSet.Contains(name))
         {
@@ -58,6 +58,7 @@ public class OrbDisplay : IDisposable
         foreach (var frame in Frames)
             frame.Dispose();
 
+        // ReSharper disable once GCSuppressFinalizeForTypeWithoutDestructor
         GC.SuppressFinalize(this);
     }
 

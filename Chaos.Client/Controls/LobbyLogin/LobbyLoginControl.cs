@@ -1,140 +1,109 @@
 #region
 using Chaos.Client.Controls.Components;
-using Chaos.Client.Data;
-using Chaos.Client.Data.Models;
+using Chaos.Client.Definitions;
 using Chaos.Client.Rendering;
 using Microsoft.Xna.Framework.Graphics;
 #endregion
 
 namespace Chaos.Client.Controls.LobbyLogin;
 
-public class LobbyLoginControl : UIPanel
+public sealed class LobbyLoginControl : PrefabPanel
 {
-    public UIAnimatedImage AnimatedLogo { get; }
-    public UIButton ContinueButton { get; }
-    public UIButton CreateButton { get; }
-    public UIButton CreditButton { get; }
-    public UIButton ExitButton { get; }
-    public UIButton HomepageButton { get; }
-    public UIButton PasswordButton { get; }
-    public UIImage StaticLogo { get; }
+    public UIAnimatedImage? AnimatedLogo { get; }
+    public UIButton? ContinueButton { get; }
+    public UIButton? CreditButton { get; }
+    public UIButton? ExitButton { get; }
+    public UIButton? HomepageButton { get; }
+    public UIButton? PasswordButton { get; }
+    public UIButton? SubmitCreateButton { get; }
+    public UILabel? VersionLabel { get; }
 
     public LobbyLoginControl(GraphicsDevice device)
+        : base(device, "_nstart", false)
     {
         Name = "StartScreen";
         X = 0;
         Y = 0;
-        Width = 640;
-        Height = 480;
 
-        var prefabSet = DataContext.UserControls.Get("_nstart");
+        var elements = AutoPopulate();
 
-        if (prefabSet is null)
-            throw new InvalidOperationException("Failed to load _nstart control prefab set");
+        // Buttons — AutoPopulate creates these as UIButtons (2 images each, type 7)
+        SubmitCreateButton = elements.GetValueOrDefault("Create") as UIButton;
+        ContinueButton = elements.GetValueOrDefault("Continue") as UIButton;
+        PasswordButton = elements.GetValueOrDefault("Password") as UIButton;
+        CreditButton = elements.GetValueOrDefault("Credit") as UIButton;
+        HomepageButton = elements.GetValueOrDefault("Homepage") as UIButton;
+        ExitButton = elements.GetValueOrDefault("Exit") as UIButton;
 
-        // Background — the anchor control (first control) rendered as the panel's background texture
-        var bgPrefab = prefabSet[0];
-        Background = ConvertImage(device, bgPrefab, 0);
+        // Start screen buttons use hover effect instead of press
+        UIButton?[] allButtons =
+        [
+            SubmitCreateButton,
+            ContinueButton,
+            PasswordButton,
+            CreditButton,
+            HomepageButton,
+            ExitButton
+        ];
 
-        // Static logo — standalone SPF file
-        var logoPrefab = prefabSet["LOGO"];
-        var logoRect = logoPrefab.Control.Rect!.Value;
-
-        StaticLogo = new UIImage
+        foreach (var btn in allButtons)
         {
-            Name = "StaticLogo",
-            X = (int)logoRect.Left,
-            Y = (int)logoRect.Top,
-            Width = (int)logoRect.Width,
-            Height = (int)logoRect.Height,
-            Texture = TextureConverter.LoadSpfTexture(device, "_nslogo1.spf")
-        };
-        AddChild(StaticLogo);
+            if (btn is null)
+                continue;
 
-        // Animated logo — 20 frames from _nslogo.spf in the prefab
-        var animFrames = new Texture2D[logoPrefab.Images.Count];
+            btn.HoverTexture = btn.PressedTexture;
+            btn.PressedTexture = null;
+            btn.Enabled = false;
+        }
 
-        for (var i = 0; i < logoPrefab.Images.Count; i++)
-            animFrames[i] = TextureConverter.ToTexture2D(device, logoPrefab.Images[i]);
-
-        AnimatedLogo = new UIAnimatedImage
+        // Animated logo — LOGO control has 20 frames, AutoPopulate created it as UIImage (5+ images).
+        // Replace with UIAnimatedImage using the prefab's frames.
+        if (elements.TryGetValue("LOGO", out var logoElement) && PrefabSet.Contains("LOGO"))
         {
-            Name = "AnimatedLogo",
-            X = (int)logoRect.Left,
-            Y = (int)logoRect.Top,
-            Width = (int)logoRect.Width,
-            Height = (int)logoRect.Height,
-            Frames = animFrames,
-            FrameIntervalMs = 150,
-            Looping = true,
-            PingPong = true
-        };
-        AddChild(AnimatedLogo);
+            var logoPrefab = PrefabSet["LOGO"];
+            var animFrames = new Texture2D[logoPrefab.Images.Count];
 
-        // Buttons — all start disabled
-        CreateButton = CreateButtonFromPrefab(device, prefabSet, "Create");
-        CreateButton.Enabled = false;
-        AddChild(CreateButton);
+            for (var i = 0; i < logoPrefab.Images.Count; i++)
+                animFrames[i] = TextureConverter.ToTexture2D(device, logoPrefab.Images[i]);
 
-        ContinueButton = CreateButtonFromPrefab(device, prefabSet, "Continue");
-        ContinueButton.Enabled = false;
-        AddChild(ContinueButton);
+            AnimatedLogo = new UIAnimatedImage
+            {
+                Name = "AnimatedLogo",
+                X = logoElement.X,
+                Y = logoElement.Y,
+                Width = logoElement.Width,
+                Height = logoElement.Height,
+                Frames = animFrames,
+                FrameIntervalMs = 150,
+                Looping = true,
+                PingPong = true
+            };
 
-        PasswordButton = CreateButtonFromPrefab(device, prefabSet, "Password");
-        PasswordButton.Enabled = false;
-        AddChild(PasswordButton);
+            // Replace the static image with the animated one
+            Children.Remove(logoElement);
+            logoElement.Dispose();
+            AddChild(AnimatedLogo);
+        }
 
-        CreditButton = CreateButtonFromPrefab(device, prefabSet, "Credit");
-        CreditButton.Enabled = false;
-        AddChild(CreditButton);
-
-        HomepageButton = CreateButtonFromPrefab(device, prefabSet, "Homepage");
-        HomepageButton.Enabled = false;
-        AddChild(HomepageButton);
-
-        ExitButton = CreateButtonFromPrefab(device, prefabSet, "Exit");
-        ExitButton.Enabled = false;
-        AddChild(ExitButton);
-    }
-
-    private static Texture2D? ConvertImage(GraphicsDevice device, ControlPrefab prefab, int imageIndex)
-    {
-        if (imageIndex >= prefab.Images.Count)
-            return null;
-
-        return TextureConverter.ToTexture2D(device, prefab.Images[imageIndex]);
-    }
-
-    private static UIButton CreateButtonFromPrefab(GraphicsDevice device, ControlPrefabSet prefabSet, string controlName)
-    {
-        var prefab = prefabSet[controlName];
-        var rect = prefab.Control.Rect!.Value;
-
-        var normalTexture = prefab.Images.Count > 0 ? TextureConverter.ToTexture2D(device, prefab.Images[0]) : null;
-
-        var hoverTexture = prefab.Images.Count > 1 ? TextureConverter.ToTexture2D(device, prefab.Images[1]) : null;
-
-        return new UIButton
-        {
-            Name = controlName,
-            X = (int)rect.Left,
-            Y = (int)rect.Top,
-            Width = (int)rect.Width,
-            Height = (int)rect.Height,
-            NormalTexture = normalTexture,
-            HoverTexture = hoverTexture
-        };
+        // Version label — type 7, 0 images, skipped by AutoPopulate
+        VersionLabel = CreateLabel("Version", TextAlignment.Right);
+        VersionLabel?.SetText("Chaos v0.1.0");
     }
 
     public void EnableButtons() => SetButtonsEnabled(true);
 
     public void SetButtonsEnabled(bool enabled)
     {
-        CreateButton.Enabled = enabled;
-        ContinueButton.Enabled = enabled;
-        PasswordButton.Enabled = enabled;
-        CreditButton.Enabled = enabled;
-        HomepageButton.Enabled = enabled;
-        ExitButton.Enabled = enabled;
+        SubmitCreateButton?.SetEnabled(enabled);
+        ContinueButton?.SetEnabled(enabled);
+        PasswordButton?.SetEnabled(enabled);
+        CreditButton?.SetEnabled(enabled);
+        HomepageButton?.SetEnabled(enabled);
+        ExitButton?.SetEnabled(enabled);
     }
+}
+
+file static class ButtonExtensions
+{
+    public static void SetEnabled(this UIButton? button, bool enabled) => button?.Enabled = enabled;
 }

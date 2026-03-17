@@ -1,7 +1,5 @@
 #region
 using Chaos.Client.Controls.Components;
-using Chaos.Client.Data;
-using Chaos.Client.Data.Models;
 using Chaos.Client.Rendering;
 using Chaos.DarkAges.Definitions;
 using Microsoft.Xna.Framework;
@@ -11,14 +9,13 @@ using Microsoft.Xna.Framework.Input;
 
 namespace Chaos.Client.Controls.LobbyLogin;
 
-public class CharacterCreationControl : UIPanel
+public sealed class CharacterCreationControl : PrefabPanel
 {
     private const int MAX_MALE_HAIR_STYLE = 18;
     private const int MAX_FEMALE_HAIR_STYLE = 17;
     private const int HAIR_COLOR_COLUMNS = 7;
     private const int HAIR_COLOR_ROWS = 2;
 
-    // Swatch cell index → DisplayColor (row-major, top-left = cell 0)
     private static readonly DisplayColor[] SWATCH_COLOR_MAP =
     [
         DisplayColor.Teal,
@@ -37,271 +34,146 @@ public class CharacterCreationControl : UIPanel
         DisplayColor.Black
     ];
 
-    // Body center anchor — matches AislingRenderer's BODY_CENTER_X/Y (57/2, 85/2)
     private const int BODY_CENTER_X = 28;
     private const int BODY_CENTER_Y = 42;
-
-    // Character preview — cycle: idle, walk1, walk2, walk3, walk4 (5 frames total)
     private const int ANIM_FRAME_COUNT = 5;
     private const float WALK_FRAME_INTERVAL_MS = 350f;
-    private readonly Texture2D?[] AnimFrameTextures = new Texture2D?[ANIM_FRAME_COUNT];
 
-    private readonly GraphicsDevice Device;
+    private readonly Texture2D?[] AnimFrameTextures = new Texture2D?[ANIM_FRAME_COUNT];
     private readonly Texture2D? FemaleSelected;
-    private readonly UIElement FemaleToggleArea;
+    private readonly UIElement? FemaleToggleArea;
     private readonly Texture2D? FemaleUnselected;
     private readonly Texture2D? MaleSelected;
+    private readonly UIElement? MaleToggleArea;
 
-    // Gender toggle hit areas (relative to panel)
-    private readonly UIElement MaleToggleArea;
-
-    // Gender toggle images
+    // Gender toggle — custom hover behavior, not standard buttons
     private readonly Texture2D? MaleUnselected;
     private readonly int PreviewHeight;
     private readonly int PreviewWidth;
 
-    // Preview area bounds (relative to panel)
+    // Preview area
     private readonly int PreviewX;
     private readonly int PreviewY;
     private readonly AislingRenderer Renderer;
-    private readonly int SwatchHeight;
 
     // Hair color swatch
-    private readonly UIImage SwatchImage;
-    private readonly int SwatchWidth;
-
-    // Hair color swatch area bounds (relative to panel)
-    private readonly int SwatchX;
-    private readonly int SwatchY;
+    private readonly UIImage? SwatchImage;
     private bool FemaleHovered;
+
     private bool MaleHovered;
     private bool PreviewDirty = true;
     private int WalkFrame;
     private float WalkTimer;
-    public int SelectedDirection { get; private set; } = 1; // Direction index: Up=0, Right=1, Down=2, Left=3
 
+    public int SelectedDirection { get; private set; } = 1;
     public Gender SelectedGender { get; private set; } = Gender.Male;
     public DisplayColor SelectedHairColor { get; private set; } = DisplayColor.Default;
     public byte SelectedHairStyle { get; private set; } = 1;
-    public UIButton AngleLeftButton { get; }
-    public UIButton AngleRightButton { get; }
-    public UIButton CancelButton { get; }
-    public UIButton HairLeftButton { get; }
-    public UIButton HairRightButton { get; }
+    public UIButton? AngleLeftButton { get; }
+    public UIButton? AngleRightButton { get; }
+    public UIButton? CancelButton { get; }
+    public UIButton? HairLeftButton { get; }
+    public UIButton? HairRightButton { get; }
 
-    public UITextBox NameField { get; }
-    public UIButton OkButton { get; }
-    public UITextBox PasswordConfirmField { get; }
-    public UITextBox PasswordField { get; }
+    // Text fields — type 7 with 0 images, manually created
+    public UITextBox? NameField { get; }
+
+    // Buttons — auto-created by AutoPopulate
+    public UIButton? OkButton { get; }
+    public UITextBox? PasswordConfirmField { get; }
+    public UITextBox? PasswordField { get; }
 
     public CharacterCreationControl(GraphicsDevice device, AislingRenderer renderer)
+        : base(device, "_ncreate", false)
     {
-        Device = device;
         Renderer = renderer;
         Name = "CharacterCreation";
         Visible = false;
-
-        var prefabSet = DataContext.UserControls.Get("_ncreate");
-
-        if (prefabSet is null)
-            throw new InvalidOperationException("Failed to load _ncreate control prefab set");
-
-        // Anchor — full screen background
-        var anchor = prefabSet[0];
-        var anchorRect = anchor.Control.Rect!.Value;
-
-        Width = (int)anchorRect.Width;
-        Height = (int)anchorRect.Height;
         X = 0;
         Y = 0;
 
-        if (anchor.Images.Count > 0)
-            Background = TextureConverter.ToTexture2D(device, anchor.Images[0]);
+        var elements = AutoPopulate();
 
-        // Character preview area (HUMAN)
-        var humanPrefab = prefabSet["HUMAN"];
-        var humanRect = humanPrefab.Control.Rect!.Value;
-        PreviewX = (int)humanRect.Left;
-        PreviewY = (int)humanRect.Top;
-        PreviewWidth = (int)humanRect.Width;
-        PreviewHeight = (int)humanRect.Height;
+        // Buttons
+        OkButton = elements.GetValueOrDefault("OK") as UIButton;
+        CancelButton = elements.GetValueOrDefault("Cancel") as UIButton;
+        AngleLeftButton = elements.GetValueOrDefault("AngleLeft") as UIButton;
+        AngleRightButton = elements.GetValueOrDefault("AngleRight") as UIButton;
+        HairLeftButton = elements.GetValueOrDefault("HairLeft") as UIButton;
+        HairRightButton = elements.GetValueOrDefault("HairRight") as UIButton;
 
-        // Gender toggle — Male
-        var malePrefab = prefabSet["Male"];
-        var maleRect = malePrefab.Control.Rect!.Value;
+        if (OkButton is not null)
+            OkButton.OnClick += () => OnOk?.Invoke();
 
-        MaleUnselected = malePrefab.Images.Count > 0 ? TextureConverter.ToTexture2D(device, malePrefab.Images[0]) : null;
-        MaleSelected = malePrefab.Images.Count > 1 ? TextureConverter.ToTexture2D(device, malePrefab.Images[1]) : null;
+        if (CancelButton is not null)
+            CancelButton.OnClick += () => OnCancel?.Invoke();
 
-        MaleToggleArea = new UIImage
+        if (AngleLeftButton is not null)
+            AngleLeftButton.OnClick += OnAngleLeftClicked;
+
+        if (AngleRightButton is not null)
+            AngleRightButton.OnClick += OnAngleRightClicked;
+
+        if (HairLeftButton is not null)
+            HairLeftButton.OnClick += OnHairLeftClicked;
+
+        if (HairRightButton is not null)
+            HairRightButton.OnClick += OnHairRightClicked;
+
+        // Text fields
+        NameField = CreateTextBox("NAME");
+        PasswordField = CreateTextBox("PASSWD", 8);
+        PasswordConfirmField = CreateTextBox("PASSWD2", 8);
+
+        PasswordField?.IsMasked = true;
+        PasswordConfirmField?.IsMasked = true;
+
+        if (NameField is not null)
+            NameField.OnFocused += OnTextBoxFocused;
+
+        if (PasswordField is not null)
+            PasswordField.OnFocused += OnTextBoxFocused;
+
+        if (PasswordConfirmField is not null)
+            PasswordConfirmField.OnFocused += OnTextBoxFocused;
+
+        // Gender toggles — these use hover images, not button press behavior.
+        // AutoPopulate created them as UIButtons (2 images), but we need hover behavior.
+        // Extract their textures and position, then use custom draw logic.
+        MaleToggleArea = elements.GetValueOrDefault("Male");
+        FemaleToggleArea = elements.GetValueOrDefault("Female");
+
+        if (MaleToggleArea is UIButton maleBtn)
         {
-            Name = "MaleToggle",
-            X = (int)maleRect.Left,
-            Y = (int)maleRect.Top,
-            Width = (int)maleRect.Width,
-            Height = (int)maleRect.Height
-        };
-        AddChild(MaleToggleArea);
+            MaleUnselected = maleBtn.NormalTexture;
+            MaleSelected = maleBtn.PressedTexture;
 
-        // Gender toggle — Female
-        var femalePrefab = prefabSet["Female"];
-        var femaleRect = femalePrefab.Control.Rect!.Value;
+            // Prevent button click behavior — we handle clicks manually
+            maleBtn.NormalTexture = null;
+            maleBtn.PressedTexture = null;
+        }
 
-        FemaleUnselected = femalePrefab.Images.Count > 0 ? TextureConverter.ToTexture2D(device, femalePrefab.Images[0]) : null;
-        FemaleSelected = femalePrefab.Images.Count > 1 ? TextureConverter.ToTexture2D(device, femalePrefab.Images[1]) : null;
-
-        FemaleToggleArea = new UIImage
+        if (FemaleToggleArea is UIButton femaleBtn)
         {
-            Name = "FemaleToggle",
-            X = (int)femaleRect.Left,
-            Y = (int)femaleRect.Top,
-            Width = (int)femaleRect.Width,
-            Height = (int)femaleRect.Height
-        };
-        AddChild(FemaleToggleArea);
+            FemaleUnselected = femaleBtn.NormalTexture;
+            FemaleSelected = femaleBtn.PressedTexture;
+            femaleBtn.NormalTexture = null;
+            femaleBtn.PressedTexture = null;
+        }
 
-        // Name text field (NAME — left side)
-        var namePrefab = prefabSet["NAME"];
-        var nameRect = namePrefab.Control.Rect!.Value;
+        // Character preview area (HUMAN rect — type 7, 0 images)
+        var humanRect = GetRect("HUMAN");
 
-        NameField = new UITextBox(device)
+        if (humanRect != Rectangle.Empty)
         {
-            Name = "CharName",
-            X = (int)nameRect.Left,
-            Y = (int)nameRect.Top,
-            Width = (int)nameRect.Width,
-            Height = (int)nameRect.Height,
-            MaxLength = 12,
-            IsMasked = false,
-            IsFocused = false
-        };
-        NameField.OnFocused += OnTextBoxFocused;
-        AddChild(NameField);
+            PreviewX = humanRect.X;
+            PreviewY = humanRect.Y;
+            PreviewWidth = humanRect.Width;
+            PreviewHeight = humanRect.Height;
+        }
 
-        // Password text field (PASSWD — left side)
-        var passPrefab = prefabSet["PASSWD"];
-        var passRect = passPrefab.Control.Rect!.Value;
-
-        PasswordField = new UITextBox(device)
-        {
-            Name = "CharPassword",
-            X = (int)passRect.Left,
-            Y = (int)passRect.Top,
-            Width = (int)passRect.Width,
-            Height = (int)passRect.Height,
-            MaxLength = 8,
-            IsMasked = true,
-            IsFocused = false
-        };
-        PasswordField.OnFocused += OnTextBoxFocused;
-        AddChild(PasswordField);
-
-        // Password confirm text field (PASSWD2 — left side)
-        var passConfirmPrefab = prefabSet["PASSWD2"];
-        var passConfirmRect = passConfirmPrefab.Control.Rect!.Value;
-
-        PasswordConfirmField = new UITextBox(device)
-        {
-            Name = "CharPasswordConfirm",
-            X = (int)passConfirmRect.Left,
-            Y = (int)passConfirmRect.Top,
-            Width = (int)passConfirmRect.Width,
-            Height = (int)passConfirmRect.Height,
-            MaxLength = 8,
-            IsMasked = true,
-            IsFocused = false
-        };
-        PasswordConfirmField.OnFocused += OnTextBoxFocused;
-        AddChild(PasswordConfirmField);
-
-        // OK button
-        var okPrefab = prefabSet["OK"];
-        var okRect = okPrefab.Control.Rect!.Value;
-
-        OkButton = new UIButton
-        {
-            Name = "OK",
-            X = (int)okRect.Left,
-            Y = (int)okRect.Top,
-            Width = (int)okRect.Width,
-            Height = (int)okRect.Height,
-            NormalTexture = okPrefab.Images.Count > 0 ? TextureConverter.ToTexture2D(device, okPrefab.Images[0]) : null,
-            PressedTexture = okPrefab.Images.Count > 1 ? TextureConverter.ToTexture2D(device, okPrefab.Images[1]) : null
-        };
-        OkButton.OnClick += () => OnOk?.Invoke();
-        AddChild(OkButton);
-
-        // Cancel button
-        var cancelPrefab = prefabSet["Cancel"];
-        var cancelRect = cancelPrefab.Control.Rect!.Value;
-
-        CancelButton = new UIButton
-        {
-            Name = "Cancel",
-            X = (int)cancelRect.Left,
-            Y = (int)cancelRect.Top,
-            Width = (int)cancelRect.Width,
-            Height = (int)cancelRect.Height,
-            NormalTexture = cancelPrefab.Images.Count > 0 ? TextureConverter.ToTexture2D(device, cancelPrefab.Images[0]) : null,
-            PressedTexture = cancelPrefab.Images.Count > 1 ? TextureConverter.ToTexture2D(device, cancelPrefab.Images[1]) : null
-        };
-        CancelButton.OnClick += () => OnCancel?.Invoke();
-        AddChild(CancelButton);
-
-        // Arrow buttons — [0]=normal, [1]=hover, [2]=pressed for left arrows
-        //                  [0]=normal (mirrored), [1]=hover, [2]=pressed for right arrows
-        AngleLeftButton = CreateArrowButton(device, prefabSet, "AngleLeft");
-        AngleLeftButton.OnClick += OnAngleLeftClicked;
-        AddChild(AngleLeftButton);
-
-        AngleRightButton = CreateArrowButton(device, prefabSet, "AngleRight");
-        AngleRightButton.OnClick += OnAngleRightClicked;
-        AddChild(AngleRightButton);
-
-        HairLeftButton = CreateArrowButton(device, prefabSet, "HairLeft");
-        HairLeftButton.OnClick += OnHairLeftClicked;
-        AddChild(HairLeftButton);
-
-        HairRightButton = CreateArrowButton(device, prefabSet, "HairRight");
-        HairRightButton.OnClick += OnHairRightClicked;
-        AddChild(HairRightButton);
-
-        // Hair color swatches (HairColor)
-        var colorPrefab = prefabSet["HairColor"];
-        var colorRect = colorPrefab.Control.Rect!.Value;
-
-        SwatchX = (int)colorRect.Left;
-        SwatchY = (int)colorRect.Top;
-        SwatchWidth = (int)colorRect.Width;
-        SwatchHeight = (int)colorRect.Height;
-
-        SwatchImage = new UIImage
-        {
-            Name = "HairColorSwatch",
-            X = SwatchX,
-            Y = SwatchY,
-            Width = SwatchWidth,
-            Height = SwatchHeight,
-            Texture = colorPrefab.Images.Count > 0 ? TextureConverter.ToTexture2D(device, colorPrefab.Images[0]) : null
-        };
-        AddChild(SwatchImage);
-    }
-
-    private static UIButton CreateArrowButton(GraphicsDevice device, ControlPrefabSet prefabSet, string controlName)
-    {
-        var prefab = prefabSet[controlName];
-        var rect = prefab.Control.Rect!.Value;
-
-        return new UIButton
-        {
-            Name = controlName,
-            X = (int)rect.Left,
-            Y = (int)rect.Top,
-            Width = (int)rect.Width,
-            Height = (int)rect.Height,
-            NormalTexture = prefab.Images.Count > 0 ? TextureConverter.ToTexture2D(device, prefab.Images[0]) : null,
-            PressedTexture = prefab.Images.Count > 1 ? TextureConverter.ToTexture2D(device, prefab.Images[^1]) : null
-        };
+        // Hair color swatch (HairColor — type 7, 1 image)
+        SwatchImage = elements.GetValueOrDefault("HairColor") as UIImage;
     }
 
     public override void Dispose()
@@ -332,20 +204,18 @@ public class CharacterCreationControl : UIPanel
         var sx = ScreenX;
         var sy = ScreenY;
 
-        // Draw gender toggle images (hover-only for 2nd image)
+        // Gender toggle images (custom hover rendering)
         var maleTexture = MaleHovered ? MaleSelected : MaleUnselected;
         var femaleTexture = FemaleHovered ? FemaleSelected : FemaleUnselected;
 
-        if (maleTexture is not null)
+        if (maleTexture is not null && MaleToggleArea is not null)
             spriteBatch.Draw(maleTexture, new Vector2(sx + MaleToggleArea.X, sy + MaleToggleArea.Y), Color.White);
 
-        if (femaleTexture is not null)
+        if (femaleTexture is not null && FemaleToggleArea is not null)
             spriteBatch.Draw(femaleTexture, new Vector2(sx + FemaleToggleArea.X, sy + FemaleToggleArea.Y), Color.White);
 
-        // Draw character preview centered in the HUMAN rect
-        var currentFrame = AnimFrameTextures[WalkFrame];
-
-        if (currentFrame is not null)
+        // Character preview
+        if (AnimFrameTextures[WalkFrame] is { } currentFrame)
         {
             var centerX = sx + PreviewX + PreviewWidth / 2 - BODY_CENTER_X;
             var centerY = sy + PreviewY + PreviewHeight / 2 - BODY_CENTER_Y;
@@ -355,14 +225,13 @@ public class CharacterCreationControl : UIPanel
 
     private void HandleSwatchClick(int mouseX, int mouseY)
     {
-        if (!SwatchImage.ContainsPoint(mouseX, mouseY))
+        if (SwatchImage is null || !SwatchImage.ContainsPoint(mouseX, mouseY))
             return;
 
         var localX = mouseX - SwatchImage.ScreenX;
         var localY = mouseY - SwatchImage.ScreenY;
-
-        var cellWidth = SwatchWidth / HAIR_COLOR_COLUMNS;
-        var cellHeight = SwatchHeight / HAIR_COLOR_ROWS;
+        var cellWidth = SwatchImage.Width / HAIR_COLOR_COLUMNS;
+        var cellHeight = SwatchImage.Height / HAIR_COLOR_ROWS;
 
         if ((cellWidth <= 0) || (cellHeight <= 0))
             return;
@@ -378,44 +247,51 @@ public class CharacterCreationControl : UIPanel
         PreviewDirty = true;
     }
 
-    public void Hide()
+    public override void Hide()
     {
         Visible = false;
-        NameField.IsFocused = false;
-        PasswordField.IsFocused = false;
-        PasswordConfirmField.IsFocused = false;
-        NameField.Text = string.Empty;
-        PasswordField.Text = string.Empty;
-        PasswordConfirmField.Text = string.Empty;
+
+        if (NameField is not null)
+        {
+            NameField.IsFocused = false;
+            NameField.Text = string.Empty;
+        }
+
+        if (PasswordField is not null)
+        {
+            PasswordField.IsFocused = false;
+            PasswordField.Text = string.Empty;
+        }
+
+        if (PasswordConfirmField is not null)
+        {
+            PasswordConfirmField.IsFocused = false;
+            PasswordConfirmField.Text = string.Empty;
+        }
     }
 
-    // Left button = clockwise: Down→Left→Up→Right→Down
     private void OnAngleLeftClicked()
     {
         SelectedDirection = SelectedDirection switch
         {
-            0 => 1, // Up → Right
-            1 => 2, // Right → Down
-            2 => 3, // Down → Left
-            3 => 0, // Left → Up
+            0 => 1,
+            1 => 2,
+            2 => 3,
+            3 => 0,
             _ => 2
         };
-
         PreviewDirty = true;
     }
 
-    // Right button = counterclockwise: Down→Right→Up→Left→Down
     private void OnAngleRightClicked()
     {
         SelectedDirection = SelectedDirection switch
         {
-            0 => 3, // Up → Left
-            1 => 0, // Right → Up
-            2 => 1, // Down → Right
-            3 => 2, // Left → Down
+            0 => 3,
+            1 => 0,
+            2 => 1,
             _ => 2
         };
-
         PreviewDirty = true;
     }
 
@@ -424,18 +300,14 @@ public class CharacterCreationControl : UIPanel
     private void OnHairLeftClicked()
     {
         var maxStyle = SelectedGender == Gender.Male ? MAX_MALE_HAIR_STYLE : MAX_FEMALE_HAIR_STYLE;
-
         SelectedHairStyle = SelectedHairStyle <= 1 ? (byte)maxStyle : (byte)(SelectedHairStyle - 1);
-
         PreviewDirty = true;
     }
 
     private void OnHairRightClicked()
     {
         var maxStyle = SelectedGender == Gender.Male ? MAX_MALE_HAIR_STYLE : MAX_FEMALE_HAIR_STYLE;
-
         SelectedHairStyle = SelectedHairStyle >= maxStyle ? (byte)1 : (byte)(SelectedHairStyle + 1);
-
         PreviewDirty = true;
     }
 
@@ -443,13 +315,13 @@ public class CharacterCreationControl : UIPanel
 
     private void OnTextBoxFocused(UITextBox focused)
     {
-        if (focused != NameField)
+        if (NameField is not null && (focused != NameField))
             NameField.IsFocused = false;
 
-        if (focused != PasswordField)
+        if (PasswordField is not null && (focused != PasswordField))
             PasswordField.IsFocused = false;
 
-        if (focused != PasswordConfirmField)
+        if (PasswordConfirmField is not null && (focused != PasswordConfirmField))
             PasswordConfirmField.IsFocused = false;
     }
 
@@ -460,7 +332,6 @@ public class CharacterCreationControl : UIPanel
             AnimFrameTextures[i]
                 ?.Dispose();
 
-            // Frame 0 = idle (walkFrame 0), frames 1-4 = walk cycle (walkFrame 1-4)
             AnimFrameTextures[i] = Renderer.RenderPreview(
                 Device,
                 SelectedGender,
@@ -477,8 +348,6 @@ public class CharacterCreationControl : UIPanel
             return;
 
         SelectedGender = gender;
-
-        // Clamp hair style to the valid range for the new gender
         var maxStyle = gender == Gender.Male ? MAX_MALE_HAIR_STYLE : MAX_FEMALE_HAIR_STYLE;
 
         if (SelectedHairStyle > maxStyle)
@@ -487,22 +356,34 @@ public class CharacterCreationControl : UIPanel
         PreviewDirty = true;
     }
 
-    public void Show()
+    public override void Show()
     {
-        Visible = true;
-        NameField.Text = string.Empty;
-        PasswordField.Text = string.Empty;
-        PasswordConfirmField.Text = string.Empty;
+        if (NameField is not null)
+        {
+            NameField.Text = string.Empty;
+            NameField.IsFocused = true;
+        }
+
+        if (PasswordField is not null)
+        {
+            PasswordField.Text = string.Empty;
+            PasswordField.IsFocused = false;
+        }
+
+        if (PasswordConfirmField is not null)
+        {
+            PasswordConfirmField.Text = string.Empty;
+            PasswordConfirmField.IsFocused = false;
+        }
+
         SelectedGender = Gender.Male;
         SelectedHairStyle = 1;
         SelectedHairColor = DisplayColor.Default;
         SelectedDirection = 1;
         WalkFrame = 0;
         WalkTimer = 0;
-        NameField.IsFocused = true;
-        PasswordField.IsFocused = false;
-        PasswordConfirmField.IsFocused = false;
         PreviewDirty = true;
+        Visible = true;
     }
 
     public override void Update(GameTime gameTime, InputBuffer input)
@@ -513,28 +394,27 @@ public class CharacterCreationControl : UIPanel
         // Tab cycles focus: Name → Password → PasswordConfirm → Name
         if (input.WasKeyPressed(Keys.Tab))
         {
-            if (NameField.IsFocused)
+            if (NameField?.IsFocused == true)
             {
                 NameField.IsFocused = false;
-                PasswordField.IsFocused = true;
-            } else if (PasswordField.IsFocused)
+                PasswordField?.IsFocused = true;
+            } else if (PasswordField?.IsFocused == true)
             {
                 PasswordField.IsFocused = false;
-                PasswordConfirmField.IsFocused = true;
+                PasswordConfirmField?.IsFocused = true;
             } else
             {
-                PasswordConfirmField.IsFocused = false;
-                NameField.IsFocused = true;
+                PasswordConfirmField?.IsFocused = false;
+                NameField?.IsFocused = true;
             }
         }
 
-        // Enter triggers OK
         if (input.WasKeyPressed(Keys.Enter))
-            OkButton.PerformClick();
+            OkButton?.PerformClick();
 
         // Gender toggle hover + click
-        MaleHovered = MaleToggleArea.ContainsPoint(input.MouseX, input.MouseY);
-        FemaleHovered = FemaleToggleArea.ContainsPoint(input.MouseX, input.MouseY);
+        MaleHovered = MaleToggleArea?.ContainsPoint(input.MouseX, input.MouseY) == true;
+        FemaleHovered = FemaleToggleArea?.ContainsPoint(input.MouseX, input.MouseY) == true;
 
         if (input.WasLeftButtonPressed)
         {
@@ -543,18 +423,17 @@ public class CharacterCreationControl : UIPanel
             else if (FemaleHovered)
                 SetGender(Gender.Female);
 
-            // Hair color swatch click detection
             HandleSwatchClick(input.MouseX, input.MouseY);
         }
 
-        // Pre-render all walk frames when appearance or direction changes
+        // Pre-render walk frames when appearance changes
         if (PreviewDirty)
         {
             RenderWalkFrames();
             PreviewDirty = false;
         }
 
-        // Advance walk animation — just cycle through pre-rendered textures
+        // Advance walk animation
         WalkTimer += (float)gameTime.ElapsedGameTime.TotalMilliseconds;
 
         if (WalkTimer >= WALK_FRAME_INTERVAL_MS)

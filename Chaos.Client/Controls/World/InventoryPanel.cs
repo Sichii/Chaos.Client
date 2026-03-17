@@ -11,16 +11,17 @@ namespace Chaos.Client.Controls.World;
 ///     Inventory item grid panel (A key). 59 slots, no secondary page. Items rendered from Legend.dat item EPFs with
 ///     itempal palette lookup.
 /// </summary>
-public class InventoryPanel : PanelBaseControl
+public sealed class InventoryPanel : PanelBaseControl
 {
     private const int MAX_SLOTS = 59;
-    protected override int CellHeight => 33;
-    protected override int CellWidth => 36;
-    protected override int GridOffsetX => 7;
-    protected override int GridOffsetY => 5;
 
     public InventoryPanel(GraphicsDevice device, ControlPrefabSet hudPrefabSet)
-        : base(device, hudPrefabSet, MAX_SLOTS)
+        : base(
+            device,
+            hudPrefabSet,
+            MAX_SLOTS,
+            gridOffsetX: 7,
+            gridOffsetY: 5)
         => Name = "Inventory";
 
     protected override Texture2D? RenderIcon(ushort spriteId)

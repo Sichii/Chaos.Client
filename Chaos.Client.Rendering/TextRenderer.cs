@@ -82,8 +82,6 @@ public static class TextRenderer
         if (EnglishFont is not null)
             return;
 
-        Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);
-
         EnglishFont = FntFile.FromArchive(
             "eng00",
             DatArchives.Legend,
@@ -96,6 +94,29 @@ public static class TextRenderer
             KOREAN_GLYPH_WIDTH,
             GLYPH_HEIGHT);
         KoreanEncoding = Encoding.GetEncoding(949);
+    }
+
+    /// <summary>
+    ///     Finds the character index at which to break a line to fit within maxWidth pixels. Prefers breaking at the last
+    ///     space; falls back to force-breaking mid-word.
+    /// </summary>
+    public static int FindLineBreak(string text, int maxWidth)
+    {
+        var width = 0;
+        var lastSpace = -1;
+
+        for (var i = 0; i < text.Length; i++)
+        {
+            if (text[i] == ' ')
+                lastSpace = i;
+
+            width += MeasureCharWidth(text[i]);
+
+            if (width > maxWidth)
+                return lastSpace > 0 ? lastSpace + 1 : Math.Max(1, i);
+        }
+
+        return text.Length;
     }
 
     /// <summary>
@@ -151,19 +172,9 @@ public static class TextRenderer
     }
 
     /// <summary>
-    ///     Overload for backward compatibility with callers that pass fontSize/fontFamily (both ignored).
-    /// </summary>
-    public static float MeasureWidth(string text, float fontSize, string fontFamily = "") => MeasureWidth(text);
-
-    /// <summary>
     ///     Renders a single line of text to a Texture2D using the game's bitmap font.
     /// </summary>
-    public static Texture2D RenderText(
-        GraphicsDevice device,
-        string text,
-        float fontSize = 0,
-        Color? color = null,
-        string fontFamily = "")
+    public static Texture2D RenderText(GraphicsDevice device, string text, Color? color = null)
     {
         if (string.IsNullOrEmpty(text))
             text = " ";
@@ -208,9 +219,7 @@ public static class TextRenderer
         string text,
         int maxWidth,
         int maxHeight,
-        float fontSize = 0,
-        Color? color = null,
-        string fontFamily = "")
+        Color? color = null)
     {
         if (string.IsNullOrEmpty(text))
             text = " ";
@@ -257,6 +266,40 @@ public static class TextRenderer
         texture.SetData(pixelBuffer);
 
         return texture;
+    }
+
+    /// <summary>
+    ///     Word-wraps text into lines that fit within maxWidth pixels. Splits on explicit newlines, then wraps each paragraph
+    ///     by character width.
+    /// </summary>
+    public static List<string> WrapLines(string text, int maxWidth)
+    {
+        var lines = new List<string>();
+
+        if ((maxWidth <= 0) || string.IsNullOrEmpty(text))
+            return lines;
+
+        foreach (var paragraph in text.Split('\n'))
+        {
+            var remaining = paragraph;
+
+            while (remaining.Length > 0)
+            {
+                var lineEnd = FindLineBreak(remaining, maxWidth);
+
+                lines.Add(
+                    remaining[..lineEnd]
+                        .TrimEnd());
+
+                remaining = remaining[lineEnd..]
+                    .TrimStart();
+            }
+
+            if (paragraph.Length == 0)
+                lines.Add(string.Empty);
+        }
+
+        return lines;
     }
 
     private static List<string> WrapText(string text, int maxWidth)

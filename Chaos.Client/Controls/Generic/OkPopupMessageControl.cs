@@ -15,7 +15,7 @@ namespace Chaos.Client.Controls.Generic;
 ///     A popup message dialog with DlgBack2.spf tiled background (clipped to interior height), dlgframe.epf 16×16 border,
 ///     and butt001.epf OK (+ optional Cancel) button.
 /// </summary>
-public class OkPopupMessageControl : UIPanel
+public sealed class OkPopupMessageControl : UIPanel
 {
     private const int TILES_WIDE = 4;
     private const int INTERIOR_HEIGHT = 54;
@@ -78,9 +78,7 @@ public class OkPopupMessageControl : UIPanel
             borderFrames,
             totalWidth,
             totalHeight,
-            borderSize,
-            interiorWidth,
-            INTERIOR_HEIGHT);
+            borderSize);
 
         DisposeBorderFrames(borderFrames);
 
@@ -152,9 +150,7 @@ public class OkPopupMessageControl : UIPanel
         SKImage[] border,
         int totalWidth,
         int totalHeight,
-        int borderSize,
-        int interiorWidth,
-        int interiorHeight)
+        int borderSize)
     {
         var info = new SKImageInfo(
             totalWidth,
@@ -232,15 +228,6 @@ public class OkPopupMessageControl : UIPanel
         {
             var rendered = Graphics.RenderImage(epf[i], palette);
 
-            if (rendered is null)
-            {
-                for (var j = 0; j < i; j++)
-                    frames[j]
-                        .Dispose();
-
-                return null;
-            }
-
             frames[i] = rendered;
         }
 
@@ -280,7 +267,7 @@ public class OkPopupMessageControl : UIPanel
             message,
             ContentWidth,
             ContentHeight,
-            color: Color.White);
+            Color.White);
 
         MessageImage.Texture = textTexture;
         MessageImage.X = ContentX + (ContentWidth - textTexture.Width) / 2 - 9;

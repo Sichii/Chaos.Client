@@ -11,17 +11,15 @@ namespace Chaos.Client.Controls.World;
 ///     Group/party panel using _ngcdlg0 (empty/invite mode) prefab. Displays group member slots (USER0/USER1) and an
 ///     invite button. When in a group, shows member names and a "leave" option. BTN_OK confirms actions.
 /// </summary>
-public class GroupControl : PrefabPanel
+public sealed class GroupControl : PrefabPanel
 {
     private const int MAX_MEMBERS = 13;
     private const int ROW_HEIGHT = 22;
     private const int NAME_X = 53;
     private const int NAME_START_Y = 47;
 
-    private readonly GraphicsDevice DeviceRef;
     private readonly UILabel?[] MemberLabels = new UILabel?[MAX_MEMBERS];
     private int DataVersion;
-    private bool InGroup;
 
     private List<string> Members = [];
     private int RenderedVersion = -1;
@@ -32,7 +30,6 @@ public class GroupControl : PrefabPanel
     public GroupControl(GraphicsDevice device)
         : base(device, "_ngcdlg0")
     {
-        DeviceRef = device;
         Name = "Group";
         Visible = false;
 
@@ -92,7 +89,6 @@ public class GroupControl : PrefabPanel
     public void ClearGroup()
     {
         Members.Clear();
-        InGroup = false;
         DataVersion++;
     }
 
@@ -135,7 +131,6 @@ public class GroupControl : PrefabPanel
     public void SetMembers(List<string> members)
     {
         Members = members;
-        InGroup = members.Count > 0;
         DataVersion++;
     }
 

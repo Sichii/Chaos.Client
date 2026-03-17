@@ -11,7 +11,7 @@ namespace Chaos.Client.Controls.Components;
 ///     A floating context menu that appears at a screen position with a list of text options. Clicking an option fires its
 ///     callback. Clicking outside or pressing Escape dismisses it.
 /// </summary>
-public class ContextMenu : UIElement
+public sealed class ContextMenu : UIElement
 {
     private const int ITEM_HEIGHT = 14;
     private const int PADDING_X = 6;
@@ -19,15 +19,19 @@ public class ContextMenu : UIElement
 
     private readonly GraphicsDevice Device;
     private readonly List<MenuItem> Items = [];
-    private readonly Texture2D PixelTexture;
     private int HoveredIndex = -1;
 
     public ContextMenu(GraphicsDevice device)
     {
         Device = device;
         Visible = false;
-        PixelTexture = new Texture2D(device, 1, 1);
-        PixelTexture.SetData([Color.White]);
+
+        BackgroundColor = new Color(
+            0,
+            0,
+            0,
+            200);
+        BorderColor = Color.Gray;
     }
 
     private void ClearItems()
@@ -41,7 +45,6 @@ public class ContextMenu : UIElement
     public override void Dispose()
     {
         ClearItems();
-        PixelTexture.Dispose();
 
         base.Dispose();
     }
@@ -51,68 +54,19 @@ public class ContextMenu : UIElement
         if (!Visible || (Items.Count == 0))
             return;
 
+        base.Draw(spriteBatch);
+
         var sx = ScreenX;
         var sy = ScreenY;
-
-        // Background
-        spriteBatch.Draw(
-            PixelTexture,
-            new Rectangle(
-                sx,
-                sy,
-                Width,
-                Height),
-            new Color(
-                0,
-                0,
-                0,
-                200));
-
-        // Border
-        spriteBatch.Draw(
-            PixelTexture,
-            new Rectangle(
-                sx,
-                sy,
-                Width,
-                1),
-            Color.Gray);
-
-        spriteBatch.Draw(
-            PixelTexture,
-            new Rectangle(
-                sx,
-                sy + Height - 1,
-                Width,
-                1),
-            Color.Gray);
-
-        spriteBatch.Draw(
-            PixelTexture,
-            new Rectangle(
-                sx,
-                sy,
-                1,
-                Height),
-            Color.Gray);
-
-        spriteBatch.Draw(
-            PixelTexture,
-            new Rectangle(
-                sx + Width - 1,
-                sy,
-                1,
-                Height),
-            Color.Gray);
 
         for (var i = 0; i < Items.Count; i++)
         {
             var itemY = sy + PADDING_Y + i * ITEM_HEIGHT;
 
-            // Highlight hovered item
             if (i == HoveredIndex)
-                spriteBatch.Draw(
-                    PixelTexture,
+                DrawRect(
+                    spriteBatch,
+                    Device,
                     new Rectangle(
                         sx + 1,
                         itemY,
@@ -145,7 +99,7 @@ public class ContextMenu : UIElement
         foreach ((var text, var callback) in options)
         {
             var cache = new CachedText(Device);
-            cache.Update(text, 0, Color.White);
+            cache.Update(text, Color.White);
             Items.Add(new MenuItem(text, cache, callback));
 
             var textWidth = TextRenderer.MeasureWidth(text);

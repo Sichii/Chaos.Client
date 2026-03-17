@@ -28,8 +28,7 @@ public class GoldExchangeControl : PrefabPanel
         CancelButton = elements.GetValueOrDefault("Cancel") as UIButton;
         AmountTextBox = elements.GetValueOrDefault("Amount") as UITextBox;
 
-        if (AmountTextBox is not null)
-            AmountTextBox.MaxLength = 10;
+        AmountTextBox?.MaxLength = 10;
 
         if (OkButton is not null)
             OkButton.OnClick += () =>
@@ -49,7 +48,7 @@ public class GoldExchangeControl : PrefabPanel
 
     public event Action<string>? OnOk;
 
-    public new void Show()
+    public override void Show()
     {
         if (AmountTextBox is not null)
         {

@@ -13,9 +13,8 @@ namespace Chaos.Client.Controls.World;
 ///     NPC dialog/menu panel using lnpcd prefab variants. Handles DisplayMenuArgs and DisplayDialogArgs from the server.
 ///     Displays NPC portrait, text, selectable options, and navigation buttons.
 /// </summary>
-public class NpcDialogControl : PrefabPanel
+public sealed class NpcDialogControl : PrefabPanel
 {
-    private const float TEXT_FONT_SIZE = 0f;
     private const int OPTION_ROW_HEIGHT = 16;
 
     private readonly UILabel? NpcNameLabel;
@@ -24,11 +23,11 @@ public class NpcDialogControl : PrefabPanel
 
     // NPC info
     private readonly Rectangle PortraitRect;
-    private readonly Rectangle TextRect;
-    private int SelectedOption = -1;
 
     // Dialog state
     private readonly UIImage? TextImage;
+    private readonly Rectangle TextRect;
+    private int SelectedOption = -1;
 
     // Current dialog/menu context
     public ushort DialogId { get; private set; }
@@ -115,12 +114,12 @@ public class NpcDialogControl : PrefabPanel
             var color = i == SelectedOption ? Color.Yellow : Color.White;
 
             opt.CachedText ??= new CachedText(Device);
-            opt.CachedText.Update(opt.Text, TEXT_FONT_SIZE, color);
+            opt.CachedText.Update(opt.Text, color);
             opt.CachedText.Draw(spriteBatch, new Vector2(sx + opt.Rect.X, sy + opt.Rect.Y));
         }
     }
 
-    public new void Hide()
+    public override void Hide()
     {
         Visible = false;
         ClearOptions();
@@ -147,7 +146,6 @@ public class NpcDialogControl : PrefabPanel
                 text,
                 TextRect.Width,
                 TextRect.Height,
-                TEXT_FONT_SIZE,
                 Color.White);
 
         TextImage.Visible = !string.IsNullOrEmpty(text);
@@ -162,15 +160,13 @@ public class NpcDialogControl : PrefabPanel
         PursuitId = args.PursuitId ?? 0;
         SourceId = args.SourceId;
 
-        NpcNameLabel?.SetText(args.Name ?? string.Empty);
-        RenderDialogText(args.Text ?? string.Empty);
+        NpcNameLabel?.SetText(args.Name);
+        RenderDialogText(args.Text);
 
         // Navigation buttons
-        if (NextButton is not null)
-            NextButton.Visible = args.HasNextButton;
+        NextButton?.Visible = args.HasNextButton;
 
-        if (PreviousButton is not null)
-            PreviousButton.Visible = args.HasPreviousButton;
+        PreviousButton?.Visible = args.HasPreviousButton;
 
         // Input field for text entry dialogs
         if (InputTextBox is not null)
@@ -218,17 +214,14 @@ public class NpcDialogControl : PrefabPanel
         PursuitId = args.PursuitId;
         SourceId = args.SourceId;
 
-        NpcNameLabel?.SetText(args.Name ?? string.Empty);
-        RenderDialogText(args.Text ?? string.Empty);
+        NpcNameLabel?.SetText(args.Name);
+        RenderDialogText(args.Text);
 
-        if (NextButton is not null)
-            NextButton.Visible = false;
+        NextButton?.Visible = false;
 
-        if (PreviousButton is not null)
-            PreviousButton.Visible = false;
+        PreviousButton?.Visible = false;
 
-        if (InputTextBox is not null)
-            InputTextBox.Visible = false;
+        InputTextBox?.Visible = false;
 
         ClearOptions();
 

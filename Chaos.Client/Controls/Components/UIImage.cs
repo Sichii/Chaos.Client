@@ -5,6 +5,7 @@ using Microsoft.Xna.Framework.Graphics;
 
 namespace Chaos.Client.Controls.Components;
 
+// ReSharper disable once ClassCanBeSealed.Global
 public class UIImage : UIElement
 {
     public Texture2D? Texture { get; set; }
@@ -22,6 +23,7 @@ public class UIImage : UIElement
         if (!Visible || Texture is null)
             return;
 
+        base.Draw(spriteBatch);
         spriteBatch.Draw(Texture, new Vector2(ScreenX, ScreenY), Color.White);
     }
 

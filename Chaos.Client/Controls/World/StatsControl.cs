@@ -1,5 +1,6 @@
 #region
 using Chaos.Client.Controls.Components;
+using Chaos.Client.Definitions;
 using Chaos.Networking.Entities.Server;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
@@ -11,7 +12,7 @@ namespace Chaos.Client.Controls.World;
 ///     Character stats panel loaded from _nstatus prefab. Only renders the "Status" image (normal stats, 444x108). The
 ///     "ExtraStatus" image is handled by ExtendedStatsControl as a separate tab. Control text rects use s_ prefix.
 /// </summary>
-public class StatsControl : PrefabPanel
+public sealed class StatsControl : PrefabPanel
 {
     private readonly UILabel? AbExpLabel;
     private readonly UILabel? AbilityLabel;

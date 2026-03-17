@@ -7,6 +7,18 @@ namespace Chaos.Client.Controls.Components;
 
 public abstract class UIElement : IDisposable
 {
+    private static Texture2D? SharedPixel;
+
+    /// <summary>
+    ///     Solid color fill drawn behind this element. Null = no fill.
+    /// </summary>
+    public Color? BackgroundColor { get; set; }
+
+    /// <summary>
+    ///     1px border drawn around this element's bounds. Null = no border.
+    /// </summary>
+    public Color? BorderColor { get; set; }
+
     public bool Enabled { get; set; } = true;
     public int Height { get; set; }
     public string Name { get; init; } = string.Empty;
@@ -16,7 +28,16 @@ public abstract class UIElement : IDisposable
     public int X { get; set; }
     public int Y { get; set; }
 
+    /// <summary>
+    ///     Draw order within the parent panel. Higher values draw on top. Default 0. Elements with the same ZIndex draw in the
+    ///     order they were added.
+    /// </summary>
+    public int ZIndex { get; set; }
+
+    // ReSharper disable once FunctionRecursiveOnAllPaths
     public int ScreenX => (Parent?.ScreenX ?? 0) + X;
+
+    // ReSharper disable once FunctionRecursiveOnAllPaths
     public int ScreenY => (Parent?.ScreenY ?? 0) + Y;
 
     public virtual void Dispose() => GC.SuppressFinalize(this);
@@ -29,7 +50,164 @@ public abstract class UIElement : IDisposable
         return (screenX >= sx) && (screenX < (sx + Width)) && (screenY >= sy) && (screenY < (sy + Height));
     }
 
-    public abstract void Draw(SpriteBatch spriteBatch);
+    /// <summary>
+    ///     Draws the element's background fill and border if set. Subclasses should call base.Draw() before drawing their own
+    ///     content so the background appears behind everything.
+    /// </summary>
+    public virtual void Draw(SpriteBatch spriteBatch)
+    {
+        if (!Visible)
+            return;
+
+        if (BackgroundColor.HasValue || BorderColor.HasValue)
+        {
+            var pixel = GetPixel(spriteBatch.GraphicsDevice);
+
+            var bounds = new Rectangle(
+                ScreenX,
+                ScreenY,
+                Width,
+                Height);
+
+            if (BackgroundColor.HasValue)
+                spriteBatch.Draw(pixel, bounds, BackgroundColor.Value);
+
+            if (BorderColor.HasValue)
+            {
+                spriteBatch.Draw(
+                    pixel,
+                    new Rectangle(
+                        bounds.X,
+                        bounds.Y,
+                        bounds.Width,
+                        1),
+                    BorderColor.Value);
+
+                spriteBatch.Draw(
+                    pixel,
+                    new Rectangle(
+                        bounds.X,
+                        bounds.Y + bounds.Height - 1,
+                        bounds.Width,
+                        1),
+                    BorderColor.Value);
+
+                spriteBatch.Draw(
+                    pixel,
+                    new Rectangle(
+                        bounds.X,
+                        bounds.Y,
+                        1,
+                        bounds.Height),
+                    BorderColor.Value);
+
+                spriteBatch.Draw(
+                    pixel,
+                    new Rectangle(
+                        bounds.X + bounds.Width - 1,
+                        bounds.Y,
+                        1,
+                        bounds.Height),
+                    BorderColor.Value);
+            }
+        }
+    }
+
+    /// <summary>
+    ///     Draws a 1px border rectangle (no fill). Utility for ad-hoc drawing outside the element tree.
+    /// </summary>
+    public static void DrawBorder(
+        SpriteBatch spriteBatch,
+        GraphicsDevice device,
+        Rectangle bounds,
+        Color color)
+    {
+        var pixel = GetPixel(device);
+
+        spriteBatch.Draw(
+            pixel,
+            new Rectangle(
+                bounds.X,
+                bounds.Y,
+                bounds.Width,
+                1),
+            color);
+
+        spriteBatch.Draw(
+            pixel,
+            new Rectangle(
+                bounds.X,
+                bounds.Y + bounds.Height - 1,
+                bounds.Width,
+                1),
+            color);
+
+        spriteBatch.Draw(
+            pixel,
+            new Rectangle(
+                bounds.X,
+                bounds.Y,
+                1,
+                bounds.Height),
+            color);
+
+        spriteBatch.Draw(
+            pixel,
+            new Rectangle(
+                bounds.X + bounds.Width - 1,
+                bounds.Y,
+                1,
+                bounds.Height),
+            color);
+    }
+
+    /// <summary>
+    ///     Draws a filled rectangle with a 1px border. Utility for ad-hoc drawing outside the element tree.
+    /// </summary>
+    public static void DrawBorderedRect(
+        SpriteBatch spriteBatch,
+        GraphicsDevice device,
+        Rectangle bounds,
+        Color fillColor,
+        Color borderColor)
+    {
+        DrawRect(
+            spriteBatch,
+            device,
+            bounds,
+            fillColor);
+
+        DrawBorder(
+            spriteBatch,
+            device,
+            bounds,
+            borderColor);
+    }
+
+    /// <summary>
+    ///     Draws a filled rectangle with the given color. Utility for ad-hoc drawing outside the element tree.
+    /// </summary>
+    public static void DrawRect(
+        SpriteBatch spriteBatch,
+        GraphicsDevice device,
+        Rectangle bounds,
+        Color color)
+        => spriteBatch.Draw(GetPixel(device), bounds, color);
+
+    /// <summary>
+    ///     Returns the shared 1x1 white pixel texture, creating it on first use. Shared across all UI elements — do not
+    ///     dispose individually.
+    /// </summary>
+    public static Texture2D GetPixel(GraphicsDevice device)
+    {
+        if (SharedPixel is null || SharedPixel.IsDisposed)
+        {
+            SharedPixel = new Texture2D(device, 1, 1);
+            SharedPixel.SetData([Color.White]);
+        }
+
+        return SharedPixel;
+    }
 
     public abstract void Update(GameTime gameTime, InputBuffer input);
 }

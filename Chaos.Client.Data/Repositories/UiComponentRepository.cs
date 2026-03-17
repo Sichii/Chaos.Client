@@ -37,6 +37,22 @@ public sealed class UiComponentRepository : RepositoryBase
     }
 
     /// <summary>
+    ///     Returns the raw EpfFrame metadata for a specific frame in an EPF file. Used to read Left/Top offset values.
+    /// </summary>
+    public EpfFrame? GetEpfFrame(string fileName, int frameIndex)
+    {
+        if (!DatArchives.Setoa.TryGetValue(fileName, out var entry))
+            return null;
+
+        var epf = GetOrCreate($"EPF_{fileName}", () => EpfFile.FromEntry(entry));
+
+        if ((frameIndex < 0) || (frameIndex >= epf.Count))
+            return null;
+
+        return epf[frameIndex];
+    }
+
+    /// <summary>
     ///     Loads all frames from an EPF file in setoa.dat rendered with the appropriate GUI palette. Used for UI elements like
     ///     scroll.epf that aren't part of a control file.
     /// </summary>
@@ -144,6 +160,21 @@ public sealed class UiComponentRepository : RepositoryBase
     }
 
     /// <summary>
+    ///     Loads a single frame from an SPF file in national.dat as an SKImage.
+    /// </summary>
+    public SKImage? GetNationalSpfImage(string fileName, int frameIndex = 0)
+    {
+        var spf = GetOrCreate($"NSPF_{fileName}", () => LoadNationalSpfFile(fileName));
+
+        if (spf is null || (frameIndex >= spf.Count))
+            return null;
+
+        return spf.Format == SpfFormatType.Colorized
+            ? Graphics.RenderImage(spf[frameIndex])
+            : Graphics.RenderImage(spf[frameIndex], spf.PrimaryColors!);
+    }
+
+    /// <summary>
     ///     Loads a single frame from an SPF file in setoa.dat as an SKImage.
     /// </summary>
     public SKImage? GetSpfImage(string fileName, int frameIndex = 0)
@@ -177,6 +208,14 @@ public sealed class UiComponentRepository : RepositoryBase
                 : Graphics.RenderImage(spf[i], spf.PrimaryColors!);
 
         return images;
+    }
+
+    private static SpfFile? LoadNationalSpfFile(string fileName)
+    {
+        if (!DatArchives.National.TryGetValue(fileName, out var entry))
+            return null;
+
+        return SpfFile.FromEntry(entry);
     }
 
     private ControlPrefabSet? LoadPrefabSet(string key)

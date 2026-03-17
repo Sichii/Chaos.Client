@@ -1,4 +1,5 @@
 #region
+using Chaos.Client.Definitions;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 #endregion
@@ -9,11 +10,12 @@ namespace Chaos.Client.Controls.Components;
 ///     Read-only text label that participates in the UI element tree. Wraps CachedText for efficient re-rendering only
 ///     when content changes.
 /// </summary>
+
+// ReSharper disable once ClassCanBeSealed.Global
 public class UILabel : UIElement
 {
     private readonly CachedText Cache;
     public TextAlignment Alignment { get; set; } = TextAlignment.Left;
-    public float FontSize { get; set; }
     public int PaddingLeft { get; set; } = 1;
     public int PaddingTop { get; set; } = 1;
 
@@ -34,6 +36,7 @@ public class UILabel : UIElement
         if (!Visible || Cache.Texture is null)
             return;
 
+        base.Draw(spriteBatch);
         Cache.Alignment = Alignment;
 
         Cache.Draw(
@@ -52,7 +55,7 @@ public class UILabel : UIElement
         if (color.HasValue)
             TextColor = color.Value;
 
-        Cache.Update(text, FontSize, TextColor);
+        Cache.Update(text, TextColor);
     }
 
     public override void Update(GameTime gameTime, InputBuffer input) { }

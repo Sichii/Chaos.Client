@@ -50,6 +50,8 @@ public sealed class ConnectionManager : IDisposable
     /// </summary>
     public int PlayerY { get; private set; }
 
+    public string ServerName { get; set; } = string.Empty;
+
     /// <summary>
     ///     The current connection state.
     /// </summary>
@@ -901,6 +903,21 @@ public sealed class ConnectionManager : IDisposable
     }
 
     /// <summary>
+    ///     Sends a spacebar (assail) request.
+    /// </summary>
+    public void SendOptionToggle(UserOption option)
+    {
+        if (State != ConnectionState.World)
+            return;
+
+        Client.Send(
+            new OptionToggleArgs
+            {
+                UserOption = option
+            });
+    }
+
+    /// <summary>
     ///     Sends a public chat message.
     /// </summary>
     public void SendPublicMessage(string message)
@@ -948,9 +965,6 @@ public sealed class ConnectionManager : IDisposable
             });
     }
 
-    /// <summary>
-    ///     Sends a spacebar (assail) request.
-    /// </summary>
     public void Spacebar()
     {
         if (State != ConnectionState.World)

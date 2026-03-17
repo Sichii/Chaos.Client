@@ -1,17 +1,11 @@
 #region
+using Chaos.Client.Definitions;
 using Chaos.Client.Rendering;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 #endregion
 
 namespace Chaos.Client.Controls.Components;
-
-public enum TextAlignment
-{
-    Left,
-    Center,
-    Right
-}
 
 /// <summary>
 ///     Caches a rendered text texture, re-rendering only when content changes. Avoids per-frame texture allocation and the
@@ -67,25 +61,14 @@ public sealed class CachedText : IDisposable
     /// <summary>
     ///     Updates the cached texture if the text or color has changed.
     /// </summary>
-    public void Update(
-        string text,
-        float fontSize,
-        Color color,
-        string fontFamily = "")
+    public void Update(string text, Color color)
     {
         if ((text == RenderedContent) && (color == RenderedColor))
             return;
 
         Texture?.Dispose();
 
-        Texture = string.IsNullOrEmpty(text)
-            ? null
-            : TextRenderer.RenderText(
-                Device,
-                text,
-                fontSize,
-                color,
-                fontFamily);
+        Texture = string.IsNullOrEmpty(text) ? null : TextRenderer.RenderText(Device, text, color);
 
         RenderedContent = text;
         RenderedColor = color;
