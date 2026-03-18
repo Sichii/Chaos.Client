@@ -2,6 +2,7 @@
 using Chaos.Client.Definitions;
 using Chaos.Client.Models;
 using Chaos.Client.Rendering;
+using Chaos.Client.Systems.Animation;
 using Chaos.DarkAges.Definitions;
 using Chaos.Geometry.Abstractions.Definitions;
 using Chaos.Networking.Entities.Server;
@@ -21,6 +22,11 @@ public sealed class WorldState
     ///     The player's entity ID, assigned by the server.
     /// </summary>
     public uint PlayerEntityId { get; set; }
+
+    /// <summary>
+    ///     Active spell/effect animations currently playing in the world.
+    /// </summary>
+    public List<ActiveEffect> ActiveEffects { get; } = [];
 
     /// <summary>
     ///     Adds or updates an aisling entity from a DisplayAisling packet.
@@ -123,9 +129,18 @@ public sealed class WorldState
     }
 
     /// <summary>
-    ///     Clears all tracked entities. Call on map change.
+    ///     Clears all tracked entities and active effects. Call on map change.
     /// </summary>
-    public void Clear() => Entities.Clear();
+    public void Clear()
+    {
+        Entities.Clear();
+        ActiveEffects.Clear();
+    }
+
+    /// <summary>
+    ///     Returns an entity by ID, or null if not tracked.
+    /// </summary>
+    public WorldEntity? GetEntity(uint id) => Entities.GetValueOrDefault(id);
 
     /// <summary>
     ///     Returns the first entity at the specified tile, prioritizing creatures/aislings over ground items.
@@ -214,6 +229,8 @@ public sealed class WorldState
         entity.TileX = oldX + dx;
         entity.TileY = oldY + dy;
         entity.Direction = direction;
+
+        AnimationManager.StartWalk(entity, direction);
     }
 
     /// <summary>
@@ -236,10 +253,45 @@ public sealed class WorldState
         entity.TileX = oldX + dx;
         entity.TileY = oldY + dy;
         entity.Direction = direction;
+
+        AnimationManager.StartWalk(entity, direction);
+    }
+
+    /// <summary>
+    ///     Returns true if there is a ground item at the specified tile.
+    /// </summary>
+    public bool HasGroundItemAt(int tileX, int tileY)
+    {
+        foreach (var entity in Entities.Values)
+            if ((entity.TileX == tileX) && (entity.TileY == tileY) && (entity.Type == ClientEntityType.GroundItem))
+                return true;
+
+        return false;
     }
 
     /// <summary>
     ///     Removes an entity from tracking.
     /// </summary>
     public void RemoveEntity(uint id) => Entities.Remove(id);
+
+    /// <summary>
+    ///     Advances all active spell/effect animations by the given elapsed time.
+    /// </summary>
+    public void UpdateEffects(float elapsedMs)
+    {
+        for (var i = ActiveEffects.Count - 1; i >= 0; i--)
+        {
+            var effect = ActiveEffects[i];
+            effect.ElapsedMs += elapsedMs;
+
+            while (effect.ElapsedMs >= effect.FrameIntervalMs)
+            {
+                effect.CurrentFrame++;
+                effect.ElapsedMs -= effect.FrameIntervalMs;
+            }
+
+            if (effect.IsComplete)
+                ActiveEffects.RemoveAt(i);
+        }
+    }
 }

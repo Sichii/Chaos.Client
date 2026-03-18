@@ -28,10 +28,14 @@ public sealed class GroupControl : PrefabPanel
     public UIButton? OkButton { get; }
 
     public GroupControl(GraphicsDevice device)
-        : base(device, "_ngcdlg0")
+        : base(device, "_ngcdlg0", false)
     {
         Name = "Group";
         Visible = false;
+
+        // Position at top-left of screen
+        X = 0;
+        Y = 0;
 
         var elements = AutoPopulate();
 

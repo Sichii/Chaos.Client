@@ -10,97 +10,70 @@
   <component name="ChangeListManager">
     <list default="true" id="4136568e-96d1-456c-bb9d-6d03bdb2ff06" name="Changes" comment="">
       <change afterPath="$PROJECT_DIR$/.claude/agent-memory/reverse-engineer/MEMORY.md" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/.claude/agent-memory/reverse-engineer/project_hea_mapping.md" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/.claude/agent-memory/reverse-engineer/re_animation_system.md" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/.claude/agent-memory/reverse-engineer/re_button_creation_mechanism.md" afterDir="false" />
       <change afterPath="$PROJECT_DIR$/.claude/agent-memory/reverse-engineer/re_darkages_ui_system.md" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/.claude/agent-memory/reverse-engineer/re_door_system.md" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/.claude/agent-memory/reverse-engineer/re_equipment_panel_detail.md" afterDir="false" />
       <change afterPath="$PROJECT_DIR$/.claude/agent-memory/reverse-engineer/re_guibackpane_controls.md" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/.claude/agent-memory/reverse-engineer/re_health_bars.md" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/.claude/agent-memory/reverse-engineer/re_hotkey_help_panel.md" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/.claude/agent-memory/reverse-engineer/re_hotkeys_and_ui_behavior.md" afterDir="false" />
       <change afterPath="$PROJECT_DIR$/.claude/agent-memory/reverse-engineer/re_hud_data_systems.md" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/.claude/agent-memory/reverse-engineer/re_inventory_hover_name.md" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/.claude/agent-memory/reverse-engineer/re_light_darkness.md" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/.claude/agent-memory/reverse-engineer/re_minimap_worldmap.md" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/.claude/agent-memory/reverse-engineer/re_missing_controls.md" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/.claude/agent-memory/reverse-engineer/re_options_dialog_detail.md" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/.claude/agent-memory/reverse-engineer/re_paperdoll_and_status.md" afterDir="false" />
       <change afterPath="$PROJECT_DIR$/.claude/agent-memory/reverse-engineer/re_persistent_message.md" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/.claude/agent-memory/reverse-engineer/re_scrollbar_system.md" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/.claude/agent-memory/reverse-engineer/re_sound_system.md" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/.claude/agent-memory/reverse-engineer/re_spell_effects.md" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/.claude/agent-memory/reverse-engineer/re_statusbook_rendering.md" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/.claude/agent-memory/reverse-engineer/re_statusbook_tabs.md" afterDir="false" />
       <change afterPath="$PROJECT_DIR$/.claude/agent-memory/reverse-engineer/re_system_message_overlay.md" afterDir="false" />
       <change afterPath="$PROJECT_DIR$/.claude/agent-memory/reverse-engineer/re_topleft_overlay.md" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/.claude/agent-memory/reverse-engineer/re_ui_behavioral_details.md" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/.claude/agent-memory/reverse-engineer/re_ui_control_prefabs.md" afterDir="false" />
       <change afterPath="$PROJECT_DIR$/.claude/agent-memory/reverse-engineer/re_userinfopane_shiftf.md" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/.claude/agent-memory/reverse-engineer/re_weather_system.md" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/.claude/agent-memory/reverse-engineer/re_world_objects.md" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/.claude/agent-memory/reverse-engineer/re_worldlist_nusers.md" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/.claude/worktrees/agent-a6278fe5" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/.claude/worktrees/agent-a8795dd9" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/.claude/worktrees/agent-aa124bf1" afterDir="false" />
       <change afterPath="$PROJECT_DIR$/CLAUDE.md" afterDir="false" />
       <change afterPath="$PROJECT_DIR$/Chaos.Client.Networking/NETWORKING_SPEC.md" afterDir="false" />
       <change afterPath="$PROJECT_DIR$/Chaos.Client.Rendering/ANIMATION_SPEC.md" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/Chaos.Client/Controls/World/MainOptionsControl.cs" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/Chaos.Client/Controls/World/ProfileLegendTab.cs" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/Chaos.Client/Controls/World/SelfProfileAbilityMetadataTab.cs" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/Chaos.Client/Controls/World/SelfProfileEquipmentTab.cs" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/Chaos.Client/Controls/World/SelfProfileEventsTab.cs" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/Chaos.Client/Controls/World/SelfProfileFamilyTab.cs" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/Chaos.Client/Controls/World/SelfProfileTabControl.cs" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/Chaos.Client/Controls/World/StatusBookTabPage.cs" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/Chaos.Client/Definitions/Enums.cs" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/Chaos.Client.slnx" afterDir="false" />
       <change afterPath="$PROJECT_DIR$/RENDERING_ARCHITECTURE.md" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/.idea.Chaos.Client/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/.idea.Chaos.Client/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Chaos.Client.Data/DataContext.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client.Data/DataContext.cs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Chaos.Client.Data/Repositories/UiComponentRepository.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client.Data/Repositories/UiComponentRepository.cs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Chaos.Client.Data/Repositories/EffectsRepository.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client.Data/Repositories/EffectsRepository.cs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Chaos.Client.Data/Repositories/SoundRepository.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client.Data/Repositories/SoundRepository.cs" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/Chaos.Client.Networking/ConnectionManager.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client.Networking/ConnectionManager.cs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Chaos.Client.Rendering/TextRenderer.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client.Rendering/TextRenderer.cs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Chaos.Client.Rendering/TextureConverter.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client.Rendering/TextureConverter.cs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Chaos.Client/Abstractions/RepositoryBase.cs" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/Chaos.Client/AssemblyLoader.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client/GlobalSettings.cs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Chaos.Client.Rendering/AislingRenderer.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client.Rendering/AislingRenderer.cs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Chaos.Client.Rendering/Camera.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client.Rendering/Camera.cs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Chaos.Client.Rendering/Chaos.Client.Rendering.csproj" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client.Rendering/Chaos.Client.Rendering.csproj" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Chaos.Client.Rendering/CreatureRenderer.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client.Rendering/CreatureRenderer.cs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Chaos.Client.Rendering/SpriteAnimation.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client.Rendering/Models/SpriteAnimation.cs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Chaos.Client.Rendering/SpriteFrame.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client.Rendering/Models/SpriteFrame.cs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Chaos.Client/Chaos.Client.csproj" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client/Chaos.Client.csproj" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/Chaos.Client/ChaosGame.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client/ChaosGame.cs" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/Chaos.Client/Collections/WorldState.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client/Collections/WorldState.cs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Chaos.Client/Controls/Components/CachedText.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client/Controls/Components/CachedText.cs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Chaos.Client/Controls/Components/ContextMenu.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client/Controls/Components/ContextMenu.cs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Chaos.Client/Controls/Components/DebugOverlay.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client/Controls/Components/DebugOverlay.cs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Chaos.Client/Controls/Components/PrefabPanel.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client/Controls/Components/PrefabPanel.cs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Chaos.Client/Controls/Components/UIAnimatedImage.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client/Controls/Components/UIAnimatedImage.cs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Chaos.Client/Controls/Components/UIButton.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client/Controls/Components/UIButton.cs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Chaos.Client/Controls/Components/UIElement.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client/Controls/Components/UIElement.cs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Chaos.Client/Controls/Components/UIImage.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client/Controls/Components/UIImage.cs" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/Chaos.Client/Controls/Components/UILabel.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client/Controls/Components/UILabel.cs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Chaos.Client/Controls/Components/UIPanel.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client/Controls/Components/UIPanel.cs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Chaos.Client/Controls/Components/UITextBox.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client/Controls/Components/UITextBox.cs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Chaos.Client/Controls/Generic/LoadingControl.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client/Controls/Generic/LoadingControl.cs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Chaos.Client/Controls/Generic/MapLoadingControl.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client/Controls/Generic/MapLoadingControl.cs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Chaos.Client/Controls/Generic/OkPopupMessageControl.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client/Controls/Generic/OkPopupMessageControl.cs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Chaos.Client/Controls/Generic/ScrollBar.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client/Controls/Generic/ScrollBarControl.cs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Chaos.Client/Controls/LobbyLogin/CharacterCreationControl.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client/Controls/LobbyLogin/CharacterCreationControl.cs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Chaos.Client/Controls/LobbyLogin/EulaNoticeControl.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client/Controls/LobbyLogin/EulaNoticeControl.cs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Chaos.Client/Controls/LobbyLogin/LobbyLoginControl.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client/Controls/LobbyLogin/LobbyLoginControl.cs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Chaos.Client/Controls/LobbyLogin/LoginControl.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client/Controls/LobbyLogin/LoginControl.cs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Chaos.Client/Controls/LobbyLogin/PasswordChangeControl.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client/Controls/LobbyLogin/PasswordChangeControl.cs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Chaos.Client/Controls/LobbyLogin/ServerSelectControl.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client/Controls/LobbyLogin/ServerSelectControl.cs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Chaos.Client/Controls/World/ChatPanel.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client/Controls/World/ChatPanelControl.cs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Chaos.Client/Controls/World/ExchangeControl.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client/Controls/World/ExchangeControl.cs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Chaos.Client/Controls/World/ExtendedStatsControl.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client/Controls/World/ExtendedStatsControl.cs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Chaos.Client/Controls/World/FriendsListControl.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client/Controls/World/FriendsListControl.cs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Chaos.Client/Controls/World/GameHudPanel.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client/Controls/World/MainGameHudControl.cs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Chaos.Client/Controls/World/GoldExchangeControl.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client/Controls/World/GoldExchangeControl.cs" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/Chaos.Client/Controls/World/GroupControl.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client/Controls/World/GroupControl.cs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Chaos.Client/Controls/World/HotkeyHelpControl.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client/Controls/World/HotkeyHelpControl.cs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Chaos.Client/Controls/World/HudTab.cs" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/Chaos.Client/Controls/World/InventoryPanel.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client/Controls/World/InventoryPanel.cs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Chaos.Client/Controls/World/MacroMenuControl.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client/Controls/World/MacroMenuControl.cs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Chaos.Client/Controls/World/MailListControl.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client/Controls/World/MailListControl.cs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Chaos.Client/Controls/World/MailReadControl.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client/Controls/World/MailReadControl.cs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Chaos.Client/Controls/World/MailSendControl.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client/Controls/World/MailSendControl.cs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Chaos.Client/Controls/World/NpcDialogControl.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client/Controls/World/NpcDialogControl.cs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Chaos.Client/Controls/World/OptionsDialogControl.cs" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/Chaos.Client/Controls/World/OrangeBarControl.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client/Controls/World/OrangeBarControl.cs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Chaos.Client/Controls/World/OrbDisplay.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client/Controls/World/VerticalBarControl.cs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Chaos.Client/Controls/World/MainGameHudControl.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client/Controls/World/MainGameHudControl.cs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Chaos.Client/Controls/World/MainOptionsControl.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client/Controls/World/MainOptionsControl.cs" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/Chaos.Client/Controls/World/PanelBaseControl.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client/Controls/World/PanelBaseControl.cs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Chaos.Client/Controls/World/SelfProfileEquipmentTab.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client/Controls/World/SelfProfileEquipmentTab.cs" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/Chaos.Client/Controls/World/SettingsControl.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client/Controls/World/SettingsControl.cs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Chaos.Client/Controls/World/SkillBookPanel.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client/Controls/World/SkillBookPanel.cs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Chaos.Client/Controls/World/SpellBookPanel.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client/Controls/World/SpellBookPanel.cs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Chaos.Client/Controls/World/StatsControl.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client/Controls/World/StatsControl.cs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Chaos.Client/Controls/World/StatusBookControl.cs" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/Chaos.Client/Controls/World/ToolsPanel.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client/Controls/World/ToolsPanel.cs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Chaos.Client/Controls/World/WorldListControl.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client/Controls/World/WorldListControl.cs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Chaos.Client/Definitions/Enums.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client/Definitions/Enums.cs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Chaos.Client/InputBuffer.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client/InputBuffer.cs" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/Chaos.Client/Models/WorldEntity.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client/Models/WorldEntity.cs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Chaos.Client/Program.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client/Program.cs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Chaos.Client/Screens/LobbyLoginScreen.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client/Screens/LobbyLoginScreen.cs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Chaos.Client/Screens/MapTestScreen.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client/Screens/MapTestScreen.cs" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/Chaos.Client/Screens/WorldScreen.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client/Screens/WorldScreen.cs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../dalib/DALib/Data/MapFile.cs" beforeDir="false" afterPath="$PROJECT_DIR$/../dalib/DALib/Data/MapFile.cs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../dalib/DALib/Drawing/EpfFile.cs" beforeDir="false" afterPath="$PROJECT_DIR$/../dalib/DALib/Drawing/EpfFile.cs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../dalib/DALib/Drawing/FntFile.cs" beforeDir="false" afterPath="$PROJECT_DIR$/../dalib/DALib/Drawing/FntFile.cs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../dalib/DALib/Drawing/HeaFile.cs" beforeDir="false" afterPath="$PROJECT_DIR$/../dalib/DALib/Drawing/HeaFile.cs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../dalib/DALib/Extensions/PalettizedExtensions.cs" beforeDir="false" afterPath="$PROJECT_DIR$/../dalib/DALib/Extensions/PalettizedExtensions.cs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../dalib/DALib/IO/Compression.cs" beforeDir="false" afterPath="$PROJECT_DIR$/../dalib/DALib/IO/Compression.cs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../dalib/DALib/Utility/ControlFileParser.cs" beforeDir="false" afterPath="$PROJECT_DIR$/../dalib/DALib/Utility/ControlFileParser.cs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../dalib/DALib/Utility/ImageProcessor.cs" beforeDir="false" afterPath="$PROJECT_DIR$/../dalib/DALib/Utility/ImageProcessor.cs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../dalib/DALib/Utility/SKImageCache.cs" beforeDir="false" afterPath="$PROJECT_DIR$/../dalib/DALib/Utility/SKImageCache.cs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Directory.Packages.props" beforeDir="false" afterPath="$PROJECT_DIR$/Directory.Packages.props" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -119,7 +92,7 @@
     <option name="firstShow" value="false" />
   </component>
   <component name="EmbeddingIndexingInfo">
-    <option name="cachedIndexableFilesCount" value="144" />
+    <option name="cachedIndexableFilesCount" value="158" />
     <option name="fileBasedEmbeddingIndicesEnabled" value="true" />
   </component>
   <component name="Git.Settings">
@@ -142,7 +115,11 @@
     <setting file="file://$USER_HOME$/AppData/Local/JetBrains/Shared/vAny/DecompilerCache/decompiler/40a2d96099864940803b3ab1f707115614400/25/8afdacd3/DataArchive.cs" root0="SKIP_HIGHLIGHTING" />
     <setting file="file://$USER_HOME$/AppData/Local/JetBrains/Shared/vAny/DecompilerCache/decompiler/49bab08708434a08802510b75a8ea3691b3400/28/0fcc4d9d/SpriteSortMode.cs" root0="FORCE_HIGHLIGHTING" />
     <setting file="file://$USER_HOME$/AppData/Local/JetBrains/Shared/vAny/DecompilerCache/decompiler/49bab08708434a08802510b75a8ea3691b3400/5b/9ecfc316/SamplerState.cs" root0="FORCE_HIGHLIGHTING" />
+    <setting file="file://$USER_HOME$/AppData/Local/JetBrains/Shared/vAny/DecompilerCache/decompiler/49bab08708434a08802510b75a8ea3691b3400/69/5dd5545b/Texture.cs" root0="FORCE_HIGHLIGHTING" />
+    <setting file="file://$USER_HOME$/AppData/Local/JetBrains/Shared/vAny/DecompilerCache/decompiler/49bab08708434a08802510b75a8ea3691b3400/8b/495af5f5/Texture2D.cs" root0="FORCE_HIGHLIGHTING" />
+    <setting file="file://$USER_HOME$/AppData/Local/JetBrains/Shared/vAny/DecompilerCache/decompiler/49bab08708434a08802510b75a8ea3691b3400/95/e6f79d9f/GraphicsResource.cs" root0="FORCE_HIGHLIGHTING" />
     <setting file="file://$USER_HOME$/AppData/Local/JetBrains/Shared/vAny/DecompilerCache/decompiler/49bab08708434a08802510b75a8ea3691b3400/ef/e6d0bcff/SpriteBatch.cs" root0="SKIP_HIGHLIGHTING" />
+    <setting file="file://$USER_HOME$/AppData/Local/JetBrains/Shared/vAny/DecompilerCache/decompiler/a69b121f85054691b2a8d28643003c23136600/98/17ad8de4/SpriteBatch.cs" root0="FORCE_HIGHLIGHTING" />
     <setting file="file://$USER_HOME$/AppData/Local/JetBrains/Shared/vAny/DecompilerCache/decompiler/dba29a82de3544e5bfc26b0c636470bcd1a0/13/e6eb3467/WindowExtensions.cs" root0="FORCE_HIGHLIGHTING" />
     <setting file="file://$USER_HOME$/AppData/Local/JetBrains/Shared/vAny/DecompilerCache/decompiler/dba29a82de3544e5bfc26b0c636470bcd1a0/1b/efcadbb5/WindowOptions.cs" root0="SKIP_HIGHLIGHTING" />
     <setting file="file://$USER_HOME$/AppData/Local/JetBrains/Shared/vAny/DecompilerCache/decompiler/dba29a82de3544e5bfc26b0c636470bcd1a0/9b/29edead8/IWindow.cs" root0="FORCE_HIGHLIGHTING" />
@@ -177,6 +154,7 @@
     <setting file="file://$USER_HOME$/AppData/Local/JetBrains/Shared/vAny/SourcesCache/c7a8d392c1c1906dc3e080a07e20845f865041a4c245476357a3da53d3757/ThrowHelper.cs" root0="FORCE_HIGHLIGHTING" />
     <setting file="file://$USER_HOME$/AppData/Local/JetBrains/Shared/vAny/SourcesCache/c89af5fb8f0a731e9126cc0be764b56112db7b4fc2ca28a1bb5f6f705fa5ae/GoldDropConverter.cs" root0="SKIP_HIGHLIGHTING" />
     <setting file="file://$USER_HOME$/AppData/Local/JetBrains/Shared/vAny/SourcesCache/c92622defca782b725d744e2fbf4b187cbb381c423c8196879647ff4b54f781/AppBuilderDesktopExtensions.cs" root0="SKIP_HIGHLIGHTING" />
+    <setting file="file://$USER_HOME$/AppData/Local/JetBrains/Shared/vAny/SourcesCache/cf9a5e2276cbc946cc8947562dac5959c232e6cd9f8062d19f684322224d6910/InvalidDataException.cs" root0="FORCE_HIGHLIGHTING" />
     <setting file="file://$USER_HOME$/AppData/Local/JetBrains/Shared/vAny/SourcesCache/d9953ccb43c29d78a4581a51c60cbc84c14eec77e91f9c3fdbc25c29e/SkiaApplicationExtensions.cs" root0="SKIP_HIGHLIGHTING" />
     <setting file="file://$USER_HOME$/AppData/Local/JetBrains/Shared/vAny/SourcesCache/da84f74377f34ac77f562a3b2afc71123c6bbe56c851a71e7416e70257c56/MemoryCache.cs" root0="FORCE_HIGHLIGHTING" />
     <setting file="file://$USER_HOME$/AppData/Local/JetBrains/Shared/vAny/SourcesCache/de8a243f75215d958afa80cf80a41b4981a44efea7db93bffcdaf7bd6ba378c0/Number.Parsing.cs" root0="FORCE_HIGHLIGHTING" />
@@ -298,6 +276,7 @@
       <workItem from="1773537805361" duration="35416000" />
       <workItem from="1773661472624" duration="21638000" />
       <workItem from="1773720898009" duration="26032000" />
+      <workItem from="1773820780335" duration="15036000" />
     </task>
     <task id="LOCAL-00001" summary="initial push">
       <option name="closed" value="true" />
@@ -331,7 +310,15 @@
       <option name="project" value="LOCAL" />
       <updated>1773664675386</updated>
     </task>
-    <option name="localTasksCounter" value="5" />
+    <task id="LOCAL-00005" summary="additive alpha correction&#10;- since additive alpha cannot be approximated correctly, we should leave it alone&#10;- the user of the SKImage needs to draw using SKBlendMode.Plus">
+      <option name="closed" value="true" />
+      <created>1773811198342</created>
+      <option name="number" value="00005" />
+      <option name="presentableId" value="LOCAL-00005" />
+      <option name="project" value="LOCAL" />
+      <updated>1773811198342</updated>
+    </task>
+    <option name="localTasksCounter" value="6" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -349,7 +336,8 @@
     <MESSAGE value="xxx" />
     <MESSAGE value="many much things&#10;- lobby/login complete&#10;- building out the world UI still" />
     <MESSAGE value="missed some pieces" />
-    <option name="LAST_COMMIT_MESSAGE" value="missed some pieces" />
+    <MESSAGE value="additive alpha correction&#10;- since additive alpha cannot be approximated correctly, we should leave it alone&#10;- the user of the SKImage needs to draw using SKBlendMode.Plus" />
+    <option name="LAST_COMMIT_MESSAGE" value="additive alpha correction&#10;- since additive alpha cannot be approximated correctly, we should leave it alone&#10;- the user of the SKImage needs to draw using SKBlendMode.Plus" />
     <option name="OPTIMIZE_IMPORTS_BEFORE_PROJECT_COMMIT" value="true" />
     <option name="REFORMAT_BEFORE_PROJECT_COMMIT" value="true" />
     <option name="REARRANGE_BEFORE_PROJECT_COMMIT" value="true" />

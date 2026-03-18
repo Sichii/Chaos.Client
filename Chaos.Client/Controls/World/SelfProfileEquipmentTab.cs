@@ -194,8 +194,8 @@ public sealed class SelfProfileEquipmentTab : PrefabPanel
         {
             Name = "Tooltip",
             Visible = false,
-            PaddingLeft = 4,
-            PaddingTop = 4,
+            PaddingLeft = 1,
+            PaddingTop = 1,
             BackgroundColor = new Color(
                 0,
                 0,
@@ -438,9 +438,8 @@ public sealed class SelfProfileEquipmentTab : PrefabPanel
             TooltipLabel.SetText(hovered.ItemName);
 
             var textWidth = TextRenderer.MeasureWidth(hovered.ItemName);
-            var padding = TooltipLabel.PaddingLeft;
-            var tipW = textWidth + padding * 2;
-            var tipH = 12 + padding * 2;
+            var tipW = textWidth + TooltipLabel.PaddingLeft * 2;
+            var tipH = 12 + TooltipLabel.PaddingTop * 2;
             var tipX = mx - tipW / 2;
             var tipY = my + 20;
 

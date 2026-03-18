@@ -165,6 +165,7 @@ public sealed class SettingsControl : PrefabPanel
     }
 
     public event Action? OnClose;
+    public event Action<int, bool>? OnLocalSettingToggled;
     public event Action<int, bool>? OnSettingToggled;
 
     private void RefreshLabel(int index)
@@ -262,7 +263,10 @@ public sealed class SettingsControl : PrefabPanel
         if (IsServerSetting[index])
             OnSettingToggled?.Invoke(index, newValue);
         else
+        {
             RefreshLabel(index);
+            OnLocalSettingToggled?.Invoke(index, newValue);
+        }
     }
 
     public override void Update(GameTime gameTime, InputBuffer input)

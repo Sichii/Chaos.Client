@@ -61,6 +61,9 @@ public sealed class AislingRenderer : IDisposable
 
     private const int BODY_WIDTH = 57;
     private const int BODY_HEIGHT = 85;
+    private const int LAYER_OFFSET_PADDING = 27;
+    private const int COMPOSITE_WIDTH = BODY_WIDTH + LAYER_OFFSET_PADDING * 2;
+    private const int COMPOSITE_HEIGHT = BODY_HEIGHT;
     private const int BODY_CENTER_X = BODY_WIDTH / 2;
     private const int BODY_CENTER_Y = BODY_HEIGHT / 2;
 
@@ -177,25 +180,15 @@ public sealed class AislingRenderer : IDisposable
 
     #region Compositing
     /// <summary>
-    ///     Composites all layers into a single image. Layers align via RenderImage's Left/Top padding (baked into each
+    ///     Composites all layers into a single image. Layers align via RenderImage's Left/Top LAYER_OFFSET_PADDING (baked into each
     ///     SKImage). Flipping mirrors around BODY_CENTER_X for Down/Left directions.
     /// </summary>
     private static SKImage? Composite(LayerInfo?[] layers, LayerSlot[] order, bool flipHorizontal)
     {
-        var width = 0;
-        var height = 0;
-
-        foreach (var slot in order)
-        {
-            if (layers[(int)slot] is not { } info)
-                continue;
-
-            width = Math.Max(width, info.Image.Width);
-            height = Math.Max(height, info.Image.Height);
-        }
-
-        if ((width <= 0) || (height <= 0))
-            return null;
+        // Fixed canvas size so the body center is always at the same position across all frames.
+        // Without this, different animation frames produce different composite sizes, causing wobble.
+        var width = COMPOSITE_WIDTH;
+        var height = COMPOSITE_HEIGHT;
 
         using var bitmap = new SKBitmap(width, height);
 
@@ -207,7 +200,7 @@ public sealed class AislingRenderer : IDisposable
                 canvas.Scale(
                     -1,
                     1,
-                    BODY_CENTER_X,
+                    BODY_CENTER_X + LAYER_OFFSET_PADDING,
                     0);
 
             foreach (var slot in order)
@@ -215,7 +208,8 @@ public sealed class AislingRenderer : IDisposable
                 if (layers[(int)slot] is not { } info)
                     continue;
 
-                canvas.DrawImage(info.Image, 0, 0);
+                var offsetX = GetLayerOffsetX(info.TypeLetter) + LAYER_OFFSET_PADDING;
+                canvas.DrawImage(info.Image, offsetX, 0);
             }
         }
 
@@ -308,7 +302,7 @@ public sealed class AislingRenderer : IDisposable
     /// <summary>
     ///     A rendered layer with its EpfFrame positioning metadata preserved. Left/Top from the EpfFrame are needed at
     ///     composite time to correctly position layers (especially those with negative offsets where Graphics.RenderImage
-    ///     strips the padding).
+    ///     strips the LAYER_OFFSET_PADDING).
     /// </summary>
     private readonly record struct LayerInfo(
         SKImage Image,
@@ -654,6 +648,12 @@ public sealed class AislingRenderer : IDisposable
             "03" => frameIndex is 1 or 4 or 5 or 8 or 9,
             _    => frameIndex >= 5
         };
+
+    /// <summary>
+    ///     Returns the X draw offset for a layer type. Weapons (w/p) and accessories (c/g) are shifted left by 27px relative
+    ///     to the body center to align correctly.
+    /// </summary>
+    private static int GetLayerOffsetX(char typeLetter) => typeLetter is 'w' or 'p' or 'c' or 'g' ? -27 : 0;
 
     private static DataArchive GetArchive(char typeLetter, bool isMale)
         => typeLetter switch

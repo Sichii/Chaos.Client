@@ -16,6 +16,12 @@ public sealed class Camera
     private const int TILE_MARGIN = 2;
 
     /// <summary>
+    ///     Fixed pixel offset applied to the camera center. Used to shift the player's screen position away from dead center.
+    ///     Applied automatically in WorldToScreen/ScreenToWorld.
+    /// </summary>
+    public Vector2 Offset { get; set; }
+
+    /// <summary>
     ///     World pixel position of the camera center.
     /// </summary>
     public Vector2 Position { get; set; }
@@ -61,10 +67,10 @@ public sealed class Camera
         var bottomLeft = ScreenToWorld(new Vector2(0, ViewportHeight));
         var bottomRight = ScreenToWorld(new Vector2(ViewportWidth, ViewportHeight));
 
-        var tl = WorldToTile(topLeft.X, topLeft.Y, mapHeight);
-        var tr = WorldToTile(topRight.X, topRight.Y, mapHeight);
-        var bl = WorldToTile(bottomLeft.X, bottomLeft.Y, mapHeight);
-        var br = WorldToTile(bottomRight.X, bottomRight.Y, mapHeight);
+        var tl = WorldToTileFractional(topLeft.X, topLeft.Y, mapHeight);
+        var tr = WorldToTileFractional(topRight.X, topRight.Y, mapHeight);
+        var bl = WorldToTileFractional(bottomLeft.X, bottomLeft.Y, mapHeight);
+        var br = WorldToTileFractional(bottomRight.X, bottomRight.Y, mapHeight);
 
         var minMargin = TILE_MARGIN + extraMargin;
 
@@ -129,7 +135,7 @@ public sealed class Camera
     {
         var center = new Vector2(ViewportWidth / 2f, ViewportHeight / 2f);
 
-        return (screenPos - center) / Zoom + Position;
+        return (screenPos - center - Offset) / Zoom + Position;
     }
 
     /// <summary>
@@ -163,19 +169,33 @@ public sealed class Camera
     {
         var center = new Vector2(ViewportWidth / 2f, ViewportHeight / 2f);
 
-        return (worldPos - Position) * Zoom + center;
+        return (worldPos - Position) * Zoom + center + Offset;
     }
 
     /// <summary>
-    ///     Converts world pixel coordinates back to fractional tile coordinates.
+    ///     Converts world pixel coordinates to tile coordinates.
     /// </summary>
-    public static Vector2 WorldToTile(float worldX, float worldY, int mapHeight)
+    public static Point WorldToTile(float worldX, float worldY, int mapHeight)
     {
-        var col = worldX / HALF_TILE_WIDTH;
-        var row = worldY / HALF_TILE_HEIGHT;
+        // Shift by half-tile width to align picking with the visual tile grid.
+        // TileToWorld returns the image origin (top-left), but the image center
+        // is HALF_TILE_WIDTH to the right of the mathematical diamond center.
+        var isoX = (worldX - HALF_TILE_WIDTH) / HALF_TILE_WIDTH;
+        var isoY = worldY / HALF_TILE_HEIGHT;
 
-        var tileX = (col + row - mapHeight + 1) / 2f;
-        var tileY = (row - col + mapHeight - 1) / 2f;
+        var tileX = (int)MathF.Floor((isoX + isoY - mapHeight + 1) / 2f);
+        var tileY = (int)MathF.Floor((isoY - isoX + mapHeight - 1) / 2f);
+
+        return new Point(tileX, tileY);
+    }
+
+    private static Vector2 WorldToTileFractional(float worldX, float worldY, int mapHeight)
+    {
+        var isoX = worldX / HALF_TILE_WIDTH;
+        var isoY = worldY / HALF_TILE_HEIGHT;
+
+        var tileX = (isoX + isoY - mapHeight + 1) / 2f;
+        var tileY = (isoY - isoX + mapHeight - 1) / 2f;
 
         return new Vector2(tileX, tileY);
     }

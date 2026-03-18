@@ -2,7 +2,7 @@
 using Microsoft.Xna.Framework.Graphics;
 #endregion
 
-namespace Chaos.Client.Rendering;
+namespace Chaos.Client.Rendering.Models;
 
 /// <summary>
 ///     A GPU-resident sprite frame with positioning metadata needed to draw it correctly. CenterX/CenterY define the

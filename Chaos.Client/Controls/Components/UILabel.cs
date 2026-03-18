@@ -44,8 +44,8 @@ public class UILabel : UIElement
             new Rectangle(
                 ScreenX + PaddingLeft,
                 ScreenY + PaddingTop,
-                Width - PaddingLeft,
-                Height - PaddingTop));
+                Width - PaddingLeft * 2,
+                Height - PaddingTop * 2));
     }
 
     public void SetText(string text, Color? color = null)

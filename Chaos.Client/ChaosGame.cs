@@ -4,6 +4,8 @@ using Chaos.Client.Controls.Components;
 using Chaos.Client.Networking;
 using Chaos.Client.Rendering;
 using Chaos.Client.Screens;
+using Chaos.Client.Systems;
+using Chaos.Client.Systems.Sound;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using Microsoft.Xna.Framework.Input;
@@ -53,6 +55,21 @@ public sealed class ChaosGame : Game
     public CreatureRenderer CreatureRenderer { get; } = new();
 
     /// <summary>
+    ///     Shared spell/effect animation renderer with per-frame texture cache.
+    /// </summary>
+    public EffectRenderer EffectRenderer { get; } = new();
+
+    /// <summary>
+    ///     Client settings loaded from the DarkAges config file.
+    /// </summary>
+    public ClientSettings Settings { get; } = ClientSettings.Load();
+
+    /// <summary>
+    ///     Manages sound effect and music playback.
+    /// </summary>
+    public SoundManager SoundManager { get; } = new();
+
+    /// <summary>
     ///     Tracks all visible entities in the current map.
     /// </summary>
     public WorldState World { get; } = new();
@@ -66,6 +83,24 @@ public sealed class ChaosGame : Game
         };
 
         Connection = new ConnectionManager();
+
+        // Wire entity events to WorldState at startup so entities are tracked
+        // even during world entry (before WorldScreen is created)
+        Connection.OnDisplayVisibleEntities += args => World.AddOrUpdateVisibleEntities(args);
+        Connection.OnDisplayAisling += args => World.AddOrUpdateAisling(args);
+        Connection.OnRemoveEntity += id => World.RemoveEntity(id);
+
+        Connection.OnCreatureWalk += (
+            id,
+            oldX,
+            oldY,
+            dir) => World.HandleCreatureWalk(
+            id,
+            oldX,
+            oldY,
+            dir);
+        Connection.OnCreatureTurn += (id, dir) => World.HandleCreatureTurn(id, dir);
+        Connection.OnClientWalkResponse += (dir, oldX, oldY) => World.HandlePlayerWalk(dir, oldX, oldY);
 
         Window.Title = "Darkages";
         Window.AllowUserResizing = true;
@@ -212,6 +247,8 @@ public sealed class ChaosGame : Game
         Input.Dispose();
         CreatureRenderer.Dispose();
         AislingRenderer.Dispose();
+        EffectRenderer.Dispose();
+        SoundManager.Dispose();
         base.UnloadContent();
     }
 

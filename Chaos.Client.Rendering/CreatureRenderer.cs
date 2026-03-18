@@ -1,5 +1,6 @@
 #region
 using Chaos.Client.Data;
+using Chaos.Client.Rendering.Models;
 using DALib.Drawing;
 using Microsoft.Xna.Framework.Graphics;
 #endregion
@@ -46,8 +47,13 @@ public sealed class CreatureRenderer : IDisposable
             mpf.WalkFrameCount,
             mpf.AttackFrameIndex,
             mpf.AttackFrameCount,
+            mpf.Attack2StartIndex,
+            mpf.Attack2FrameCount,
+            mpf.Attack3StartIndex,
+            mpf.Attack3FrameCount,
             mpf.StandingFrameIndex,
             mpf.StandingFrameCount,
+            mpf.OptionalAnimationFrameCount,
             mpf.Count);
     }
 
@@ -102,6 +108,11 @@ public readonly record struct CreatureAnimInfo(
     byte WalkFrameCount,
     byte AttackFrameIndex,
     byte AttackFrameCount,
+    byte Attack2StartIndex,
+    byte Attack2FrameCount,
+    byte Attack3StartIndex,
+    byte Attack3FrameCount,
     byte StandingFrameIndex,
     byte StandingFrameCount,
+    byte OptionalAnimationFrameCount,
     int TotalFrameCount);

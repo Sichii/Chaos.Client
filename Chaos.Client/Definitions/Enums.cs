@@ -57,11 +57,25 @@ public enum CooldownStyle
 /// <summary>
 ///     The type of a visible entity in the game world.
 /// </summary>
+/// <summary>
+///     The type of a visible entity in the game world.
+///     Ordered by draw priority: ground items render first (underneath), then creatures, then aislings.
+/// </summary>
 public enum ClientEntityType : byte
 {
-    Aisling,
+    GroundItem,
     Creature,
-    GroundItem
+    Aisling
+}
+
+/// <summary>
+///     The current animation state of a world entity.
+/// </summary>
+public enum EntityAnimState : byte
+{
+    Idle,
+    Walking,
+    BodyAnim
 }
 
 /// <summary>

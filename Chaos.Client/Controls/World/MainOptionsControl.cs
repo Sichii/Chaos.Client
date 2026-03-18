@@ -187,7 +187,9 @@ public sealed class MainOptionsControl : PrefabPanel
     public event Action? OnExit;
     public event Action? OnFriends;
     public event Action? OnMacro;
+    public event Action<int>? OnMusicVolumeChanged;
     public event Action? OnSettings;
+    public event Action<int>? OnSoundVolumeChanged;
     public void SetMusicVolume(int volume) => MusicVolume = Math.Clamp(volume, VOLUME_MIN, VOLUME_MAX);
 
     public void SetSoundVolume(int volume) => SoundVolume = Math.Clamp(volume, VOLUME_MIN, VOLUME_MAX);
@@ -263,6 +265,9 @@ public sealed class MainOptionsControl : PrefabPanel
         }
 
         // Slider interaction
+        var prevSound = SoundVolume;
+        var prevMusic = MusicVolume;
+
         HandleSlider(
             input,
             SoundTrackRect,
@@ -274,6 +279,12 @@ public sealed class MainOptionsControl : PrefabPanel
             MusicTrackRect,
             ref MusicVolume,
             ref DraggingMusic);
+
+        if (SoundVolume != prevSound)
+            OnSoundVolumeChanged?.Invoke(SoundVolume);
+
+        if (MusicVolume != prevMusic)
+            OnMusicVolumeChanged?.Invoke(MusicVolume);
 
         base.Update(gameTime, input);
     }

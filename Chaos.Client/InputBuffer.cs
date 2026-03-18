@@ -48,9 +48,8 @@ public sealed class InputBuffer : IDisposable
 
     private void OnKeyDown(object? sender, InputKeyEventArgs e)
     {
-        // HeldKeys.Add returns false on key-repeat — only buffer the initial press
-        if (HeldKeys.Add(e.Key))
-            PendingPresses.Add(e.Key);
+        HeldKeys.Add(e.Key);
+        PendingPresses.Add(e.Key);
     }
 
     private void OnKeyUp(object? sender, InputKeyEventArgs e)

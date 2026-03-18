@@ -1,4 +1,5 @@
 #region
+using System.Buffers;
 using System.Net;
 using Chaos.Cryptography;
 using Chaos.DarkAges.Definitions;
@@ -7,6 +8,7 @@ using Chaos.Geometry.Abstractions.Definitions;
 using Chaos.Networking.Abstractions.Definitions;
 using Chaos.Networking.Entities.Client;
 using Chaos.Networking.Entities.Server;
+using Chaos.Packets;
 #endregion
 
 namespace Chaos.Client.Networking;
@@ -242,6 +244,38 @@ public sealed class ConnectionManager : IDisposable
     }
 
     /// <summary>
+    ///     Sends a gold drop request onto the ground.
+    /// </summary>
+    public void DropGold(int amount, int x, int y)
+    {
+        if (State != ConnectionState.World)
+            return;
+
+        Client.Send(
+            new GoldDropArgs
+            {
+                Amount = amount,
+                DestinationPoint = new Point(x, y)
+            });
+    }
+
+    /// <summary>
+    ///     Sends a gold give request to a creature/NPC.
+    /// </summary>
+    public void DropGoldOnCreature(int amount, uint targetId)
+    {
+        if (State != ConnectionState.World)
+            return;
+
+        Client.Send(
+            new GoldDroppedOnCreatureArgs
+            {
+                Amount = amount,
+                TargetId = targetId
+            });
+    }
+
+    /// <summary>
     ///     Sends an item drop request onto the ground.
     /// </summary>
     public void DropItem(
@@ -258,6 +292,23 @@ public sealed class ConnectionManager : IDisposable
             {
                 SourceSlot = sourceSlot,
                 DestinationPoint = new Point(x, y),
+                Count = count
+            });
+    }
+
+    /// <summary>
+    ///     Sends an item give request to a creature/NPC.
+    /// </summary>
+    public void DropItemOnCreature(byte sourceSlot, uint targetId, byte count = 1)
+    {
+        if (State != ConnectionState.World)
+            return;
+
+        Client.Send(
+            new ItemDroppedOnCreatureArgs
+            {
+                SourceSlot = sourceSlot,
+                TargetId = targetId,
                 Count = count
             });
     }
@@ -308,6 +359,18 @@ public sealed class ConnectionManager : IDisposable
 
         if (State == ConnectionState.Login)
             RequestHomepage();
+    }
+
+    /// <summary>
+    ///     Returns the first empty inventory slot (1-based), or 0 if inventory is full.
+    /// </summary>
+    public byte GetFirstEmptyInventorySlot()
+    {
+        for (byte i = 1; i <= 59; i++)
+            if (!InventoryState.ContainsKey(i))
+                return i;
+
+        return 0;
     }
 
     /// <summary>
@@ -1475,7 +1538,8 @@ public sealed class ConnectionManager : IDisposable
     private void HandleAddItemToPane(ServerPacket pkt)
     {
         var args = Client.Deserialize<AddItemToPaneArgs>(in pkt);
-        InventoryState[args.Item.Slot] = (args.Item.Sprite, args.Item.Name);
+        var displayName = args.Item is { Stackable: true, Count: > 0 } ? $"{args.Item.Name}[ {args.Item.Count} ]" : args.Item.Name;
+        InventoryState[args.Item.Slot] = (args.Item.Sprite, displayName);
         OnAddItemToPane?.Invoke(args);
     }
 
@@ -1678,6 +1742,13 @@ public sealed class ConnectionManager : IDisposable
     private void HandleForceClientPacket(ServerPacket pkt)
     {
         var args = Client.Deserialize<ForceClientPacketArgs>(in pkt);
+
+        var owner = MemoryPool<byte>.Shared.Rent(args.Data.Length);
+        args.Data.CopyTo(owner.Memory.Span);
+
+        var packet = new Packet((byte)args.ClientOpCode, owner, args.Data.Length);
+        Client.Send(ref packet);
+
         OnForceClientPacket?.Invoke(args);
     }
 

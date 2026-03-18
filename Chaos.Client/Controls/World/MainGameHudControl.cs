@@ -104,6 +104,12 @@ public sealed class MainGameHudControl : PrefabPanel
         ChatInput.PaddingX = 1;
         ChatInput.PaddingY = 1;
 
+        ChatInput.FocusedBackgroundColor = new Color(
+            0,
+            0,
+            0,
+            128);
+
         // Inventory area
         InventoryBounds = GetRect("InventoryRect");
 
@@ -392,7 +398,14 @@ public sealed class MainGameHudControl : PrefabPanel
     ///     Shows a description text in the SZ_DESCRIPTION area (item/skill/spell name on hover). Color 0x14 = green/teal,
     ///     matching original client.
     /// </summary>
-    public void SetDescription(string? text) => DescriptionLabel?.SetText(text ?? string.Empty);
+    public void SetDescription(string? text)
+    {
+        // Don't show hover descriptions while chat input is focused — they overlap
+        if (ChatInput.IsFocused && !string.IsNullOrEmpty(text))
+            return;
+
+        DescriptionLabel?.SetText(text ?? string.Empty);
+    }
 
     public void AddChatMessage(string text, Color color) => ChatDisplay.AddMessage(text, color);
 

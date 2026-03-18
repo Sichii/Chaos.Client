@@ -9,6 +9,20 @@ public sealed class SoundRepository : RepositoryBase
     private string ConstructKeyForEffectSound(int soundId) => $"EFFECTSOUND_{soundId}";
     private string ConstructKeyForMusic(int musicId) => $"MUSIC_{musicId}";
 
+    /// <summary>
+    ///     Returns an MP3 stream for a sound effect, or null if not found.
+    /// </summary>
+    public Stream? GetEffectSound(int soundId)
+    {
+        try
+        {
+            return GetOrCreate(ConstructKeyForEffectSound(soundId), () => LoadEffectSound(soundId));
+        } catch
+        {
+            return null;
+        }
+    }
+
     private Stream LoadEffectSound(int soundId)
     {
         var buffer = DatArchives.Legend[$"{soundId}.mp3"]

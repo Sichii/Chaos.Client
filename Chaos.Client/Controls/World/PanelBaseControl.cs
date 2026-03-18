@@ -25,7 +25,6 @@ public abstract class PanelBaseControl : UIPanel
     protected readonly GraphicsDevice Device;
     protected readonly int SlotOffset;
     protected readonly PanelSlotControl[] Slots;
-    private bool DragActive;
     private int DragMouseX;
     private int DragMouseY;
 
@@ -34,6 +33,16 @@ public abstract class PanelBaseControl : UIPanel
 
     // Hover tracking
     private PanelSlotControl? LastHoveredSlot;
+
+    /// <summary>
+    ///     The 1-based slot number being dragged, or 0 if not dragging.
+    /// </summary>
+    public byte DragSlot => DragSource?.Slot ?? 0;
+
+    /// <summary>
+    ///     True when the user is actively dragging a slot icon.
+    /// </summary>
+    public bool IsDragging { get; private set; }
 
     protected PanelBaseControl(
         GraphicsDevice device,
@@ -108,7 +117,7 @@ public abstract class PanelBaseControl : UIPanel
         base.Draw(spriteBatch);
 
         // Dragged icon follows mouse (semi-transparent)
-        if (DragActive && DragSource?.NormalTexture is { } dragIcon)
+        if (IsDragging && DragSource?.NormalTexture is { } dragIcon)
             spriteBatch.Draw(
                 dragIcon,
                 new Vector2(DragMouseX - Convert.ToInt32(dragIcon.Width / 2.0), DragMouseY - Convert.ToInt32(dragIcon.Height / 2.0)),
@@ -133,7 +142,7 @@ public abstract class PanelBaseControl : UIPanel
     private void OnDragStarted(PanelSlotControl source)
     {
         DragSource = source;
-        DragActive = true;
+        IsDragging = true;
     }
 
     /// <summary>
@@ -142,9 +151,10 @@ public abstract class PanelBaseControl : UIPanel
     public event Action<byte>? OnSlotClicked;
 
     /// <summary>
-    ///     Fired when the user drags a slot icon and releases outside the panel. Parameter is the 1-based slot number.
+    ///     Fired when the user drags a slot icon and releases outside the panel.
+    ///     Parameters: (slot, mouseX, mouseY).
     /// </summary>
-    public event Action<byte>? OnSlotDroppedOutside;
+    public event Action<byte, int, int>? OnSlotDroppedOutside;
 
     /// <summary>
     ///     Fired when the hovered slot changes. Parameter is the slot name (or null when unhovered).
@@ -182,7 +192,7 @@ public abstract class PanelBaseControl : UIPanel
 
         if (!Visible || !Enabled)
         {
-            DragActive = false;
+            IsDragging = false;
             DragSource = null;
 
             return;
@@ -192,7 +202,7 @@ public abstract class PanelBaseControl : UIPanel
         PanelSlotControl? hoveredSlot = null;
 
         foreach (var slot in Slots)
-            if (slot.NormalTexture is not null && slot.ContainsPoint(input.MouseX, input.MouseY))
+            if (slot.ContainsPoint(input.MouseX, input.MouseY))
             {
                 hoveredSlot = slot;
 
@@ -202,11 +212,11 @@ public abstract class PanelBaseControl : UIPanel
         if (hoveredSlot != LastHoveredSlot)
         {
             LastHoveredSlot = hoveredSlot;
-            OnSlotHovered?.Invoke(hoveredSlot?.SlotName);
+            OnSlotHovered?.Invoke(hoveredSlot?.NormalTexture is not null ? hoveredSlot.SlotName : null);
         }
 
         // Drag tracking
-        if (DragActive)
+        if (IsDragging)
         {
             DragMouseX = input.MouseX;
             DragMouseY = input.MouseY;
@@ -218,10 +228,10 @@ public abstract class PanelBaseControl : UIPanel
                     if (hoveredSlot is not null && (hoveredSlot != DragSource))
                         OnSlotSwapped?.Invoke(DragSource.Slot, hoveredSlot.Slot);
                     else if (hoveredSlot is null)
-                        OnSlotDroppedOutside?.Invoke(DragSource.Slot);
+                        OnSlotDroppedOutside?.Invoke(DragSource.Slot, input.MouseX, input.MouseY);
                 }
 
-                DragActive = false;
+                IsDragging = false;
                 DragSource = null;
             }
         }
