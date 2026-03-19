@@ -1,4 +1,5 @@
 #region
+using System.Text;
 using Chaos.Client.Common.Abstractions;
 using Chaos.Client.Data.Models;
 using Chaos.Extensions.Common;
@@ -73,6 +74,27 @@ public sealed class UiComponentRepository : RepositoryBase
             images[i] = Graphics.RenderImage(epf[i], palette);
 
         return images;
+    }
+
+    /// <summary>
+    ///     Loads a field image (EPF + matching PAL) from setoa.dat. Used for world map backgrounds where the palette is stored
+    ///     alongside the EPF rather than using the GUI palette.
+    /// </summary>
+    public SKImage? GetFieldImage(string fieldName)
+    {
+        if (!DatArchives.Setoa.TryGetValue($"{fieldName}.epf", out var epfEntry))
+            return null;
+
+        if (!DatArchives.Setoa.TryGetValue($"{fieldName}.pal", out var palEntry))
+            return null;
+
+        var epf = EpfFile.FromEntry(epfEntry);
+        var palette = Palette.FromEntry(palEntry);
+
+        if (epf.Count == 0)
+            return null;
+
+        return Graphics.RenderImage(epf[0], palette);
     }
 
     /// <summary>
@@ -157,6 +179,26 @@ public sealed class UiComponentRepository : RepositoryBase
             return 17;
 
         return 0;
+    }
+
+    /// <summary>
+    ///     Reads the msg.tbl text file from setoa.dat and returns its lines. Used for localized UI strings (e.g. social status
+    ///     names). Returns null if msg.tbl is not found.
+    /// </summary>
+    public string[]? GetMessageTableLines()
+    {
+        if (!DatArchives.Setoa.TryGetValue("msg.tbl", out var entry))
+            return null;
+
+        using var ms = new MemoryStream();
+
+        using (var s = entry.ToStreamSegment())
+            s.CopyTo(ms);
+
+        var text = Encoding.GetEncoding(949)
+                           .GetString(ms.ToArray());
+
+        return text.Split('\n');
     }
 
     /// <summary>

@@ -6,6 +6,8 @@ namespace Chaos.Client.Data;
 
 public static class DataContext
 {
+    public static AislingDataRepository AislingData { get; private set; } = null!;
+
     /// <summary>
     ///     The client version sent during the lobby handshake.
     /// </summary>
@@ -19,6 +21,7 @@ public static class DataContext
     public static string DataPath { get; private set; } = null!;
 
     public static EffectsRepository Effects { get; private set; } = null!;
+    public static FontRepository Fonts { get; private set; } = null!;
 
     /// <summary>
     ///     The lobby server hostname or IP address.
@@ -49,8 +52,10 @@ public static class DataContext
         LobbyHost = lobbyHost;
         LobbyPort = lobbyPort;
 
+        AislingData = new AislingDataRepository();
         CreatureSprites = new CreatureSpriteRepository();
         Effects = new EffectsRepository();
+        Fonts = new FontRepository();
         MapsFiles = new MapFileRepository();
         MetaFiles = new MetaFileRepository();
         PanelIcons = new PanelIconRepository();

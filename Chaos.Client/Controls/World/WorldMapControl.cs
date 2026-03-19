@@ -4,7 +4,6 @@ using Chaos.Client.Data;
 using Chaos.Client.Networking;
 using Chaos.Client.Rendering;
 using Chaos.Networking.Entities.Server;
-using DALib.Drawing;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using Microsoft.Xna.Framework.Input;
@@ -89,22 +88,7 @@ public sealed class WorldMapControl : UIPanel
 
     private Texture2D? LoadFieldImage(string fieldName)
     {
-        var epfName = $"{fieldName}.epf";
-        var palName = $"{fieldName}.pal";
-
-        if (!DatArchives.Setoa.TryGetValue(epfName, out var epfEntry))
-            return null;
-
-        if (!DatArchives.Setoa.TryGetValue(palName, out var palEntry))
-            return null;
-
-        var epf = EpfFile.FromEntry(epfEntry);
-        var palette = Palette.FromEntry(palEntry);
-
-        if (epf.Count == 0)
-            return null;
-
-        using var image = Graphics.RenderImage(epf[0], palette);
+        using var image = DataContext.UserControls.GetFieldImage(fieldName);
 
         return image is not null ? TextureConverter.ToTexture2D(Device, image) : null;
     }

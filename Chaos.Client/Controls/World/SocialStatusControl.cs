@@ -1,5 +1,4 @@
 #region
-using System.Text;
 using Chaos.Client.Controls.Components;
 using Chaos.Client.Data;
 using Chaos.Client.Definitions;
@@ -129,17 +128,10 @@ public sealed class SocialStatusControl : PrefabPanel
         for (var i = 0; i < STATUS_COUNT; i++)
             StatusNames[i] = ((SocialStatus)i).ToString();
 
-        if (!DatArchives.Setoa.TryGetValue("msg.tbl", out var entry))
+        var lines = DataContext.UserControls.GetMessageTableLines();
+
+        if (lines is null)
             return;
-
-        using var ms = new MemoryStream();
-
-        using (var s = entry.ToStreamSegment())
-            s.CopyTo(ms);
-
-        var text = Encoding.GetEncoding(949)
-                           .GetString(ms.ToArray());
-        var lines = text.Split('\n');
 
         for (var i = 0; i < STATUS_COUNT; i++)
         {

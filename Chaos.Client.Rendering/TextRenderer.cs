@@ -82,17 +82,8 @@ public static class TextRenderer
         if (EnglishFont is not null)
             return;
 
-        EnglishFont = FntFile.FromArchive(
-            "eng00",
-            DatArchives.Legend,
-            ENGLISH_GLYPH_WIDTH,
-            GLYPH_HEIGHT);
-
-        KoreanFont = FntFile.FromArchive(
-            "han00",
-            DatArchives.Legend,
-            KOREAN_GLYPH_WIDTH,
-            GLYPH_HEIGHT);
+        EnglishFont = DataContext.Fonts.EnglishFont;
+        KoreanFont = DataContext.Fonts.KoreanFont;
         KoreanEncoding = Encoding.GetEncoding(949);
     }
 

@@ -13,6 +13,14 @@ public sealed class TileRepository : RepositoryBase
     private Tileset Tileset = Tileset.FromArchive("tilea", DatArchives.Seo);
     private bool UseSnowTileset;
 
+    /// <summary>
+    ///     SOTP (Sector Object Type Properties) data loaded from Ia archive. Used for tile walkability checks in the tab map.
+    /// </summary>
+    public byte[] SotpData { get; } = DatArchives.Ia.TryGetValue("sotp.dat", out var sotpEntry)
+        ? sotpEntry.ToSpan()
+                   .ToArray()
+        : [];
+
     private string ConstructBackgroundTileKey(int tileId) => $"BG_{tileId}{(UseSnowTileset ? "_S" : string.Empty)}";
     private string ConstructForegroundTileKey(int tileId) => $"FG_{tileId}";
 

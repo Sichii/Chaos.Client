@@ -1,7 +1,7 @@
 #region
 using Chaos.Client.Data;
+using Chaos.Client.Data.Repositories;
 using Chaos.DarkAges.Definitions;
-using DALib.Data;
 using DALib.Definitions;
 using DALib.Drawing;
 using Microsoft.Xna.Framework.Graphics;
@@ -131,50 +131,7 @@ public sealed class AislingRenderer : IDisposable
         LayerSlot.Acc3C
     ];
 
-    // Body palettes (palm) — indexed directly by body color
-    private readonly Dictionary<int, Palette> BodyPalettes = Palette.FromArchive("palm", DatArchives.Khanpal);
-
-    private readonly ColorTable DyeColorTable;
-    private readonly Dictionary<string, EpfFile?> EpfCache = new();
-
-    // Per-type palette lookups from Khanpal
-    private readonly PaletteLookup PalB = PaletteLookup.FromArchive("palb", DatArchives.Khanpal)
-                                                       .Freeze();
-
-    private readonly PaletteLookup PalC = PaletteLookup.FromArchive("palc", DatArchives.Khanpal)
-                                                       .Freeze();
-
-    private readonly PaletteLookup PalE = PaletteLookup.FromArchive("pale", DatArchives.Khanpal)
-                                                       .Freeze();
-
-    private readonly PaletteLookup PalF = PaletteLookup.FromArchive("palf", DatArchives.Khanpal)
-                                                       .Freeze();
-
-    private readonly PaletteLookup PalH = PaletteLookup.FromArchive("palh", DatArchives.Khanpal)
-                                                       .Freeze();
-
-    private readonly PaletteLookup PalI = PaletteLookup.FromArchive("pali", DatArchives.Khanpal)
-                                                       .Freeze();
-
-    private readonly PaletteLookup PalL = PaletteLookup.FromArchive("pall", DatArchives.Khanpal)
-                                                       .Freeze();
-
-    private readonly PaletteLookup PalP = PaletteLookup.FromArchive("palp", DatArchives.Khanpal)
-                                                       .Freeze();
-
-    private readonly PaletteLookup PalU = PaletteLookup.FromArchive("palu", DatArchives.Khanpal)
-                                                       .Freeze();
-
-    private readonly PaletteLookup PalW = PaletteLookup.FromArchive("palw", DatArchives.Khanpal)
-                                                       .Freeze();
-
-    public AislingRenderer()
-    {
-        if (DatArchives.Legend.TryGetValue("color0.tbl", out var entry))
-            DyeColorTable = ColorTable.FromEntry(entry);
-        else
-            DyeColorTable = new ColorTable();
-    }
+    private readonly AislingDataRepository Data = DataContext.AislingData;
 
     /// <inheritdoc />
     public void Dispose() => ClearCache();
@@ -182,7 +139,7 @@ public sealed class AislingRenderer : IDisposable
     /// <summary>
     ///     Clears the cached EPF files. Call on map change to free memory.
     /// </summary>
-    public void ClearCache() => EpfCache.Clear();
+    public void ClearCache() => Data.ClearEpfCache();
 
     #region Compositing
     /// <summary>
@@ -305,6 +262,33 @@ public sealed class AislingRenderer : IDisposable
             WALK_ANIM,
             flip);
     }
+
+    #region Palette Resolution
+    private Palette? ResolvePalette(
+        PaletteLookup lookup,
+        int spriteId,
+        DisplayColor dyeColor,
+        KhanPalOverrideType overrideType)
+    {
+        var paletteNumber = lookup.Table.GetPaletteNumber(spriteId, overrideType);
+
+        if (paletteNumber >= 1000)
+            paletteNumber -= 1000;
+
+        if (!lookup.Palettes.TryGetValue(paletteNumber, out var basePalette))
+            return null;
+
+        if (dyeColor == DisplayColor.Default)
+            return basePalette;
+
+        var colorIndex = (int)dyeColor;
+
+        if (!Data.DyeColorTable.Contains(colorIndex))
+            return basePalette;
+
+        return basePalette.Dye(Data.DyeColorTable[colorIndex]);
+    }
+    #endregion
 
     /// <summary>
     ///     A rendered layer with its EpfFrame positioning metadata preserved. Left/Top from the EpfFrame are needed at
@@ -566,16 +550,15 @@ public sealed class AislingRenderer : IDisposable
         if (spriteId <= 0)
             return null;
 
-        var archive = GetArchive(typeLetter, appearance.IsMale);
         var fileName = $"{appearance.GenderPrefix}{typeLetter}{spriteId:D3}{anim}";
-        var epf = TryLoadEpf(archive, fileName);
+        var epf = TryLoadEpf(typeLetter, appearance.IsMale, fileName);
 
         if (epf is null || (frameIndex >= epf.Count))
             return null;
 
         var frame = epf[frameIndex];
 
-        if (!BodyPalettes.TryGetValue(appearance.BodyColor, out var palette))
+        if (!Data.BodyPalettes.TryGetValue(appearance.BodyColor, out var palette))
             return null;
 
         var image = Graphics.RenderImage(frame, palette);
@@ -604,15 +587,14 @@ public sealed class AislingRenderer : IDisposable
         if (spriteId <= 0)
             return null;
 
-        var archive = GetArchive(typeLetter, appearance.IsMale);
         var fileName = $"{appearance.GenderPrefix}{typeLetter}{spriteId:D3}{anim}";
-        var epf = TryLoadEpf(archive, fileName);
+        var epf = TryLoadEpf(typeLetter, appearance.IsMale, fileName);
 
         if (epf is null || (frameIndex >= epf.Count))
             return null;
 
         var frame = epf[frameIndex];
-        var lookup = GetPaletteLookup(typeLetter);
+        var lookup = Data.GetPaletteLookup(typeLetter);
 
         var palette = ResolvePalette(
             lookup,
@@ -636,49 +618,6 @@ public sealed class AislingRenderer : IDisposable
     }
     #endregion
 
-    #region Palette Resolution
-    private PaletteLookup GetPaletteLookup(char typeLetter)
-        => typeLetter switch
-        {
-            'a' or 'b' or 'n' => PalB,
-            'c' or 'g' or 'j' => PalC,
-            'e'               => PalE,
-            'f'               => PalF,
-            'h'               => PalH,
-            'i'               => PalI,
-            'l'               => PalL,
-            'p' or 's'        => PalP,
-            'u'               => PalU,
-            'w'               => PalW,
-            _                 => PalB
-        };
-
-    private Palette? ResolvePalette(
-        PaletteLookup lookup,
-        int spriteId,
-        DisplayColor dyeColor,
-        KhanPalOverrideType overrideType)
-    {
-        var paletteNumber = lookup.Table.GetPaletteNumber(spriteId, overrideType);
-
-        if (paletteNumber >= 1000)
-            paletteNumber -= 1000;
-
-        if (!lookup.Palettes.TryGetValue(paletteNumber, out var basePalette))
-            return null;
-
-        if (dyeColor == DisplayColor.Default)
-            return basePalette;
-
-        var colorIndex = (int)dyeColor;
-
-        if (!DyeColorTable.Contains(colorIndex))
-            return basePalette;
-
-        return basePalette.Dye(DyeColorTable[colorIndex]);
-    }
-    #endregion
-
     #region Helpers
     private static bool IsFrontFacing(int frameIndex, string animSuffix)
         => animSuffix switch
@@ -695,33 +634,6 @@ public sealed class AislingRenderer : IDisposable
     /// </summary>
     private static int GetLayerOffsetX(char typeLetter) => typeLetter is 'w' or 'p' or 'c' or 'g' ? -27 : 0;
 
-    private static DataArchive GetArchive(char typeLetter, bool isMale)
-        => typeLetter switch
-        {
-            >= 'a' and <= 'd' => isMale ? DatArchives.Khanmad : DatArchives.Khanwad,
-            >= 'e' and <= 'h' => isMale ? DatArchives.Khanmeh : DatArchives.Khanweh,
-            >= 'i' and <= 'm' => isMale ? DatArchives.Khanmim : DatArchives.Khanwim,
-            >= 'n' and <= 's' => isMale ? DatArchives.Khanmns : DatArchives.Khanwns,
-            >= 't' and <= 'z' => isMale ? DatArchives.Khanmtz : DatArchives.Khanwtz,
-            _                 => isMale ? DatArchives.Khanmad : DatArchives.Khanwad
-        };
-
-    private EpfFile? TryLoadEpf(DataArchive archive, string fileName)
-    {
-        if (EpfCache.TryGetValue(fileName, out var cached))
-            return cached;
-
-        if (!archive.TryGetValue($"{fileName}.epf", out var entry))
-        {
-            EpfCache[fileName] = null;
-
-            return null;
-        }
-
-        var epf = EpfFile.FromEntry(entry);
-        EpfCache[fileName] = epf;
-
-        return epf;
-    }
+    private EpfFile? TryLoadEpf(char typeLetter, bool isMale, string fileName) => Data.GetEquipmentEpf(typeLetter, isMale, fileName);
     #endregion
 }

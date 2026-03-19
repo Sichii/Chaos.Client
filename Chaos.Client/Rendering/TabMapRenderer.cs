@@ -96,14 +96,7 @@ public sealed class TabMapRenderer : IDisposable
 
     public float Zoom { get; private set; } = ZOOM_DEFAULT;
 
-    public TabMapRenderer()
-    {
-        if (DatArchives.Ia.TryGetValue("sotp.dat", out var sotpEntry))
-            SotpData = sotpEntry.ToSpan()
-                                .ToArray();
-        else
-            SotpData = [];
-    }
+    public TabMapRenderer() => SotpData = DataContext.Tiles.SotpData;
 
     /// <inheritdoc />
     public void Dispose()

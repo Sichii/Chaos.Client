@@ -2,7 +2,6 @@
 using Chaos.Client.Controls.Components;
 using Chaos.Client.Data;
 using Chaos.Client.Rendering;
-using DALib.Drawing;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using Microsoft.Xna.Framework.Input;
@@ -209,47 +208,48 @@ public sealed class OkPopupMessageControl : UIPanel
 
     private static SKImage[]? LoadBorderFrames()
     {
-        if (!DatArchives.Setoa.TryGetValue("dlgframe.epf", out var entry))
-            return null;
+        var allFrames = DataContext.UserControls.GetEpfImages("dlgframe.epf");
 
-        var guiPalettes = Palette.FromArchive("gui", DatArchives.Setoa);
-
-        if (!guiPalettes.TryGetValue(GUI_PALETTE, out var palette))
-            return null;
-
-        var epf = EpfFile.FromEntry(entry);
-
-        if (epf.Count < 8)
-            return null;
-
-        var frames = new SKImage[8];
-
-        for (var i = 0; i < 8; i++)
+        if (allFrames.Length < 8)
         {
-            var rendered = Graphics.RenderImage(epf[i], palette);
+            foreach (var img in allFrames)
+                img?.Dispose();
 
-            frames[i] = rendered;
+            return null;
         }
+
+        // Only keep the first 8 border frames, dispose any extras
+        var frames = new SKImage[8];
+        Array.Copy(allFrames, frames, 8);
+
+        for (var i = 8; i < allFrames.Length; i++)
+            allFrames[i]
+                ?.Dispose();
 
         return frames;
     }
 
     private static SKImage? LoadEpfFrame(string epfName, int frameIndex)
     {
-        if (!DatArchives.Setoa.TryGetValue(epfName, out var entry))
+        var allFrames = DataContext.UserControls.GetEpfImages(epfName);
+
+        if ((frameIndex < 0) || (frameIndex >= allFrames.Length))
+        {
+            foreach (var img in allFrames)
+                img?.Dispose();
+
             return null;
+        }
 
-        var guiPalettes = Palette.FromArchive("gui", DatArchives.Setoa);
+        // Keep the requested frame, dispose all others
+        var result = allFrames[frameIndex];
 
-        if (!guiPalettes.TryGetValue(GUI_PALETTE, out var palette))
-            return null;
+        for (var i = 0; i < allFrames.Length; i++)
+            if (i != frameIndex)
+                allFrames[i]
+                    ?.Dispose();
 
-        var epf = EpfFile.FromEntry(entry);
-
-        if ((frameIndex < 0) || (frameIndex >= epf.Count))
-            return null;
-
-        return Graphics.RenderImage(epf[frameIndex], palette);
+        return result;
     }
 
     private static SKImage? LoadSpfFrame(string spfName, int frameIndex) => DataContext.UserControls.GetSpfImage(spfName, frameIndex);
