@@ -23,7 +23,7 @@ public sealed class ConnectionManager : IDisposable
     private readonly Dictionary<byte, (ushort Sprite, string Name)> InventoryState = new();
     private readonly Action<ServerPacket>?[] PacketHandlers = new Action<ServerPacket>?[byte.MaxValue + 1];
     private readonly Dictionary<byte, (ushort Sprite, string Name)> SkillState = new();
-    private readonly Dictionary<byte, (ushort Sprite, string Name)> SpellState = new();
+    private readonly Dictionary<byte, SpellInfo> SpellState = new();
     private WorldEntryState EntryState;
     private RedirectInfo? PendingRedirect;
 
@@ -95,7 +95,7 @@ public sealed class ConnectionManager : IDisposable
     /// <summary>
     ///     Buffered spell data (slot → sprite + name), populated during world entry.
     /// </summary>
-    public IReadOnlyDictionary<byte, (ushort Sprite, string Name)> SpellSlots => SpellState;
+    public IReadOnlyDictionary<byte, SpellInfo> SpellSlots => SpellState;
 
     public ConnectionManager()
     {
@@ -662,6 +662,8 @@ public sealed class ConnectionManager : IDisposable
     /// <summary>
     ///     Fired when world entry is complete (all essential data received).
     /// </summary>
+    public event Action<uint>? OnUserId;
+
     public event Action? OnWorldEntryComplete;
 
     /// <summary>
@@ -830,6 +832,21 @@ public sealed class ConnectionManager : IDisposable
     }
 
     /// <summary>
+    ///     Sends a begin chant packet with the number of cast lines.
+    /// </summary>
+    public void SendBeginChant(byte castLineCount)
+    {
+        if (State != ConnectionState.World)
+            return;
+
+        Client.Send(
+            new BeginChantArgs
+            {
+                CastLineCount = castLineCount
+            });
+    }
+
+    /// <summary>
     ///     Sends a board/mail interaction (view board, read post, send mail, delete, etc.).
     /// </summary>
     public void SendBoardInteraction(
@@ -858,6 +875,21 @@ public sealed class ConnectionManager : IDisposable
     }
 
     /// <summary>
+    ///     Sends a chant line message.
+    /// </summary>
+    public void SendChant(string message)
+    {
+        if (State != ConnectionState.World)
+            return;
+
+        Client.Send(
+            new ChantArgs
+            {
+                ChantMessage = message
+            });
+    }
+
+    /// <summary>
     ///     Sends a dialog interaction response (Next, Close, option select, text input).
     /// </summary>
     public void SendDialogResponse(
@@ -882,6 +914,21 @@ public sealed class ConnectionManager : IDisposable
                 DialogArgsType = argsType,
                 Option = option,
                 Args = args
+            });
+    }
+
+    /// <summary>
+    ///     Sends an emote request (body animation 9-44).
+    /// </summary>
+    public void SendEmote(BodyAnimation bodyAnimation)
+    {
+        if (State != ConnectionState.World)
+            return;
+
+        Client.Send(
+            new EmoteArgs
+            {
+                BodyAnimation = bodyAnimation
             });
     }
 
@@ -1150,6 +1197,28 @@ public sealed class ConnectionManager : IDisposable
     }
 
     /// <summary>
+    ///     Sends a targeted spell use with entity ID and position packed as ArgsData.
+    /// </summary>
+    public void UseSpellOnTarget(
+        byte slot,
+        uint targetId,
+        int targetX,
+        int targetY)
+    {
+        var argsData = new byte[8];
+        argsData[0] = (byte)(targetId >> 24);
+        argsData[1] = (byte)(targetId >> 16);
+        argsData[2] = (byte)(targetId >> 8);
+        argsData[3] = (byte)targetId;
+        argsData[4] = (byte)(targetX >> 8);
+        argsData[5] = (byte)targetX;
+        argsData[6] = (byte)(targetY >> 8);
+        argsData[7] = (byte)targetY;
+
+        UseSpell(slot, argsData);
+    }
+
+    /// <summary>
     ///     Sends a walk request in the specified direction.
     /// </summary>
     public void Walk(Direction direction)
@@ -1352,6 +1421,7 @@ public sealed class ConnectionManager : IDisposable
     {
         var args = Client.Deserialize<UserIdArgs>(in pkt);
         AislingId = args.Id;
+        OnUserId?.Invoke(args.Id);
         EntryState |= WorldEntryState.UserId;
         CheckWorldEntryComplete();
     }
@@ -1584,7 +1654,7 @@ public sealed class ConnectionManager : IDisposable
     private void HandleAddSpellToPane(ServerPacket pkt)
     {
         var args = Client.Deserialize<AddSpellToPaneArgs>(in pkt);
-        SpellState[args.Spell.Slot] = (args.Spell.Sprite, args.Spell.PanelName);
+        SpellState[args.Spell.Slot] = args.Spell;
         OnAddSpellToPane?.Invoke(args);
     }
 

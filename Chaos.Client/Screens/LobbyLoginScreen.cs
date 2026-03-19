@@ -35,6 +35,7 @@ public sealed class LobbyLoginScreen : IScreen
     private string? HomepageUrl;
     private LoginControl LoginControl = null!;
     private PasswordChangeControl PasswordChangeControl = null!;
+    private bool PendingWorldSwitch;
     private OkPopupMessageControl PopupMessage = null!;
     private IReadOnlyList<ServerTableEntry> ServerList = [];
     private ServerSelectControl ServerSelectControl = null!;
@@ -69,7 +70,6 @@ public sealed class LobbyLoginScreen : IScreen
         Game.Connection.OnLoginMessage += OnLoginMessage;
         Game.Connection.OnLoginNotice += OnLoginNotice;
         Game.Connection.OnLoginControl += OnLoginControlReceived;
-        Game.Connection.OnWorldEntryComplete += OnWorldEntryComplete;
     }
 
     /// <inheritdoc />
@@ -152,12 +152,19 @@ public sealed class LobbyLoginScreen : IScreen
         Game.Connection.OnLoginMessage -= OnLoginMessage;
         Game.Connection.OnLoginNotice -= OnLoginNotice;
         Game.Connection.OnLoginControl -= OnLoginControlReceived;
-        Game.Connection.OnWorldEntryComplete -= OnWorldEntryComplete;
     }
 
     /// <inheritdoc />
     public void Update(GameTime gameTime)
     {
+        if (PendingWorldSwitch)
+        {
+            PendingWorldSwitch = false;
+            Game.Screens.Switch(new WorldScreen());
+
+            return;
+        }
+
         var input = Game.Input;
 
         // Popup message takes absolute priority
@@ -424,7 +431,7 @@ public sealed class LobbyLoginScreen : IScreen
                 break;
 
             case ConnectionState.World:
-                SetStatus("Entering world...", Color.LightGreen);
+                PendingWorldSwitch = true;
 
                 break;
 
@@ -626,7 +633,5 @@ public sealed class LobbyLoginScreen : IScreen
         if (args.LoginControlsType == LoginControlsType.Homepage)
             HomepageUrl = args.Message;
     }
-
-    private void OnWorldEntryComplete() => Game.Screens.Switch(new WorldScreen());
     #endregion
 }

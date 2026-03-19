@@ -5,6 +5,8 @@ using Chaos.Client.Models;
 using Chaos.Client.Rendering;
 using Chaos.Client.Systems.Animation;
 using Chaos.DarkAges.Definitions;
+using Chaos.Geometry;
+using Chaos.Geometry.Abstractions;
 using Chaos.Geometry.Abstractions.Definitions;
 using Chaos.Networking.Entities.Server;
 #endregion
@@ -149,6 +151,30 @@ public sealed class WorldState
             dying.Dispose();
 
         DyingEffects.Clear();
+    }
+
+    /// <summary>
+    ///     Returns tile positions of all blocking entities (creatures except WalkThrough, and aislings excluding the player).
+    /// </summary>
+    public List<IPoint> GetBlockedPoints()
+    {
+        var blocked = new List<IPoint>();
+
+        foreach (var entity in Entities.Values)
+        {
+            if (entity.Type == ClientEntityType.GroundItem)
+                continue;
+
+            if (entity.Id == PlayerEntityId)
+                continue;
+
+            if ((entity.Type == ClientEntityType.Creature) && (entity.CreatureType == CreatureType.WalkThrough))
+                continue;
+
+            blocked.Add(new Point(entity.TileX, entity.TileY));
+        }
+
+        return blocked;
     }
 
     /// <summary>

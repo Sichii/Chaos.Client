@@ -2,8 +2,15 @@
 using Chaos.Client.Common.Definitions;
 using Chaos.Client.Controls.Components;
 using Chaos.Client.Controls.Generic;
-using Chaos.Client.Controls.World;
+using Chaos.Client.Controls.World.Hud;
+using Chaos.Client.Controls.World.Hud.Panel;
+using Chaos.Client.Controls.World.Hud.Panel.Slots;
+using Chaos.Client.Controls.World.Hud.SelfProfile;
+using Chaos.Client.Controls.World.Options;
+using Chaos.Client.Controls.World.Popups;
+using Chaos.Client.Controls.World.ViewPort;
 using Chaos.Client.Data;
+using Chaos.Client.Data.Models;
 using Chaos.Client.Definitions;
 using Chaos.Client.Extensions;
 using Chaos.Client.Models;
@@ -12,12 +19,15 @@ using Chaos.Client.Systems;
 using Chaos.Client.Systems.Animation;
 using Chaos.DarkAges.Definitions;
 using Chaos.Extensions.Common;
+using Chaos.Geometry.Abstractions;
 using Chaos.Geometry.Abstractions.Definitions;
 using Chaos.Networking.Entities.Server;
+using Chaos.Pathfinding;
 using DALib.Data;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using Microsoft.Xna.Framework.Input;
+using ChaosPoint = Chaos.Geometry.Point;
 using BoardOrResponseType = Chaos.DarkAges.Definitions.BoardOrResponseType;
 using BoardRequestType = Chaos.DarkAges.Definitions.BoardRequestType;
 using ClientGroupSwitch = Chaos.DarkAges.Definitions.ClientGroupSwitch;
@@ -28,6 +38,7 @@ using ExchangeRequestType = Chaos.DarkAges.Definitions.ExchangeRequestType;
 using ExchangeResponseType = Chaos.DarkAges.Definitions.ExchangeResponseType;
 using MarkColor = Chaos.DarkAges.Definitions.MarkColor;
 using NpcEntityType = Chaos.DarkAges.Definitions.EntityType;
+using TileFlags = DALib.Definitions.TileFlags;
 using PanelType = Chaos.DarkAges.Definitions.PanelType;
 using PublicMessageType = Chaos.DarkAges.Definitions.PublicMessageType;
 using ServerMessageType = Chaos.DarkAges.Definitions.ServerMessageType;
@@ -70,12 +81,18 @@ public sealed class WorldScreen : IScreen
     // Aisling texture cache: keyed by entity ID, invalidated when appearance/frame/suffix changes
     private readonly Dictionary<uint, AislingCacheEntry> AislingCache = new();
 
+    private readonly CastingManager CastingManager = new();
+
+    // Active chant overlays: keyed by entity ID, new chant replaces old
+    private readonly Dictionary<uint, ChantOverlay> ChantOverlays = new();
+
     // Active chat bubbles: keyed by entity ID, one per entity (new message replaces old)
     private readonly Dictionary<uint, ChatBubble> ChatBubbles = new();
 
     // Ground item texture cache: keyed by item sprite ID
     private readonly Dictionary<int, Texture2D?> GroundItemCache = new();
     private Camera Camera = null!;
+    private ChantEditControl ChantEdit = null!;
     private ContextMenu ContextMenu = null!;
     private GraphicsDevice Device = null!;
     private ExchangeControl Exchange = null!;
@@ -85,12 +102,17 @@ public sealed class WorldScreen : IScreen
     private GroupControl GroupPanel = null!;
     private uint? HighlightedEntityId;
     private uint? HighlightTintedEntityId;
+    private Texture2D? HighlightTintedSource;
     private Texture2D? HighlightTintedTexture;
     private HotkeyHelpControl HotkeyHelp = null!;
-    private MainGameHudControl Hud = null!;
+    private PanelSlot? HoveredInventorySlot;
+    private ItemTooltipControl ItemTooltip = null!;
     private int LastClickTileX;
     private int LastClickTileY;
     private float LastClickTimer = DOUBLE_CLICK_MS;
+    private int LastRightClickTileX;
+    private int LastRightClickTileY;
+    private float LastRightClickTimer = DOUBLE_CLICK_MS;
     private MacroMenuControl MacroMenu = null!;
     private MailListControl MailList = null!;
     private MailReadControl MailRead = null!;
@@ -98,11 +120,15 @@ public sealed class WorldScreen : IScreen
     private MainOptionsControl MainOptions = null!;
 
     private MapFile? MapFile;
+    private Pathfinder? MapPathfinder;
     private bool MapPreloaded;
     private MapRenderer MapRenderer = null!;
 
     // Overlay panels (rendered on top of HUD)
     private NpcDialogControl NpcDialog = null!;
+    private Stack<IPoint>? PathfindingPath;
+    private float PathfindingRetargetTimer;
+    private uint? PathfindingTargetEntityId;
     private Direction? QueuedWalkDirection;
     private RasterizerState ScissorRasterizerState = null!;
     private SettingsControl SettingsDialog = null!;
@@ -116,8 +142,9 @@ public sealed class WorldScreen : IScreen
 
     // Tile cursor: dashed ellipse drawn on the hovered tile
     private Texture2D? TileCursorTexture;
+    private WorldHudControl WorldHud = null!;
     private WorldListControl WorldList = null!;
-    private WorldMapControl WorldMap = null!;
+    private WorldMap WorldMap = null!;
 
     /// <inheritdoc />
     public UIPanel? Root { get; private set; }
@@ -131,7 +158,7 @@ public sealed class WorldScreen : IScreen
         // Pass 1: World rendering — clipped to the HUD viewport area, camera transform
         if (MapFile is not null && MapPreloaded)
         {
-            var viewportRect = Hud.ViewportBounds;
+            var viewportRect = WorldHud.ViewportBounds;
             Device.ScissorRectangle = viewportRect;
 
             var transform = Matrix.CreateTranslation(viewportRect.X, viewportRect.Y, 0);
@@ -153,6 +180,7 @@ public sealed class WorldScreen : IScreen
                 transform);
             DrawForegroundAndEntities(spriteBatch);
             DrawChatBubbles(spriteBatch);
+            DrawChantOverlays(spriteBatch);
             spriteBatch.End();
 
             // Debug overlay: entity hitboxes, tile grid, etc.
@@ -175,7 +203,7 @@ public sealed class WorldScreen : IScreen
         // TabMapRenderer manages its own SpriteBatch Begin/End blocks (stencil passes for entity overlap)
         if (TabMapVisible && MapFile is not null)
         {
-            var viewport = Hud.ViewportBounds;
+            var viewport = WorldHud.ViewportBounds;
             var player = Game.World.GetPlayerEntity();
             var px = player?.TileX ?? 0;
             var py = player?.TileY ?? 0;
@@ -201,6 +229,9 @@ public sealed class WorldScreen : IScreen
     public void Initialize(ChaosGame game)
     {
         Game = game;
+
+        // Player identity
+        Game.Connection.OnUserId += HandleUserId;
 
         // Map assembly events
         Game.Connection.OnMapInfo += HandleMapInfo;
@@ -265,6 +296,7 @@ public sealed class WorldScreen : IScreen
         Game.Connection.OnBodyAnimation += HandleBodyAnimation;
         Game.Connection.OnAnimation += HandleAnimation;
         Game.Connection.OnSound += HandleSound;
+        Game.Connection.OnCancelCasting += CastingManager.Reset;
 
         // Map transitions
         Game.Connection.OnMapChangePending += HandleMapChangePending;
@@ -274,6 +306,9 @@ public sealed class WorldScreen : IScreen
 
         // Health bars
         Game.Connection.OnHealthBar += HandleHealthBar;
+
+        // Status effects
+        Game.Connection.OnEffect += HandleEffect;
 
         // Light level
         Game.Connection.OnLightLevel += HandleLightLevel;
@@ -295,9 +330,9 @@ public sealed class WorldScreen : IScreen
         Device = graphicsDevice;
 
         // HUD defines the viewport bounds for world rendering
-        Hud = new MainGameHudControl(graphicsDevice);
+        WorldHud = new WorldHudControl(graphicsDevice);
 
-        var viewport = Hud.ViewportBounds;
+        var viewport = WorldHud.ViewportBounds;
 
         Camera = new Camera(viewport.Width, viewport.Height)
         {
@@ -322,12 +357,12 @@ public sealed class WorldScreen : IScreen
         {
             ZIndex = -1
         };
-        MainOptions.SetViewportBounds(Hud.ViewportBounds);
+        MainOptions.SetViewportBounds(WorldHud.ViewportBounds);
         WireOptionsDialog();
 
         // Sub-panels slide out from MainOptions' left edge, render behind it
-        var optionsAnchorX = Hud.ViewportBounds.X + Hud.ViewportBounds.Width - MainOptions.Width + 10;
-        var optionsAnchorY = Hud.ViewportBounds.Y;
+        var optionsAnchorX = WorldHud.ViewportBounds.X + WorldHud.ViewportBounds.Width - MainOptions.Width + 10;
+        var optionsAnchorY = WorldHud.ViewportBounds.Y;
 
         SettingsDialog = new SettingsControl(graphicsDevice)
         {
@@ -387,6 +422,7 @@ public sealed class WorldScreen : IScreen
             ZIndex = -2
         };
         MacroMenu.SetSlideAnchor(optionsAnchorX, optionsAnchorY);
+        MacroMenu.OnOk += SavePlayerMacros;
 
         HotkeyHelp = new HotkeyHelpControl(graphicsDevice);
 
@@ -402,13 +438,14 @@ public sealed class WorldScreen : IScreen
         {
             ZIndex = -1
         };
-        WorldList.SetViewportBounds(Hud.ViewportBounds);
+        WorldList.SetViewportBounds(WorldHud.ViewportBounds);
 
         FriendsList = new FriendsListControl(graphicsDevice)
         {
             ZIndex = -2
         };
         FriendsList.SetSlideAnchor(optionsAnchorX, optionsAnchorY);
+        FriendsList.OnOk += SavePlayerFriendList;
 
         Exchange = new ExchangeControl(graphicsDevice);
         MailList = new MailListControl(graphicsDevice);
@@ -419,10 +456,11 @@ public sealed class WorldScreen : IScreen
 
         StatusBook = new SelfProfileTabControl(graphicsDevice)
         {
-            ZIndex = 1
+            ZIndex = 2
         };
 
         StatusBook.OnUnequip += slot => Game.Connection.Unequip(slot);
+        StatusBook.OnClose += SavePlayerFamilyList;
 
         SocialStatusPicker = new SocialStatusControl(graphicsDevice);
 
@@ -434,17 +472,28 @@ public sealed class WorldScreen : IScreen
 
         TextPopup = new TextPopupControl(graphicsDevice)
         {
-            ZIndex = 1
+            ZIndex = 2
         };
 
-        WorldMap = new WorldMapControl(graphicsDevice, Game.Connection)
+        ChantEdit = new ChantEditControl(graphicsDevice)
         {
-            ZIndex = 1
+            ZIndex = 2
+        };
+        ChantEdit.OnChantSet += HandleChantSet;
+
+        WorldMap = new WorldMap(graphicsDevice, Game.Connection)
+        {
+            ZIndex = 2
         };
 
         ContextMenu = new ContextMenu(graphicsDevice)
         {
-            ZIndex = 2
+            ZIndex = 3
+        };
+
+        ItemTooltip = new ItemTooltipControl(graphicsDevice)
+        {
+            ZIndex = 3
         };
 
         Root = new UIPanel
@@ -453,7 +502,8 @@ public sealed class WorldScreen : IScreen
             Width = ChaosGame.VIRTUAL_WIDTH,
             Height = ChaosGame.VIRTUAL_HEIGHT
         };
-        Root.AddChild(Hud);
+        Root.AddChild(WorldHud);
+        Root.AddChild(ItemTooltip);
         Root.AddChild(NpcDialog);
         Root.AddChild(MainOptions);
         Root.AddChild(SettingsDialog);
@@ -468,22 +518,23 @@ public sealed class WorldScreen : IScreen
         Root.AddChild(MailSend);
         Root.AddChild(StatusBook);
         Root.AddChild(TextPopup);
+        Root.AddChild(ChantEdit);
         Root.AddChild(WorldMap);
         Root.AddChild(SocialStatusPicker);
         Root.AddChild(ContextMenu);
 
         // Wire HUD buttons
-        if (Hud.OptionButton is not null)
-            Hud.OptionButton.OnClick += () => MainOptions.Show();
+        if (WorldHud.OptionButton is not null)
+            WorldHud.OptionButton.OnClick += () => MainOptions.Show();
 
-        if (Hud.HelpButton is not null)
-            Hud.HelpButton.OnClick += () => HotkeyHelp.Show();
+        if (WorldHud.HelpButton is not null)
+            WorldHud.HelpButton.OnClick += () => HotkeyHelp.Show();
 
-        if (Hud.GroupButton is not null)
-            Hud.GroupButton.OnClick += () => GroupPanel.Show();
+        if (WorldHud.GroupButton is not null)
+            WorldHud.GroupButton.OnClick += () => GroupPanel.Show();
 
-        if (Hud.UsersButton is not null)
-            Hud.UsersButton.OnClick += () =>
+        if (WorldHud.UsersButton is not null)
+            WorldHud.UsersButton.OnClick += () =>
             {
                 if (WorldList.Visible)
                 {
@@ -496,21 +547,21 @@ public sealed class WorldScreen : IScreen
                 Game.Connection.RequestWorldList();
             };
 
-        if (Hud.BulletinButton is not null)
-            Hud.BulletinButton.OnClick += () => Game.Connection.SendBoardInteraction(BoardRequestType.BoardList);
+        if (WorldHud.BulletinButton is not null)
+            WorldHud.BulletinButton.OnClick += () => Game.Connection.SendBoardInteraction(BoardRequestType.BoardList);
 
-        if (Hud.LegendButton is not null)
-            Hud.LegendButton.OnClick += () => Game.Connection.RequestSelfProfile();
+        if (WorldHud.LegendButton is not null)
+            WorldHud.LegendButton.OnClick += () => Game.Connection.RequestSelfProfile();
 
-        if (Hud.TownMapButton is not null)
-            Hud.TownMapButton.OnClick += () =>
+        if (WorldHud.TownMapButton is not null)
+            WorldHud.TownMapButton.OnClick += () =>
             {
                 if (WorldMap.Visible)
                     WorldMap.HideMap();
             };
 
-        if (Hud.EmoteButton is not null)
-            Hud.EmoteButton.OnClick += () =>
+        if (WorldHud.EmoteButton is not null)
+            WorldHud.EmoteButton.OnClick += () =>
             {
                 if (SocialStatusPicker.Visible)
                 {
@@ -520,8 +571,8 @@ public sealed class WorldScreen : IScreen
                 }
 
                 // Position above the emote button
-                SocialStatusPicker.X = Hud.EmoteButton.ScreenX - SocialStatusPicker.Width / 2 + Hud.EmoteButton.Width / 2;
-                SocialStatusPicker.Y = Hud.EmoteButton.ScreenY - SocialStatusPicker.Height - 2;
+                SocialStatusPicker.X = WorldHud.EmoteButton.ScreenX - SocialStatusPicker.Width / 2 + WorldHud.EmoteButton.Width / 2;
+                SocialStatusPicker.Y = WorldHud.EmoteButton.ScreenY - SocialStatusPicker.Height - 2;
 
                 // Clamp to screen
                 if (SocialStatusPicker.X < 0)
@@ -533,77 +584,53 @@ public sealed class WorldScreen : IScreen
                 SocialStatusPicker.Show();
             };
 
-        if (Hud.ExpandButton is not null)
-            Hud.ExpandButton.OnClick += () => Hud.ShowOrangeBarMessage("Hud expant is not yet implmented.");
-
-        // Set the player entity ID and server name from the connection
-        Game.World.PlayerEntityId = Game.Connection.AislingId;
-        Hud.SetServerName(Game.Connection.ServerName);
-
-        // If we already have map info from the connection (world entry completed before screen switch),
-        // build the map file and try to preload
-        TryBuildInitialMap();
-
-        // Apply initial attributes if already received during world entry
-        if (Game.Connection.Attributes is { } attrs)
-            HandleAttributes(attrs);
-
-        // Apply initial inventory/skill/spell state (received during world entry before this screen existed)
-        foreach ((var slot, (var sprite, var name)) in Game.Connection.InventorySlots)
-        {
-            Hud.Inventory.SetSlot(slot, sprite);
-            Hud.Inventory.SetSlotName(slot, name);
-        }
-
-        foreach ((var slot, (var sprite, var name)) in Game.Connection.SkillSlots)
-        {
-            Hud.SkillBook.SetSlot(slot, sprite);
-            Hud.SkillBook.SetSlotName(slot, name);
-            Hud.SkillBookAlt.SetSlot(slot, sprite);
-            Hud.SkillBookAlt.SetSlotName(slot, name);
-        }
-
-        foreach ((var slot, (var sprite, var name)) in Game.Connection.SpellSlots)
-        {
-            Hud.SpellBook.SetSlot(slot, sprite);
-            Hud.SpellBook.SetSlotName(slot, name);
-            Hud.SpellBookAlt.SetSlot(slot, sprite);
-            Hud.SpellBookAlt.SetSlotName(slot, name);
-        }
+        if (WorldHud.ExpandButton is not null)
+            WorldHud.ExpandButton.OnClick += () => WorldHud.ShowOrangeBarMessage("Hud expant is not yet implmented.");
 
         // Request current server settings (populates setting names/values)
         Game.Connection.SendOptionToggle(UserOption.Request);
 
         // Wire panel click-to-use events
-        Hud.Inventory.OnSlotClicked += HandleInventorySlotClicked;
-        Hud.Inventory.OnSlotSwapped += (s, t) => Game.Connection.SwapSlot(PanelType.Inventory, s, t);
-        Hud.Inventory.OnSlotDroppedOutside += HandleInventoryDropInViewport;
-        Hud.SkillBook.OnSlotClicked += HandleSkillSlotClicked;
-        Hud.SkillBook.OnSlotSwapped += (s, t) => Game.Connection.SwapSlot(PanelType.SkillBook, s, t);
-        Hud.SkillBookAlt.OnSlotClicked += HandleSkillSlotClicked;
-        Hud.SkillBookAlt.OnSlotSwapped += (s, t) => Game.Connection.SwapSlot(PanelType.SkillBook, s, t);
-        Hud.SpellBook.OnSlotClicked += HandleSpellSlotClicked;
-        Hud.SpellBook.OnSlotSwapped += (s, t) => Game.Connection.SwapSlot(PanelType.SpellBook, s, t);
-        Hud.SpellBookAlt.OnSlotClicked += HandleSpellSlotClicked;
-        Hud.SpellBookAlt.OnSlotSwapped += (s, t) => Game.Connection.SwapSlot(PanelType.SpellBook, s, t);
+        WorldHud.Inventory.OnSlotClicked += HandleInventorySlotClicked;
+        WorldHud.Inventory.OnSlotSwapped += (s, t) => Game.Connection.SwapSlot(PanelType.Inventory, s, t);
+        WorldHud.Inventory.OnSlotDroppedOutside += HandleInventoryDropInViewport;
+        WorldHud.SkillBook.OnSlotClicked += HandleSkillSlotClicked;
+        WorldHud.SkillBook.OnSlotSwapped += (s, t) => Game.Connection.SwapSlot(PanelType.SkillBook, s, t);
+        WorldHud.SkillBookAlt.OnSlotClicked += HandleSkillSlotClicked;
+        WorldHud.SkillBookAlt.OnSlotSwapped += (s, t) => Game.Connection.SwapSlot(PanelType.SkillBook, s, t);
+        WorldHud.SpellBook.OnSlotClicked += HandleSpellSlotClicked;
+        WorldHud.SpellBook.OnSlotSwapped += (s, t) => Game.Connection.SwapSlot(PanelType.SpellBook, s, t);
+        WorldHud.SpellBookAlt.OnSlotClicked += HandleSpellSlotClicked;
+        WorldHud.SpellBookAlt.OnSlotSwapped += (s, t) => Game.Connection.SwapSlot(PanelType.SpellBook, s, t);
+
+        // Wire right-click for chant editing on ability panels
+        WireAbilityRightClicks(WorldHud.SkillBook);
+        WireAbilityRightClicks(WorldHud.SkillBookAlt);
+        WireAbilityRightClicks(WorldHud.SpellBook);
+        WireAbilityRightClicks(WorldHud.SpellBookAlt);
 
         // Wire hover description for all grid panels
-        Hud.Inventory.OnSlotHovered += Hud.SetDescription;
-        Hud.SkillBook.OnSlotHovered += Hud.SetDescription;
-        Hud.SkillBookAlt.OnSlotHovered += Hud.SetDescription;
-        Hud.SpellBook.OnSlotHovered += Hud.SetDescription;
-        Hud.SpellBookAlt.OnSlotHovered += Hud.SetDescription;
+        WorldHud.Inventory.OnSlotHoverEnter += HandleInventoryHoverEnter;
+        WorldHud.Inventory.OnSlotHoverExit += HandleInventoryHoverExit;
 
-        // Apply player name from entity if already tracked
-        var player = Game.World.GetPlayerEntity();
-
-        if (player is not null && (player.Name.Length > 0))
-            Hud.SetPlayerName(player.Name);
+        foreach (var panel in new PanelBase[]
+                 {
+                     WorldHud.Inventory,
+                     WorldHud.SkillBook,
+                     WorldHud.SkillBookAlt,
+                     WorldHud.SpellBook,
+                     WorldHud.SpellBookAlt
+                 })
+        {
+            panel.OnSlotHoverEnter += slot => WorldHud.SetDescription(slot.SlotName);
+            panel.OnSlotHoverExit += () => WorldHud.SetDescription(null);
+        }
     }
 
     /// <inheritdoc />
     public void UnloadContent()
     {
+        Game.Connection.OnUserId -= HandleUserId;
         Game.Connection.OnMapInfo -= HandleMapInfo;
         Game.Connection.OnMapData -= HandleMapData;
         Game.Connection.OnMapLoadComplete -= HandleMapLoadComplete;
@@ -635,9 +662,11 @@ public sealed class WorldScreen : IScreen
         Game.Connection.OnBodyAnimation -= HandleBodyAnimation;
         Game.Connection.OnAnimation -= HandleAnimation;
         Game.Connection.OnSound -= HandleSound;
+        Game.Connection.OnCancelCasting -= CastingManager.Reset;
         Game.Connection.OnMapChangePending -= HandleMapChangePending;
         Game.Connection.OnExitResponse -= HandleExitResponse;
         Game.Connection.OnHealthBar -= HandleHealthBar;
+        Game.Connection.OnEffect -= HandleEffect;
         Game.Connection.OnLightLevel -= HandleLightLevel;
         Game.Connection.OnDisplayReadonlyNotepad -= HandleDisplayReadonlyNotepad;
         Game.Connection.OnDisplayEditableNotepad -= HandleDisplayEditableNotepad;
@@ -645,11 +674,11 @@ public sealed class WorldScreen : IScreen
         Game.Connection.OnDoor -= HandleDoor;
 
         // Unwire panel click-to-use events
-        Hud.Inventory.OnSlotClicked -= HandleInventorySlotClicked;
-        Hud.SkillBook.OnSlotClicked -= HandleSkillSlotClicked;
-        Hud.SkillBookAlt.OnSlotClicked -= HandleSkillSlotClicked;
-        Hud.SpellBook.OnSlotClicked -= HandleSpellSlotClicked;
-        Hud.SpellBookAlt.OnSlotClicked -= HandleSpellSlotClicked;
+        WorldHud.Inventory.OnSlotClicked -= HandleInventorySlotClicked;
+        WorldHud.SkillBook.OnSlotClicked -= HandleSkillSlotClicked;
+        WorldHud.SkillBookAlt.OnSlotClicked -= HandleSkillSlotClicked;
+        WorldHud.SpellBook.OnSlotClicked -= HandleSpellSlotClicked;
+        WorldHud.SpellBookAlt.OnSlotClicked -= HandleSpellSlotClicked;
 
         MapRenderer.Dispose();
         TabMapRenderer.Dispose();
@@ -658,14 +687,16 @@ public sealed class WorldScreen : IScreen
         ClearAislingCache();
         ClearGroundItemCache();
         ClearChatBubbles();
+        ClearChantOverlays();
     }
 
     /// <inheritdoc />
     public void Update(GameTime gameTime)
     {
         var input = Game.Input;
-        LastClickTimer += (float)gameTime.ElapsedGameTime.TotalMilliseconds;
         var elapsedMs = (float)gameTime.ElapsedGameTime.TotalMilliseconds;
+        LastClickTimer += elapsedMs;
+        LastRightClickTimer += elapsedMs;
 
         // Advance entity animations and active effects
         var smoothScroll = Game.Settings.ScrollLevel > 0;
@@ -697,6 +728,92 @@ public sealed class WorldScreen : IScreen
 
             movementHandled = true;
         }
+
+        // Execute next pathfinding step when player becomes idle
+        if (!movementHandled && player is not null && (player.AnimState == EntityAnimState.Idle))
+        {
+            if (PathfindingPath is { Count: > 0 })
+            {
+                // If chasing an entity that no longer exists, stop
+                if (PathfindingTargetEntityId.HasValue && Game.World.GetEntity(PathfindingTargetEntityId.Value) is null)
+                    ClearPathfinding();
+                else
+                {
+                    var nextPoint = PathfindingPath.Pop();
+                    var dx = nextPoint.X - player.TileX;
+                    var dy = nextPoint.Y - player.TileY;
+
+                    var pathDir = (dx, dy) switch
+                    {
+                        (0, -1) => Direction.Up,
+                        (1, 0)  => Direction.Right,
+                        (0, 1)  => Direction.Down,
+                        (-1, 0) => Direction.Left,
+                        _       => (Direction?)null
+                    };
+
+                    if (pathDir.HasValue)
+                    {
+                        if (player.Direction != pathDir.Value)
+                        {
+                            Game.Connection.Turn(pathDir.Value);
+                            player.Direction = pathDir.Value;
+                        } else
+                            PredictAndWalk(player, pathDir.Value);
+
+                        movementHandled = true;
+                    } else
+                        ClearPathfinding();
+                }
+            } else if (PathfindingTargetEntityId.HasValue)
+            {
+                // Path exhausted with entity target — check if adjacent and assail, or re-pathfind
+                var target = Game.World.GetEntity(PathfindingTargetEntityId.Value);
+
+                if (target is null)
+                    ClearPathfinding();
+                else if (IsAdjacent(
+                             player.TileX,
+                             player.TileY,
+                             target.TileX,
+                             target.TileY))
+                {
+                    // Adjacent — turn toward target and assail
+                    var faceDir = DirectionToward(
+                        player.TileX,
+                        player.TileY,
+                        target.TileX,
+                        target.TileY);
+
+                    if (faceDir.HasValue && (player.Direction != faceDir.Value))
+                    {
+                        Game.Connection.Turn(faceDir.Value);
+                        player.Direction = faceDir.Value;
+                    }
+
+                    Game.Connection.Spacebar();
+                    ClearPathfinding();
+                    movementHandled = true;
+                } else
+                {
+                    // Entity moved — re-pathfind on 100ms timer
+                    PathfindingRetargetTimer += elapsedMs;
+
+                    if (PathfindingRetargetTimer >= 100f)
+                    {
+                        PathfindingRetargetTimer = 0;
+                        PathfindToEntity(player, target);
+
+                        if (PathfindingPath is null)
+                            ClearPathfinding();
+                    }
+                }
+            }
+        }
+
+        // Tick re-pathfind timer while walking toward an entity target
+        if (PathfindingTargetEntityId.HasValue && player is not null && (player.AnimState == EntityAnimState.Walking))
+            PathfindingRetargetTimer += elapsedMs;
 
         // Camera follows player's visual position (tile + walk interpolation offset)
         FollowPlayerCamera();
@@ -738,6 +855,13 @@ public sealed class WorldScreen : IScreen
         if (SettingsDialog.Visible)
         {
             SettingsDialog.Update(gameTime, input);
+
+            return;
+        }
+
+        if (ChantEdit.Visible)
+        {
+            ChantEdit.Update(gameTime, input);
 
             return;
         }
@@ -815,7 +939,7 @@ public sealed class WorldScreen : IScreen
         if (StatusBook.Visible)
         {
             // HUD panels still receive input while the status book is open (drag-and-drop)
-            Hud.Update(gameTime, input);
+            WorldHud.Update(gameTime, input);
             StatusBook.Update(gameTime, input);
 
             return;
@@ -843,41 +967,76 @@ public sealed class WorldScreen : IScreen
             return;
         }
 
+        // Tick casting timer (chant lines are sent on a 1-second interval)
+        CastingManager.Update(elapsedMs, Game.Connection);
+
+        // Cast mode — blocks all other input, only allows target selection or cancel
+        if (CastingManager.IsTargeting)
+        {
+            if (input.WasKeyPressed(Keys.Escape))
+            {
+                CastingManager.Reset();
+
+                return;
+            }
+
+            // Highlight entities under cursor
+            HighlightedEntityId = null;
+            var hoverEntity = GetEntityAtScreen(input.MouseX, input.MouseY);
+
+            if (hoverEntity is not null && hoverEntity.Type is ClientEntityType.Aisling or ClientEntityType.Creature)
+                HighlightedEntityId = hoverEntity.Id;
+
+            // Click to select target
+            if (input.WasLeftButtonPressed
+                && hoverEntity is not null
+                && hoverEntity.Type is ClientEntityType.Aisling or ClientEntityType.Creature)
+                CastingManager.SelectTarget(
+                    hoverEntity.Id,
+                    hoverEntity.TileX,
+                    hoverEntity.TileY,
+                    Game.Connection);
+
+            WorldHud.Update(gameTime, input);
+
+            return;
+        }
+
         // Escape — close overlays, unfocus chat
         if (input.WasKeyPressed(Keys.Escape))
-            if (Hud.ChatInput.IsFocused)
+            if (WorldHud.ChatInput.IsFocused)
                 UnfocusChat();
 
         // Enter — toggle chat focus / send message
         if (input.WasKeyPressed(Keys.Enter))
         {
-            if (Hud.ChatInput.IsFocused)
+            if (WorldHud.ChatInput.IsFocused)
             {
-                var message = Hud.ChatInput.Text.Trim();
-                var prefix = Hud.ChatInput.Prefix;
+                var message = WorldHud.ChatInput.Text.Trim();
+                var prefix = WorldHud.ChatInput.Prefix;
 
                 // Whisper phase 1: "to []? " → user entered a target name, transition to phase 2
                 if ((prefix == "to []? ") && (message.Length > 0))
                 {
-                    Hud.ChatInput.Prefix = $"-> {message}: ";
-                    Hud.ChatInput.Text = string.Empty;
+                    WorldHud.ChatInput.Prefix = $"-> {message}: ";
+                    WorldHud.ChatInput.Text = string.Empty;
                 } else
                 {
                     DispatchChatMessage(message);
-                    Hud.ChatInput.Text = string.Empty;
+                    WorldHud.ChatInput.Text = string.Empty;
                     UnfocusChat();
                 }
             } else
-                FocusChat($"{Hud.PlayerName}: ", Color.White);
+                FocusChat($"{WorldHud.PlayerName}: ", Color.White);
         }
 
         // Hotkeys and movement — only when chat is not focused
-        if (!Hud.ChatInput.IsFocused)
+        if (!WorldHud.ChatInput.IsFocused)
         {
             // Shout hotkey (!) — opens chat in shout mode
             if (input.WasKeyPressed(Keys.D1) && (input.IsKeyHeld(Keys.LeftShift) || input.IsKeyHeld(Keys.RightShift)))
             {
-                FocusChat($"{Hud.PlayerName}! ", Color.Yellow);
+                FocusChat($"{WorldHud.PlayerName}! ", Color.Yellow);
 
                 return;
             }
@@ -895,22 +1054,22 @@ public sealed class WorldScreen : IScreen
 
             if (input.WasKeyPressed(Keys.A))
             {
-                if (Hud.ActiveTab == HudTab.Inventory)
+                if (WorldHud.ActiveTab == HudTab.Inventory)
                     Game.Connection.RequestSelfProfile();
                 else
-                    Hud.ShowTab(HudTab.Inventory);
+                    WorldHud.ShowTab(HudTab.Inventory);
             } else if (input.WasKeyPressed(Keys.S))
-                Hud.ShowTab(shift ? HudTab.SkillsAlt : HudTab.Skills);
+                WorldHud.ShowTab(shift ? HudTab.SkillsAlt : HudTab.Skills);
             else if (input.WasKeyPressed(Keys.D))
-                Hud.ShowTab(shift ? HudTab.SpellsAlt : HudTab.Spells);
+                WorldHud.ShowTab(shift ? HudTab.SpellsAlt : HudTab.Spells);
             else if (input.WasKeyPressed(Keys.F))
-                Hud.ShowTab(shift ? HudTab.MessageHistory : HudTab.Chat);
+                WorldHud.ShowTab(shift ? HudTab.MessageHistory : HudTab.Chat);
             else if (input.WasKeyPressed(Keys.G))
-                Hud.ShowTab(shift ? HudTab.ExtendedStats : HudTab.Stats);
+                WorldHud.ShowTab(shift ? HudTab.ExtendedStats : HudTab.Stats);
             else if (input.WasKeyPressed(Keys.H))
-                Hud.ShowTab(HudTab.Tools);
+                WorldHud.ShowTab(HudTab.Tools);
             else if (input.WasKeyPressed(Keys.T))
-                if (!Hud.ChatInput.IsFocused)
+                if (!WorldHud.ChatInput.IsFocused)
                     FocusChat(string.Empty, Color.White);
 
             // Tab — toggle tab map overlay
@@ -954,7 +1113,7 @@ public sealed class WorldScreen : IScreen
 
             // F9 — focus chat input
             if (input.WasKeyPressed(Keys.F9))
-                if (!Hud.ChatInput.IsFocused)
+                if (!WorldHud.ChatInput.IsFocused)
                     FocusChat(string.Empty, Color.White);
 
             // F10 — friends list
@@ -968,6 +1127,7 @@ public sealed class WorldScreen : IScreen
             {
                 Game.Connection.Spacebar();
                 SpacebarTimer = SPACEBAR_INTERVAL_MS;
+                ClearPathfinding();
             } else if (!input.IsKeyHeld(Keys.Space))
                 SpacebarTimer = 0;
 
@@ -975,14 +1135,22 @@ public sealed class WorldScreen : IScreen
             if (input.WasKeyPressed(Keys.B))
                 TryPickupItem();
 
+            // Emote hotkeys: Ctrl/Alt/Ctrl+Alt + number row → body animations 9-44
+            if (HandleEmoteHotkeys(input))
+                return;
+
             // Slot hotkeys: 1-9, 0, -, = → use slot 1-12 of the active panel
             HandleSlotHotkeys(input);
 
             // Click handling — left click in viewport area
             if (input.WasLeftButtonPressed)
             {
+                // Ctrl+click — context menu on aisling entities
+                if (input.IsKeyHeld(Keys.LeftControl) || input.IsKeyHeld(Keys.RightControl))
+                    HandleCtrlClick(input.MouseX, input.MouseY);
+
                 // Alt+click on self — open self profile
-                if (input.IsKeyHeld(Keys.LeftAlt) || input.IsKeyHeld(Keys.RightAlt))
+                else if (input.IsKeyHeld(Keys.LeftAlt) || input.IsKeyHeld(Keys.RightAlt))
                 {
                     var altEntity = GetEntityAtScreen(input.MouseX, input.MouseY);
 
@@ -994,7 +1162,7 @@ public sealed class WorldScreen : IScreen
                     HandleWorldClick(input.MouseX, input.MouseY);
             }
 
-            // Right-click — context menu on world entities
+            // Right-click — pathfind to clicked tile
             if (input.WasRightButtonPressed)
                 HandleWorldRightClick(input.MouseX, input.MouseY);
 
@@ -1011,6 +1179,10 @@ public sealed class WorldScreen : IScreen
                 direction = Direction.Down;
             else if (input.WasKeyPressed(Keys.Left))
                 direction = Direction.Left;
+
+            // Arrow key press cancels any active pathfinding
+            if (direction.HasValue)
+                ClearPathfinding();
 
             if (direction.HasValue && player is not null && !movementHandled)
             {
@@ -1036,20 +1208,28 @@ public sealed class WorldScreen : IScreen
             }
         }
 
-        Hud.Update(gameTime, input);
+        WorldHud.Update(gameTime, input);
+
+        // Update inventory tooltip position to follow cursor
+        if (HoveredInventorySlot is not null && ItemTooltip.Visible)
+        {
+            ItemTooltip.X = Math.Clamp(input.MouseX + 15, 0, ChaosGame.VIRTUAL_WIDTH - ItemTooltip.Width);
+            ItemTooltip.Y = Math.Clamp(input.MouseY + 15, 0, ChaosGame.VIRTUAL_HEIGHT - ItemTooltip.Height);
+        }
 
         // Track highlighted entity when dragging a panel item over the world viewport
         UpdateDragHighlight(input);
 
         // Update chat bubbles — tick timers and remove expired
-        UpdateChatBubbles((float)gameTime.ElapsedGameTime.TotalMilliseconds);
+        UpdateChatBubbles(gameTime, input);
+        UpdateChantOverlays(gameTime, input);
 
         // Detect shout-to-group transition: user typed "!" while in shout mode (prefix ends with "! ")
         // This matches the original DA convention where "!!" activates group chat
-        if (Hud.ChatInput.IsFocused
-            && Hud.ChatInput.Prefix.EndsWithI("! ")
-            && !Hud.ChatInput.Prefix.StartsWithI("Group")
-            && (Hud.ChatInput.Text == "!"))
+        if (WorldHud.ChatInput.IsFocused
+            && WorldHud.ChatInput.Prefix.EndsWithI("! ")
+            && !WorldHud.ChatInput.Prefix.StartsWithI("Group")
+            && (WorldHud.ChatInput.Text == "!"))
             FocusChat("Group: ", new Color(154, 205, 50));
     }
 
@@ -1144,8 +1324,8 @@ public sealed class WorldScreen : IScreen
         MailSend.OnCancel += () => MailSend.Hide();
 
         // Wire mail button on HUD
-        if (Hud.MailButton is not null)
-            Hud.MailButton.OnClick += () =>
+        if (WorldHud.MailButton is not null)
+            WorldHud.MailButton.OnClick += () =>
             {
                 // Request the mail board (boardId 0 = personal mail)
                 Game.Connection.SendBoardInteraction(BoardRequestType.ViewBoard);
@@ -1599,12 +1779,13 @@ public sealed class WorldScreen : IScreen
     /// </summary>
     private Texture2D GetOrCreateTintedTexture(Texture2D source, uint entityId)
     {
-        if (HighlightTintedTexture is not null && (HighlightTintedEntityId == entityId))
+        if (HighlightTintedTexture is not null && (HighlightTintedEntityId == entityId) && (HighlightTintedSource == source))
             return HighlightTintedTexture;
 
         HighlightTintedTexture?.Dispose();
         HighlightTintedTexture = CreateTintedTexture(source);
         HighlightTintedEntityId = entityId;
+        HighlightTintedSource = source;
 
         return HighlightTintedTexture;
     }
@@ -1614,6 +1795,7 @@ public sealed class WorldScreen : IScreen
         HighlightTintedTexture?.Dispose();
         HighlightTintedTexture = null;
         HighlightTintedEntityId = null;
+        HighlightTintedSource = null;
     }
 
     private void DrawEntityEffects(SpriteBatch spriteBatch, WorldEntity entity)
@@ -1664,16 +1846,42 @@ public sealed class WorldScreen : IScreen
         spriteBatch.Draw(texture, screenPos, Color.White);
     }
 
-    private void UpdateChatBubbles(float deltaMs)
+    private void UpdateChatBubbles(GameTime gameTime, InputBuffer input)
     {
         List<uint>? expired = null;
 
         foreach ((var entityId, var bubble) in ChatBubbles)
         {
-            bubble.Update(deltaMs);
+            bubble.Update(gameTime, input);
 
             if (bubble.IsExpired)
+            {
                 (expired ??= []).Add(entityId);
+
+                continue;
+            }
+
+            if (MapFile is null)
+                continue;
+
+            var entity = Game.World.GetEntity(entityId);
+
+            if (entity is null)
+                continue;
+
+            var tileWorld = Camera.TileToWorld(entity.TileX, entity.TileY, MapFile.Height);
+            var tileCenterX = tileWorld.X + HALF_TILE_WIDTH;
+            var tileCenterY = tileWorld.Y + HALF_TILE_HEIGHT;
+
+            var entityWorldX = tileCenterX + entity.VisualOffset.X;
+            var entityWorldY = tileCenterY + entity.VisualOffset.Y - 60;
+
+            var bubbleX = entityWorldX - bubble.Width / 2f;
+            var bubbleY = entityWorldY - bubble.Height;
+
+            var screenPos = Camera.WorldToScreen(new Vector2(bubbleX, bubbleY));
+            bubble.X = (int)screenPos.X;
+            bubble.Y = (int)screenPos.Y;
         }
 
         if (expired is not null)
@@ -1687,11 +1895,28 @@ public sealed class WorldScreen : IScreen
 
     private void DrawChatBubbles(SpriteBatch spriteBatch)
     {
-        if (MapFile is null)
-            return;
+        foreach (var bubble in ChatBubbles.Values)
+            bubble.Draw(spriteBatch);
+    }
 
-        foreach ((var entityId, var bubble) in ChatBubbles)
+    private void UpdateChantOverlays(GameTime gameTime, InputBuffer input)
+    {
+        List<uint>? expired = null;
+
+        foreach ((var entityId, var overlay) in ChantOverlays)
         {
+            overlay.Update(gameTime, input);
+
+            if (overlay.IsExpired)
+            {
+                (expired ??= []).Add(entityId);
+
+                continue;
+            }
+
+            if (MapFile is null)
+                continue;
+
             var entity = Game.World.GetEntity(entityId);
 
             if (entity is null)
@@ -1701,17 +1926,30 @@ public sealed class WorldScreen : IScreen
             var tileCenterX = tileWorld.X + HALF_TILE_WIDTH;
             var tileCenterY = tileWorld.Y + HALF_TILE_HEIGHT;
 
-            // Position bubble centered above the entity's head
             var entityWorldX = tileCenterX + entity.VisualOffset.X;
             var entityWorldY = tileCenterY + entity.VisualOffset.Y - 60;
 
-            var bubbleX = entityWorldX - bubble.Width / 2f;
-            var bubbleY = entityWorldY - bubble.Height;
+            var overlayX = entityWorldX - overlay.Width / 2f;
+            var overlayY = entityWorldY - overlay.Height;
 
-            var screenPos = Camera.WorldToScreen(new Vector2(bubbleX, bubbleY));
-
-            spriteBatch.Draw(bubble.Texture, new Vector2((int)screenPos.X, (int)screenPos.Y), Color.White);
+            var screenPos = Camera.WorldToScreen(new Vector2(overlayX, overlayY));
+            overlay.X = (int)screenPos.X;
+            overlay.Y = (int)screenPos.Y;
         }
+
+        if (expired is not null)
+            foreach (var id in expired)
+            {
+                ChantOverlays[id]
+                    .Dispose();
+                ChantOverlays.Remove(id);
+            }
+    }
+
+    private void DrawChantOverlays(SpriteBatch spriteBatch)
+    {
+        foreach (var overlay in ChantOverlays.Values)
+            overlay.Draw(spriteBatch);
     }
 
     private void DrawWorldDebug(SpriteBatch spriteBatch)
@@ -2045,22 +2283,22 @@ public sealed class WorldScreen : IScreen
             pixels[y * width + x] = color;
     }
 
-    private PanelBaseControl? GetDraggingPanel()
+    private PanelBase? GetDraggingPanel()
     {
-        if (Hud.Inventory.IsDragging)
-            return Hud.Inventory;
+        if (WorldHud.Inventory.IsDragging)
+            return WorldHud.Inventory;
 
-        if (Hud.SkillBook.IsDragging)
-            return Hud.SkillBook;
+        if (WorldHud.SkillBook.IsDragging)
+            return WorldHud.SkillBook;
 
-        if (Hud.SkillBookAlt.IsDragging)
-            return Hud.SkillBookAlt;
+        if (WorldHud.SkillBookAlt.IsDragging)
+            return WorldHud.SkillBookAlt;
 
-        if (Hud.SpellBook.IsDragging)
-            return Hud.SpellBook;
+        if (WorldHud.SpellBook.IsDragging)
+            return WorldHud.SpellBook;
 
-        if (Hud.SpellBookAlt.IsDragging)
-            return Hud.SpellBookAlt;
+        if (WorldHud.SpellBookAlt.IsDragging)
+            return WorldHud.SpellBookAlt;
 
         return null;
     }
@@ -2081,7 +2319,7 @@ public sealed class WorldScreen : IScreen
             return;
 
         var input = Game.Input;
-        var viewport = Hud.ViewportBounds;
+        var viewport = WorldHud.ViewportBounds;
 
         // Only draw when mouse is within the world viewport
         if ((input.MouseX < viewport.X)
@@ -2107,30 +2345,7 @@ public sealed class WorldScreen : IScreen
     #endregion
 
     #region Map Assembly
-    private void TryBuildInitialMap()
-    {
-        var mapInfo = Game.Connection.MapInfo;
-
-        if (mapInfo is null)
-            return;
-
-        // Load full map from local .map files (server-sent MapData may have already
-        // been consumed before this screen was created during world entry)
-        MapFile = LoadMapFile(mapInfo.MapId, mapInfo.Width, mapInfo.Height);
-        MapPreloaded = false;
-
-        Hud.SetZoneName(mapInfo.Name);
-
-        // Preload tiles immediately if we have the map
-        if (MapFile is not null)
-        {
-            MapRenderer.PreloadMapTiles(Device, MapFile);
-            TabMapRenderer.Generate(Device, MapFile);
-            MapPreloaded = true;
-        }
-
-        FollowPlayerCamera();
-    }
+    private void HandleUserId(uint id) => Game.World.PlayerEntityId = id;
 
     private void HandleMapInfo(MapInfoArgs args)
     {
@@ -2147,8 +2362,10 @@ public sealed class WorldScreen : IScreen
         ClearAislingCache();
         ClearGroundItemCache();
         ClearChatBubbles();
+        ClearChantOverlays();
+        ClearPathfinding();
 
-        Hud.SetZoneName(args.Name);
+        WorldHud.SetZoneName(args.Name);
     }
 
     private void HandleMapData(MapDataArgs args)
@@ -2190,10 +2407,48 @@ public sealed class WorldScreen : IScreen
         {
             MapRenderer.PreloadMapTiles(Device, MapFile);
             TabMapRenderer.Generate(Device, MapFile);
+            MapPathfinder = BuildPathfinder(MapFile);
             MapPreloaded = true;
         }
 
         FollowPlayerCamera();
+    }
+
+    private static Pathfinder BuildPathfinder(MapFile mapFile)
+    {
+        var sotpData = DataContext.Tiles.SotpData;
+        var walls = new List<IPoint>();
+
+        for (var y = 0; y < mapFile.Height; y++)
+            for (var x = 0; x < mapFile.Width; x++)
+            {
+                var tile = mapFile.Tiles[x, y];
+
+                if (IsTileWall(tile.LeftForeground, sotpData) || IsTileWall(tile.RightForeground, sotpData))
+                    walls.Add(new ChaosPoint(x, y));
+            }
+
+        return new Pathfinder(
+            new GridDetails
+            {
+                Width = mapFile.Width,
+                Height = mapFile.Height,
+                Walls = walls,
+                BlockingReactors = []
+            });
+    }
+
+    private static bool IsTileWall(int fgIndex, byte[] sotpData)
+    {
+        if (fgIndex <= 0)
+            return false;
+
+        var sotpIndex = fgIndex - 1;
+
+        if (sotpIndex >= sotpData.Length)
+            return false;
+
+        return ((TileFlags)sotpData[sotpIndex]).HasFlag(TileFlags.Wall);
     }
 
     private static MapFile? LoadMapFile(int mapId, int width, int height)
@@ -2203,7 +2458,7 @@ public sealed class WorldScreen : IScreen
         return DataContext.MapsFiles.GetMapFile(key, width, height);
     }
 
-    private void HandleLocationChanged(int x, int y) => Hud.SetCoords(x, y);
+    private void HandleLocationChanged(int x, int y) => WorldHud.SetCoords(x, y);
 
     /// <summary>
     ///     Updates camera position to follow the player entity's visual position, including walk interpolation offset. In
@@ -2229,7 +2484,15 @@ public sealed class WorldScreen : IScreen
     {
         // Update player name in HUD when the player's own aisling is displayed
         if (args.Id == Game.Connection.AislingId)
-            Hud.SetPlayerName(args.Name);
+        {
+            WorldHud.SetPlayerName(args.Name);
+            WorldHud.SetServerName(Game.Connection.ServerName);
+            DataContext.PlayerData.Initialize(args.Name);
+            LoadPlayerFamilyList(args.Name);
+            LoadPlayerFriendList();
+            LoadPlayerMacros();
+            LoadPlayerChants();
+        }
     }
 
     private void HandleRemoveEntity(uint id)
@@ -2297,7 +2560,7 @@ public sealed class WorldScreen : IScreen
         player.TileY += dy;
 
         AnimationManager.StartWalk(player, direction);
-        Hud.SetCoords(player.TileX, player.TileY);
+        WorldHud.SetCoords(player.TileX, player.TileY);
     }
 
     private void HandleClientWalkResponse(Direction direction, int oldX, int oldY)
@@ -2313,29 +2576,44 @@ public sealed class WorldScreen : IScreen
         var serverX = oldX + dx;
         var serverY = oldY + dy;
 
-        // If prediction was wrong (e.g. server denied the walk), snap to server position
+        // If prediction was wrong (e.g. server denied the walk), snap to server position and cancel pathfinding
         if ((player.TileX != serverX) || (player.TileY != serverY))
         {
             player.TileX = serverX;
             player.TileY = serverY;
-            Hud.SetCoords(serverX, serverY);
+            WorldHud.SetCoords(serverX, serverY);
+            ClearPathfinding();
         }
     }
 
-    private void HandleAttributes(AttributesArgs args) => Hud.UpdateAttributes(args);
+    private void HandleAttributes(AttributesArgs args) => WorldHud.UpdateAttributes(args);
 
     private void HandleDisplayPublicMessage(DisplayPublicMessageArgs args)
     {
+        if (args.PublicMessageType == PublicMessageType.Chant)
+        {
+            // Chant: plain blue text above entity (no bubble, no chat panel)
+            if (ChantOverlays.TryGetValue(args.SourceId, out var existingChant))
+            {
+                existingChant.Dispose();
+                ChantOverlays.Remove(args.SourceId);
+            }
+
+            // Blank chant clears the overlay without creating a new one
+            if (!string.IsNullOrEmpty(args.Message))
+                ChantOverlays[args.SourceId] = ChantOverlay.Create(Device, args.SourceId, args.Message);
+
+            return;
+        }
+
         var color = args.PublicMessageType switch
         {
             PublicMessageType.Shout => Color.Yellow,
-            PublicMessageType.Chant => new Color(135, 206, 250),
             _                       => Color.White
         };
 
-        Hud.AddChatMessage(args.Message, color);
+        WorldHud.AddChatMessage(args.Message, color);
 
-        // Create chat bubble above the speaking entity
         var isShout = args.PublicMessageType == PublicMessageType.Shout;
 
         if (ChatBubbles.TryGetValue(args.SourceId, out var existing))
@@ -2353,17 +2631,17 @@ public sealed class WorldScreen : IScreen
         switch (args.ServerMessageType)
         {
             case ServerMessageType.Whisper:
-                Hud.AddChatMessage(args.Message, new Color(100, 149, 237));
+                WorldHud.AddChatMessage(args.Message, new Color(100, 149, 237));
 
                 break;
 
             case ServerMessageType.GroupChat:
-                Hud.AddChatMessage(args.Message, new Color(154, 205, 50));
+                WorldHud.AddChatMessage(args.Message, new Color(154, 205, 50));
 
                 break;
 
             case ServerMessageType.GuildChat:
-                Hud.AddChatMessage(args.Message, new Color(128, 128, 0));
+                WorldHud.AddChatMessage(args.Message, new Color(128, 128, 0));
 
                 break;
 
@@ -2373,12 +2651,12 @@ public sealed class WorldScreen : IScreen
                  or ServerMessageType.OrangeBar3
                  or ServerMessageType.AdminMessage
                  or ServerMessageType.OrangeBar5:
-                Hud.ShowOrangeBarMessage(args.Message);
+                WorldHud.ShowOrangeBarMessage(args.Message);
 
                 break;
 
             case ServerMessageType.PersistentMessage:
-                Hud.ShowPersistentMessage(args.Message);
+                WorldHud.ShowPersistentMessage(args.Message);
 
                 break;
 
@@ -2408,7 +2686,7 @@ public sealed class WorldScreen : IScreen
                 break;
 
             default:
-                Hud.ShowOrangeBarMessage(args.Message);
+                WorldHud.ShowOrangeBarMessage(args.Message);
 
                 break;
         }
@@ -2461,45 +2739,134 @@ public sealed class WorldScreen : IScreen
 
     private void HandleAddItemToPane(AddItemToPaneArgs args)
     {
-        Hud.Inventory.SetSlot(args.Item.Slot, args.Item.Sprite);
-        Hud.Inventory.SetSlotName(args.Item.Slot, Game.Connection.InventorySlots[args.Item.Slot].Name);
+        WorldHud.Inventory.SetSlot(args.Item.Slot, args.Item.Sprite);
+        WorldHud.Inventory.SetSlotName(args.Item.Slot, Game.Connection.InventorySlots[args.Item.Slot].Name);
+
+        var slotControl = WorldHud.Inventory.GetSlotControl(args.Item.Slot);
+
+        if (slotControl is not null)
+        {
+            slotControl.CurrentDurability = args.Item.CurrentDurability;
+            slotControl.MaxDurability = args.Item.MaxDurability;
+        }
     }
 
-    private void HandleRemoveItemFromPane(RemoveItemFromPaneArgs args) => Hud.Inventory.ClearSlot(args.Slot);
+    private void HandleRemoveItemFromPane(RemoveItemFromPaneArgs args) => WorldHud.Inventory.ClearSlot(args.Slot);
 
     private void HandleAddSkillToPane(AddSkillToPaneArgs args)
     {
-        Hud.SkillBook.SetSlot(args.Skill.Slot, args.Skill.Sprite);
-        Hud.SkillBook.SetSlotName(args.Skill.Slot, args.Skill.PanelName);
-        Hud.SkillBookAlt.SetSlot(args.Skill.Slot, args.Skill.Sprite);
-        Hud.SkillBookAlt.SetSlotName(args.Skill.Slot, args.Skill.PanelName);
+        WorldHud.SkillBook.SetSlot(args.Skill.Slot, args.Skill.Sprite);
+        WorldHud.SkillBook.SetSlotName(args.Skill.Slot, args.Skill.PanelName);
+        WorldHud.SkillBookAlt.SetSlot(args.Skill.Slot, args.Skill.Sprite);
+        WorldHud.SkillBookAlt.SetSlotName(args.Skill.Slot, args.Skill.PanelName);
     }
 
     private void HandleRemoveSkillFromPane(RemoveSkillFromPaneArgs args)
     {
-        Hud.SkillBook.ClearSlot(args.Slot);
-        Hud.SkillBookAlt.ClearSlot(args.Slot);
+        WorldHud.SkillBook.ClearSlot(args.Slot);
+        WorldHud.SkillBookAlt.ClearSlot(args.Slot);
     }
 
     private void HandleAddSpellToPane(AddSpellToPaneArgs args)
     {
-        Hud.SpellBook.SetSlot(args.Spell.Slot, args.Spell.Sprite);
-        Hud.SpellBook.SetSlotName(args.Spell.Slot, args.Spell.PanelName);
-        Hud.SpellBookAlt.SetSlot(args.Spell.Slot, args.Spell.Sprite);
-        Hud.SpellBookAlt.SetSlotName(args.Spell.Slot, args.Spell.PanelName);
+        WorldHud.SpellBook.SetSlot(args.Spell.Slot, args.Spell.Sprite);
+        WorldHud.SpellBook.SetSlotName(args.Spell.Slot, args.Spell.PanelName);
+        WorldHud.SpellBookAlt.SetSlot(args.Spell.Slot, args.Spell.Sprite);
+        WorldHud.SpellBookAlt.SetSlotName(args.Spell.Slot, args.Spell.PanelName);
+
+        // Store spell metadata on the slot controls
+        foreach (var panel in new[]
+                 {
+                     WorldHud.SpellBook,
+                     WorldHud.SpellBookAlt
+                 })
+        {
+            var spellSlot = panel.GetSpellSlot(args.Spell.Slot);
+
+            if (spellSlot is null)
+                continue;
+
+            spellSlot.SpellType = args.Spell.SpellType;
+            spellSlot.Prompt = args.Spell.Prompt ?? string.Empty;
+            spellSlot.CastLines = args.Spell.CastLines;
+        }
     }
 
     private void HandleRemoveSpellFromPane(RemoveSpellFromPaneArgs args)
     {
-        Hud.SpellBook.ClearSlot(args.Slot);
-        Hud.SpellBookAlt.ClearSlot(args.Slot);
+        WorldHud.SpellBook.ClearSlot(args.Slot);
+        WorldHud.SpellBookAlt.ClearSlot(args.Slot);
     }
 
     private void HandleInventorySlotClicked(byte slot) => Game.Connection.UseItem(slot);
 
-    private void HandleSkillSlotClicked(byte slot) => Game.Connection.UseSkill(slot);
+    private void HandleInventoryHoverEnter(PanelSlot slot)
+    {
+        HoveredInventorySlot = slot;
 
-    private void HandleSpellSlotClicked(byte slot) => Game.Connection.UseSpell(slot);
+        ItemTooltip.Show(
+            slot.SlotName ?? string.Empty,
+            slot.CurrentDurability,
+            slot.MaxDurability,
+            Game.Input.MouseX + 15,
+            Game.Input.MouseY + 15);
+    }
+
+    private void HandleInventoryHoverExit()
+    {
+        HoveredInventorySlot = null;
+        ItemTooltip.Hide();
+    }
+
+    private void HandleSkillSlotClicked(byte slot)
+    {
+        // Send chant line if one is set for this skill
+        var skillSlot = WorldHud.SkillBook.GetSkillSlot(slot) ?? WorldHud.SkillBookAlt.GetSkillSlot(slot);
+
+        if (skillSlot is not null && !string.IsNullOrEmpty(skillSlot.Chant))
+            Game.Connection.SendChant(skillSlot.Chant);
+
+        Game.Connection.UseSkill(slot);
+    }
+
+    private void HandleSpellSlotClicked(byte slot)
+    {
+        // Determine which panel the slot came from
+        var spellSlot = WorldHud.ActiveTab switch
+        {
+            HudTab.Spells    => WorldHud.SpellBook.GetSpellSlot(slot),
+            HudTab.SpellsAlt => WorldHud.SpellBookAlt.GetSpellSlot(slot),
+            _                => WorldHud.SpellBook.GetSpellSlot(slot) ?? WorldHud.SpellBookAlt.GetSpellSlot(slot)
+        };
+
+        if (spellSlot is null || string.IsNullOrEmpty(spellSlot.AbilityName))
+            return;
+
+        // NoTarget spells cast immediately (no cast mode)
+        if (spellSlot.SpellType == SpellType.NoTarget)
+        {
+            if (spellSlot.CastLines == 0)
+                Game.Connection.UseSpell(slot);
+            else
+            {
+                // NoTarget with lines: begin chant sequence targeting self
+                CastingManager.BeginTargeting(spellSlot);
+
+                var player = Game.World.GetPlayerEntity();
+
+                CastingManager.SelectTarget(
+                    Game.Connection.AislingId,
+                    player?.TileX ?? 0,
+                    player?.TileY ?? 0,
+                    Game.Connection);
+            }
+
+            return;
+        }
+
+        // Enter cast mode — wait for target selection
+        CastingManager.BeginTargeting(spellSlot);
+    }
 
     private void HandleInventoryDropInViewport(byte slot, int mouseX, int mouseY)
     {
@@ -2511,7 +2878,7 @@ public sealed class WorldScreen : IScreen
             return;
         }
 
-        var viewport = Hud.ViewportBounds;
+        var viewport = WorldHud.ViewportBounds;
 
         // Only drop if released within the world viewport
         if ((mouseX < viewport.X)
@@ -2575,12 +2942,12 @@ public sealed class WorldScreen : IScreen
     {
         if (args.IsSkill)
         {
-            Hud.SkillBook.SetCooldown(args.Slot, args.CooldownSecs);
-            Hud.SkillBookAlt.SetCooldown(args.Slot, args.CooldownSecs);
+            WorldHud.SkillBook.SetCooldown(args.Slot, args.CooldownSecs);
+            WorldHud.SkillBookAlt.SetCooldown(args.Slot, args.CooldownSecs);
         } else
         {
-            Hud.SpellBook.SetCooldown(args.Slot, args.CooldownSecs);
-            Hud.SpellBookAlt.SetCooldown(args.Slot, args.CooldownSecs);
+            WorldHud.SpellBook.SetCooldown(args.Slot, args.CooldownSecs);
+            WorldHud.SpellBookAlt.SetCooldown(args.Slot, args.CooldownSecs);
         }
     }
 
@@ -2602,7 +2969,73 @@ public sealed class WorldScreen : IScreen
                               m.Color))
                           .ToList();
 
-        WorldList.Show(entries, args.WorldMemberCount, Hud.PlayerName);
+        WorldList.Show(entries, args.WorldMemberCount, WorldHud.PlayerName);
+    }
+
+    private static readonly Keys[] EmoteKeys =
+    [
+        Keys.D1,
+        Keys.D2,
+        Keys.D3,
+        Keys.D4,
+        Keys.D5,
+        Keys.D6,
+        Keys.D7,
+        Keys.D8,
+        Keys.D9,
+        Keys.D0,
+        Keys.OemMinus
+    ];
+
+    // Ctrl+key emotes: 9-17 then 21-22 (skips 18-20 which don't exist in BodyAnimation)
+    private static readonly BodyAnimation[] CtrlEmotes =
+    [
+        BodyAnimation.Smile,
+        BodyAnimation.Cry,
+        BodyAnimation.Frown,
+        BodyAnimation.Wink,
+        BodyAnimation.Surprise,
+        BodyAnimation.Tongue,
+        BodyAnimation.Pleasant,
+        BodyAnimation.Snore,
+        BodyAnimation.Mouth,
+        BodyAnimation.BlowKiss,
+        BodyAnimation.Wave
+    ];
+
+    private bool HandleEmoteHotkeys(InputBuffer input)
+    {
+        var ctrl = input.IsKeyHeld(Keys.LeftControl) || input.IsKeyHeld(Keys.RightControl);
+        var alt = input.IsKeyHeld(Keys.LeftAlt) || input.IsKeyHeld(Keys.RightAlt);
+
+        if (!ctrl && !alt)
+            return false;
+
+        var keyIndex = -1;
+
+        for (var i = 0; i < EmoteKeys.Length; i++)
+            if (input.WasKeyPressed(EmoteKeys[i]))
+            {
+                keyIndex = i;
+
+                break;
+            }
+
+        if (keyIndex < 0)
+            return false;
+
+        BodyAnimation bodyAnimation;
+
+        if (ctrl && !alt)
+            bodyAnimation = CtrlEmotes[keyIndex];
+        else if (ctrl && alt)
+            bodyAnimation = (BodyAnimation)(23 + keyIndex);
+        else
+            bodyAnimation = (BodyAnimation)(34 + keyIndex);
+
+        Game.Connection.SendEmote(bodyAnimation);
+
+        return true;
     }
 
     private void HandleSlotHotkeys(InputBuffer input)
@@ -2639,7 +3072,7 @@ public sealed class WorldScreen : IScreen
 
         var byteSlot = (byte)slot;
 
-        switch (Hud.ActiveTab)
+        switch (WorldHud.ActiveTab)
         {
             case HudTab.Inventory:
                 Game.Connection.UseItem(byteSlot);
@@ -2657,12 +3090,12 @@ public sealed class WorldScreen : IScreen
                 break;
 
             case HudTab.Spells:
-                Game.Connection.UseSpell(byteSlot);
+                HandleSpellSlotClicked(byteSlot);
 
                 break;
 
             case HudTab.SpellsAlt:
-                Game.Connection.UseSpell((byte)(byteSlot + 36));
+                HandleSpellSlotClicked((byte)(byteSlot + 36));
 
                 break;
 
@@ -2680,28 +3113,28 @@ public sealed class WorldScreen : IScreen
 
     private void FocusChat(string prefix, Color textColor)
     {
-        Hud.ChatInput.FocusedBackgroundColor = new Color(
+        WorldHud.ChatInput.FocusedBackgroundColor = new Color(
             0,
             0,
             0,
             128);
-        Hud.ChatInput.IsFocused = true;
-        Hud.ChatInput.Prefix = prefix;
-        Hud.ChatInput.TextColor = textColor;
-        Hud.SetDescription(null);
+        WorldHud.ChatInput.IsFocused = true;
+        WorldHud.ChatInput.Prefix = prefix;
+        WorldHud.ChatInput.TextColor = textColor;
+        WorldHud.SetDescription(null);
     }
 
     private void UnfocusChat()
     {
-        Hud.ChatInput.IsFocused = false;
-        Hud.ChatInput.Text = string.Empty;
-        Hud.ChatInput.Prefix = string.Empty;
-        Hud.ChatInput.TextColor = Color.White;
+        WorldHud.ChatInput.IsFocused = false;
+        WorldHud.ChatInput.Text = string.Empty;
+        WorldHud.ChatInput.Prefix = string.Empty;
+        WorldHud.ChatInput.TextColor = Color.White;
     }
 
     private void DispatchChatMessage(string message)
     {
-        var prefix = Hud.ChatInput.Prefix;
+        var prefix = WorldHud.ChatInput.Prefix;
 
         if (prefix.StartsWithI("Group invite"))
             Game.Connection.SendGroupInvite(ClientGroupSwitch.TryInvite, message);
@@ -2741,6 +3174,242 @@ public sealed class WorldScreen : IScreen
 
         ChatBubbles.Clear();
     }
+
+    private void ClearChantOverlays()
+    {
+        foreach (var overlay in ChantOverlays.Values)
+            overlay.Dispose();
+
+        ChantOverlays.Clear();
+    }
+
+    private void LoadPlayerFamilyList(string playerName)
+    {
+        var family = DataContext.PlayerData.LoadFamilyList();
+        StatusBook.SetFamilyMembers(family);
+    }
+
+    private void SavePlayerFamilyList()
+    {
+        var family = StatusBook.GetFamilyMembers();
+
+        if (family is not null)
+            DataContext.PlayerData.SaveFamilyList(family);
+    }
+
+    private void LoadPlayerFriendList()
+    {
+        var names = DataContext.PlayerData.LoadFriendList();
+
+        var entries = names.Select(n => new FriendEntry(n, false))
+                           .ToList();
+        FriendsList.SetFriends(entries);
+    }
+
+    private void SavePlayerFriendList()
+    {
+        var names = FriendsList.GetFriendNames();
+        DataContext.PlayerData.SaveFriendList(names);
+    }
+
+    private void LoadPlayerMacros()
+    {
+        var macros = DataContext.PlayerData.LoadMacros();
+
+        for (var i = 0; i < macros.Length; i++)
+            MacroMenu.SetMacro(i, $"F{(i < 9 ? i + 5 : 0)}", macros[i]);
+    }
+
+    private void SavePlayerMacros()
+    {
+        var macros = MacroMenu.GetMacroValues();
+        DataContext.PlayerData.SaveMacros(macros);
+    }
+
+    private void WireAbilityRightClicks(PanelBase panel)
+    {
+        for (byte i = 1; i <= 36; i++)
+            if (panel.GetSlotControl(i) is AbilitySlotControl ability)
+                ability.OnRightClick += OpenChantEdit;
+    }
+
+    private void LoadPlayerChants()
+    {
+        foreach (var entry in DataContext.PlayerData.LoadSkillChants())
+            foreach (var panel in new[]
+                     {
+                         WorldHud.SkillBook,
+                         WorldHud.SkillBookAlt
+                     })
+            {
+                var slot = FindSkillSlotByName(panel, entry.Name);
+
+                if (slot is not null)
+                    slot.Chant = entry.Chant;
+            }
+
+        foreach (var entry in DataContext.PlayerData.LoadSpellChants())
+            foreach (var panel in new[]
+                     {
+                         WorldHud.SpellBook,
+                         WorldHud.SpellBookAlt
+                     })
+            {
+                var slot = FindSpellSlotByName(panel, entry.Name);
+
+                if (slot is not null)
+                    Array.Copy(entry.Chants, slot.Chants, 10);
+            }
+    }
+
+    private static SkillSlot? FindSkillSlotByName(SkillBookPanel panel, string name)
+    {
+        for (byte i = 1; i <= 89; i++)
+        {
+            var slot = panel.GetSkillSlot(i);
+
+            if (slot?.AbilityName?.Equals(name, StringComparison.OrdinalIgnoreCase) == true)
+                return slot;
+        }
+
+        return null;
+    }
+
+    private static SpellSlot? FindSpellSlotByName(SpellBookPanel panel, string name)
+    {
+        for (byte i = 1; i <= 89; i++)
+        {
+            var slot = panel.GetSpellSlot(i);
+
+            if (slot?.AbilityName?.Equals(name, StringComparison.OrdinalIgnoreCase) == true)
+                return slot;
+        }
+
+        return null;
+    }
+
+    private void OpenChantEdit(byte slot)
+    {
+        // Determine which panel this slot belongs to based on active tab
+        AbilitySlotControl? abilitySlot = WorldHud.ActiveTab switch
+        {
+            HudTab.Skills    => WorldHud.SkillBook.GetSkillSlot(slot),
+            HudTab.SkillsAlt => WorldHud.SkillBookAlt.GetSkillSlot(slot),
+            HudTab.Spells    => WorldHud.SpellBook.GetSpellSlot(slot),
+            HudTab.SpellsAlt => WorldHud.SpellBookAlt.GetSpellSlot(slot),
+            _                => null
+        };
+
+        if (abilitySlot is null || string.IsNullOrEmpty(abilitySlot.AbilityName))
+            return;
+
+        var isSpell = abilitySlot is SpellSlot;
+
+        string[] currentChants;
+        int lineCount;
+
+        if (abilitySlot is SpellSlot spell)
+        {
+            currentChants = spell.Chants;
+            lineCount = spell.CastLines;
+        } else if (abilitySlot is SkillSlot skill)
+        {
+            currentChants = [skill.Chant];
+            lineCount = 1;
+        } else
+            return;
+
+        ChantEdit.Show(
+            slot,
+            abilitySlot.AbilityName,
+            abilitySlot.AbilityLevel ?? string.Empty,
+            abilitySlot.NormalTexture,
+            currentChants,
+            lineCount,
+            isSpell);
+    }
+
+    private void HandleChantSet(byte slot, string[] chantLines, bool isSpell)
+    {
+        if (isSpell)
+        {
+            foreach (var panel in new[]
+                     {
+                         WorldHud.SpellBook,
+                         WorldHud.SpellBookAlt
+                     })
+            {
+                var spellSlot = panel.GetSpellSlot(slot);
+
+                if (spellSlot is null)
+                    continue;
+
+                for (var i = 0; i < Math.Min(chantLines.Length, spellSlot.Chants.Length); i++)
+                    spellSlot.Chants[i] = chantLines[i];
+            }
+
+            SaveSpellChants();
+        } else
+        {
+            foreach (var panel in new[]
+                     {
+                         WorldHud.SkillBook,
+                         WorldHud.SkillBookAlt
+                     })
+            {
+                var skillSlot = panel.GetSkillSlot(slot);
+
+                if (skillSlot is not null)
+                    skillSlot.Chant = chantLines.Length > 0 ? chantLines[0] : string.Empty;
+            }
+
+            SaveSkillChants();
+        }
+    }
+
+    private void SaveSkillChants()
+    {
+        var entries = new List<SkillChantEntry>();
+
+        for (byte i = 1; i <= 89; i++)
+        {
+            var slot = WorldHud.SkillBook.GetSkillSlot(i);
+
+            if (slot is null || string.IsNullOrEmpty(slot.AbilityName))
+                continue;
+
+            entries.Add(
+                new SkillChantEntry
+                {
+                    Name = slot.AbilityName,
+                    Chant = slot.Chant
+                });
+        }
+
+        DataContext.PlayerData.SaveSkillChants(entries);
+    }
+
+    private void SaveSpellChants()
+    {
+        var entries = new List<SpellChantEntry>();
+
+        for (byte i = 1; i <= 89; i++)
+        {
+            var slot = WorldHud.SpellBook.GetSpellSlot(i);
+
+            if (slot is null || string.IsNullOrEmpty(slot.AbilityName))
+                continue;
+
+            var entry = new SpellChantEntry
+            {
+                Name = slot.AbilityName
+            };
+            Array.Copy(slot.Chants, entry.Chants, 10);
+            entries.Add(entry);
+        }
+
+        DataContext.PlayerData.SaveSpellChants(entries);
+    }
     #endregion
 
     #region Click Handling
@@ -2763,7 +3432,7 @@ public sealed class WorldScreen : IScreen
         var entity = Game.World.GetEntityAt(tileX, tileY);
 
         // When dragging inventory items, don't highlight the player (drop goes to ground instead)
-        var isItemDrag = Hud.Inventory.IsDragging;
+        var isItemDrag = WorldHud.Inventory.IsDragging;
         var playerId = Game.Connection.AislingId;
 
         uint? newHighlight
@@ -2793,7 +3462,7 @@ public sealed class WorldScreen : IScreen
 
     private (int TileX, int TileY) ScreenToTile(int mouseX, int mouseY)
     {
-        var viewport = Hud.ViewportBounds;
+        var viewport = WorldHud.ViewportBounds;
         var worldPos = Camera.ScreenToWorld(new Vector2(mouseX - viewport.X, mouseY - viewport.Y));
         var tile = Camera.WorldToTile(worldPos.X, worldPos.Y, MapFile!.Height);
 
@@ -2834,7 +3503,7 @@ public sealed class WorldScreen : IScreen
         if (MapFile is null)
             return;
 
-        var viewport = Hud.ViewportBounds;
+        var viewport = WorldHud.ViewportBounds;
 
         if ((mouseX < viewport.X)
             || (mouseX >= (viewport.X + viewport.Width))
@@ -2872,12 +3541,12 @@ public sealed class WorldScreen : IScreen
         }
     }
 
-    private void HandleWorldRightClick(int mouseX, int mouseY)
+    private void HandleCtrlClick(int mouseX, int mouseY)
     {
         if (MapFile is null)
             return;
 
-        var viewport = Hud.ViewportBounds;
+        var viewport = WorldHud.ViewportBounds;
 
         if ((mouseX < viewport.X)
             || (mouseX >= (viewport.X + viewport.Width))
@@ -2902,6 +3571,171 @@ public sealed class WorldScreen : IScreen
                 ("Whisper", () => FocusChat($"-> {name}: ", new Color(100, 149, 237))),
                 ("Click", () => Game.Connection.ClickEntity(entity.Id)));
         }
+    }
+
+    private void HandleWorldRightClick(int mouseX, int mouseY)
+    {
+        if (MapFile is null || MapPathfinder is null)
+            return;
+
+        var viewport = WorldHud.ViewportBounds;
+
+        if ((mouseX < viewport.X)
+            || (mouseX >= (viewport.X + viewport.Width))
+            || (mouseY < viewport.Y)
+            || (mouseY >= (viewport.Y + viewport.Height)))
+            return;
+
+        var player = Game.World.GetPlayerEntity();
+
+        if (player is null)
+            return;
+
+        (var tileX, var tileY) = ScreenToTile(mouseX, mouseY);
+
+        // Clamp to map bounds
+        tileX = Math.Clamp(tileX, 0, MapFile.Width - 1);
+        tileY = Math.Clamp(tileY, 0, MapFile.Height - 1);
+
+        var isDoubleRightClick = (LastRightClickTimer < DOUBLE_CLICK_MS)
+                                 && (tileX == LastRightClickTileX)
+                                 && (tileY == LastRightClickTileY);
+
+        LastRightClickTimer = 0;
+        LastRightClickTileX = tileX;
+        LastRightClickTileY = tileY;
+
+        // Don't pathfind to current position
+        if ((tileX == player.TileX) && (tileY == player.TileY))
+        {
+            ClearPathfinding();
+
+            return;
+        }
+
+        // Double right-click on entity — follow and assail
+        if (isDoubleRightClick)
+        {
+            var entity = Game.World.GetEntityAt(tileX, tileY);
+
+            if (entity is not null && entity.Type is ClientEntityType.Aisling or ClientEntityType.Creature)
+            {
+                PathfindingTargetEntityId = entity.Id;
+                PathfindingRetargetTimer = 0;
+                PathfindToEntity(player, entity);
+
+                return;
+            }
+        }
+
+        // Single right-click — pathfind to ground tile
+        PathfindingTargetEntityId = null;
+        PathfindToTile(player, tileX, tileY);
+    }
+
+    private void PathfindToTile(WorldEntity player, int tileX, int tileY)
+    {
+        if (MapPathfinder is null)
+            return;
+
+        var blockedPoints = Game.World.GetBlockedPoints();
+
+        var path = MapPathfinder.FindPath(
+            new ChaosPoint(player.TileX, player.TileY),
+            new ChaosPoint(tileX, tileY),
+            new PathOptions
+            {
+                BlockedPoints = blockedPoints,
+                LimitRadius = null
+            });
+
+        PathfindingPath = path.Count > 0 ? path : null;
+    }
+
+    private void PathfindToEntity(WorldEntity player, WorldEntity target)
+    {
+        if (MapPathfinder is null)
+            return;
+
+        // Already adjacent — no pathfinding needed
+        if (IsAdjacent(
+                player.TileX,
+                player.TileY,
+                target.TileX,
+                target.TileY))
+        {
+            PathfindingPath = null;
+
+            return;
+        }
+
+        // Find path to the best adjacent tile around the target
+        var blockedPoints = Game.World.GetBlockedPoints();
+        Stack<IPoint>? bestPath = null;
+
+        ReadOnlySpan<(int Dx, int Dy)> adjacentOffsets =
+        [
+            (0, -1),
+            (1, 0),
+            (0, 1),
+            (-1, 0)
+        ];
+
+        foreach ((var dx, var dy) in adjacentOffsets)
+        {
+            var adjX = target.TileX + dx;
+            var adjY = target.TileY + dy;
+
+            if ((adjX == player.TileX) && (adjY == player.TileY))
+            {
+                // Already adjacent
+                ClearPathfinding();
+
+                return;
+            }
+
+            var path = MapPathfinder.FindPath(
+                new ChaosPoint(player.TileX, player.TileY),
+                new ChaosPoint(adjX, adjY),
+                new PathOptions
+                {
+                    BlockedPoints = blockedPoints,
+                    LimitRadius = null
+                });
+
+            if ((path.Count > 0) && (bestPath is null || (path.Count < bestPath.Count)))
+                bestPath = path;
+        }
+
+        PathfindingPath = bestPath;
+    }
+
+    private static bool IsAdjacent(
+        int x1,
+        int y1,
+        int x2,
+        int y2)
+        => (Math.Abs(x1 - x2) + Math.Abs(y1 - y2)) == 1;
+
+    private static Direction? DirectionToward(
+        int fromX,
+        int fromY,
+        int toX,
+        int toY)
+        => (toX - fromX, toY - fromY) switch
+        {
+            (0, -1) => Direction.Up,
+            (1, 0)  => Direction.Right,
+            (0, 1)  => Direction.Down,
+            (-1, 0) => Direction.Left,
+            _       => null
+        };
+
+    private void ClearPathfinding()
+    {
+        PathfindingPath = null;
+        PathfindingTargetEntityId = null;
+        PathfindingRetargetTimer = 0;
     }
     #endregion
 
@@ -2936,7 +3770,7 @@ public sealed class WorldScreen : IScreen
                 Exchange.CloseExchange();
 
                 if (args.Message is not null)
-                    Hud.ShowOrangeBarMessage(args.Message);
+                    WorldHud.ShowOrangeBarMessage(args.Message);
 
                 break;
 
@@ -2947,7 +3781,7 @@ public sealed class WorldScreen : IScreen
                     Exchange.ShowOtherAccepted();
 
                 if (args.Message is not null)
-                    Hud.ShowOrangeBarMessage(args.Message);
+                    WorldHud.ShowOrangeBarMessage(args.Message);
 
                 break;
         }
@@ -2998,7 +3832,7 @@ public sealed class WorldScreen : IScreen
             case BoardOrResponseType.DeletePostResponse:
             case BoardOrResponseType.HighlightPostResponse:
                 if (args.ResponseMessage is not null)
-                    Hud.ShowOrangeBarMessage(args.ResponseMessage);
+                    WorldHud.ShowOrangeBarMessage(args.ResponseMessage);
 
                 break;
         }
@@ -3012,10 +3846,10 @@ public sealed class WorldScreen : IScreen
         {
             case ServerGroupSwitch.Invite:
             {
-                Hud.ShowOrangeBarMessage($"{sourceName} invites you to join a group.");
+                WorldHud.ShowOrangeBarMessage($"{sourceName} invites you to join a group.");
 
                 // Show accept/decline context menu at center of viewport
-                var vp = Hud.ViewportBounds;
+                var vp = WorldHud.ViewportBounds;
                 var menuX = vp.X + vp.Width / 2;
                 var menuY = vp.Y + vp.Height / 2;
 
@@ -3030,9 +3864,9 @@ public sealed class WorldScreen : IScreen
 
             case ServerGroupSwitch.RequestToJoin:
             {
-                Hud.ShowOrangeBarMessage($"{sourceName} wants to join your group.");
+                WorldHud.ShowOrangeBarMessage($"{sourceName} wants to join your group.");
 
-                var vp = Hud.ViewportBounds;
+                var vp = WorldHud.ViewportBounds;
                 var menuX = vp.X + vp.Width / 2;
                 var menuY = vp.Y + vp.Height / 2;
 
@@ -3048,7 +3882,7 @@ public sealed class WorldScreen : IScreen
             case ServerGroupSwitch.ShowGroupBox:
             {
                 // TODO: Show the group recruitment box UI with args.GroupBoxInfo
-                Hud.ShowOrangeBarMessage($"{sourceName} has an open group box.");
+                WorldHud.ShowOrangeBarMessage($"{sourceName} has an open group box.");
 
                 break;
             }
@@ -3063,7 +3897,7 @@ public sealed class WorldScreen : IScreen
 
         // Populate and show the status book
         StatusBook.SetPlayerInfo(
-            Hud.PlayerName,
+            WorldHud.PlayerName,
             args.DisplayClass,
             args.GuildName ?? string.Empty,
             args.GuildRank ?? string.Empty,
@@ -3082,6 +3916,7 @@ public sealed class WorldScreen : IScreen
 
         // Family info
         StatusBook.SetFamilyInfo(args.Name, args.SpouseName ?? string.Empty);
+        LoadPlayerFamilyList(args.Name);
 
         // Paperdoll — render the player's full aisling at south-facing idle
         var playerEntity = Game.World.GetPlayerEntity();
@@ -3107,7 +3942,7 @@ public sealed class WorldScreen : IScreen
         =>
 
             // For now, show other player info as an orange bar message
-            Hud.ShowOrangeBarMessage($"Viewing profile of {args.Name}");
+            WorldHud.ShowOrangeBarMessage($"Viewing profile of {args.Name}");
 
     private void HandleBodyAnimation(BodyAnimationArgs args)
     {
@@ -3282,6 +4117,7 @@ public sealed class WorldScreen : IScreen
     {
         MapPreloaded = false;
         QueuedWalkDirection = null;
+        ClearPathfinding();
 
         Game.SoundManager.StopMusic();
         WorldMap.HideMap();
@@ -3292,6 +4128,8 @@ public sealed class WorldScreen : IScreen
         if (args.ExitConfirmed)
             Game.Exit();
     }
+
+    private void HandleEffect(EffectArgs args) => WorldHud.EffectBar.SetEffect(args.EffectIcon, args.EffectColor);
 
     private void HandleHealthBar(HealthBarArgs args)
     {

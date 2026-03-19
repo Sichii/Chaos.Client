@@ -11,6 +11,7 @@
     </ItemGroup>
 
     <ItemGroup>
+        <PackageReference Include="Chaos.Pathfinding"/>
         <PackageReference Include="NAudio"/>
     </ItemGroup>
 </Project>

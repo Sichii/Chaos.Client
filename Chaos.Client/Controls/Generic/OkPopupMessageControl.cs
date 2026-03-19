@@ -25,8 +25,8 @@ public sealed class OkPopupMessageControl : UIPanel
     // butt001.epf frame indices — 2 frames per button (normal/pressed)
     private const int OK_NORMAL = 15;
     private const int OK_PRESSED = 16;
-    private const int CANCEL_NORMAL = 19;
-    private const int CANCEL_PRESSED = 20;
+    private const int CANCEL_NORMAL = 21;
+    private const int CANCEL_PRESSED = 22;
 
     // dlgframe.epf frame indices (16×16 each)
     private const int FRAME_TL = 0;

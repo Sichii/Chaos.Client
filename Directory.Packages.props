@@ -4,6 +4,7 @@
     <PackageVersion Include="Chaos.DarkAges" Version="1.10.0-preview-0070-gf740a5d9aa"/>
     <PackageVersion Include="Chaos.Geometry" Version="1.10.0-preview-0070-gf740a5d9aa"/>
     <PackageVersion Include="Chaos.Networking" Version="1.10.0-preview-0070-gf740a5d9aa"/>
+    <PackageVersion Include="Chaos.Pathfinding" Version="1.10.0-preview-0072-gae5e87a696"/>
     <PackageVersion Include="Microsoft.Extensions.Caching.Memory" Version="9.0.0"/>
     <PackageVersion Include="NAudio" Version="2.2.1"/>
     <PackageVersion Include="MonoGame.Framework.DesktopGL" Version="3.8.4.1"/>

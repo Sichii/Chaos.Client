@@ -250,7 +250,7 @@ public abstract class PrefabPanel : UIPanel
     {
         var rect = prefab.Control.Rect;
 
-        if (rect is null || (prefab.Images.Count == 0))
+        if (rect is null)
             return null;
 
         var r = rect.Value;
@@ -262,7 +262,7 @@ public abstract class PrefabPanel : UIPanel
             Y = (int)r.Top,
             Width = (int)r.Width,
             Height = (int)r.Height,
-            Texture = TextureConverter.ToTexture2D(Device, prefab.Images[0])
+            Texture = prefab.Images.Count > 0 ? TextureConverter.ToTexture2D(Device, prefab.Images[0]) : null
         };
     }
 
