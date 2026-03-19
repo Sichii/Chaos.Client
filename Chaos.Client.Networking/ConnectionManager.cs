@@ -1013,6 +1013,21 @@ public sealed class ConnectionManager : IDisposable
     }
 
     /// <summary>
+    ///     Sends a social status change to the server.
+    /// </summary>
+    public void SendSocialStatus(SocialStatus status)
+    {
+        if (State != ConnectionState.World)
+            return;
+
+        Client.Send(
+            new SocialStatusArgs
+            {
+                SocialStatus = status
+            });
+    }
+
+    /// <summary>
     ///     Sends a whisper to a specific player.
     /// </summary>
     public void SendWhisper(string targetName, string message)

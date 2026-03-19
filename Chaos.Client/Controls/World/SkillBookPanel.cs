@@ -47,6 +47,8 @@ public sealed class SkillBookPanel : PanelBaseControl
         {
             control.CooldownTexture?.Dispose();
             control.CooldownTexture = null;
+            control.GreyTexture?.Dispose();
+            control.GreyTexture = null;
             control.CooldownPercent = 0;
         }
 
@@ -59,16 +61,25 @@ public sealed class SkillBookPanel : PanelBaseControl
         {
             slot.CooldownTexture?.Dispose();
             slot.CooldownTexture = null;
+            slot.GreyTexture?.Dispose();
+            slot.GreyTexture = null;
         }
 
         base.Dispose();
     }
 
-    private Texture2D? RenderBlueIcon(ushort spriteId)
-        => TextureConverter.RenderSprite(Device, DataContext.PanelIcons.GetSkillBlueIcon(spriteId));
+    private Texture2D? RenderGreyIcon(ushort spriteId)
+        => TextureConverter.RenderSprite(Device, DataContext.PanelIcons.GetSkillGreyIcon(spriteId));
 
     protected override Texture2D? RenderIcon(ushort spriteId)
         => TextureConverter.RenderSprite(Device, DataContext.PanelIcons.GetSkillIcon(spriteId));
+
+    private Texture2D? RenderTintedIcon(ushort spriteId)
+    {
+        using var normal = RenderIcon(spriteId);
+
+        return normal is not null ? TextureConverter.CreateTintedTexture(Device, normal) : null;
+    }
 
     public void SetCooldown(byte slot, uint durationSecs)
     {
@@ -86,11 +97,14 @@ public sealed class SkillBookPanel : PanelBaseControl
         if (control is null)
             return;
 
-        // Lazy-load blue variant
+        // Lazy-load grey base and tinted overlay
         var spriteId = SpriteIds[index];
 
         if (spriteId > 0)
-            control.CooldownTexture ??= RenderBlueIcon(spriteId);
+        {
+            control.GreyTexture ??= RenderGreyIcon(spriteId);
+            control.CooldownTexture ??= RenderTintedIcon(spriteId);
+        }
 
         control.CooldownPercent = 1f;
     }
@@ -109,6 +123,8 @@ public sealed class SkillBookPanel : PanelBaseControl
             {
                 control.CooldownTexture?.Dispose();
                 control.CooldownTexture = null;
+                control.GreyTexture?.Dispose();
+                control.GreyTexture = null;
             }
         }
 

@@ -15,8 +15,8 @@ namespace Chaos.Client.Controls.World;
 public sealed class ProfileLegendTab : PrefabPanel
 {
     private const int MAX_VISIBLE_ROWS = 12;
-    private const int ICON_X = 6;
-    private const int TEXT_X = 28;
+    private const int ICON_X = 1;
+    private const int TEXT_X = 23;
 
     private readonly Texture2D[] IconFrames;
     private readonly Rectangle LegendListRect;

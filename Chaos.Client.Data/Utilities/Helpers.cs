@@ -139,7 +139,7 @@ public static class Helpers
         {
             BodyAnimation.None           => false,
             BodyAnimation.Assail         => false,
-            BodyAnimation.HandsUp        => true,
+            BodyAnimation.HandsUp        => false,
             BodyAnimation.Smile          => true,
             BodyAnimation.Cry            => true,
             BodyAnimation.Frown          => true,

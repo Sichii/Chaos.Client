@@ -69,9 +69,11 @@ public sealed class MapRenderer : IDisposable
             for (var x = bgMinX; x <= bgMaxX; x++)
             {
                 var bgIndex = mapFile.Tiles[x, y].Background;
-                var bgTileId = bgIndex > 0 ? bgIndex : 1;
 
-                var bgTexture = GetOrCreateBgTexture(device, bgTileId);
+                if (bgIndex <= 0)
+                    continue;
+
+                var bgTexture = GetOrCreateBgTexture(device, bgIndex);
 
                 if (bgTexture is null)
                     continue;
@@ -187,8 +189,9 @@ public sealed class MapRenderer : IDisposable
 
                 // Background
                 var bgIndex = tile.Background;
-                var bgTileId = bgIndex > 0 ? bgIndex : 1;
-                GetOrCreateBgTexture(device, bgTileId);
+
+                if (bgIndex > 0)
+                    GetOrCreateBgTexture(device, bgIndex);
 
                 // Left foreground
                 if (tile.LeftForeground.IsRenderedTileIndex())

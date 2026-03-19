@@ -1,4 +1,5 @@
 #region
+using Chaos.Client.Common.Definitions;
 using Chaos.Client.Data;
 using Chaos.Client.Rendering.Models;
 using DALib.Definitions;
@@ -37,14 +38,14 @@ public sealed class EffectRenderer : IDisposable
     /// <summary>
     ///     Returns frame count, interval, and blend mode for an effect, or null if the effect doesn't exist.
     /// </summary>
-    public (int FrameCount, int FrameIntervalMs, bool IsAdditive)? GetEffectInfo(GraphicsDevice device, int effectId)
+    public (int FrameCount, int FrameIntervalMs, EffectBlendMode BlendMode)? GetEffectInfo(GraphicsDevice device, int effectId)
     {
         var animation = GetOrLoadAnimation(device, effectId);
 
         if (animation is null)
             return null;
 
-        return (animation.FrameCount, animation.FrameIntervalMs, animation.IsAdditive);
+        return (animation.FrameCount, animation.FrameIntervalMs, animation.BlendMode);
     }
 
     /// <summary>
@@ -109,9 +110,15 @@ public sealed class EffectRenderer : IDisposable
         }
 
         var intervalMs = efaFile.FrameIntervalMs > 0 ? efaFile.FrameIntervalMs : DEFAULT_FRAME_INTERVAL_MS;
-        var isAdditive = efaFile.BlendingType == EfaBlendingType.Additive;
 
-        return new SpriteAnimation(frames, intervalMs, isAdditive);
+        var blendMode = efaFile.BlendingType switch
+        {
+            EfaBlendingType.Additive  => EffectBlendMode.Additive,
+            EfaBlendingType.SelfAlpha => EffectBlendMode.SelfAlpha,
+            _                         => EffectBlendMode.Normal
+        };
+
+        return new SpriteAnimation(frames, intervalMs, blendMode);
     }
 
     private SpriteAnimation? LoadEpfAnimation(GraphicsDevice device, int effectId, EffectTableEntry tableEntry)

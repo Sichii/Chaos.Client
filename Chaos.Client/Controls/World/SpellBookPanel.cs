@@ -62,11 +62,15 @@ public sealed class SpellBookPanel : PanelBaseControl
         base.Dispose();
     }
 
-    private Texture2D? RenderBlueIcon(ushort spriteId)
-        => TextureConverter.RenderSprite(Device, DataContext.PanelIcons.GetSpellBlueIcon(spriteId));
-
     protected override Texture2D? RenderIcon(ushort spriteId)
         => TextureConverter.RenderSprite(Device, DataContext.PanelIcons.GetSpellIcon(spriteId));
+
+    private Texture2D? RenderTintedIcon(ushort spriteId)
+    {
+        using var normal = RenderIcon(spriteId);
+
+        return normal is not null ? TextureConverter.CreateTintedTexture(Device, normal) : null;
+    }
 
     public void SetCooldown(byte slot, uint durationSecs)
     {
@@ -86,7 +90,7 @@ public sealed class SpellBookPanel : PanelBaseControl
         var spriteId = SpriteIds[index];
 
         if (spriteId > 0)
-            control.CooldownTexture ??= RenderBlueIcon(spriteId);
+            control.CooldownTexture ??= RenderTintedIcon(spriteId);
 
         control.CooldownPercent = 1f;
     }

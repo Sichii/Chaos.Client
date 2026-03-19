@@ -1,5 +1,6 @@
 #region
 using Chaos.Client.Definitions;
+using Chaos.Client.Extensions;
 using Chaos.Client.Models;
 using Chaos.Client.Rendering;
 using Chaos.Client.Systems.Animation;
@@ -27,6 +28,11 @@ public sealed class WorldState
     ///     Active spell/effect animations currently playing in the world.
     /// </summary>
     public List<ActiveEffect> ActiveEffects { get; } = [];
+
+    /// <summary>
+    ///     Active creature death dissolve animations.
+    /// </summary>
+    public List<DyingEffect> DyingEffects { get; } = [];
 
     /// <summary>
     ///     Adds or updates an aisling entity from a DisplayAisling packet.
@@ -85,6 +91,8 @@ public sealed class WorldState
                 Accessory1Color = args.AccessoryColor1,
                 Accessory2Sprite = args.AccessorySprite2,
                 Accessory2Color = args.AccessoryColor2,
+                Accessory3Sprite = args.AccessorySprite3,
+                Accessory3Color = args.AccessoryColor3,
                 PantsColor = args.PantsColor
             };
         }
@@ -115,6 +123,7 @@ public sealed class WorldState
             {
                 case CreatureInfo creature:
                     entity.Type = ClientEntityType.Creature;
+                    entity.CreatureType = creature.CreatureType;
                     entity.Direction = creature.Direction;
                     entity.Name = creature.Name ?? string.Empty;
 
@@ -135,6 +144,11 @@ public sealed class WorldState
     {
         Entities.Clear();
         ActiveEffects.Clear();
+
+        foreach (var dying in DyingEffects)
+            dying.Dispose();
+
+        DyingEffects.Clear();
     }
 
     /// <summary>
@@ -217,15 +231,7 @@ public sealed class WorldState
             return;
 
         // Compute new position from oldPoint + direction
-        (var dx, var dy) = direction switch
-        {
-            Direction.Up    => (0, -1),
-            Direction.Right => (1, 0),
-            Direction.Down  => (0, 1),
-            Direction.Left  => (-1, 0),
-            _               => (0, 0)
-        };
-
+        (var dx, var dy) = direction.ToTileOffset();
         entity.TileX = oldX + dx;
         entity.TileY = oldY + dy;
         entity.Direction = direction;
@@ -241,15 +247,7 @@ public sealed class WorldState
         if (!Entities.TryGetValue(PlayerEntityId, out var entity))
             return;
 
-        (var dx, var dy) = direction switch
-        {
-            Direction.Up    => (0, -1),
-            Direction.Right => (1, 0),
-            Direction.Down  => (0, 1),
-            Direction.Left  => (-1, 0),
-            _               => (0, 0)
-        };
-
+        (var dx, var dy) = direction.ToTileOffset();
         entity.TileX = oldX + dx;
         entity.TileY = oldY + dy;
         entity.Direction = direction;
@@ -292,6 +290,18 @@ public sealed class WorldState
 
             if (effect.IsComplete)
                 ActiveEffects.RemoveAt(i);
+        }
+
+        for (var i = DyingEffects.Count - 1; i >= 0; i--)
+        {
+            var dying = DyingEffects[i];
+            dying.Update(elapsedMs);
+
+            if (dying.IsComplete)
+            {
+                dying.Dispose();
+                DyingEffects.RemoveAt(i);
+            }
         }
     }
 }

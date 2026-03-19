@@ -1,9 +1,11 @@
 #region
+using Chaos.Client.Common.Definitions;
 using Chaos.Client.Controls.Components;
 using Chaos.Client.Controls.Generic;
 using Chaos.Client.Controls.World;
 using Chaos.Client.Data;
 using Chaos.Client.Definitions;
+using Chaos.Client.Extensions;
 using Chaos.Client.Models;
 using Chaos.Client.Rendering;
 using Chaos.Client.Systems;
@@ -50,14 +52,20 @@ public sealed class WorldScreen : IScreen
     // Spacebar (assail) repeat interval when held
     private const float SPACEBAR_INTERVAL_MS = 100f;
 
-    // Additive tint for entity hover highlight — legend.pal index 0x28, BGR bytes (CB,00,17) → RGB(23, 0, 203)
-    private static readonly Color HIGHLIGHT_TINT = new(23, 0, 203);
-
     // Aisling body anchor within the padded composite canvas.
     // Canvas is padded by 27px on each side for weapon/accessory layers, so body center shifts right.
     private const int BODY_CENTER_X = 28 + 27;
     private const int BODY_CENTER_Y = 70;
     private const float DOUBLE_CLICK_MS = 300f;
+
+    // Screen blend: output = src + dst * (1 - src) per channel. Used for SelfAlpha EFA effects.
+    private static readonly BlendState ScreenBlendState = new()
+    {
+        ColorSourceBlend = Blend.One,
+        ColorDestinationBlend = Blend.InverseSourceColor,
+        AlphaSourceBlend = Blend.One,
+        AlphaDestinationBlend = Blend.InverseSourceAlpha
+    };
 
     // Aisling texture cache: keyed by entity ID, invalidated when appearance/frame/suffix changes
     private readonly Dictionary<uint, AislingCacheEntry> AislingCache = new();
@@ -98,13 +106,18 @@ public sealed class WorldScreen : IScreen
     private Direction? QueuedWalkDirection;
     private RasterizerState ScissorRasterizerState = null!;
     private SettingsControl SettingsDialog = null!;
+    private SocialStatusControl SocialStatusPicker = null!;
     private float SpacebarTimer;
     private SelfProfileTabControl StatusBook = null!;
+    private TabMapRenderer TabMapRenderer = null!;
+    private bool TabMapVisible;
     private TextPopupControl TextPopup = null!;
+    private Texture2D? TileCursorDragTexture;
 
     // Tile cursor: dashed ellipse drawn on the hovered tile
     private Texture2D? TileCursorTexture;
     private WorldListControl WorldList = null!;
+    private WorldMapControl WorldMap = null!;
 
     /// <inheritdoc />
     public UIPanel? Root { get; private set; }
@@ -158,9 +171,29 @@ public sealed class WorldScreen : IScreen
             }
         }
 
+        // Tab map overlay — drawn on top of world, under HUD
+        // TabMapRenderer manages its own SpriteBatch Begin/End blocks (stencil passes for entity overlap)
+        if (TabMapVisible && MapFile is not null)
+        {
+            var viewport = Hud.ViewportBounds;
+            var player = Game.World.GetPlayerEntity();
+            var px = player?.TileX ?? 0;
+            var py = player?.TileY ?? 0;
+
+            TabMapRenderer.Draw(
+                spriteBatch,
+                Device,
+                viewport,
+                px,
+                py,
+                Game.World.GetSortedEntities(),
+                Game.World.PlayerEntityId);
+        }
+
         // Pass 2: UI overlay — full screen, no transform
         spriteBatch.Begin(samplerState: GlobalSettings.Sampler);
         Root!.Draw(spriteBatch);
+        DrawDragIcon(spriteBatch);
         spriteBatch.End();
     }
 
@@ -248,6 +281,12 @@ public sealed class WorldScreen : IScreen
         // Notepad popups
         Game.Connection.OnDisplayReadonlyNotepad += HandleDisplayReadonlyNotepad;
         Game.Connection.OnDisplayEditableNotepad += HandleDisplayEditableNotepad;
+
+        // World map
+        Game.Connection.OnWorldMap += HandleWorldMap;
+
+        // Doors
+        Game.Connection.OnDoor += HandleDoor;
     }
 
     /// <inheritdoc />
@@ -265,13 +304,15 @@ public sealed class WorldScreen : IScreen
             Offset = new Vector2(-28, 24)
         };
         MapRenderer = new MapRenderer();
+        TabMapRenderer = new TabMapRenderer();
 
         ScissorRasterizerState = new RasterizerState
         {
             ScissorTestEnable = true
         };
 
-        TileCursorTexture = CreateTileCursorTexture(graphicsDevice);
+        TileCursorTexture = CreateTileCursorTexture(graphicsDevice, new Color(247, 142, 24));
+        TileCursorDragTexture = CreateTileCursorTexture(graphicsDevice, new Color(100, 149, 237));
 
         // Overlay panels — ZIndex: -2 sub-panels, -1 slide panels, 0 standard (default), 1 popups, 2 context menu
         NpcDialog = new NpcDialogControl(graphicsDevice);
@@ -376,9 +417,27 @@ public sealed class WorldScreen : IScreen
         WireExchange();
         WireMailControls();
 
-        StatusBook = new SelfProfileTabControl(graphicsDevice);
+        StatusBook = new SelfProfileTabControl(graphicsDevice)
+        {
+            ZIndex = 1
+        };
+
+        StatusBook.OnUnequip += slot => Game.Connection.Unequip(slot);
+
+        SocialStatusPicker = new SocialStatusControl(graphicsDevice);
+
+        SocialStatusPicker.OnStatusSelected += status =>
+        {
+            Game.Connection.SendSocialStatus(status);
+            StatusBook.SetEmoticonState((byte)status, status.ToString());
+        };
 
         TextPopup = new TextPopupControl(graphicsDevice)
+        {
+            ZIndex = 1
+        };
+
+        WorldMap = new WorldMapControl(graphicsDevice, Game.Connection)
         {
             ZIndex = 1
         };
@@ -409,6 +468,8 @@ public sealed class WorldScreen : IScreen
         Root.AddChild(MailSend);
         Root.AddChild(StatusBook);
         Root.AddChild(TextPopup);
+        Root.AddChild(WorldMap);
+        Root.AddChild(SocialStatusPicker);
         Root.AddChild(ContextMenu);
 
         // Wire HUD buttons
@@ -442,7 +503,35 @@ public sealed class WorldScreen : IScreen
             Hud.LegendButton.OnClick += () => Game.Connection.RequestSelfProfile();
 
         if (Hud.TownMapButton is not null)
-            Hud.TownMapButton.OnClick += () => Hud.ShowOrangeBarMessage("Town map is not yet implemented.");
+            Hud.TownMapButton.OnClick += () =>
+            {
+                if (WorldMap.Visible)
+                    WorldMap.HideMap();
+            };
+
+        if (Hud.EmoteButton is not null)
+            Hud.EmoteButton.OnClick += () =>
+            {
+                if (SocialStatusPicker.Visible)
+                {
+                    SocialStatusPicker.Visible = false;
+
+                    return;
+                }
+
+                // Position above the emote button
+                SocialStatusPicker.X = Hud.EmoteButton.ScreenX - SocialStatusPicker.Width / 2 + Hud.EmoteButton.Width / 2;
+                SocialStatusPicker.Y = Hud.EmoteButton.ScreenY - SocialStatusPicker.Height - 2;
+
+                // Clamp to screen
+                if (SocialStatusPicker.X < 0)
+                    SocialStatusPicker.X = 0;
+
+                if ((SocialStatusPicker.X + SocialStatusPicker.Width) > 640)
+                    SocialStatusPicker.X = 640 - SocialStatusPicker.Width;
+
+                SocialStatusPicker.Show();
+            };
 
         if (Hud.ExpandButton is not null)
             Hud.ExpandButton.OnClick += () => Hud.ShowOrangeBarMessage("Hud expant is not yet implmented.");
@@ -552,6 +641,8 @@ public sealed class WorldScreen : IScreen
         Game.Connection.OnLightLevel -= HandleLightLevel;
         Game.Connection.OnDisplayReadonlyNotepad -= HandleDisplayReadonlyNotepad;
         Game.Connection.OnDisplayEditableNotepad -= HandleDisplayEditableNotepad;
+        Game.Connection.OnWorldMap -= HandleWorldMap;
+        Game.Connection.OnDoor -= HandleDoor;
 
         // Unwire panel click-to-use events
         Hud.Inventory.OnSlotClicked -= HandleInventorySlotClicked;
@@ -561,6 +652,7 @@ public sealed class WorldScreen : IScreen
         Hud.SpellBookAlt.OnSlotClicked -= HandleSpellSlotClicked;
 
         MapRenderer.Dispose();
+        TabMapRenderer.Dispose();
         ScissorRasterizerState.Dispose();
         Root?.Dispose();
         ClearAislingCache();
@@ -589,7 +681,6 @@ public sealed class WorldScreen : IScreen
         Game.World.UpdateEffects(elapsedMs);
 
         // Execute queued walk when player becomes idle after walk animation.
-        // Sets MovementHandled to prevent the input check from also walking this frame.
         var movementHandled = false;
 
         if (player is not null && (player.AnimState == EntityAnimState.Idle) && QueuedWalkDirection.HasValue)
@@ -602,7 +693,7 @@ public sealed class WorldScreen : IScreen
                 Game.Connection.Turn(queuedDir);
                 player.Direction = queuedDir;
             } else
-                Game.Connection.Walk(queuedDir);
+                PredictAndWalk(player, queuedDir);
 
             movementHandled = true;
         }
@@ -723,7 +814,23 @@ public sealed class WorldScreen : IScreen
 
         if (StatusBook.Visible)
         {
+            // HUD panels still receive input while the status book is open (drag-and-drop)
+            Hud.Update(gameTime, input);
             StatusBook.Update(gameTime, input);
+
+            return;
+        }
+
+        if (WorldMap.Visible)
+        {
+            WorldMap.Update(gameTime, input);
+
+            return;
+        }
+
+        if (SocialStatusPicker.Visible)
+        {
+            SocialStatusPicker.Update(gameTime, input);
 
             return;
         }
@@ -806,6 +913,20 @@ public sealed class WorldScreen : IScreen
                 if (!Hud.ChatInput.IsFocused)
                     FocusChat(string.Empty, Color.White);
 
+            // Tab — toggle tab map overlay
+            if (input.WasKeyPressed(Keys.Tab))
+                TabMapVisible = !TabMapVisible;
+
+            // PageUp/PageDown — tab map zoom
+            if (TabMapVisible)
+            {
+                if (input.WasKeyPressed(Keys.PageUp))
+                    TabMapRenderer.ZoomIn();
+
+                if (input.WasKeyPressed(Keys.PageDown))
+                    TabMapRenderer.ZoomOut();
+            }
+
             // F1 — hotkey help
             // F1 — help merchant (server-side)
             if (input.WasKeyPressed(Keys.F1))
@@ -859,17 +980,27 @@ public sealed class WorldScreen : IScreen
 
             // Click handling — left click in viewport area
             if (input.WasLeftButtonPressed)
-                HandleWorldClick(input.MouseX, input.MouseY);
+            {
+                // Alt+click on self — open self profile
+                if (input.IsKeyHeld(Keys.LeftAlt) || input.IsKeyHeld(Keys.RightAlt))
+                {
+                    var altEntity = GetEntityAtScreen(input.MouseX, input.MouseY);
+
+                    if (altEntity is not null && (altEntity.Id == Game.Connection.AislingId))
+                        Game.Connection.RequestSelfProfile();
+                    else
+                        HandleWorldClick(input.MouseX, input.MouseY);
+                } else
+                    HandleWorldClick(input.MouseX, input.MouseY);
+            }
 
             // Right-click — context menu on world entities
             if (input.WasRightButtonPressed)
                 HandleWorldRightClick(input.MouseX, input.MouseY);
 
-            // Player movement — event-driven, matching the original client's WM_KEYDOWN handling.
-            // Each key press/repeat goes through the same turn-vs-walk decision:
-            // - Same direction as facing → walk (if idle) or queue (if walk anim >= 75%)
-            // - Different direction → turn only (if idle)
-            // OS key repeat when holding produces repeated WasKeyPressed events.
+            // Player movement — each WasKeyPressed (initial press + OS key repeat) goes through:
+            // - Idle → walk (with client-side prediction) or turn immediately
+            // - Walking at >= 75% → queue one walk
             Direction? direction = null;
 
             if (input.WasKeyPressed(Keys.Up))
@@ -887,18 +1018,15 @@ public sealed class WorldScreen : IScreen
                 {
                     if (player.Direction != direction.Value)
                     {
-                        // Different direction → turn only
                         Game.Connection.Turn(direction.Value);
                         player.Direction = direction.Value;
                     } else
                     {
-                        // Same direction + idle → walk immediately
-                        Game.Connection.Walk(direction.Value);
+                        PredictAndWalk(player, direction.Value);
                         QueuedWalkDirection = null;
                     }
                 } else if (player.AnimState == EntityAnimState.Walking)
                 {
-                    // During walk animation: queue one walk if >= 75% complete
                     var totalDuration = player.AnimFrameCount * player.AnimFrameIntervalMs;
                     var progress = totalDuration > 0 ? player.AnimElapsedMs / totalDuration : 1f;
 
@@ -906,10 +1034,6 @@ public sealed class WorldScreen : IScreen
                         QueuedWalkDirection = direction.Value;
                 }
             }
-
-            // Clear queue when all arrow keys released
-            if (!input.IsKeyHeld(Keys.Up) && !input.IsKeyHeld(Keys.Right) && !input.IsKeyHeld(Keys.Down) && !input.IsKeyHeld(Keys.Left))
-                QueuedWalkDirection = null;
         }
 
         Hud.Update(gameTime, input);
@@ -1147,7 +1271,10 @@ public sealed class WorldScreen : IScreen
                 if (sortedEntities[i].Type == ClientEntityType.Creature)
                     DrawEntity(spriteBatch, sortedEntities[i]);
 
-            // 4. Ground-targeted effects
+            // 4. Dying creature dissolves
+            DrawDyingEffectsAtDepth(spriteBatch, depth);
+
+            // 5. Ground-targeted effects
             DrawGroundEffectsAtDepth(spriteBatch, depth);
 
             // 5. Entity-attached effects
@@ -1165,6 +1292,44 @@ public sealed class WorldScreen : IScreen
                     Camera,
                     tileX,
                     depth - tileX);
+        }
+    }
+
+    private void DrawDyingEffectsAtDepth(SpriteBatch spriteBatch, int depth)
+    {
+        if (MapFile is null)
+            return;
+
+        foreach (var dying in Game.World.DyingEffects)
+        {
+            if (dying.IsComplete || ((dying.TileX + dying.TileY) != depth))
+                continue;
+
+            var tileWorld = Camera.TileToWorld(dying.TileX, dying.TileY, MapFile.Height);
+            var tileCenterX = tileWorld.X + HALF_TILE_WIDTH;
+            var tileCenterY = tileWorld.Y + HALF_TILE_HEIGHT;
+
+            var texCenterX = dying.CenterX - Math.Min(0, (int)dying.Left);
+            var texCenterY = dying.CenterY - Math.Min(0, (int)dying.Top);
+
+            var anchorX = dying.Flip ? dying.Texture.Width - texCenterX : texCenterX;
+
+            var drawX = tileCenterX - anchorX;
+            var drawY = tileCenterY - texCenterY;
+            var screenPos = Camera.WorldToScreen(new Vector2(drawX, drawY));
+
+            var effects = dying.Flip ? SpriteEffects.FlipHorizontally : SpriteEffects.None;
+
+            spriteBatch.Draw(
+                dying.Texture,
+                screenPos,
+                null,
+                Color.White * dying.Alpha,
+                0f,
+                Vector2.Zero,
+                1f,
+                effects,
+                0f);
         }
     }
 
@@ -1210,12 +1375,17 @@ public sealed class WorldScreen : IScreen
         var screenPos = Camera.WorldToScreen(new Vector2(drawX, drawY));
 
         // In immediate mode, blend state can be changed directly between draws
-        if (effect.IsAdditive)
-            Device.BlendState = BlendState.Additive;
+        if (effect.BlendMode != EffectBlendMode.Normal)
+            Device.BlendState = effect.BlendMode switch
+            {
+                EffectBlendMode.Additive  => BlendState.Additive,
+                EffectBlendMode.SelfAlpha => ScreenBlendState,
+                _                         => BlendState.AlphaBlend
+            };
 
         spriteBatch.Draw(frame.Texture, screenPos, Color.White);
 
-        if (effect.IsAdditive)
+        if (effect.BlendMode != EffectBlendMode.Normal)
             Device.BlendState = BlendState.AlphaBlend;
     }
     #endregion
@@ -1238,6 +1408,7 @@ public sealed class WorldScreen : IScreen
 
         MainOptions.OnMusicVolumeChanged += volume =>
         {
+            Game.SoundManager.SetMusicVolume(volume);
             Game.Settings.MusicVolume = volume;
             Game.Settings.Save();
         };
@@ -1246,6 +1417,7 @@ public sealed class WorldScreen : IScreen
         MainOptions.SetSoundVolume(Game.Settings.SoundVolume);
         MainOptions.SetMusicVolume(Game.Settings.MusicVolume);
         Game.SoundManager.SetSoundVolume(Game.Settings.SoundVolume);
+        Game.SoundManager.SetMusicVolume(Game.Settings.MusicVolume);
     }
 
     private static void ToggleSubPanel(PrefabPanel panel)
@@ -1374,7 +1546,7 @@ public sealed class WorldScreen : IScreen
             return;
 
         var appearance = entity.Appearance.Value;
-        (var frameIndex, var flip, var animSuffix) = AnimationManager.GetAislingFrame(entity);
+        (var frameIndex, var flip, var animSuffix, var isFrontFacing) = AnimationManager.GetAislingFrame(entity);
 
         // Check cache — re-render if appearance, frame, flip, or animation suffix changed
         if (!AislingCache.TryGetValue(entity.Id, out var cached)
@@ -1390,7 +1562,8 @@ public sealed class WorldScreen : IScreen
                 in appearance,
                 frameIndex,
                 animSuffix,
-                flip);
+                flip,
+                isFrontFacing);
 
             if (texture is null)
                 return;
@@ -1415,37 +1588,10 @@ public sealed class WorldScreen : IScreen
     }
 
     /// <summary>
-    ///     Creates a CPU-side tinted copy of a texture by adding a flat color to every non-transparent pixel with per-channel
-    ///     saturation. Matches the original DA client's surface modification approach.
+    /// <summary>
+    ///     Creates a CPU-side tinted copy of a texture using the original DA client's highlight color transform.
     /// </summary>
-    private Texture2D CreateTintedTexture(Texture2D source)
-    {
-        var pixels = new Color[source.Width * source.Height];
-        source.GetData(pixels);
-
-        var tintR = HIGHLIGHT_TINT.R;
-        var tintG = HIGHLIGHT_TINT.G;
-        var tintB = HIGHLIGHT_TINT.B;
-
-        for (var i = 0; i < pixels.Length; i++)
-        {
-            var p = pixels[i];
-
-            if (p.A == 0)
-                continue;
-
-            pixels[i] = new Color(
-                Math.Min(p.R + tintR, 255),
-                Math.Min(p.G + tintG, 255),
-                Math.Min(p.B + tintB, 255),
-                p.A);
-        }
-
-        var tinted = new Texture2D(Device, source.Width, source.Height);
-        tinted.SetData(pixels);
-
-        return tinted;
-    }
+    private Texture2D CreateTintedTexture(Texture2D source) => TextureConverter.CreateTintedTexture(Device, source);
 
     /// <summary>
     ///     Returns a tinted texture for the given source, caching it for the current highlighted entity. Regenerates when the
@@ -1797,13 +1943,12 @@ public sealed class WorldScreen : IScreen
     ///     Creates a texture containing a dashed ellipse inscribed in the isometric tile diamond. Gaps at the 4 cardinal
     ///     directions (top, right, bottom, left of the ellipse).
     /// </summary>
-    private static Texture2D CreateTileCursorTexture(GraphicsDevice device)
+    private static Texture2D CreateTileCursorTexture(GraphicsDevice device, Color color)
     {
         const int WIDTH = HALF_TILE_WIDTH * 2; // 56
         const int HEIGHT = HALF_TILE_HEIGHT * 2; // 28
 
         var pixels = new Color[WIDTH * HEIGHT];
-        var color = new Color(247, 142, 24);
 
         var cx = WIDTH / 2;
         var cy = HEIGHT / 2;
@@ -1900,6 +2045,36 @@ public sealed class WorldScreen : IScreen
             pixels[y * width + x] = color;
     }
 
+    private PanelBaseControl? GetDraggingPanel()
+    {
+        if (Hud.Inventory.IsDragging)
+            return Hud.Inventory;
+
+        if (Hud.SkillBook.IsDragging)
+            return Hud.SkillBook;
+
+        if (Hud.SkillBookAlt.IsDragging)
+            return Hud.SkillBookAlt;
+
+        if (Hud.SpellBook.IsDragging)
+            return Hud.SpellBook;
+
+        if (Hud.SpellBookAlt.IsDragging)
+            return Hud.SpellBookAlt;
+
+        return null;
+    }
+
+    private void DrawDragIcon(SpriteBatch spriteBatch)
+    {
+        var dragging = GetDraggingPanel();
+
+        if (dragging?.DragTexture is not { } icon)
+            return;
+
+        spriteBatch.Draw(icon, new Vector2(dragging.DragX - icon.Width / 2, dragging.DragY - icon.Height / 2), Color.White * 0.7f);
+    }
+
     private void DrawTileCursor(SpriteBatch spriteBatch)
     {
         if (MapFile is null || TileCursorTexture is null)
@@ -1923,7 +2098,8 @@ public sealed class WorldScreen : IScreen
         var tileWorld = Camera.TileToWorld(tileX, tileY, MapFile.Height);
         var tileScreen = Camera.WorldToScreen(new Vector2(tileWorld.X, tileWorld.Y));
 
-        spriteBatch.Draw(TileCursorTexture, new Vector2((int)tileScreen.X, (int)tileScreen.Y), Color.White);
+        var cursorTexture = GetDraggingPanel() is not null ? TileCursorDragTexture : TileCursorTexture;
+        spriteBatch.Draw(cursorTexture!, new Vector2((int)tileScreen.X, (int)tileScreen.Y), Color.White);
     }
 
     private Texture2D? LoadGroundItemTexture(int spriteId)
@@ -1949,6 +2125,7 @@ public sealed class WorldScreen : IScreen
         if (MapFile is not null)
         {
             MapRenderer.PreloadMapTiles(Device, MapFile);
+            TabMapRenderer.Generate(Device, MapFile);
             MapPreloaded = true;
         }
 
@@ -2012,6 +2189,7 @@ public sealed class WorldScreen : IScreen
         if (!MapPreloaded)
         {
             MapRenderer.PreloadMapTiles(Device, MapFile);
+            TabMapRenderer.Generate(Device, MapFile);
             MapPreloaded = true;
         }
 
@@ -2056,20 +2234,92 @@ public sealed class WorldScreen : IScreen
 
     private void HandleRemoveEntity(uint id)
     {
+        // Capture creature sprite for death dissolve before removing from WorldState
+        var entity = Game.World.GetEntity(id);
+
+        if (entity is { Type: ClientEntityType.Creature })
+            CreateDyingEffect(entity);
+
+        // Clean up aisling cache
         if (AislingCache.TryGetValue(id, out var entry))
         {
             entry.Texture?.Dispose();
             AislingCache.Remove(id);
         }
+
+        // Remove entity from WorldState (ChaosGame skips removal when WorldScreen is active)
+        Game.World.RemoveEntity(id);
+    }
+
+    private void CreateDyingEffect(WorldEntity entity)
+    {
+        var creatureRenderer = Game.CreatureRenderer;
+        var animInfo = creatureRenderer.GetAnimInfo(entity.SpriteId);
+
+        if (animInfo is null)
+            return;
+
+        var info = animInfo.Value;
+        (var frameIndex, var flip) = AnimationManager.GetCreatureFrame(entity, in info);
+
+        var spriteFrame = creatureRenderer.GetFrame(Device, entity.SpriteId, frameIndex);
+
+        if (spriteFrame is null)
+            return;
+
+        var frame = spriteFrame.Value;
+
+        var dyingEffect = new DyingEffect(
+            Device,
+            frame.Texture,
+            entity.TileX,
+            entity.TileY,
+            frame.CenterX,
+            frame.CenterY,
+            frame.Left,
+            frame.Top,
+            flip);
+
+        Game.World.DyingEffects.Add(dyingEffect);
+    }
+
+    /// <summary>
+    ///     Client-side prediction: sends Walk packet and immediately starts the walk animation locally without waiting for
+    ///     server confirmation. The server response reconciles position if needed.
+    /// </summary>
+    private void PredictAndWalk(WorldEntity player, Direction direction)
+    {
+        Game.Connection.Walk(direction);
+
+        // Predict position locally
+        (var dx, var dy) = direction.ToTileOffset();
+        player.TileX += dx;
+        player.TileY += dy;
+
+        AnimationManager.StartWalk(player, direction);
+        Hud.SetCoords(player.TileX, player.TileY);
     }
 
     private void HandleClientWalkResponse(Direction direction, int oldX, int oldY)
     {
-        // Update HUD coords — camera following is handled in Update via FollowPlayerCamera
+        // Server confirmation — position was already predicted locally by PredictAndWalk.
+        // Reconcile if the server position differs from our prediction.
         var player = Game.World.GetPlayerEntity();
 
-        if (player is not null)
-            Hud.SetCoords(player.TileX, player.TileY);
+        if (player is null)
+            return;
+
+        (var dx, var dy) = direction.ToTileOffset();
+        var serverX = oldX + dx;
+        var serverY = oldY + dy;
+
+        // If prediction was wrong (e.g. server denied the walk), snap to server position
+        if ((player.TileX != serverX) || (player.TileY != serverY))
+        {
+            player.TileX = serverX;
+            player.TileY = serverY;
+            Hud.SetCoords(serverX, serverY);
+        }
     }
 
     private void HandleAttributes(AttributesArgs args) => Hud.UpdateAttributes(args);
@@ -2253,6 +2503,14 @@ public sealed class WorldScreen : IScreen
 
     private void HandleInventoryDropInViewport(byte slot, int mouseX, int mouseY)
     {
+        // Dropped onto an equipment slot — equip the item
+        if (StatusBook.Visible && StatusBook.ContainsEquipmentSlotPoint(mouseX, mouseY))
+        {
+            Game.Connection.UseItem(slot);
+
+            return;
+        }
+
         var viewport = Hud.ViewportBounds;
 
         // Only drop if released within the world viewport
@@ -2265,15 +2523,15 @@ public sealed class WorldScreen : IScreen
         if (MapFile is null)
             return;
 
-        // Check if dropped on an entity (give item to NPC/player)
+        // Check if dropped on an entity (give item to NPC/player) — skip self (drop on ground instead)
         (var tileX, var tileY) = ScreenToTile(mouseX, mouseY);
         var entity = Game.World.GetEntityAt(tileX, tileY);
 
-        if (entity is not null && entity.Type is ClientEntityType.Aisling or ClientEntityType.Creature)
+        if (entity is not null
+            && entity.Type is ClientEntityType.Aisling or ClientEntityType.Creature
+            && (entity.Id != Game.Connection.AislingId))
             Game.Connection.DropItemOnCreature(slot, entity.Id);
         else
-
-            // Drop on ground at the target tile
             Game.Connection.DropItem(slot, tileX, tileY);
     }
 
@@ -2309,6 +2567,7 @@ public sealed class WorldScreen : IScreen
                 attrs.Dex,
                 attrs.Ac);
 
+        StatusBook.SwitchTab(StatusBookTab.Equipment);
         StatusBook.Show();
     }
 
@@ -2421,16 +2680,15 @@ public sealed class WorldScreen : IScreen
 
     private void FocusChat(string prefix, Color textColor)
     {
-        Hud.ChatInput.IsFocused = true;
-        Hud.ChatInput.Prefix = prefix;
-        Hud.ChatInput.TextColor = textColor;
-        Hud.SetDescription(null);
-
         Hud.ChatInput.FocusedBackgroundColor = new Color(
             0,
             0,
             0,
             128);
+        Hud.ChatInput.IsFocused = true;
+        Hud.ChatInput.Prefix = prefix;
+        Hud.ChatInput.TextColor = textColor;
+        Hud.SetDescription(null);
     }
 
     private void UnfocusChat()
@@ -2439,7 +2697,6 @@ public sealed class WorldScreen : IScreen
         Hud.ChatInput.Text = string.Empty;
         Hud.ChatInput.Prefix = string.Empty;
         Hud.ChatInput.TextColor = Color.White;
-        Hud.ChatInput.FocusedBackgroundColor = null;
     }
 
     private void DispatchChatMessage(string message)
@@ -2492,14 +2749,7 @@ public sealed class WorldScreen : IScreen
     /// </summary>
     private void UpdateDragHighlight(InputBuffer input)
     {
-        // Check if any panel is actively dragging
-        var isDragging = Hud.Inventory.IsDragging
-                         || Hud.SkillBook.IsDragging
-                         || Hud.SkillBookAlt.IsDragging
-                         || Hud.SpellBook.IsDragging
-                         || Hud.SpellBookAlt.IsDragging;
-
-        if (!isDragging || MapFile is null)
+        if (GetDraggingPanel() is null || MapFile is null)
         {
             if (HighlightedEntityId is not null)
                 ClearHighlightCache();
@@ -2512,7 +2762,14 @@ public sealed class WorldScreen : IScreen
         (var tileX, var tileY) = ScreenToTile(input.MouseX, input.MouseY);
         var entity = Game.World.GetEntityAt(tileX, tileY);
 
-        uint? newHighlight = entity?.Type is ClientEntityType.Aisling or ClientEntityType.Creature ? entity.Id : null;
+        // When dragging inventory items, don't highlight the player (drop goes to ground instead)
+        var isItemDrag = Hud.Inventory.IsDragging;
+        var playerId = Game.Connection.AislingId;
+
+        uint? newHighlight
+            = entity?.Type is ClientEntityType.Aisling or ClientEntityType.Creature && !(isItemDrag && (entity.Id == playerId))
+                ? entity.Id
+                : null;
 
         if (newHighlight != HighlightedEntityId)
             ClearHighlightCache();
@@ -2524,6 +2781,16 @@ public sealed class WorldScreen : IScreen
     ///     Converts screen mouse coordinates to tile coordinates, accounting for the HUD viewport offset. The world is
     ///     rendered with a translation matrix for the viewport origin, so mouse coords must be adjusted to match.
     /// </summary>
+    private WorldEntity? GetEntityAtScreen(int mouseX, int mouseY)
+    {
+        if (MapFile is null)
+            return null;
+
+        (var tileX, var tileY) = ScreenToTile(mouseX, mouseY);
+
+        return Game.World.GetEntityAt(tileX, tileY);
+    }
+
     private (int TileX, int TileY) ScreenToTile(int mouseX, int mouseY)
     {
         var viewport = Hud.ViewportBounds;
@@ -2554,15 +2821,7 @@ public sealed class WorldScreen : IScreen
         }
 
         // Then try the tile in front (direction the player is facing)
-        (var dx, var dy) = player.Direction switch
-        {
-            Direction.Up    => (0, -1),
-            Direction.Right => (1, 0),
-            Direction.Down  => (0, 1),
-            Direction.Left  => (-1, 0),
-            _               => (0, 0)
-        };
-
+        (var dx, var dy) = player.Direction.ToTileOffset();
         var frontX = player.TileX + dx;
         var frontY = player.TileY + dy;
 
@@ -2798,6 +3057,10 @@ public sealed class WorldScreen : IScreen
 
     private void HandleSelfProfile(SelfProfileArgs args)
     {
+        // Social status display
+        var status = SocialStatusPicker.CurrentStatus;
+        StatusBook.SetEmoticonState((byte)status, status.ToString());
+
         // Populate and show the status book
         StatusBook.SetPlayerInfo(
             Hud.PlayerName,
@@ -2853,6 +3116,10 @@ public sealed class WorldScreen : IScreen
         if (entity is null)
             return;
 
+        // Never interrupt an in-progress body animation
+        if (entity.AnimState == EntityAnimState.BodyAnim)
+            return;
+
         // Creatures use their MpfFile attack frame counts; aislings use EPF suffix-based frame counts
         if (entity.Type == ClientEntityType.Creature)
         {
@@ -2897,7 +3164,7 @@ public sealed class WorldScreen : IScreen
         if (info is null)
             return;
 
-        (var frameCount, var frameIntervalMs, var isAdditive) = info.Value;
+        (var frameCount, var frameIntervalMs, var blendMode) = info.Value;
 
         // Cancel any existing effect on the same entity — only one effect per entity at a time
         if (targetEntityId.HasValue)
@@ -2912,7 +3179,7 @@ public sealed class WorldScreen : IScreen
                 TileY = targetTileY,
                 FrameCount = frameCount,
                 FrameIntervalMs = frameIntervalMs > 0 ? frameIntervalMs : 50,
-                IsAdditive = isAdditive
+                BlendMode = blendMode
             });
     }
 
@@ -2922,6 +3189,46 @@ public sealed class WorldScreen : IScreen
             Game.SoundManager.PlayMusic(args.Sound);
         else
             Game.SoundManager.PlaySound(args.Sound);
+    }
+
+    private void HandleWorldMap(WorldMapArgs args) => WorldMap.Show(args);
+
+    private void HandleDoor(DoorArgs args)
+    {
+        if (MapFile is null)
+            return;
+
+        foreach (var door in args.Doors)
+        {
+            if ((door.X < 0) || (door.X >= MapFile.Width) || (door.Y < 0) || (door.Y >= MapFile.Height))
+                continue;
+
+            var tile = MapFile.Tiles[door.X, door.Y];
+
+            if (door.Closed)
+            {
+                // Restore closed tile: find the open tile currently set and swap it back
+                var closedLeft = DoorTileTable.GetClosedTileId(tile.LeftForeground);
+                var closedRight = DoorTileTable.GetClosedTileId(tile.RightForeground);
+
+                if (closedLeft.HasValue)
+                    tile.LeftForeground = closedLeft.Value;
+
+                if (closedRight.HasValue)
+                    tile.RightForeground = closedRight.Value;
+            } else
+            {
+                // Open door: find the closed tile and swap to open
+                var openLeft = DoorTileTable.GetOpenTileId(tile.LeftForeground);
+                var openRight = DoorTileTable.GetOpenTileId(tile.RightForeground);
+
+                if (openLeft.HasValue)
+                    tile.LeftForeground = openLeft.Value;
+
+                if (openRight.HasValue)
+                    tile.RightForeground = openRight.Value;
+            }
+        }
     }
 
     /// <summary>
@@ -2972,10 +3279,13 @@ public sealed class WorldScreen : IScreen
         };
 
     private void HandleMapChangePending()
-        =>
+    {
+        MapPreloaded = false;
+        QueuedWalkDirection = null;
 
-            // Clear caches in preparation for a map change
-            MapPreloaded = false;
+        Game.SoundManager.StopMusic();
+        WorldMap.HideMap();
+    }
 
     private void HandleExitResponse(ExitResponseArgs args)
     {

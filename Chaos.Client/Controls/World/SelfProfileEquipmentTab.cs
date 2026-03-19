@@ -51,6 +51,7 @@ public sealed class SelfProfileEquipmentTab : PrefabPanel
 
     // Idle frame for south-facing direction (walk anim frames 5-9, idle = 5)
     private const int PAPERDOLL_IDLE_FRAME = 5;
+    private const float DOUBLE_CLICK_MS = 400;
 
     private readonly UILabel? AcLabel;
     private readonly UILabel? ClanLabel;
@@ -91,6 +92,8 @@ public sealed class SelfProfileEquipmentTab : PrefabPanel
     private readonly UILabel? WisLabel;
     private byte EmoticonState;
     private EquipmentSlot? HoveredSlot;
+    private EquipmentSlot? LastClickedSlot;
+    private float LastClickTimer;
     private Texture2D? NationIconTexture;
     private byte NationId; // retained for future use (e.g. nation-specific UI logic)
     private Texture2D? PaperdollTexture;
@@ -242,6 +245,18 @@ public sealed class SelfProfileEquipmentTab : PrefabPanel
         visual.Image.Texture = visual.PlaceholderTexture;
     }
 
+    /// <summary>
+    ///     Returns true if the given screen point is within any equipment slot image.
+    /// </summary>
+    public bool ContainsEquipmentSlotPoint(int screenX, int screenY)
+    {
+        foreach ((_, var visual) in SlotVisuals)
+            if (visual.Image.ContainsPoint(screenX, screenY))
+                return true;
+
+        return false;
+    }
+
     public override void Dispose()
     {
         foreach ((_, var visual) in SlotVisuals)
@@ -274,14 +289,11 @@ public sealed class SelfProfileEquipmentTab : PrefabPanel
         if (NationIconTexture is not null && (NationRect != Rectangle.Empty))
             spriteBatch.Draw(NationIconTexture, new Vector2(sx + NationRect.X, sy + NationRect.Y), Color.White);
 
-        // Paperdoll — anchored at body center (28, 42) within composited texture
+        // Paperdoll — horizontally centered, bottom-aligned within the HumanImage rect
         if (PaperdollTexture is not null && (PaperdollRect != Rectangle.Empty))
         {
-            var centerX = sx + PaperdollRect.X + PaperdollRect.Width / 2;
-            var centerY = sy + PaperdollRect.Y + PaperdollRect.Height - 20;
-
-            var drawX = centerX - PaperdollTexture.Width / 2;
-            var drawY = centerY - PaperdollTexture.Height;
+            var drawX = sx + PaperdollRect.X + (PaperdollRect.Width - PaperdollTexture.Width) / 2;
+            var drawY = sy + PaperdollRect.Y + PaperdollRect.Height - PaperdollTexture.Height;
 
             spriteBatch.Draw(PaperdollTexture, new Vector2(drawX, drawY), Color.White);
         }
@@ -308,6 +320,8 @@ public sealed class SelfProfileEquipmentTab : PrefabPanel
 
         return CreateLabel(name, alignment);
     }
+
+    public event Action<EquipmentSlot>? OnUnequip;
 
     /// <summary>
     ///     Renders an item icon from the panel item sprite sheet using the same pipeline as inventory icons.
@@ -414,6 +428,8 @@ public sealed class SelfProfileEquipmentTab : PrefabPanel
 
         base.Update(gameTime, input);
 
+        LastClickTimer += (float)gameTime.ElapsedGameTime.TotalMilliseconds;
+
         // Hover detection for equipment slot tooltips
         HoveredSlot = null;
         var mx = input.MouseX;
@@ -421,7 +437,7 @@ public sealed class SelfProfileEquipmentTab : PrefabPanel
 
         foreach ((var slot, var visual) in SlotVisuals)
         {
-            if (visual.ItemName.Length == 0)
+            if (visual.ItemTexture is null)
                 continue;
 
             if (visual.Image.ContainsPoint(mx, my))
@@ -429,6 +445,20 @@ public sealed class SelfProfileEquipmentTab : PrefabPanel
                 HoveredSlot = slot;
 
                 break;
+            }
+        }
+
+        // Double-click detection for unequip
+        if (input.WasLeftButtonPressed && HoveredSlot.HasValue)
+        {
+            if ((HoveredSlot == LastClickedSlot) && (LastClickTimer < DOUBLE_CLICK_MS))
+            {
+                OnUnequip?.Invoke(HoveredSlot.Value);
+                LastClickedSlot = null;
+            } else
+            {
+                LastClickedSlot = HoveredSlot;
+                LastClickTimer = 0;
             }
         }
 

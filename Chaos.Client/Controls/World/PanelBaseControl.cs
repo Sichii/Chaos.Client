@@ -26,7 +26,6 @@ public abstract class PanelBaseControl : UIPanel
     protected readonly int SlotOffset;
     protected readonly PanelSlotControl[] Slots;
     private int DragMouseX;
-    private int DragMouseY;
 
     // Drag state
     private PanelSlotControl? DragSource;
@@ -35,14 +34,29 @@ public abstract class PanelBaseControl : UIPanel
     private PanelSlotControl? LastHoveredSlot;
 
     /// <summary>
+    ///     True when the user is actively dragging a slot icon.
+    /// </summary>
+    public bool IsDragging { get; private set; }
+
+    /// <summary>
     ///     The 1-based slot number being dragged, or 0 if not dragging.
     /// </summary>
     public byte DragSlot => DragSource?.Slot ?? 0;
 
     /// <summary>
-    ///     True when the user is actively dragging a slot icon.
+    ///     The texture of the currently dragged icon, or null.
     /// </summary>
-    public bool IsDragging { get; private set; }
+    public Texture2D? DragTexture => IsDragging ? DragSource?.NormalTexture : null;
+
+    /// <summary>
+    ///     Current mouse X during drag.
+    /// </summary>
+    public int DragX => DragMouseX;
+
+    /// <summary>
+    ///     Current mouse Y during drag.
+    /// </summary>
+    public int DragY { get; private set; }
 
     protected PanelBaseControl(
         GraphicsDevice device,
@@ -115,13 +129,6 @@ public abstract class PanelBaseControl : UIPanel
             return;
 
         base.Draw(spriteBatch);
-
-        // Dragged icon follows mouse (semi-transparent)
-        if (IsDragging && DragSource?.NormalTexture is { } dragIcon)
-            spriteBatch.Draw(
-                dragIcon,
-                new Vector2(DragMouseX - Convert.ToInt32(dragIcon.Width / 2.0), DragMouseY - Convert.ToInt32(dragIcon.Height / 2.0)),
-                Color.White * 0.7f);
     }
 
     /// <summary>
@@ -219,7 +226,7 @@ public abstract class PanelBaseControl : UIPanel
         if (IsDragging)
         {
             DragMouseX = input.MouseX;
-            DragMouseY = input.MouseY;
+            DragY = input.MouseY;
 
             if (!input.IsLeftButtonHeld)
             {

@@ -79,7 +79,8 @@ public sealed class ChaosGame : Game
         Graphics = new GraphicsDeviceManager(this)
         {
             PreferredBackBufferWidth = VIRTUAL_WIDTH,
-            PreferredBackBufferHeight = VIRTUAL_HEIGHT
+            PreferredBackBufferHeight = VIRTUAL_HEIGHT,
+            PreferredDepthStencilFormat = DepthFormat.Depth24Stencil8
         };
 
         Connection = new ConnectionManager();
@@ -88,7 +89,15 @@ public sealed class ChaosGame : Game
         // even during world entry (before WorldScreen is created)
         Connection.OnDisplayVisibleEntities += args => World.AddOrUpdateVisibleEntities(args);
         Connection.OnDisplayAisling += args => World.AddOrUpdateAisling(args);
-        Connection.OnRemoveEntity += id => World.RemoveEntity(id);
+
+        // RemoveEntity wired in WorldScreen — it needs to capture the creature sprite for
+        // the death dissolve animation before removing the entity from WorldState.
+        // Fallback for non-world screens (e.g., during world entry before WorldScreen exists).
+        Connection.OnRemoveEntity += id =>
+        {
+            if (Screens.ActiveScreen is not WorldScreen)
+                World.RemoveEntity(id);
+        };
 
         Connection.OnCreatureWalk += (
             id,
@@ -100,7 +109,6 @@ public sealed class ChaosGame : Game
             oldY,
             dir);
         Connection.OnCreatureTurn += (id, dir) => World.HandleCreatureTurn(id, dir);
-        Connection.OnClientWalkResponse += (dir, oldX, oldY) => World.HandlePlayerWalk(dir, oldX, oldY);
 
         Window.Title = "Darkages";
         Window.AllowUserResizing = true;
@@ -146,7 +154,14 @@ public sealed class ChaosGame : Game
     protected override void LoadContent()
     {
         SpriteBatch = new SpriteBatch(GraphicsDevice);
-        RenderTarget = new RenderTarget2D(GraphicsDevice, VIRTUAL_WIDTH, VIRTUAL_HEIGHT);
+
+        RenderTarget = new RenderTarget2D(
+            GraphicsDevice,
+            VIRTUAL_WIDTH,
+            VIRTUAL_HEIGHT,
+            false,
+            SurfaceFormat.Color,
+            DepthFormat.Depth24Stencil8);
         Input = new InputBuffer(Window);
         Screens = new ScreenManager(this);
 

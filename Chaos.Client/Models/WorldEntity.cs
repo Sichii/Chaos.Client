@@ -30,6 +30,7 @@ public sealed class WorldEntity
     // Draw ordering: monotonic counter incremented each time entity enters a tile.
     // Higher = arrived more recently = draws on top of entities in the same category at the same tile.
     public uint ArrivalOrder { get; set; }
+    public CreatureType CreatureType { get; set; }
     public Direction Direction { get; set; }
     public uint Id { get; init; }
     public string Name { get; set; } = string.Empty;

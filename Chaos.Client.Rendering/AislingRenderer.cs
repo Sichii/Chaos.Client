@@ -19,6 +19,8 @@ public record struct AislingAppearance
     public int Accessory1Sprite { get; init; }
     public DisplayColor Accessory2Color { get; init; }
     public int Accessory2Sprite { get; init; }
+    public DisplayColor Accessory3Color { get; init; }
+    public int Accessory3Sprite { get; init; }
     public DisplayColor ArmorColor { get; init; }
     public int ArmorSprite { get; init; }
     public int BodyColor { get; init; }
@@ -89,6 +91,7 @@ public sealed class AislingRenderer : IDisposable
         LayerSlot.HeadF,
         LayerSlot.Acc1G,
         LayerSlot.Acc2G,
+        LayerSlot.Acc3G,
         LayerSlot.Body,
         LayerSlot.Pants,
         LayerSlot.Face,
@@ -101,7 +104,8 @@ public sealed class AislingRenderer : IDisposable
         LayerSlot.WeaponP,
         LayerSlot.Shield,
         LayerSlot.Acc1C,
-        LayerSlot.Acc2C
+        LayerSlot.Acc2C,
+        LayerSlot.Acc3C
     ];
 
     // Back-facing composite order
@@ -109,6 +113,7 @@ public sealed class AislingRenderer : IDisposable
     [
         LayerSlot.Acc1G,
         LayerSlot.Acc2G,
+        LayerSlot.Acc3G,
         LayerSlot.Shield,
         LayerSlot.Body,
         LayerSlot.Face,
@@ -122,7 +127,8 @@ public sealed class AislingRenderer : IDisposable
         LayerSlot.WeaponW,
         LayerSlot.WeaponP,
         LayerSlot.Acc1C,
-        LayerSlot.Acc2C
+        LayerSlot.Acc2C,
+        LayerSlot.Acc3C
     ];
 
     // Body palettes (palm) — indexed directly by body color
@@ -225,7 +231,8 @@ public sealed class AislingRenderer : IDisposable
         in AislingAppearance appearance,
         int frameIndex,
         string animSuffix = WALK_ANIM,
-        bool flipHorizontal = false)
+        bool flipHorizontal = false,
+        bool? isFrontFacing = null)
     {
         var layers = new LayerInfo?[(int)LayerSlot.Count];
 
@@ -240,7 +247,7 @@ public sealed class AislingRenderer : IDisposable
             if (!layers[(int)LayerSlot.Body].HasValue)
                 return null;
 
-            var order = IsFrontFacing(frameIndex, animSuffix) ? FRONT_ORDER : BACK_ORDER;
+            var order = isFrontFacing ?? IsFrontFacing(frameIndex, animSuffix) ? FRONT_ORDER : BACK_ORDER;
 
             using var composite = Composite(layers, order, flipHorizontal);
 
@@ -331,6 +338,8 @@ public sealed class AislingRenderer : IDisposable
         Acc1G,
         Acc2C,
         Acc2G,
+        Acc3C,
+        Acc3G,
         Count
     }
 
@@ -406,42 +415,24 @@ public sealed class AislingRenderer : IDisposable
                 anim);
         }
 
-        // Armor — overcoat (type i/j) overrides regular armor (type u/a)
+        // Armor/Overcoat rendering — overcoat overrides armor
+        // Sprite number determines type letters: < 1000 → u/a, >= 1000 → i/j (ID - 1000)
         if (appearance.OvercoatSprite > 0)
-        {
-            layers[(int)LayerSlot.Armor] = RenderEquipLayer(
-                'i',
+            RenderArmorLayers(
+                layers,
                 appearance.OvercoatSprite,
                 appearance.OvercoatColor,
                 in appearance,
                 frameIndex,
                 anim);
-
-            layers[(int)LayerSlot.Arms] = RenderEquipLayer(
-                'j',
-                appearance.OvercoatSprite,
-                appearance.OvercoatColor,
-                in appearance,
-                frameIndex,
-                anim);
-        } else if (appearance.ArmorSprite > 0)
-        {
-            layers[(int)LayerSlot.Armor] = RenderEquipLayer(
-                'u',
+        else if (appearance.ArmorSprite > 0)
+            RenderArmorLayers(
+                layers,
                 appearance.ArmorSprite,
                 appearance.ArmorColor,
                 in appearance,
                 frameIndex,
                 anim);
-
-            layers[(int)LayerSlot.Arms] = RenderEquipLayer(
-                'a',
-                appearance.ArmorSprite,
-                appearance.ArmorColor,
-                in appearance,
-                frameIndex,
-                anim);
-        }
 
         // Weapon (w + p sub-layers)
         if (appearance.WeaponSprite > 0)
@@ -511,6 +502,55 @@ public sealed class AislingRenderer : IDisposable
                 frameIndex,
                 anim);
         }
+
+        if (appearance.Accessory3Sprite > 0)
+        {
+            layers[(int)LayerSlot.Acc3C] = RenderEquipLayer(
+                'c',
+                appearance.Accessory3Sprite,
+                appearance.Accessory3Color,
+                in appearance,
+                frameIndex,
+                anim);
+
+            layers[(int)LayerSlot.Acc3G] = RenderEquipLayer(
+                'g',
+                appearance.Accessory3Sprite,
+                appearance.Accessory3Color,
+                in appearance,
+                frameIndex,
+                anim);
+        }
+    }
+
+    private void RenderArmorLayers(
+        LayerInfo?[] layers,
+        int spriteId,
+        DisplayColor color,
+        in AislingAppearance appearance,
+        int frameIndex,
+        string anim)
+    {
+        var isOverType = spriteId >= 1000;
+        var adjustedId = isOverType ? spriteId - 1000 : spriteId;
+        var bodyLetter = isOverType ? 'i' : 'u';
+        var armsLetter = isOverType ? 'j' : 'a';
+
+        layers[(int)LayerSlot.Armor] = RenderEquipLayer(
+            bodyLetter,
+            adjustedId,
+            color,
+            in appearance,
+            frameIndex,
+            anim);
+
+        layers[(int)LayerSlot.Arms] = RenderEquipLayer(
+            armsLetter,
+            adjustedId,
+            color,
+            in appearance,
+            frameIndex,
+            anim);
     }
 
     /// <summary>
@@ -600,15 +640,15 @@ public sealed class AislingRenderer : IDisposable
     private PaletteLookup GetPaletteLookup(char typeLetter)
         => typeLetter switch
         {
-            'b' or 'n'        => PalB,
-            'c' or 'g'        => PalC,
+            'a' or 'b' or 'n' => PalB,
+            'c' or 'g' or 'j' => PalC,
             'e'               => PalE,
             'f'               => PalF,
             'h'               => PalH,
-            'i' or 'j'        => PalI,
+            'i'               => PalI,
             'l'               => PalL,
-            'p'               => PalP,
-            's' or 'u' or 'a' => PalU,
+            'p' or 's'        => PalP,
+            'u'               => PalU,
             'w'               => PalW,
             _                 => PalB
         };

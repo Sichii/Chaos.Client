@@ -1,3 +1,7 @@
+#region
+using Chaos.Client.Common.Definitions;
+#endregion
+
 namespace Chaos.Client.Rendering.Models;
 
 /// <summary>
@@ -5,16 +9,16 @@ namespace Chaos.Client.Rendering.Models;
 /// </summary>
 public sealed class SpriteAnimation : IDisposable
 {
+    public EffectBlendMode BlendMode { get; }
     public int FrameIntervalMs { get; }
     public SpriteFrame[] Frames { get; }
-    public bool IsAdditive { get; }
     public int FrameCount => Frames.Length;
 
-    public SpriteAnimation(SpriteFrame[] frames, int frameIntervalMs = 100, bool isAdditive = false)
+    public SpriteAnimation(SpriteFrame[] frames, int frameIntervalMs = 100, EffectBlendMode blendMode = EffectBlendMode.Normal)
     {
         Frames = frames;
         FrameIntervalMs = frameIntervalMs;
-        IsAdditive = isAdditive;
+        BlendMode = blendMode;
     }
 
     public void Dispose()

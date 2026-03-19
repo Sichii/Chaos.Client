@@ -15,11 +15,17 @@ public sealed class SoundManager : IDisposable
     private const int MAX_CACHED_SOUNDS = 128;
     private const int VOLUME_STEPS = 10;
     private readonly Dictionary<int, SoundEffect?> SoundCache = new();
+    private int CurrentMusicId = -1;
+    private SoundEffect? MusicEffect;
+    private SoundEffectInstance? MusicInstance;
+    private float MusicVolume = 0.75f;
     private float Volume = 0.75f;
 
     /// <inheritdoc />
     public void Dispose()
     {
+        StopMusic();
+
         foreach (var sfx in SoundCache.Values)
             sfx?.Dispose();
 
@@ -71,11 +77,50 @@ public sealed class SoundManager : IDisposable
     }
 
     /// <summary>
-    ///     Plays background music by ID. Stub for future implementation.
+    ///     Plays background music by ID. Loads MP3 from music directory, decodes to PCM, loops continuously.
+    ///     musicId 0 stops playback.
     /// </summary>
     public void PlayMusic(int musicId)
     {
-        // Music playback deferred to a later milestone
+        if (musicId == CurrentMusicId)
+            return;
+
+        StopMusic();
+
+        if (musicId == 0)
+            return;
+
+        try
+        {
+            using var musStream = DataContext.Sounds.GetMusic(musicId);
+
+            if (musStream is null)
+                return;
+
+            using var mp3Reader = new Mp3FileReader(musStream);
+            using var pcmStream = WaveFormatConversionStream.CreatePcmStream(mp3Reader);
+
+            using var ms = new MemoryStream();
+            pcmStream.CopyTo(ms);
+
+            var pcmBytes = ms.ToArray();
+
+            if (pcmBytes.Length == 0)
+                return;
+
+            var format = pcmStream.WaveFormat;
+
+            MusicEffect = new SoundEffect(pcmBytes, format.SampleRate, format.Channels == 1 ? AudioChannels.Mono : AudioChannels.Stereo);
+
+            MusicInstance = MusicEffect.CreateInstance();
+            MusicInstance.IsLooped = true;
+            MusicInstance.Volume = MusicVolume;
+            MusicInstance.Play();
+            CurrentMusicId = musicId;
+        } catch
+        {
+            StopMusic();
+        }
     }
 
     /// <summary>
@@ -99,7 +144,39 @@ public sealed class SoundManager : IDisposable
     }
 
     /// <summary>
+    ///     Sets the music volume. Range: 0 (mute) to 10 (max).
+    /// </summary>
+    public void SetMusicVolume(int volume)
+    {
+        MusicVolume = Math.Clamp(volume, 0, VOLUME_STEPS) / (float)VOLUME_STEPS;
+
+        if (MusicInstance is not null)
+            MusicInstance.Volume = MusicVolume;
+    }
+
+    /// <summary>
     ///     Sets the sound effect volume. Range: 0 (mute) to 10 (max).
     /// </summary>
     public void SetSoundVolume(int volume) => Volume = Math.Clamp(volume, 0, VOLUME_STEPS) / (float)VOLUME_STEPS;
+
+    /// <summary>
+    ///     Stops the currently playing music track.
+    /// </summary>
+    public void StopMusic()
+    {
+        CurrentMusicId = -1;
+
+        if (MusicInstance is not null)
+        {
+            MusicInstance.Stop();
+            MusicInstance.Dispose();
+            MusicInstance = null;
+        }
+
+        if (MusicEffect is not null)
+        {
+            MusicEffect.Dispose();
+            MusicEffect = null;
+        }
+    }
 }

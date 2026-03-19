@@ -52,7 +52,7 @@ public static class AnimationManager
         if (entity.AnimState == EntityAnimState.Walking)
             return;
 
-        (_, var framesPerDir) = ResolveBodyAnimParams(bodyAnim);
+        (_, var framesPerDir, _, _) = ResolveBodyAnimParams(bodyAnim);
 
         if (framesPerDir == 0)
             return;
@@ -182,7 +182,7 @@ public static class AnimationManager
             ResetToIdle(entity);
     }
 
-    private static void ResetToIdle(WorldEntity entity)
+    public static void ResetToIdle(WorldEntity entity)
     {
         entity.AnimState = EntityAnimState.Idle;
         entity.ActiveBodyAnimation = null;
@@ -245,51 +245,43 @@ public static class AnimationManager
     }
 
     /// <summary>
-    ///     Returns the correct aisling frame index, flip flag, and EPF animation suffix for the entity's current state.
+    ///     Returns the correct aisling frame index, flip flag, EPF animation suffix, and front-facing flag for the entity's
+    ///     current state. IsFrontFacing determines layer draw order (front vs back).
     /// </summary>
-    public static (int FrameIndex, bool Flip, string AnimSuffix) GetAislingFrame(WorldEntity entity)
+    public static (int FrameIndex, bool Flip, string AnimSuffix, bool IsFrontFacing) GetAislingFrame(WorldEntity entity)
     {
         switch (entity.AnimState)
         {
             case EntityAnimState.Walking:
             {
-                var baseFrame = entity.Direction is Direction.Right or Direction.Down ? AISLING_RIGHT_BASE : AISLING_UP_BASE;
-
+                var isFront = entity.Direction is Direction.Right or Direction.Down;
+                var baseFrame = isFront ? AISLING_RIGHT_BASE : AISLING_UP_BASE;
                 var frameIndex = baseFrame + Math.Clamp(entity.AnimFrameIndex, 0, DEFAULT_WALK_FRAMES - 1);
                 var flip = entity.Direction is Direction.Down or Direction.Left;
 
-                return (frameIndex, flip, "01");
+                return (frameIndex, flip, "01", isFront);
             }
 
             case EntityAnimState.BodyAnim:
             {
-                (var suffix, var framesPerDir) = ResolveBodyAnimParams(entity.ActiveBodyAnimation ?? BodyAnimation.Assail);
-                var frameIndex = Math.Clamp(entity.AnimFrameIndex, 0, framesPerDir - 1);
+                (var suffix, var framesPerDir, var upStart, var rightStart)
+                    = ResolveBodyAnimParams(entity.ActiveBodyAnimation ?? BodyAnimation.Assail);
 
-                // Direction base offsets differ by animation suffix
-                var dirBase = suffix switch
-                {
-                    "02" => entity.Direction is Direction.Right or Direction.Down ? 2 : 0,
-                    "03" => entity.Direction is Direction.Right or Direction.Down ? 5 : 0,
-                    _    => entity.Direction is Direction.Right or Direction.Down ? AISLING_RIGHT_BASE : AISLING_UP_BASE
-                };
-
+                var isFront = entity.Direction is Direction.Right or Direction.Down;
+                var frameIndex = Math.Clamp(entity.AnimFrameIndex, 0, Math.Max(framesPerDir - 1, 0));
+                var dirBase = isFront ? rightStart : upStart;
                 var flip = entity.Direction is Direction.Down or Direction.Left;
 
-                return (dirBase + frameIndex, flip, suffix);
+                return (dirBase + frameIndex, flip, suffix, isFront);
             }
 
             default:
             {
                 // Idle
-                return entity.Direction switch
-                {
-                    Direction.Up    => (AISLING_UP_BASE, false, "01"),
-                    Direction.Right => (AISLING_RIGHT_BASE, false, "01"),
-                    Direction.Down  => (AISLING_RIGHT_BASE, true, "01"),
-                    Direction.Left  => (AISLING_UP_BASE, true, "01"),
-                    _               => (AISLING_UP_BASE, false, "01")
-                };
+                var isFront = entity.Direction is Direction.Right or Direction.Down;
+                var flip = entity.Direction is Direction.Down or Direction.Left;
+
+                return (isFront ? AISLING_RIGHT_BASE : AISLING_UP_BASE, flip, "01", isFront);
             }
         }
     }
@@ -297,18 +289,58 @@ public static class AnimationManager
 
     #region Helpers
     /// <summary>
-    ///     Maps a BodyAnimation enum to its EPF animation suffix and frames-per-direction count. Returns ("01", 0) for emotes
-    ///     (no body animation change).
+    ///     Maps a BodyAnimation enum to its EPF animation suffix, frames-per-direction count, and the starting frame index
+    ///     for Up and Right directions within that EPF file. Multiple animations can share a single suffix file.
+    ///     Returns ("01", 0, 0, 0) for emotes (no body animation change).
     /// </summary>
-    public static (string Suffix, int FramesPerDirection) ResolveBodyAnimParams(BodyAnimation anim)
+    public static (string Suffix, int FramesPerDirection, int UpStart, int RightStart) ResolveBodyAnimParams(BodyAnimation anim)
     {
         if (Helpers.IsEmote(anim))
-            return ("01", 0);
+            return ("01", 0, 0, 0);
 
+        // Reference: ChaosAssetManager AnimationDefinitions
         return anim switch
         {
-            BodyAnimation.PriestCast or BodyAnimation.WizardCast or BodyAnimation.PlayNotes or BodyAnimation.Summon => ("03", 5),
-            _                                                                                                       => ("02", 2)
+            // 02 — assail (2 frames per dir)
+            BodyAnimation.Assail => ("02", 2, 0, 2),
+
+            // 03 — peasant animations (shared file)
+            BodyAnimation.HandsUp  => ("03", 1, 0, 1),
+            BodyAnimation.BlowKiss => ("03", 2, 2, 4),
+            BodyAnimation.Wave     => ("03", 2, 6, 8),
+
+            // b — priest/bard
+            BodyAnimation.PriestCast => ("b", 3, 0, 3),
+            BodyAnimation.PlayNotes  => ("b", 3, 6, 9),
+
+            // c — warrior
+            BodyAnimation.TwoHandAtk => ("c", 4, 0, 4),
+            BodyAnimation.JumpAttack => ("c", 3, 8, 11),
+            BodyAnimation.Swipe      => ("c", 2, 14, 16),
+            BodyAnimation.HeavySwipe => ("c", 3, 18, 21),
+            BodyAnimation.Jump       => ("c", 3, 24, 27),
+
+            // d — monk
+            BodyAnimation.Kick           => ("d", 3, 0, 3),
+            BodyAnimation.Punch          => ("d", 2, 6, 8),
+            BodyAnimation.RoundHouseKick => ("d", 4, 10, 14),
+
+            // e — rogue
+            BodyAnimation.Stab         => ("e", 2, 0, 2),
+            BodyAnimation.DoubleStab   => ("e", 2, 4, 6),
+            BodyAnimation.BowShot      => ("e", 4, 8, 12),
+            BodyAnimation.HeavyBowShot => ("e", 6, 16, 22),
+            BodyAnimation.LongBowShot  => ("e", 4, 28, 32),
+
+            // f — wizard
+            BodyAnimation.WizardCast => ("f", 2, 0, 2),
+            BodyAnimation.Summon     => ("f", 4, 4, 8),
+
+            // HandsUp2 — same as HandsUp
+            BodyAnimation.HandsUp2 => ("03", 1, 0, 1),
+
+            // Default fallback — assail
+            _ => ("02", 2, 0, 2)
         };
     }
 

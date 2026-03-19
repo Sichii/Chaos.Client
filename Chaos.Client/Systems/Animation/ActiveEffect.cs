@@ -1,3 +1,7 @@
+#region
+using Chaos.Client.Common.Definitions;
+#endregion
+
 namespace Chaos.Client.Systems.Animation;
 
 /// <summary>
@@ -5,12 +9,12 @@ namespace Chaos.Client.Systems.Animation;
 /// </summary>
 public sealed class ActiveEffect
 {
+    public EffectBlendMode BlendMode { get; init; }
     public int CurrentFrame { get; set; }
     public int EffectId { get; init; }
     public float ElapsedMs { get; set; }
     public int FrameCount { get; init; }
     public float FrameIntervalMs { get; init; }
-    public bool IsAdditive { get; init; }
     public uint? TargetEntityId { get; init; }
     public int? TileX { get; init; }
     public int? TileY { get; init; }

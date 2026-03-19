@@ -31,9 +31,14 @@ public sealed class PanelSlotControl : UIButton
     public CooldownStyle CooldownStyle { get; set; }
 
     /// <summary>
-    ///     Alternate texture shown during cooldown. For skills this is the blue variant; for spells the blue swap icon.
+    ///     Alternate texture shown during cooldown. Tinted version of the original icon (via CreateTintedTexture).
     /// </summary>
     public Texture2D? CooldownTexture { get; set; }
+
+    /// <summary>
+    ///     Grey base texture shown underneath progressive cooldown overlay (skills only, from skill003).
+    /// </summary>
+    public Texture2D? GreyTexture { get; set; }
 
     /// <summary>
     ///     The 1-based slot number this control represents.
@@ -49,6 +54,8 @@ public sealed class PanelSlotControl : UIButton
     {
         CooldownTexture?.Dispose();
         CooldownTexture = null;
+        GreyTexture?.Dispose();
+        GreyTexture = null;
 
         base.Dispose();
     }
@@ -77,13 +84,10 @@ public sealed class PanelSlotControl : UIButton
                     break;
 
                 case CooldownStyle.Progressive:
-                    // Base normal icon
-                    spriteBatch.Draw(icon, pos, Color.White);
+                    // Grey base icon (skill003 variant)
+                    spriteBatch.Draw(GreyTexture ?? icon, pos, Color.White);
 
-                    // Blue overlay at 33% opacity
-                    spriteBatch.Draw(CooldownTexture, pos, Color.White * 0.33f);
-
-                    // Blue progressively revealed top-to-bottom as cooldown elapses
+                    // Tinted icon progressively revealed top-to-bottom as cooldown elapses
                     var elapsed = 1f - CooldownPercent;
                     var revealHeight = (int)(CooldownTexture.Height * elapsed);
 

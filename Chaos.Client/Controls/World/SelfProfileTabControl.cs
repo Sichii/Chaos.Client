@@ -162,6 +162,9 @@ public sealed class SelfProfileTabControl : PrefabPanel
         page.X = ContentRect.X;
         page.Y = ContentRect.Y;
 
+        if (page is SelfProfileEquipmentTab equipTab)
+            equipTab.OnUnequip += slot => OnUnequip?.Invoke(slot);
+
         return page;
     }
 
@@ -183,6 +186,7 @@ public sealed class SelfProfileTabControl : PrefabPanel
     }
 
     public event Action? OnClose;
+    public event Action<EquipmentSlot>? OnUnequip;
 
     #region Events API
     /// <summary>
@@ -373,6 +377,13 @@ public sealed class SelfProfileTabControl : PrefabPanel
         var equipPage = GetOrCreateEquipmentPage();
 
         equipPage?.SetGroupOpen(groupOpen);
+    }
+
+    public bool ContainsEquipmentSlotPoint(int screenX, int screenY)
+    {
+        var equipPage = GetOrCreateEquipmentPage();
+
+        return equipPage?.ContainsEquipmentSlotPoint(screenX, screenY) ?? false;
     }
 
     private SelfProfileEquipmentTab? GetOrCreateEquipmentPage()

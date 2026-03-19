@@ -14,6 +14,38 @@ namespace Chaos.Client.Rendering;
 public static class TextureConverter
 {
     /// <summary>
+    ///     Creates a tinted (blue-shifted) copy of a texture. Used for cooldown overlays and entity hover highlights.
+    /// </summary>
+    public static Texture2D CreateTintedTexture(GraphicsDevice device, Texture2D source)
+    {
+        var pixels = new Color[source.Width * source.Height];
+        source.GetData(pixels);
+
+        for (var i = 0; i < pixels.Length; i++)
+        {
+            var p = pixels[i];
+
+            if (p.A == 0)
+                continue;
+
+            var r = Math.Clamp((128 * p.R + 2 * p.B) / 256 + 59, 0, 255);
+            var g = Math.Clamp((131 * p.G - 2 * p.B) / 256 + 82, 0, 255);
+            var b = Math.Clamp((133 * p.B - 2 * p.G) / 256 + 120, 0, 255);
+
+            pixels[i] = new Color(
+                (byte)r,
+                (byte)g,
+                (byte)b,
+                p.A);
+        }
+
+        var tinted = new Texture2D(device, source.Width, source.Height);
+        tinted.SetData(pixels);
+
+        return tinted;
+    }
+
+    /// <summary>
     ///     Loads all frames from an EPF file in setoa.dat as Texture2D[] using the GUI palette.
     /// </summary>
     public static Texture2D[] LoadEpfTextures(GraphicsDevice device, string fileName)

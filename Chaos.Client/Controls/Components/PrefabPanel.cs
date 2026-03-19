@@ -112,7 +112,17 @@ public abstract class PrefabPanel : UIPanel
 
         // World list (_nusers)
         "CountryBtn",
-        "MasterBtn"
+        "MasterBtn",
+
+        // Social status picker (lemot)
+        "Emot0",
+        "Emot1",
+        "Emot2",
+        "Emot3",
+        "Emot4",
+        "Emot5",
+        "Emot6",
+        "Emot7"
     };
 
     protected GraphicsDevice Device { get; }
