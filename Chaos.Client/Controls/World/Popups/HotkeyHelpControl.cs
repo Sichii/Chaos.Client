@@ -72,7 +72,7 @@ public sealed class HotkeyHelpControl : PrefabPanel
                 if (element is not null)
                 {
                     KeyGroups[i] = new KeyGroupEntry(element, null);
-                    DetailImages[i] = TryLoadDetailImage(device, i);
+                    DetailImages[i] = TryLoadDetailImage(i);
                 }
 
                 continue;
@@ -97,7 +97,7 @@ public sealed class HotkeyHelpControl : PrefabPanel
             if (subElements.Count > 0)
             {
                 KeyGroups[i] = new KeyGroupEntry(subElements[0], subElements.ToArray());
-                DetailImages[i] = TryLoadDetailImage(device, i);
+                DetailImages[i] = TryLoadDetailImage(i);
             }
         }
     }
@@ -122,7 +122,7 @@ public sealed class HotkeyHelpControl : PrefabPanel
             Y = mainRect.Y + (int)r.Top,
             Width = (int)r.Width,
             Height = (int)r.Height,
-            Texture = TextureConverter.ToTexture2D(device, prefab.Images[0]),
+            Texture = UiRenderer.Instance!.GetPrefabTexture("_nhotkey", prefab.Control.Name, 0),
             Visible = false
         };
 
@@ -177,8 +177,7 @@ public sealed class HotkeyHelpControl : PrefabPanel
             group.Primary?.Visible = visible;
     }
 
-    private static Texture2D? TryLoadDetailImage(GraphicsDevice device, int index)
-        => TextureConverter.LoadNationalSpfTexture(device, $"_nhke{index:D2}.spf");
+    private static Texture2D? TryLoadDetailImage(int index) => UiRenderer.Instance!.GetNationalSpfTexture($"_nhke{index:D2}.spf");
 
     public override void Update(GameTime gameTime, InputBuffer input)
     {

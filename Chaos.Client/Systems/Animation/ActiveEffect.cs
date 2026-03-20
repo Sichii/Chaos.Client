@@ -1,5 +1,5 @@
 #region
-using Chaos.Client.Common.Definitions;
+using Chaos.Client.Data.Definitions;
 #endregion
 
 namespace Chaos.Client.Systems.Animation;

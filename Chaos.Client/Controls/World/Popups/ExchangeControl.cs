@@ -1,6 +1,5 @@
 #region
 using Chaos.Client.Controls.Components;
-using Chaos.Client.Data;
 using Chaos.Client.Definitions;
 using Chaos.Client.Rendering;
 using Microsoft.Xna.Framework;
@@ -97,7 +96,7 @@ public sealed class ExchangeControl : PrefabPanel
         ref var slot = ref slots[exchangeIndex];
 
         slot.IconTexture?.Dispose();
-        slot.IconTexture = TextureConverter.RenderSprite(Device, DataContext.PanelItems.GetPanelItemSprite(itemSprite));
+        slot.IconTexture = UiRenderer.Instance!.GetItemIcon(itemSprite);
         slot.Name = itemName ?? string.Empty;
         slot.NameCache ??= new CachedText(Device);
         slot.NameCache.Update(slot.Name, Color.White);

@@ -168,11 +168,8 @@ public sealed class FriendsListControl : PrefabPanel
             X = OffScreenX;
     }
 
-    public event Action<string>? OnAddFriend;
-
     public event Action? OnClose;
     public event Action? OnOk;
-    public event Action<string>? OnRemoveFriend;
 
     private void RefreshCaches()
     {

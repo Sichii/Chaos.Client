@@ -61,10 +61,11 @@ public sealed class LobbyLoginControl : PrefabPanel
         if (elements.TryGetValue("LOGO", out var logoElement) && PrefabSet.Contains("LOGO"))
         {
             var logoPrefab = PrefabSet["LOGO"];
+            var cache = UiRenderer.Instance!;
             var animFrames = new Texture2D[logoPrefab.Images.Count];
 
             for (var i = 0; i < logoPrefab.Images.Count; i++)
-                animFrames[i] = TextureConverter.ToTexture2D(device, logoPrefab.Images[i]);
+                animFrames[i] = cache.GetPrefabTexture(PrefabSet.Name, "LOGO", i);
 
             AnimatedLogo = new UIAnimatedImage
             {

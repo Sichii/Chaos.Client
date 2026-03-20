@@ -20,7 +20,7 @@ public sealed class ChantOverlay : UIImage
     private const int CENTER_THRESHOLD = 10;
     private const float DISPLAY_DURATION_MS = 3000f;
 
-    private static readonly Color ChantColor = new(59, 82, 120);
+    private static readonly Color ChantColor = new(100, 149, 237);
 
     private float ElapsedMs;
 

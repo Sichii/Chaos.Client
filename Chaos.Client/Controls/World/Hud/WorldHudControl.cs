@@ -190,7 +190,7 @@ public sealed class WorldHudControl : PrefabPanel
             };
 
             if (dialogPrefab.Images.Count > 0)
-                PersistentMessagePanel.Background = TextureConverter.ToTexture2D(device, dialogPrefab.Images[0]);
+                PersistentMessagePanel.Background = UiRenderer.Instance!.GetPrefabTexture("lback", "EmoticonDialog", 0);
 
             var descRect = GetRect(lemotPrefab, "Description");
 

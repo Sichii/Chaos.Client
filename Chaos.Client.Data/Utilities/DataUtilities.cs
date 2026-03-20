@@ -5,7 +5,7 @@ using Chaos.DarkAges.Definitions;
 
 namespace Chaos.Client.Data.Utilities;
 
-public static class Helpers
+public static class DataUtilities
 {
     public static string DetermineArchiveSuffix(VisibleObjectType visibleObjectType)
         => visibleObjectType switch

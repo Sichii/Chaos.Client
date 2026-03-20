@@ -22,31 +22,20 @@ public sealed class WorldListControl : PrefabPanel
 {
     private const float SLIDE_DURATION_MS = 250f;
     private const int ROW_HEIGHT = 12;
-    private const int CHAR_WIDTH = 6;
-    private const int NAME_MAX_CHARS = 21;
-    private const int TITLE_OFFSET_X = 134;
-    private const int CLASS_ICON_OFFSET_X = 227;
     private const int SCROLLBAR_WIDTH = 16;
     private const int TAB_COUNT = 9;
 
-    // Class emoticon icons (indexed by BaseClass)
-    private readonly Texture2D?[] ClassIcons = new Texture2D?[8];
-    private readonly Rectangle CountryNumRect;
-    private readonly CachedText CountryNumText;
+    private const int STATUS_ICON_COUNT = 8;
+
     private readonly int MaxVisibleRows;
-
-    // Row text caches
-    private readonly CachedText[] RowNameCaches;
-    private readonly CachedText[] RowTitleCaches;
-
-    // Scroll state
+    private readonly WorldListEntryControl[] RowEntries;
     private readonly ScrollBarControl ScrollBar;
+    private readonly Texture2D?[] StatusIcons = new Texture2D?[STATUS_ICON_COUNT];
 
     // Tab buttons
     private readonly UIButton[] TabButtons = new UIButton[TAB_COUNT];
-    private readonly CachedText[] TabCountCaches = new CachedText[TAB_COUNT];
-    private readonly Rectangle TotalNumRect;
-    private readonly CachedText TotalNumText;
+    private readonly UILabel[] TabCountLabels = new UILabel[TAB_COUNT];
+    private readonly UILabel TotalNumLabel;
 
     private readonly Rectangle UsersListRect;
     private int ActiveTab;
@@ -57,6 +46,7 @@ public sealed class WorldListControl : PrefabPanel
     private int OffScreenX;
 
     private string PlayerName = string.Empty;
+    private bool RowsDirty;
     private int ScrollOffset;
     private float SlideTimer;
     private bool Sliding;
@@ -79,6 +69,22 @@ public sealed class WorldListControl : PrefabPanel
 
         var elements = AutoPopulate();
 
+        // Hide auto-populated elements that we replace with custom controls
+        if (elements.GetValueOrDefault("TotalNum") is { } totalNumElement)
+            totalNumElement.Visible = false;
+
+        if (elements.GetValueOrDefault("CountryNum") is { } countryNumElement)
+            countryNumElement.Visible = false;
+
+        if (elements.GetValueOrDefault("CountryBtn") is { } countryBtnElement)
+            countryBtnElement.Visible = false;
+
+        if (elements.GetValueOrDefault("MasterBtn") is { } masterBtnElement)
+            masterBtnElement.Visible = false;
+
+        if (elements.GetValueOrDefault("Emoticon") is { } emoticonElement)
+            emoticonElement.Visible = false;
+
         // UsersList rect
         UsersListRect = GetRect("UsersList");
         MaxVisibleRows = UsersListRect.Height > 0 ? UsersListRect.Height / ROW_HEIGHT : 0;
@@ -93,44 +99,67 @@ public sealed class WorldListControl : PrefabPanel
             Height = UsersListRect.Height
         };
 
-        ScrollBar.OnValueChanged += v => ScrollOffset = v;
+        ScrollBar.OnValueChanged += v =>
+        {
+            ScrollOffset = v;
+            RowsDirty = true;
+        };
         AddChild(ScrollBar);
 
-        // Row text caches
-        RowNameCaches = new CachedText[MaxVisibleRows];
-        RowTitleCaches = new CachedText[MaxVisibleRows];
+        // Count labels
+        var totalNumRect = GetRect("TotalNum");
+        var countryNumRect = GetRect("CountryNum");
+
+        TotalNumLabel = new UILabel(device)
+        {
+            Name = "TotalNumLabel",
+            X = totalNumRect.X,
+            Y = totalNumRect.Y,
+            Width = totalNumRect.Width,
+            Height = totalNumRect.Height,
+            Alignment = TextAlignment.Right,
+            PaddingLeft = 0,
+            PaddingTop = 0
+        };
+
+        TotalNumLabel.SetText("0");
+        AddChild(TotalNumLabel);
+
+        // Row entries
+        var rowWidth = UsersListRect.Width - SCROLLBAR_WIDTH - 5;
+        RowEntries = new WorldListEntryControl[MaxVisibleRows];
 
         for (var i = 0; i < MaxVisibleRows; i++)
         {
-            RowNameCaches[i] = new CachedText(device);
-            RowTitleCaches[i] = new CachedText(device);
+            RowEntries[i] = new WorldListEntryControl(device, rowWidth)
+            {
+                Name = $"Row{i}",
+                X = UsersListRect.X,
+                Y = UsersListRect.Y + i * ROW_HEIGHT,
+                Width = rowWidth,
+                Visible = false
+            };
+
+            AddChild(RowEntries[i]);
         }
 
-        // Count displays
-        TotalNumRect = GetRect("TotalNum");
-        CountryNumRect = GetRect("CountryNum");
-
-        TotalNumText = new CachedText(device)
-        {
-            Alignment = TextAlignment.Right
-        };
-
-        CountryNumText = new CachedText(device)
-        {
-            Alignment = TextAlignment.Right
-        };
-        TotalNumText.Update("0", Color.White);
-        CountryNumText.Update("0", Color.White);
+        // Social status icons from _nemots.spf (frame 0 of each 3-frame group)
+        LoadStatusIcons();
 
         // Tab buttons — built from _nusersb.spf frames (9 tabs x 2 states)
         var countryBtnRect = GetRect("CountryBtn");
         var masterBtnRect = GetRect("MasterBtn");
-        var tabSpacing = masterBtnRect.Y - countryBtnRect.Y;
 
-        if (tabSpacing <= 0)
-            tabSpacing = 22;
+        // Spacing derived from the Y gap between the first two prefab buttons
+        var tabStride = masterBtnRect.Y - countryBtnRect.Y;
 
-        var tabFrames = TextureConverter.LoadSpfTextures(device, "_nusersb.spf");
+        if (tabStride <= 0)
+            tabStride = 22;
+
+        // Label stride derived from the Y gap between first two prefab labels (same stride)
+        var labelStride = tabStride;
+
+        var cache = UiRenderer.Instance!;
 
         for (var i = 0; i < TAB_COUNT; i++)
         {
@@ -142,20 +171,29 @@ public sealed class WorldListControl : PrefabPanel
             {
                 Name = $"Tab{i}",
                 X = countryBtnRect.X,
-                Y = countryBtnRect.Y + i * tabSpacing,
+                Y = countryBtnRect.Y + i * tabStride,
                 Width = countryBtnRect.Width,
-                Height = tabSpacing,
-                NormalTexture = normalIdx < tabFrames.Length ? tabFrames[normalIdx] : null,
-                SelectedTexture = activeIdx < tabFrames.Length ? tabFrames[activeIdx] : null
+                Height = countryBtnRect.Height,
+                NormalTexture = cache.GetSpfTexture("_nusersb.spf", normalIdx),
+                SelectedTexture = cache.GetSpfTexture("_nusersb.spf", activeIdx)
             };
 
             TabButtons[i].OnClick += () => SelectTab(tabIndex);
             AddChild(TabButtons[i]);
 
-            TabCountCaches[i] = new CachedText(device)
+            TabCountLabels[i] = new UILabel(device)
             {
-                Alignment = TextAlignment.Right
+                Name = $"TabCount{i}",
+                X = countryNumRect.X,
+                Y = countryNumRect.Y + i * labelStride,
+                Width = countryNumRect.Width,
+                Height = countryNumRect.Height,
+                Alignment = TextAlignment.Right,
+                PaddingLeft = 0,
+                PaddingTop = 0
             };
+
+            AddChild(TabCountLabels[i]);
         }
 
         TabButtons[0].IsSelected = true;
@@ -163,9 +201,6 @@ public sealed class WorldListControl : PrefabPanel
         // Close button — AutoPopulate already created it as a UIButton
         if (elements.GetValueOrDefault("Close") is UIButton closeButton)
             closeButton.OnClick += SlideOut;
-
-        // Class emoticon icons
-        LoadClassIcons(device);
     }
 
     private void ApplyFilter()
@@ -219,18 +254,7 @@ public sealed class WorldListControl : PrefabPanel
 
     public override void Dispose()
     {
-        foreach (var cache in RowNameCaches)
-            cache.Dispose();
-
-        foreach (var cache in RowTitleCaches)
-            cache.Dispose();
-
-        foreach (var cache in TabCountCaches)
-            cache.Dispose();
-        TotalNumText.Dispose();
-        CountryNumText.Dispose();
-
-        foreach (var icon in ClassIcons)
+        foreach (var icon in StatusIcons)
             icon?.Dispose();
 
         base.Dispose();
@@ -242,80 +266,6 @@ public sealed class WorldListControl : PrefabPanel
             return;
 
         base.Draw(spriteBatch);
-
-        var sx = ScreenX;
-        var sy = ScreenY;
-
-        TotalNumText.Draw(
-            spriteBatch,
-            new Rectangle(
-                sx + TotalNumRect.X,
-                sy + TotalNumRect.Y,
-                TotalNumRect.Width,
-                TotalNumRect.Height));
-
-        CountryNumText.Draw(
-            spriteBatch,
-            new Rectangle(
-                sx + CountryNumRect.X,
-                sy + CountryNumRect.Y,
-                CountryNumRect.Width,
-                CountryNumRect.Height));
-
-        for (var i = 0; i < TAB_COUNT; i++)
-        {
-            var btn = TabButtons[i];
-
-            TabCountCaches[i]
-                .Draw(
-                    spriteBatch,
-                    new Rectangle(
-                        sx + CountryNumRect.X,
-                        sy + btn.Y,
-                        CountryNumRect.Width,
-                        btn.Height));
-        }
-
-        var listX = ScreenX + UsersListRect.X;
-        var listY = ScreenY + UsersListRect.Y;
-
-        RefreshRowCaches();
-
-        for (var i = 0; i < MaxVisibleRows; i++)
-        {
-            var entryIndex = ScrollOffset + i;
-
-            if (entryIndex >= FilteredEntries.Count)
-                break;
-
-            var rowY = listY + i * ROW_HEIGHT;
-
-            RowTitleCaches[i]
-                .Draw(
-                    spriteBatch,
-                    new Rectangle(
-                        listX,
-                        rowY,
-                        NAME_MAX_CHARS * CHAR_WIDTH,
-                        ROW_HEIGHT));
-
-            var nameWidth = CLASS_ICON_OFFSET_X - TITLE_OFFSET_X - 2;
-
-            RowNameCaches[i]
-                .Draw(
-                    spriteBatch,
-                    new Rectangle(
-                        listX + TITLE_OFFSET_X,
-                        rowY,
-                        nameWidth,
-                        ROW_HEIGHT));
-
-            var entry = FilteredEntries[entryIndex];
-            var iconIndex = (int)entry.BaseClass;
-
-            if ((iconIndex >= 0) && (iconIndex < ClassIcons.Length) && ClassIcons[iconIndex] is { } classIcon)
-                spriteBatch.Draw(classIcon, new Vector2(listX + CLASS_ICON_OFFSET_X, rowY), Color.White);
-        }
     }
 
     public override void Hide()
@@ -325,32 +275,12 @@ public sealed class WorldListControl : PrefabPanel
         X = OffScreenX;
     }
 
-    private void LoadClassIcons(GraphicsDevice device)
+    private void LoadStatusIcons()
     {
-        if (!PrefabSet.Contains("Emoticon"))
-            return;
+        var cache = UiRenderer.Instance!;
 
-        var emotPrefab = PrefabSet["Emoticon"];
-
-        int[] classToFrame =
-        [
-            7,
-            2,
-            3,
-            4,
-            5,
-            6,
-            0,
-            1
-        ];
-
-        for (var i = 0; (i < classToFrame.Length) && (i < ClassIcons.Length); i++)
-        {
-            var frameIdx = classToFrame[i];
-
-            if (frameIdx < emotPrefab.Images.Count)
-                ClassIcons[i] = TextureConverter.ToTexture2D(device, emotPrefab.Images[frameIdx]);
-        }
+        for (var i = 0; i < STATUS_ICON_COUNT; i++)
+            StatusIcons[i] = cache.GetSpfTexture("_nemots.spf", i);
     }
 
     private static Color MapWorldListColor(WorldListColor color)
@@ -378,7 +308,7 @@ public sealed class WorldListControl : PrefabPanel
 
     public event Action? OnClose;
 
-    private void RefreshRowCaches()
+    private void RefreshRowEntries()
     {
         for (var i = 0; i < MaxVisibleRows; i++)
         {
@@ -388,22 +318,14 @@ public sealed class WorldListControl : PrefabPanel
             {
                 var entry = FilteredEntries[entryIndex];
                 var nameColor = MapWorldListColor(entry.Color);
-                RowNameCaches[i].Alignment = TextAlignment.Right;
+                var statusIdx = (int)entry.SocialStatus;
+                var statusIcon = (statusIdx >= 0) && (statusIdx < StatusIcons.Length) ? StatusIcons[statusIdx] : null;
 
-                RowNameCaches[i]
-                    .Update(entry.Name, nameColor);
-                RowTitleCaches[i].Alignment = TextAlignment.Right;
-
-                RowTitleCaches[i]
-                    .Update(entry.Title ?? string.Empty, Color.White);
+                RowEntries[i]
+                    .SetEntry(entry, statusIcon, nameColor);
             } else
-            {
-                RowNameCaches[i]
-                    .Update(string.Empty, Color.White);
-
-                RowTitleCaches[i]
-                    .Update(string.Empty, Color.White);
-            }
+                RowEntries[i]
+                    .Clear();
         }
     }
 
@@ -415,6 +337,7 @@ public sealed class WorldListControl : PrefabPanel
         ScrollOffset = 0;
         ApplyFilter();
         UpdateCountLabels();
+        RowsDirty = true;
     }
 
     public void SetViewportBounds(Rectangle viewport)
@@ -435,6 +358,7 @@ public sealed class WorldListControl : PrefabPanel
         ApplyFilter();
         UpdateCountLabels();
         AutoScrollToSelf();
+        RowsDirty = true;
 
         if (!Visible)
             SlideIn();
@@ -497,20 +421,26 @@ public sealed class WorldListControl : PrefabPanel
             return;
         }
 
+        if (RowsDirty)
+        {
+            RefreshRowEntries();
+            RowsDirty = false;
+        }
+
         base.Update(gameTime, input);
 
         if ((input.ScrollDelta != 0) && (FilteredEntries.Count > MaxVisibleRows))
         {
-            ScrollOffset = Math.Clamp(ScrollOffset - input.ScrollDelta, 0, FilteredEntries.Count - MaxVisibleRows);
+            var scrollLines = Math.Sign(input.ScrollDelta) * Math.Max(1, Math.Abs(input.ScrollDelta) / 120);
+            ScrollOffset = Math.Clamp(ScrollOffset - scrollLines, 0, FilteredEntries.Count - MaxVisibleRows);
             ScrollBar.Value = ScrollOffset;
+            RowsDirty = true;
         }
     }
 
     private void UpdateCountLabels()
     {
-        TotalNumText.Update($"{TotalOnline}", Color.White);
-        CountryNumText.Update($"{FilteredEntries.Count}", Color.White);
-
+        TotalNumLabel.SetText($"{TotalOnline}");
         var counts = new int[TAB_COUNT];
         counts[0] = AllEntries.Count;
 
@@ -554,7 +484,7 @@ public sealed class WorldListControl : PrefabPanel
         }
 
         for (var i = 0; i < TAB_COUNT; i++)
-            TabCountCaches[i]
-                .Update($"{counts[i]}", Color.White);
+            TabCountLabels[i]
+                .SetText($"{counts[i]}");
     }
 }

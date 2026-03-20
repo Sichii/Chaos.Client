@@ -13,4 +13,5 @@ public record WorldListEntry(
     BaseClass BaseClass,
     bool IsMaster,
     bool IsGuilded,
-    WorldListColor Color);
+    WorldListColor Color,
+    SocialStatus SocialStatus);

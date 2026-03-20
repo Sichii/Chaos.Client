@@ -1,5 +1,4 @@
 #region
-using Chaos.Client.Common.Definitions;
 using Chaos.Client.Controls.Components;
 using Chaos.Client.Controls.Generic;
 using Chaos.Client.Controls.World.Hud;
@@ -10,6 +9,7 @@ using Chaos.Client.Controls.World.Options;
 using Chaos.Client.Controls.World.Popups;
 using Chaos.Client.Controls.World.ViewPort;
 using Chaos.Client.Data;
+using Chaos.Client.Data.Definitions;
 using Chaos.Client.Data.Models;
 using Chaos.Client.Definitions;
 using Chaos.Client.Extensions;
@@ -24,6 +24,7 @@ using Chaos.Geometry.Abstractions.Definitions;
 using Chaos.Networking.Entities.Server;
 using Chaos.Pathfinding;
 using DALib.Data;
+using DALib.Extensions;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using Microsoft.Xna.Framework.Input;
@@ -69,6 +70,16 @@ public sealed class WorldScreen : IScreen
     private const int BODY_CENTER_Y = 70;
     private const float DOUBLE_CLICK_MS = 300f;
 
+    // Entity hitbox dimensions (screen pixels)
+    private const int HITBOX_WIDTH = 28;
+    private const int HITBOX_HEIGHT = 60;
+
+    // Health bar Y offset from entity tile center (higher = further above entity)
+    private const int HEALTH_BAR_Y_OFFSET = 61;
+
+    private const string SPOUSE_PREFIX = "Spouse: ";
+    private const string GROUP_MEMBERS_PREFIX = "Group members";
+
     // Screen blend: output = src + dst * (1 - src) per channel. Used for SelfAlpha EFA effects.
     private static readonly BlendState ScreenBlendState = new()
     {
@@ -89,8 +100,18 @@ public sealed class WorldScreen : IScreen
     // Active chat bubbles: keyed by entity ID, one per entity (new message replaces old)
     private readonly Dictionary<uint, ChatBubble> ChatBubbles = new();
 
+    // Draw-pass hitbox list: rebuilt every frame during entity rendering, in draw order (back-to-front)
+    private readonly List<EntityHitBox> EntityHitBoxes = new(256);
+
     // Ground item texture cache: keyed by item sprite ID
     private readonly Dictionary<int, Texture2D?> GroundItemCache = new();
+
+    // Active health bars: keyed by entity ID, reset on each HealthBar packet
+    private readonly Dictionary<uint, HealthBar> HealthBars = new();
+
+    // Cached chant data — loaded once per login, invalidated on save
+    private List<SkillChantEntry>? CachedSkillChants;
+    private List<SpellChantEntry>? CachedSpellChants;
     private Camera Camera = null!;
     private ChantEditControl ChantEdit = null!;
     private ContextMenu ContextMenu = null!;
@@ -106,6 +127,7 @@ public sealed class WorldScreen : IScreen
     private Texture2D? HighlightTintedTexture;
     private HotkeyHelpControl HotkeyHelp = null!;
     private PanelSlot? HoveredInventorySlot;
+    private bool IsGameMaster;
     private ItemTooltipControl ItemTooltip = null!;
     private int LastClickTileX;
     private int LastClickTileY;
@@ -179,8 +201,9 @@ public sealed class WorldScreen : IScreen
                 null,
                 transform);
             DrawForegroundAndEntities(spriteBatch);
-            DrawChatBubbles(spriteBatch);
             DrawChantOverlays(spriteBatch);
+            DrawHealthBars(spriteBatch);
+            DrawChatBubbles(spriteBatch);
             spriteBatch.End();
 
             // Debug overlay: entity hitboxes, tile grid, etc.
@@ -687,6 +710,7 @@ public sealed class WorldScreen : IScreen
         ClearAislingCache();
         ClearGroundItemCache();
         ClearChatBubbles();
+        ClearHealthBars();
         ClearChantOverlays();
     }
 
@@ -758,9 +782,9 @@ public sealed class WorldScreen : IScreen
                         {
                             Game.Connection.Turn(pathDir.Value);
                             player.Direction = pathDir.Value;
-                        } else
-                            PredictAndWalk(player, pathDir.Value);
+                        }
 
+                        PredictAndWalk(player, pathDir.Value);
                         movementHandled = true;
                     } else
                         ClearPathfinding();
@@ -1220,17 +1244,10 @@ public sealed class WorldScreen : IScreen
         // Track highlighted entity when dragging a panel item over the world viewport
         UpdateDragHighlight(input);
 
-        // Update chat bubbles — tick timers and remove expired
+        // Update chat bubbles and health bars — tick timers and remove expired
         UpdateChatBubbles(gameTime, input);
         UpdateChantOverlays(gameTime, input);
-
-        // Detect shout-to-group transition: user typed "!" while in shout mode (prefix ends with "! ")
-        // This matches the original DA convention where "!!" activates group chat
-        if (WorldHud.ChatInput.IsFocused
-            && WorldHud.ChatInput.Prefix.EndsWithI("! ")
-            && !WorldHud.ChatInput.Prefix.StartsWithI("Group")
-            && (WorldHud.ChatInput.Text == "!"))
-            FocusChat("Group: ", new Color(154, 205, 50));
+        UpdateHealthBars(gameTime);
     }
 
     #region Exchange Wiring
@@ -1409,6 +1426,8 @@ public sealed class WorldScreen : IScreen
     {
         if (MapFile is null)
             return;
+
+        EntityHitBoxes.Clear();
 
         var sortedEntities = Game.World.GetSortedEntities();
 
@@ -1623,10 +1642,12 @@ public sealed class WorldScreen : IScreen
         var tileCenterX = tileWorldPos.X + HALF_TILE_WIDTH;
         var tileCenterY = tileWorldPos.Y + HALF_TILE_HEIGHT;
 
+        var textureBottom = 0;
+
         switch (entity.Type)
         {
             case ClientEntityType.Aisling:
-                DrawAisling(
+                textureBottom = DrawAisling(
                     spriteBatch,
                     entity,
                     tileCenterX,
@@ -1635,7 +1656,7 @@ public sealed class WorldScreen : IScreen
                 break;
 
             case ClientEntityType.Creature:
-                DrawCreature(
+                textureBottom = DrawCreature(
                     spriteBatch,
                     entity,
                     tileCenterX,
@@ -1650,11 +1671,31 @@ public sealed class WorldScreen : IScreen
                     tileCenterX,
                     tileCenterY);
 
-                break;
+                return; // Ground items don't get hitboxes
         }
+
+        if (textureBottom <= 0)
+            return;
+
+        // Hitbox: 28px wide centered on tile screen X, 60px tall bottom-aligned to texture bottom
+        var tileScreenPos = Camera.WorldToScreen(new Vector2(tileCenterX + entity.VisualOffset.X, tileCenterY + entity.VisualOffset.Y));
+        var hitboxX = (int)tileScreenPos.X - HITBOX_WIDTH / 2;
+        var hitboxY = textureBottom - HITBOX_HEIGHT;
+
+        EntityHitBoxes.Add(
+            new EntityHitBox(
+                entity.Id,
+                new Rectangle(
+                    hitboxX,
+                    hitboxY,
+                    HITBOX_WIDTH,
+                    HITBOX_HEIGHT)));
     }
 
-    private void DrawCreature(
+    /// <summary>
+    ///     Draws a creature entity. Returns the screen-space Y of the texture bottom edge, or 0 if not drawn.
+    /// </summary>
+    private int DrawCreature(
         SpriteBatch spriteBatch,
         WorldEntity entity,
         float tileCenterX,
@@ -1664,7 +1705,7 @@ public sealed class WorldScreen : IScreen
         var animInfo = creatureRenderer.GetAnimInfo(entity.SpriteId);
 
         if (animInfo is null)
-            return;
+            return 0;
 
         var info = animInfo.Value;
         (var frameIndex, var flip) = AnimationManager.GetCreatureFrame(entity, in info);
@@ -1672,7 +1713,7 @@ public sealed class WorldScreen : IScreen
         var spriteFrame = creatureRenderer.GetFrame(Device, entity.SpriteId, frameIndex);
 
         if (spriteFrame is null)
-            return;
+            return 0;
 
         var frame = spriteFrame.Value;
 
@@ -1702,9 +1743,14 @@ public sealed class WorldScreen : IScreen
             1f,
             effects,
             0f);
+
+        return (int)screenPos.Y + frame.Texture.Height;
     }
 
-    private void DrawAisling(
+    /// <summary>
+    ///     Draws an aisling entity. Returns the screen-space Y of the texture bottom edge, or 0 if not drawn.
+    /// </summary>
+    private int DrawAisling(
         SpriteBatch spriteBatch,
         WorldEntity entity,
         float tileCenterX,
@@ -1712,18 +1758,14 @@ public sealed class WorldScreen : IScreen
     {
         // Morphed aislings (creature form) render as creatures
         if (entity.Appearance is null && (entity.SpriteId > 0))
-        {
-            DrawCreature(
+            return DrawCreature(
                 spriteBatch,
                 entity,
                 tileCenterX,
                 tileCenterY);
 
-            return;
-        }
-
         if (entity.Appearance is null)
-            return;
+            return 0;
 
         var appearance = entity.Appearance.Value;
         (var frameIndex, var flip, var animSuffix, var isFrontFacing) = AnimationManager.GetAislingFrame(entity);
@@ -1746,7 +1788,7 @@ public sealed class WorldScreen : IScreen
                 isFrontFacing);
 
             if (texture is null)
-                return;
+                return 0;
 
             cached = new AislingCacheEntry(
                 appearance,
@@ -1762,12 +1804,13 @@ public sealed class WorldScreen : IScreen
         var drawY = tileCenterY + entity.VisualOffset.Y - BODY_CENTER_Y;
         var screenPos = Camera.WorldToScreen(new Vector2(drawX, drawY));
 
-        var drawTexture = HighlightedEntityId == entity.Id ? GetOrCreateTintedTexture(cached.Texture, entity.Id) : cached.Texture;
+        var drawTexture = HighlightedEntityId == entity.Id ? GetOrCreateTintedTexture(cached.Texture!, entity.Id) : cached.Texture;
 
         spriteBatch.Draw(drawTexture, screenPos, Color.White);
+
+        return (int)screenPos.Y + cached.Texture!.Height;
     }
 
-    /// <summary>
     /// <summary>
     ///     Creates a CPU-side tinted copy of a texture using the original DA client's highlight color transform.
     /// </summary>
@@ -1874,7 +1917,7 @@ public sealed class WorldScreen : IScreen
             var tileCenterY = tileWorld.Y + HALF_TILE_HEIGHT;
 
             var entityWorldX = tileCenterX + entity.VisualOffset.X;
-            var entityWorldY = tileCenterY + entity.VisualOffset.Y - 60;
+            var entityWorldY = tileCenterY + entity.VisualOffset.Y - 64;
 
             var bubbleX = entityWorldX - bubble.Width / 2f;
             var bubbleY = entityWorldY - bubble.Height;
@@ -1897,6 +1940,57 @@ public sealed class WorldScreen : IScreen
     {
         foreach (var bubble in ChatBubbles.Values)
             bubble.Draw(spriteBatch);
+    }
+
+    private void UpdateHealthBars(GameTime gameTime)
+    {
+        List<uint>? expired = null;
+
+        foreach ((var entityId, var bar) in HealthBars)
+        {
+            bar.Update(gameTime, Game.Input);
+
+            if (bar.IsExpired)
+            {
+                (expired ??= []).Add(entityId);
+
+                continue;
+            }
+
+            if (MapFile is null)
+                continue;
+
+            var entity = Game.World.GetEntity(entityId);
+
+            if (entity is null)
+            {
+                (expired ??= []).Add(entityId);
+
+                continue;
+            }
+
+            var tileWorld = Camera.TileToWorld(entity.TileX, entity.TileY, MapFile.Height);
+            var entityWorldX = tileWorld.X + HALF_TILE_WIDTH + entity.VisualOffset.X;
+            var entityWorldY = tileWorld.Y + HALF_TILE_HEIGHT + entity.VisualOffset.Y - HEALTH_BAR_Y_OFFSET;
+
+            var screenPos = Camera.WorldToScreen(new Vector2(entityWorldX - bar.Width / 2f, entityWorldY));
+            bar.X = (int)screenPos.X + 1;
+            bar.Y = (int)screenPos.Y;
+        }
+
+        if (expired is not null)
+            foreach (var id in expired)
+            {
+                HealthBars[id]
+                    .Dispose();
+                HealthBars.Remove(id);
+            }
+    }
+
+    private void DrawHealthBars(SpriteBatch spriteBatch)
+    {
+        foreach (var bar in HealthBars.Values)
+            bar.Draw(spriteBatch);
     }
 
     private void UpdateChantOverlays(GameTime gameTime, InputBuffer input)
@@ -1970,7 +2064,7 @@ public sealed class WorldScreen : IScreen
             {
                 var tile = MapFile.Tiles[tileX, tileY];
 
-                if ((tile.LeftForeground == 0) && (tile.RightForeground == 0))
+                if (tile is { LeftForeground: 0, RightForeground: 0 })
                     continue;
 
                 var tileWorld = Camera.TileToWorld(tileX, tileY, MapFile.Height);
@@ -2024,7 +2118,6 @@ public sealed class WorldScreen : IScreen
         {
             var tileWorld = Camera.TileToWorld(entity.TileX, entity.TileY, MapFile.Height);
             var tileCenterX = tileWorld.X + HALF_TILE_WIDTH;
-            var tileCenterY = tileWorld.Y + HALF_TILE_HEIGHT;
 
             // Draw tile hitbox (the isometric diamond as a screen-space rect)
             var topLeft = Camera.WorldToScreen(new Vector2(tileWorld.X, tileWorld.Y));
@@ -2310,7 +2403,7 @@ public sealed class WorldScreen : IScreen
         if (dragging?.DragTexture is not { } icon)
             return;
 
-        spriteBatch.Draw(icon, new Vector2(dragging.DragX - icon.Width / 2, dragging.DragY - icon.Height / 2), Color.White * 0.7f);
+        spriteBatch.Draw(icon, new Vector2(dragging.DragX - icon.Width / 2.0f, dragging.DragY - icon.Height / 2.0f), Color.White * 0.7f);
     }
 
     private void DrawTileCursor(SpriteBatch spriteBatch)
@@ -2340,8 +2433,7 @@ public sealed class WorldScreen : IScreen
         spriteBatch.Draw(cursorTexture!, new Vector2((int)tileScreen.X, (int)tileScreen.Y), Color.White);
     }
 
-    private Texture2D? LoadGroundItemTexture(int spriteId)
-        => TextureConverter.RenderSprite(Device, DataContext.PanelItems.GetPanelItemSprite(spriteId));
+    private Texture2D LoadGroundItemTexture(int spriteId) => UiRenderer.Instance!.GetItemIcon((ushort)spriteId);
     #endregion
 
     #region Map Assembly
@@ -2362,6 +2454,7 @@ public sealed class WorldScreen : IScreen
         ClearAislingCache();
         ClearGroundItemCache();
         ClearChatBubbles();
+        ClearHealthBars();
         ClearChantOverlays();
         ClearPathfinding();
 
@@ -2438,6 +2531,19 @@ public sealed class WorldScreen : IScreen
             });
     }
 
+    private bool TileHasForeground(int tileX, int tileY)
+    {
+        if (MapFile is null)
+            return false;
+
+        if ((tileX < 0) || (tileY < 0) || (tileX >= MapFile.Width) || (tileY >= MapFile.Height))
+            return false;
+
+        var tile = MapFile.Tiles[tileX, tileY];
+
+        return tile.LeftForeground.IsRenderedTileIndex() || tile.RightForeground.IsRenderedTileIndex();
+    }
+
     private static bool IsTileWall(int fgIndex, byte[] sotpData)
     {
         if (fgIndex <= 0)
@@ -2449,6 +2555,25 @@ public sealed class WorldScreen : IScreen
             return false;
 
         return ((TileFlags)sotpData[sotpIndex]).HasFlag(TileFlags.Wall);
+    }
+
+    private bool IsTilePassable(int tileX, int tileY)
+    {
+        if (MapFile is null)
+            return true;
+
+        // Check wall tiles (foreground SOTP data)
+        var tile = MapFile.Tiles[tileX, tileY];
+        var sotpData = DataContext.Tiles.SotpData;
+
+        if (IsTileWall(tile.LeftForeground, sotpData) || IsTileWall(tile.RightForeground, sotpData))
+            return false;
+
+        // Check entities at the destination tile
+        if (Game.World.HasBlockingEntityAt(tileX, tileY, Game.World.PlayerEntityId))
+            return false;
+
+        return true;
     }
 
     private static MapFile? LoadMapFile(int mapId, int width, int height)
@@ -2488,7 +2613,7 @@ public sealed class WorldScreen : IScreen
             WorldHud.SetPlayerName(args.Name);
             WorldHud.SetServerName(Game.Connection.ServerName);
             DataContext.PlayerData.Initialize(args.Name);
-            LoadPlayerFamilyList(args.Name);
+            LoadPlayerFamilyList();
             LoadPlayerFriendList();
             LoadPlayerMacros();
             LoadPlayerChants();
@@ -2552,14 +2677,29 @@ public sealed class WorldScreen : IScreen
     /// </summary>
     private void PredictAndWalk(WorldEntity player, Direction direction)
     {
+        // Bounds check — don't walk off the map edge
+        (var dx, var dy) = direction.ToTileOffset();
+        var newX = player.TileX + dx;
+        var newY = player.TileY + dy;
+
+        if (MapFile is null || (newX < 0) || (newY < 0) || (newX >= MapFile.Width) || (newY >= MapFile.Height))
+            return;
+
+        // Collision check — GM bypasses all collision
+        if (!IsGameMaster && !IsTilePassable(newX, newY))
+            return;
+
         Game.Connection.Walk(direction);
 
         // Predict position locally
-        (var dx, var dy) = direction.ToTileOffset();
-        player.TileX += dx;
-        player.TileY += dy;
+        player.TileX = newX;
+        player.TileY = newY;
 
-        AnimationManager.StartWalk(player, direction);
+        var walkFrames = player.Appearance is null && (player.SpriteId > 0)
+            ? Game.CreatureRenderer.GetWalkFrameCount(player.SpriteId)
+            : null;
+
+        AnimationManager.StartWalk(player, direction, walkFrames);
         WorldHud.SetCoords(player.TileX, player.TileY);
     }
 
@@ -2586,10 +2726,17 @@ public sealed class WorldScreen : IScreen
         }
     }
 
-    private void HandleAttributes(AttributesArgs args) => WorldHud.UpdateAttributes(args);
+    private void HandleAttributes(AttributesArgs args)
+    {
+        WorldHud.UpdateAttributes(args);
+
+        IsGameMaster = args.StatUpdateType.HasFlag(StatUpdateType.GameMasterA) || args.StatUpdateType.HasFlag(StatUpdateType.GameMasterB);
+    }
 
     private void HandleDisplayPublicMessage(DisplayPublicMessageArgs args)
     {
+        var entityExists = Game.World.GetEntity(args.SourceId) is not null;
+
         if (args.PublicMessageType == PublicMessageType.Chant)
         {
             // Chant: plain blue text above entity (no bubble, no chat panel)
@@ -2600,7 +2747,7 @@ public sealed class WorldScreen : IScreen
             }
 
             // Blank chant clears the overlay without creating a new one
-            if (!string.IsNullOrEmpty(args.Message))
+            if (entityExists && !string.IsNullOrEmpty(args.Message))
                 ChantOverlays[args.SourceId] = ChantOverlay.Create(Device, args.SourceId, args.Message);
 
             return;
@@ -2613,6 +2760,9 @@ public sealed class WorldScreen : IScreen
         };
 
         WorldHud.AddChatMessage(args.Message, color);
+
+        if (!entityExists)
+            return;
 
         var isShout = args.PublicMessageType == PublicMessageType.Shout;
 
@@ -2730,7 +2880,7 @@ public sealed class WorldScreen : IScreen
 
             var stateStr = entry[(colonIdx + 1)..]
                 .Trim();
-            var isOn = stateStr.StartsWith("ON", StringComparison.OrdinalIgnoreCase);
+            var isOn = stateStr.StartsWithI("ON");
 
             SettingsDialog.SetSettingName(optionIndex, name);
             SettingsDialog.SetSettingValue(optionIndex, isOn);
@@ -2759,6 +2909,8 @@ public sealed class WorldScreen : IScreen
         WorldHud.SkillBook.SetSlotName(args.Skill.Slot, args.Skill.PanelName);
         WorldHud.SkillBookAlt.SetSlot(args.Skill.Slot, args.Skill.Sprite);
         WorldHud.SkillBookAlt.SetSlotName(args.Skill.Slot, args.Skill.PanelName);
+
+        ApplySkillChant(args.Skill.Slot, args.Skill.PanelName);
     }
 
     private void HandleRemoveSkillFromPane(RemoveSkillFromPaneArgs args)
@@ -2790,6 +2942,8 @@ public sealed class WorldScreen : IScreen
             spellSlot.Prompt = args.Spell.Prompt ?? string.Empty;
             spellSlot.CastLines = args.Spell.CastLines;
         }
+
+        ApplySpellChant(args.Spell.Slot, args.Spell.PanelName);
     }
 
     private void HandleRemoveSpellFromPane(RemoveSpellFromPaneArgs args)
@@ -2966,7 +3120,8 @@ public sealed class WorldScreen : IScreen
                               m.BaseClass,
                               m.IsMaster,
                               m.IsGuilded,
-                              m.Color))
+                              m.Color,
+                              m.SocialStatus))
                           .ToList();
 
         WorldList.Show(entries, args.WorldMemberCount, WorldHud.PlayerName);
@@ -3136,11 +3291,7 @@ public sealed class WorldScreen : IScreen
     {
         var prefix = WorldHud.ChatInput.Prefix;
 
-        if (prefix.StartsWithI("Group invite"))
-            Game.Connection.SendGroupInvite(ClientGroupSwitch.TryInvite, message);
-        else if (prefix.StartsWithI("Group"))
-            Game.Connection.SendGroupMessage(message);
-        else if (prefix.EndsWithI("! "))
+        if (prefix.EndsWithI("! "))
             Game.Connection.SendShout(message);
         else if (prefix.StartsWithI("-> ") && prefix.EndsWithI(": "))
         {
@@ -3175,6 +3326,14 @@ public sealed class WorldScreen : IScreen
         ChatBubbles.Clear();
     }
 
+    private void ClearHealthBars()
+    {
+        foreach (var bar in HealthBars.Values)
+            bar.Dispose();
+
+        HealthBars.Clear();
+    }
+
     private void ClearChantOverlays()
     {
         foreach (var overlay in ChantOverlays.Values)
@@ -3183,7 +3342,7 @@ public sealed class WorldScreen : IScreen
         ChantOverlays.Clear();
     }
 
-    private void LoadPlayerFamilyList(string playerName)
+    private void LoadPlayerFamilyList()
     {
         var family = DataContext.PlayerData.LoadFamilyList();
         StatusBook.SetFamilyMembers(family);
@@ -3233,6 +3392,58 @@ public sealed class WorldScreen : IScreen
                 ability.OnRightClick += OpenChantEdit;
     }
 
+    private void ApplySkillChant(byte slot, string? name)
+    {
+        if (string.IsNullOrEmpty(name) || !DataContext.PlayerData.IsInitialized)
+            return;
+
+        CachedSkillChants ??= DataContext.PlayerData.LoadSkillChants();
+
+        foreach (var entry in CachedSkillChants)
+        {
+            if (!entry.Name.EqualsI(name))
+                continue;
+
+            var skillSlot = WorldHud.SkillBook.GetSkillSlot(slot);
+
+            if (skillSlot is not null)
+                skillSlot.Chant = entry.Chant;
+
+            var altSkillSlot = WorldHud.SkillBookAlt.GetSkillSlot(slot);
+
+            if (altSkillSlot is not null)
+                altSkillSlot.Chant = entry.Chant;
+
+            break;
+        }
+    }
+
+    private void ApplySpellChant(byte slot, string? name)
+    {
+        if (string.IsNullOrEmpty(name) || !DataContext.PlayerData.IsInitialized)
+            return;
+
+        CachedSpellChants ??= DataContext.PlayerData.LoadSpellChants();
+
+        foreach (var entry in CachedSpellChants)
+        {
+            if (!entry.Name.EqualsI(name))
+                continue;
+
+            var spellSlot = WorldHud.SpellBook.GetSpellSlot(slot);
+
+            if (spellSlot is not null)
+                Array.Copy(entry.Chants, spellSlot.Chants, 10);
+
+            var altSlot = WorldHud.SpellBookAlt.GetSpellSlot(slot);
+
+            if (altSlot is not null)
+                Array.Copy(entry.Chants, altSlot.Chants, 10);
+
+            break;
+        }
+    }
+
     private void LoadPlayerChants()
     {
         foreach (var entry in DataContext.PlayerData.LoadSkillChants())
@@ -3268,7 +3479,7 @@ public sealed class WorldScreen : IScreen
         {
             var slot = panel.GetSkillSlot(i);
 
-            if (slot?.AbilityName?.Equals(name, StringComparison.OrdinalIgnoreCase) == true)
+            if (slot?.AbilityName?.EqualsI(name) == true)
                 return slot;
         }
 
@@ -3281,7 +3492,7 @@ public sealed class WorldScreen : IScreen
         {
             var slot = panel.GetSpellSlot(i);
 
-            if (slot?.AbilityName?.Equals(name, StringComparison.OrdinalIgnoreCase) == true)
+            if (slot?.AbilityName?.EqualsI(name) == true)
                 return slot;
         }
 
@@ -3349,6 +3560,7 @@ public sealed class WorldScreen : IScreen
             }
 
             SaveSpellChants();
+            CachedSpellChants = null;
         } else
         {
             foreach (var panel in new[]
@@ -3364,6 +3576,7 @@ public sealed class WorldScreen : IScreen
             }
 
             SaveSkillChants();
+            CachedSkillChants = null;
         }
     }
 
@@ -3455,9 +3668,19 @@ public sealed class WorldScreen : IScreen
         if (MapFile is null)
             return null;
 
+        // Iterate hitboxes back-to-front (last drawn = closest to camera = highest priority)
+        for (var i = EntityHitBoxes.Count - 1; i >= 0; i--)
+        {
+            var hitbox = EntityHitBoxes[i];
+
+            if (hitbox.ScreenRect.Contains(mouseX, mouseY))
+                return Game.World.GetEntity(hitbox.EntityId);
+        }
+
+        // Fallback: tile-based lookup for ground items
         (var tileX, var tileY) = ScreenToTile(mouseX, mouseY);
 
-        return Game.World.GetEntityAt(tileX, tileY);
+        return Game.World.GetGroundItemAt(tileX, tileY);
     }
 
     private (int TileX, int TileY) ScreenToTile(int mouseX, int mouseY)
@@ -3534,9 +3757,9 @@ public sealed class WorldScreen : IScreen
                 } else
                     Game.Connection.ClickEntity(entity.Id);
             }
-        } else
+        } else if (TileHasForeground(tileX, tileY))
         {
-            // Single click: tile interaction (doors, reactor tiles)
+            // Single click: tile interaction (doors, reactor tiles) — only if foreground exists
             Game.Connection.ClickTile(tileX, tileY);
         }
     }
@@ -3916,7 +4139,7 @@ public sealed class WorldScreen : IScreen
 
         // Family info
         StatusBook.SetFamilyInfo(args.Name, args.SpouseName ?? string.Empty);
-        LoadPlayerFamilyList(args.Name);
+        LoadPlayerFamilyList();
 
         // Paperdoll — render the player's full aisling at south-facing idle
         var playerEntity = Game.World.GetPlayerEntity();
@@ -3930,8 +4153,18 @@ public sealed class WorldScreen : IScreen
         // Group members — parse GroupString into member names for the group panel
         if (!string.IsNullOrEmpty(args.GroupString))
         {
-            var members = ParseGroupString(args.GroupString);
-            GroupPanel.SetMembers(members);
+            if (args.GroupString.StartsWithI(GROUP_MEMBERS_PREFIX))
+            {
+                var members = ParseGroupString(args.GroupString);
+                GroupPanel.SetMembers(members);
+            } else if (args.GroupString.StartsWithI(SPOUSE_PREFIX))
+            {
+                var spouseName = args.GroupString[SPOUSE_PREFIX.Length..]
+                                     .Trim();
+                StatusBook.SetFamilyInfo(args.Name, spouseName);
+                GroupPanel.ClearGroup();
+            } else
+                GroupPanel.ClearGroup();
         } else
             GroupPanel.ClearGroup();
 
@@ -3976,15 +4209,15 @@ public sealed class WorldScreen : IScreen
     private void HandleAnimation(AnimationArgs args)
     {
         // Ground-targeted effect
-        if (args.TargetPoint.HasValue && (args.TargetAnimation > 0))
+        if (args is { TargetPoint: not null, TargetAnimation: > 0 })
             CreateEffect(args.TargetAnimation, targetTileX: args.TargetPoint.Value.X, targetTileY: args.TargetPoint.Value.Y);
 
         // Entity-targeted effect on target
-        if (args.TargetId is > 0 && (args.TargetAnimation > 0))
+        if (args is { TargetId: > 0, TargetAnimation: > 0 })
             CreateEffect(args.TargetAnimation, args.TargetId.Value);
 
         // Source-side effect (caster visual)
-        if (args.SourceId is > 0 && (args.SourceAnimation > 0))
+        if (args is { SourceId: > 0, SourceAnimation: > 0 })
             CreateEffect(args.SourceAnimation, args.SourceId.Value);
     }
 
@@ -4078,13 +4311,11 @@ public sealed class WorldScreen : IScreen
         {
             var trimmed = line.Trim();
 
-            if (trimmed.StartsWith("Group members", StringComparison.OrdinalIgnoreCase)
-                || trimmed.StartsWith("Total ", StringComparison.OrdinalIgnoreCase)
-                || (trimmed.Length == 0))
+            if (trimmed.StartsWithI("Group members") || trimmed.StartsWithI("Total ") || (trimmed.Length == 0))
                 continue;
 
             // Leader lines start with "* ", member lines start with "  "
-            if (trimmed.StartsWith("* "))
+            if (trimmed.StartsWithI("* "))
                 members.Add(trimmed[2..]);
             else
                 members.Add(trimmed);
@@ -4133,7 +4364,13 @@ public sealed class WorldScreen : IScreen
 
     private void HandleHealthBar(HealthBarArgs args)
     {
-        // TODO: render HP bar above entity
+        if (HealthBars.TryGetValue(args.SourceId, out var existing))
+            existing.Reset(args.HealthPercent);
+        else
+            HealthBars[args.SourceId] = new HealthBar(args.SourceId, args.HealthPercent);
+
+        if (args.Sound.HasValue)
+            Game.SoundManager.PlaySound(args.Sound.Value);
     }
 
     private void HandleLightLevel(LightLevelArgs args)

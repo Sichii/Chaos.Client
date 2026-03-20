@@ -1,5 +1,5 @@
 #region
-using Chaos.Client.Common.Abstractions;
+using Chaos.Client.Data.Abstractions;
 using DALib.Drawing;
 using DALib.Utility;
 #endregion
@@ -8,7 +8,9 @@ namespace Chaos.Client.Data.Repositories;
 
 public sealed class EffectsRepository : RepositoryBase
 {
-    private readonly PaletteLookup EffectPalettes = PaletteLookup.FromArchive("effpal", "eff", DatArchives.Roh);
+    private readonly PaletteLookup EffectPalettes = PaletteLookup.FromArchive("effpal", "eff", DatArchives.Roh)
+                                                                 .Freeze();
+
     private readonly EffectTable EffectTable;
 
     public EffectsRepository()

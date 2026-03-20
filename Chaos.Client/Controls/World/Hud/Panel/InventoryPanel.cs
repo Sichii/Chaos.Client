@@ -1,5 +1,4 @@
 #region
-using Chaos.Client.Data;
 using Chaos.Client.Data.Models;
 using Chaos.Client.Rendering;
 using Microsoft.Xna.Framework.Graphics;
@@ -24,6 +23,5 @@ public sealed class InventoryPanel : PanelBase
             gridOffsetY: 5)
         => Name = "Inventory";
 
-    protected override Texture2D? RenderIcon(ushort spriteId)
-        => TextureConverter.RenderSprite(Device, DataContext.PanelItems.GetPanelItemSprite(spriteId));
+    protected override Texture2D? RenderIcon(ushort spriteId) => UiRenderer.Instance!.GetItemIcon(spriteId);
 }

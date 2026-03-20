@@ -72,12 +72,11 @@ public sealed class SelfProfileTabControl : PrefabPanel
                 OnClose?.Invoke();
             };
 
-        // Load normal/small tab textures from _nui_tb1.spf
-        var smallFrames = TextureConverter.LoadSpfTextures(device, "_nui_tb1.spf");
-
         // Configure tab buttons — AutoPopulate created them as UIButtons with the big/selected
         // texture as NormalTexture (the only image in the prefab). We swap that to SelectedTexture
         // and assign the small/normal texture from _nui_tb1.spf.
+        var cache = UiRenderer.Instance!;
+
         for (var i = 0; i < TAB_COUNT; i++)
         {
             var tab = (StatusBookTab)i;
@@ -102,7 +101,7 @@ public sealed class SelfProfileTabControl : PrefabPanel
                     frameIndex = prefab.Control.Images[0].FrameIndex;
             }
 
-            tabBtn.NormalTexture = frameIndex < smallFrames.Length ? smallFrames[frameIndex] : null;
+            tabBtn.NormalTexture = cache.GetSpfTexture("_nui_tb1.spf", frameIndex);
 
             // Wire click → switch tab
             var capturedTab = tab;

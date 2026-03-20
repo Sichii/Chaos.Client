@@ -1,6 +1,5 @@
 #region
 using Chaos.Client.Controls.Components;
-using Chaos.Client.Data;
 using Chaos.Client.Rendering;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
@@ -219,7 +218,7 @@ public sealed class SelfProfileAbilityMetadataTab : PrefabPanel
 
                 if (entries[i].IconSprite > 0)
                 {
-                    var newIcon = TextureConverter.RenderSprite(Device, DataContext.PanelIcons.GetSkillIcon(entries[i].IconSprite));
+                    var newIcon = UiRenderer.Instance!.GetSkillIcon(entries[i].IconSprite);
 
                     if (newIcon != icons[i])
                     {

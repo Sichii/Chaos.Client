@@ -1,6 +1,6 @@
 #region
-using Chaos.Client.Common.Definitions;
 using Chaos.Client.Data;
+using Chaos.Client.Data.Definitions;
 using Chaos.Client.Rendering.Models;
 using DALib.Definitions;
 using DALib.Drawing;

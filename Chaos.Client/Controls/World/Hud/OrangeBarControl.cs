@@ -38,12 +38,7 @@ public sealed class OrangeBarControl : UIElement
         WrapBounds = PrefabPanel.GetRect(hudPrefabSet, "SystemMessageWrap");
 
         if (hudPrefabSet.Contains("SystemMessagePane"))
-        {
-            var prefab = hudPrefabSet["SystemMessagePane"];
-
-            if (prefab.Images.Count > 0)
-                PaneBg = TextureConverter.ToTexture2D(device, prefab.Images[0]);
-        }
+            PaneBg = UiRenderer.Instance!.GetPrefabTexture(hudPrefabSet.Name, "SystemMessagePane", 0);
 
         HistoryTextures = new CachedText[MAX_EXPAND_LINES];
 

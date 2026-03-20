@@ -2,6 +2,7 @@
 using Chaos.Client.Collections;
 using Chaos.Client.Definitions;
 using Chaos.Client.Rendering;
+using Chaos.Client.Systems.Animation;
 using Chaos.DarkAges.Definitions;
 using Chaos.Geometry.Abstractions.Definitions;
 using Microsoft.Xna.Framework;

@@ -1,6 +1,6 @@
 #region
 using System.Text;
-using Chaos.Client.Common.Abstractions;
+using Chaos.Client.Data.Abstractions;
 using Chaos.Client.Data.Models;
 using Chaos.Extensions.Common;
 using DALib.Data;

@@ -47,10 +47,11 @@ public sealed class VerticalBarControl : IDisposable
             return;
         }
 
+        var cache = UiRenderer.Instance!;
         Frames = new Texture2D[prefab.Images.Count];
 
         for (var i = 0; i < prefab.Images.Count; i++)
-            Frames[i] = TextureConverter.ToTexture2D(device, prefab.Images[i]);
+            Frames[i] = cache.GetPrefabTexture(prefabSet.Name, name, i);
     }
 
     public void Dispose()

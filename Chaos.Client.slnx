@@ -4,11 +4,6 @@
         <File Path="Directory.Packages.props"/>
     </Folder>
     <Project Path="../dalib/DALib/DALib.csproj"/>
-    <Project Path="Chaos.Client.Common/Chaos.Client.Common.csproj">
-        <BuildType Solution="Release|*" Project="?"/>
-        <Platform Solution="Release|*" Project="?"/>
-        <Build Solution="Release|*" Project="false"/>
-    </Project>
     <Project Path="Chaos.Client.Data/Chaos.Client.Data.csproj">
         <BuildType Solution="Release|*" Project="?"/>
         <Platform Solution="Release|*" Project="?"/>

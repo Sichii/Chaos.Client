@@ -1,6 +1,6 @@
 #region
 using System.Collections.Frozen;
-using Chaos.Client.Common.Abstractions;
+using Chaos.Client.Data.Abstractions;
 using DALib.Drawing;
 using DALib.Utility;
 #endregion

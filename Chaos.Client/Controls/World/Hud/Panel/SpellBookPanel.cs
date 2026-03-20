@@ -1,6 +1,5 @@
 #region
 using Chaos.Client.Controls.World.Hud.Panel.Slots;
-using Chaos.Client.Data;
 using Chaos.Client.Data.Models;
 using Chaos.Client.Definitions;
 using Chaos.Client.Rendering;
@@ -76,14 +75,13 @@ public sealed class SpellBookPanel : PanelBase
     /// </summary>
     public SpellSlot? GetSpellSlot(byte slot) => FindSlot(slot) as SpellSlot;
 
-    protected override Texture2D? RenderIcon(ushort spriteId)
-        => TextureConverter.RenderSprite(Device, DataContext.PanelIcons.GetSpellIcon(spriteId));
+    protected override Texture2D? RenderIcon(ushort spriteId) => UiRenderer.Instance!.GetSpellIcon(spriteId);
 
-    private Texture2D? RenderTintedIcon(ushort spriteId)
+    private Texture2D RenderTintedIcon(ushort spriteId)
     {
-        using var normal = RenderIcon(spriteId);
+        var cache = UiRenderer.Instance!;
 
-        return normal is not null ? TextureConverter.CreateTintedTexture(Device, normal) : null;
+        return cache.GetTintedTexture($"spell:{spriteId}", cache.GetSpellIcon(spriteId));
     }
 
     public void SetCooldown(byte slot, uint durationSecs)
@@ -99,6 +97,13 @@ public sealed class SpellBookPanel : PanelBase
 
         if (control is null)
             return;
+
+        if (durationSecs == 0)
+        {
+            control.CooldownPercent = 0;
+
+            return;
+        }
 
         // Lazy-load blue variant
         var spriteId = SpriteIds[index];

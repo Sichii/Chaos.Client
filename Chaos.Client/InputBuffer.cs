@@ -11,6 +11,7 @@ namespace Chaos.Client;
 /// </summary>
 public sealed class InputBuffer : IDisposable
 {
+    private readonly Game Game;
     private readonly HashSet<Keys> HeldKeys = [];
 
     // Accumulation buffers — filled by window events between Update() calls
@@ -29,9 +30,10 @@ public sealed class InputBuffer : IDisposable
     // Virtual resolution transform — raw window coords → virtual 640×480 coords
     private float VirtualScale = 1f;
 
-    public InputBuffer(GameWindow window)
+    public InputBuffer(Game game)
     {
-        Window = window;
+        Game = game;
+        Window = game.Window;
 
         Window.KeyDown += OnKeyDown;
         Window.KeyUp += OnKeyUp;
@@ -70,9 +72,33 @@ public sealed class InputBuffer : IDisposable
     /// </summary>
     public void Update()
     {
-        FramePresses = [.. PendingPresses];
-        FrameReleases = [.. PendingReleases];
-        FrameText = [.. PendingText];
+        if (!Game.IsActive)
+        {
+            // Window not focused — discard buffered input and report nothing
+            PendingPresses.Clear();
+            PendingReleases.Clear();
+            PendingText.Clear();
+            HeldKeys.Clear();
+            FramePresses.Clear();
+            FrameReleases.Clear();
+            FrameText = Array.Empty<char>();
+            PreviousMouse = CurrentMouse;
+            CurrentMouse = Mouse.GetState();
+
+            return;
+        }
+
+        FramePresses.Clear();
+
+        foreach (var key in PendingPresses)
+            FramePresses.Add(key);
+
+        FrameReleases.Clear();
+
+        foreach (var key in PendingReleases)
+            FrameReleases.Add(key);
+
+        FrameText = PendingText.Count > 0 ? [.. PendingText] : [];
 
         PendingPresses.Clear();
         PendingReleases.Clear();

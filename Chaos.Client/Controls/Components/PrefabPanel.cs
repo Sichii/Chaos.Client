@@ -155,7 +155,7 @@ public abstract class PrefabPanel : UIPanel
         }
 
         if (anchor.Images.Count > 0)
-            Background = TextureConverter.ToTexture2D(device, anchor.Images[0]);
+            Background = UiRenderer.Instance!.GetPrefabTexture(prefabName, anchor.Control.Name, 0);
     }
 
     /// <summary>
@@ -218,7 +218,8 @@ public abstract class PrefabPanel : UIPanel
 
         var r = rect.Value;
 
-        var pressedTexture = prefab.Images.Count > 1 ? TextureConverter.ToTexture2D(Device, prefab.Images[1]) : null;
+        var cache = UiRenderer.Instance!;
+        var pressedTexture = prefab.Images.Count > 1 ? cache.GetPrefabTexture(PrefabSet.Name, prefab.Control.Name, 1) : null;
 
         return new UIButton
         {
@@ -227,7 +228,7 @@ public abstract class PrefabPanel : UIPanel
             Y = (int)r.Top,
             Width = (int)r.Width,
             Height = (int)r.Height,
-            NormalTexture = prefab.Images.Count > 0 ? TextureConverter.ToTexture2D(Device, prefab.Images[0]) : null,
+            NormalTexture = prefab.Images.Count > 0 ? cache.GetPrefabTexture(PrefabSet.Name, prefab.Control.Name, 0) : null,
             PressedTexture = pressedTexture,
             SelectedTexture = pressedTexture
         };
@@ -262,7 +263,7 @@ public abstract class PrefabPanel : UIPanel
             Y = (int)r.Top,
             Width = (int)r.Width,
             Height = (int)r.Height,
-            Texture = prefab.Images.Count > 0 ? TextureConverter.ToTexture2D(Device, prefab.Images[0]) : null
+            Texture = prefab.Images.Count > 0 ? UiRenderer.Instance!.GetPrefabTexture(PrefabSet.Name, prefab.Control.Name, 0) : null
         };
     }
 

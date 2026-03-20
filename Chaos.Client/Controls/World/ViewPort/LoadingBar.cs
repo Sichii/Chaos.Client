@@ -28,9 +28,10 @@ public class LoadingBar : PrefabPanel
         Visible = false;
 
         // Load progress bar segments from SPF files (not part of the prefab)
-        BarStartTexture = TextureConverter.LoadSpfTexture(device, "_nloadb0.spf");
-        BarFillTexture = TextureConverter.LoadSpfTexture(device, "_nloadb1.spf");
-        BarEndTexture = TextureConverter.LoadSpfTexture(device, "_nloadb2.spf");
+        var cache = UiRenderer.Instance!;
+        BarStartTexture = cache.GetSpfTexture("_nloadb0.spf");
+        BarFillTexture = cache.GetSpfTexture("_nloadb1.spf");
+        BarEndTexture = cache.GetSpfTexture("_nloadb2.spf");
 
         // Position the progress bar at the bottom third of the panel
         var barStartHeight = BarStartTexture?.Height ?? 0;

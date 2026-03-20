@@ -1,5 +1,4 @@
 #region
-using Chaos.Client.Data;
 using Chaos.Client.Data.Models;
 using Chaos.Client.Rendering;
 using Microsoft.Xna.Framework.Graphics;
@@ -22,9 +21,8 @@ public sealed class ToolsPanel : PanelBase
 
         // Override the default InventoryBackground with the tools-specific background
         Background?.Dispose();
-        Background = TextureConverter.LoadSpfTexture(device, "_ninvs3.spf");
+        Background = UiRenderer.Instance!.GetSpfTexture("_ninvs3.spf");
     }
 
-    protected override Texture2D? RenderIcon(ushort spriteId)
-        => TextureConverter.RenderSprite(Device, DataContext.PanelItems.GetPanelItemSprite(spriteId));
+    protected override Texture2D? RenderIcon(ushort spriteId) => UiRenderer.Instance!.GetItemIcon(spriteId);
 }

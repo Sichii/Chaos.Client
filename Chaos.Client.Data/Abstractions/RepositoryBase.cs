@@ -1,7 +1,9 @@
-﻿using Chaos.Extensions.Client.Common;
+﻿#region
+using Chaos.Extensions.Client.Common;
 using Microsoft.Extensions.Caching.Memory;
+#endregion
 
-namespace Chaos.Client.Common.Abstractions;
+namespace Chaos.Client.Data.Abstractions;
 
 public abstract class RepositoryBase
 {

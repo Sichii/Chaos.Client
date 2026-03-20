@@ -16,8 +16,9 @@ namespace Chaos.Client.Systems.Animation;
 /// </summary>
 public static class AnimationManager
 {
-    private const int DEFAULT_WALK_FRAMES = 5;
-    private const float DEFAULT_WALK_FRAME_MS = 100f;
+    private const int DEFAULT_WALK_FRAMES = 4;
+    private const float DEFAULT_WALK_FRAME_MS = 150f;
+    private const float MIN_WALK_DURATION_MS = 75f;
 
     // The server's AnimationSpeed value × 10 = total animation duration in ms.
     // Smaller speed = faster animation (e.g. speed=25 → 250ms, speed=100 → 1000ms).
@@ -25,20 +26,22 @@ public static class AnimationManager
     private const float DEFAULT_BODY_ANIM_FRAME_MS = 150f;
     private const float CREATURE_ATTACK_FRAME_MS = 300f;
 
-    // Aisling walk anim "01": frames 0-4 = Up (back-facing), frames 5-9 = Right (front-facing)
-    private const int AISLING_UP_BASE = 0;
-    private const int AISLING_RIGHT_BASE = 5;
+    // Aisling walk anim "01": frame 0 = Up idle, 1-4 = Up walk; frame 5 = Right idle, 6-9 = Right walk
+    private const int AISLING_UP_WALK_BASE = 1;
+    private const int AISLING_RIGHT_WALK_BASE = 6;
 
     #region Start
     /// <summary>
     ///     Sets up walk animation state on an entity. Call after updating tile position.
     /// </summary>
-    public static void StartWalk(WorldEntity entity, Direction direction)
+    public static void StartWalk(WorldEntity entity, Direction direction, int? walkFrameOverride = null)
     {
+        var frameCount = walkFrameOverride ?? DEFAULT_WALK_FRAMES;
+
         entity.AnimState = EntityAnimState.Walking;
         entity.AnimFrameIndex = 0;
         entity.AnimElapsedMs = 0;
-        entity.AnimFrameCount = DEFAULT_WALK_FRAMES;
+        entity.AnimFrameCount = frameCount;
         entity.AnimFrameIntervalMs = DEFAULT_WALK_FRAME_MS;
         entity.WalkStartOffset = GetWalkOffset(direction);
         entity.VisualOffset = entity.WalkStartOffset;
@@ -79,7 +82,7 @@ public static class AnimationManager
         if (entity.AnimState == EntityAnimState.Walking)
             return;
 
-        if (Helpers.IsEmote(bodyAnim))
+        if (DataUtilities.IsEmote(bodyAnim))
             return;
 
         (var startIndex, var framesPerDir) = ResolveCreatureAttack(bodyAnim, in animInfo);
@@ -142,7 +145,7 @@ public static class AnimationManager
     {
         entity.AnimElapsedMs += elapsedMs;
 
-        var totalDuration = entity.AnimFrameCount * entity.AnimFrameIntervalMs;
+        var totalDuration = Math.Max(MIN_WALK_DURATION_MS, (entity.AnimFrameCount - 1) * entity.AnimFrameIntervalMs);
         var progress = Math.Clamp(entity.AnimElapsedMs / totalDuration, 0f, 1f);
 
         entity.AnimFrameIndex = Math.Clamp((int)(progress * entity.AnimFrameCount), 0, entity.AnimFrameCount - 1);
@@ -255,7 +258,7 @@ public static class AnimationManager
             case EntityAnimState.Walking:
             {
                 var isFront = entity.Direction is Direction.Right or Direction.Down;
-                var baseFrame = isFront ? AISLING_RIGHT_BASE : AISLING_UP_BASE;
+                var baseFrame = isFront ? AISLING_RIGHT_WALK_BASE : AISLING_UP_WALK_BASE;
                 var frameIndex = baseFrame + Math.Clamp(entity.AnimFrameIndex, 0, DEFAULT_WALK_FRAMES - 1);
                 var flip = entity.Direction is Direction.Down or Direction.Left;
 
@@ -277,11 +280,11 @@ public static class AnimationManager
 
             default:
             {
-                // Idle
+                // Idle: frame 0 = Up idle, frame 5 = Right idle
                 var isFront = entity.Direction is Direction.Right or Direction.Down;
                 var flip = entity.Direction is Direction.Down or Direction.Left;
 
-                return (isFront ? AISLING_RIGHT_BASE : AISLING_UP_BASE, flip, "01", isFront);
+                return (isFront ? 5 : 0, flip, "01", isFront);
             }
         }
     }
@@ -295,7 +298,7 @@ public static class AnimationManager
     /// </summary>
     public static (string Suffix, int FramesPerDirection, int UpStart, int RightStart) ResolveBodyAnimParams(BodyAnimation anim)
     {
-        if (Helpers.IsEmote(anim))
+        if (DataUtilities.IsEmote(anim))
             return ("01", 0, 0, 0);
 
         // Reference: ChaosAssetManager AnimationDefinitions

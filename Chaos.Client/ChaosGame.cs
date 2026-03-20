@@ -103,11 +103,18 @@ public sealed class ChaosGame : Game
             id,
             oldX,
             oldY,
-            dir) => World.HandleCreatureWalk(
-            id,
-            oldX,
-            oldY,
-            dir);
+            dir) =>
+        {
+            var entity = World.GetEntity(id);
+            var walkFrames = entity is not null && (entity.SpriteId > 0) ? CreatureRenderer.GetWalkFrameCount(entity.SpriteId) : null;
+
+            World.HandleCreatureWalk(
+                id,
+                oldX,
+                oldY,
+                dir,
+                walkFrames);
+        };
         Connection.OnCreatureTurn += (id, dir) => World.HandleCreatureTurn(id, dir);
 
         Window.Title = "Darkages";
@@ -162,8 +169,10 @@ public sealed class ChaosGame : Game
             false,
             SurfaceFormat.Color,
             DepthFormat.Depth24Stencil8);
-        Input = new InputBuffer(Window);
+        Input = new InputBuffer(this);
         Screens = new ScreenManager(this);
+
+        UiRenderer.Instance = new UiRenderer(GraphicsDevice);
 
         LoadCustomCursor();
 
@@ -172,16 +181,10 @@ public sealed class ChaosGame : Game
 
     private void LoadCustomCursor()
     {
-        var frames = TextureConverter.LoadEpfTextures(GraphicsDevice, "mouse.epf");
+        CursorTexture = UiRenderer.Instance!.GetEpfTexture("mouse.epf", 0);
 
-        if (frames.Length > 0)
+        if (CursorTexture is not null)
         {
-            CursorTexture = frames[0];
-
-            for (var i = 1; i < frames.Length; i++)
-                frames[i]
-                    .Dispose();
-
             IsMouseVisible = false;
 
             // Scan for the top-left most non-transparent pixel to find the arrow tip
@@ -264,6 +267,8 @@ public sealed class ChaosGame : Game
         AislingRenderer.Dispose();
         EffectRenderer.Dispose();
         SoundManager.Dispose();
+        UiRenderer.Instance?.Dispose();
+        UiRenderer.Instance = null;
         base.UnloadContent();
     }
 

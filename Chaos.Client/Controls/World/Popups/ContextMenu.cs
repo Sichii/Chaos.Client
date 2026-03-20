@@ -1,11 +1,12 @@
 #region
+using Chaos.Client.Controls.Components;
 using Chaos.Client.Rendering;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using Microsoft.Xna.Framework.Input;
 #endregion
 
-namespace Chaos.Client.Controls.Components;
+namespace Chaos.Client.Controls.World.Popups;
 
 /// <summary>
 ///     A floating context menu that appears at a screen position with a list of text options. Clicking an option fires its

@@ -1,6 +1,5 @@
 #region
 using Chaos.Client.Controls.Components;
-using Chaos.Client.Data;
 using Chaos.Client.Networking;
 using Chaos.Client.Rendering;
 using Chaos.Networking.Entities.Server;
@@ -86,12 +85,7 @@ public sealed class WorldMap : UIPanel
         ClearBackground();
     }
 
-    private Texture2D? LoadFieldImage(string fieldName)
-    {
-        using var image = DataContext.UserControls.GetFieldImage(fieldName);
-
-        return image is not null ? TextureConverter.ToTexture2D(Device, image) : null;
-    }
+    private Texture2D LoadFieldImage(string fieldName) => UiRenderer.Instance!.GetFieldImage(fieldName);
 
     public void Show(WorldMapArgs args)
     {

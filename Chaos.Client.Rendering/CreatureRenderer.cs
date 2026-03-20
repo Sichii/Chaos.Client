@@ -98,6 +98,16 @@ public sealed class CreatureRenderer : IDisposable
 
         return spriteFrame;
     }
+
+    /// <summary>
+    ///     Returns the walk frame count for a creature sprite, or null if the sprite cannot be loaded.
+    /// </summary>
+    public int? GetWalkFrameCount(int spriteId)
+    {
+        var info = GetAnimInfo(spriteId);
+
+        return info?.WalkFrameCount;
+    }
 }
 
 /// <summary>

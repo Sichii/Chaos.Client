@@ -89,7 +89,7 @@ public sealed class SettingsControl : PrefabPanel
 
         // Create per-setting number buttons from _nsettb.spf (2 frames per setting: normal, pressed)
         // 2-column layout: settings 0-9 in left column, 10-12 in right column
-        var settingFrames = TextureConverter.LoadSpfTextures(device, "_nsettb.spf");
+        var cache = UiRenderer.Instance!;
 
         for (var i = 0; i < SETTING_COUNT; i++)
         {
@@ -106,8 +106,8 @@ public sealed class SettingsControl : PrefabPanel
                 Y = BUTTON_Y + row * ROW_HEIGHT,
                 Width = BUTTON_SIZE,
                 Height = BUTTON_SIZE,
-                NormalTexture = normalIdx < settingFrames.Length ? settingFrames[normalIdx] : null,
-                PressedTexture = pressedIdx < settingFrames.Length ? settingFrames[pressedIdx] : null
+                NormalTexture = cache.GetSpfTexture("_nsettb.spf", normalIdx),
+                PressedTexture = cache.GetSpfTexture("_nsettb.spf", pressedIdx)
             };
 
             btn.OnClick += () => ToggleSetting(settingIndex);

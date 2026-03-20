@@ -1,6 +1,5 @@
 #region
 using Chaos.Client.Controls.World.Hud.Panel.Slots;
-using Chaos.Client.Data;
 using Chaos.Client.Data.Models;
 using Chaos.Client.Definitions;
 using Chaos.Client.Rendering;
@@ -82,17 +81,15 @@ public sealed class SkillBookPanel : PanelBase
     /// </summary>
     public SkillSlot? GetSkillSlot(byte slot) => FindSlot(slot) as SkillSlot;
 
-    private Texture2D? RenderGreyIcon(ushort spriteId)
-        => TextureConverter.RenderSprite(Device, DataContext.PanelIcons.GetSkillGreyIcon(spriteId));
+    private Texture2D? RenderGreyIcon(ushort spriteId) => UiRenderer.Instance!.GetSkillGreyIcon(spriteId);
 
-    protected override Texture2D? RenderIcon(ushort spriteId)
-        => TextureConverter.RenderSprite(Device, DataContext.PanelIcons.GetSkillIcon(spriteId));
+    protected override Texture2D? RenderIcon(ushort spriteId) => UiRenderer.Instance!.GetSkillIcon(spriteId);
 
-    private Texture2D? RenderTintedIcon(ushort spriteId)
+    private Texture2D RenderTintedIcon(ushort spriteId)
     {
-        using var normal = RenderIcon(spriteId);
+        var cache = UiRenderer.Instance!;
 
-        return normal is not null ? TextureConverter.CreateTintedTexture(Device, normal) : null;
+        return cache.GetTintedTexture($"skill:{spriteId}", cache.GetSkillIcon(spriteId));
     }
 
     public void SetCooldown(byte slot, uint durationSecs)
@@ -110,6 +107,13 @@ public sealed class SkillBookPanel : PanelBase
 
         if (control is null)
             return;
+
+        if (durationSecs == 0)
+        {
+            control.CooldownPercent = 0;
+
+            return;
+        }
 
         // Lazy-load grey base and tinted overlay
         var spriteId = SpriteIds[index];

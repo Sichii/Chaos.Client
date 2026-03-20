@@ -1,5 +1,5 @@
 #region
-using Chaos.Client.Common.Abstractions;
+using Chaos.Client.Data.Abstractions;
 #endregion
 
 namespace Chaos.Client.Data.Repositories;

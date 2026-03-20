@@ -23,6 +23,8 @@ public abstract class PanelBase : UIPanel
     private const int COLUMNS = 12;
     private const int VISIBLE_SLOTS = 36;
 
+    private static Texture2D? SlotNumberOverlay;
+
     protected readonly GraphicsDevice Device;
     protected readonly int SlotOffset;
     protected readonly PanelSlot[] Slots;
@@ -76,8 +78,10 @@ public abstract class PanelBase : UIPanel
             var prefab = hudPrefabSet["InventoryBackground"];
 
             if (prefab.Images.Count > 0)
-                Background = TextureConverter.ToTexture2D(device, prefab.Images[0]);
+                Background = UiRenderer.Instance!.GetPrefabTexture(hudPrefabSet.Name, "InventoryBackground", 0);
         }
+
+        SlotNumberOverlay ??= UiRenderer.Instance!.GetSpfTexture("_ninvn.spf");
 
         // Create slot controls for the visible grid cells
         Slots = new PanelSlot[VISIBLE_SLOTS];
@@ -135,6 +139,9 @@ public abstract class PanelBase : UIPanel
             return;
 
         base.Draw(spriteBatch);
+
+        if (SlotNumberOverlay is not null)
+            spriteBatch.Draw(SlotNumberOverlay, new Vector2(ScreenX, ScreenY), Color.White);
     }
 
     /// <summary>

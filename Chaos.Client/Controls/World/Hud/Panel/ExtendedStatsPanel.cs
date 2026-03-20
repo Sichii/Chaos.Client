@@ -51,7 +51,7 @@ public sealed class ExtendedStatsPanel : UIPanel
             }
 
             if (prefab.Images.Count > 0)
-                Background = TextureConverter.ToTexture2D(device, prefab.Images[0]);
+                Background = UiRenderer.Instance!.GetPrefabTexture(statusPrefabSet.Name, "ExtraStatus", 0);
         }
 
         // Extended stat labels (e_ prefix) -- positioned relative to ExtraStatus origin.

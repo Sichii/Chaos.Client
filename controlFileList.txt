@@ -1,385 +1,547 @@
-_nagree.spf   - agreement on open page
-_nbk_l.spf    - Large (/) play screen
-_nbk_s.spf    - small (non /) play screen
-_nbkgrp.spf   - group button lower right corner
-_nbkhlp.spf   - help button lower right corner
-_nbklgd.spf   - legend button lower right corner
-_nbktwn.spf   - town button lower right corner
-_nbsflag.spf  - unknown use (actual flag)
-_nbswbk.spf   - old map in Korean do not use
-_nbtn.spf     - mail buttons
-_ncarrow.spf  - green arrow buttons (character creation screen)
-_ncb1.spf     - ok button (character creation screen)
-_ncb2.spf     - cancel button (character creation screen)<CCC
-_ncbg.spf     - boy girl toggle ^ CCC
-_ncbh.spf     - help button ^CCC
-_ncbnn.spf    - account creation (ID) ^CCC
-_nccolor.spf  - CCC color palate^CCC
-_nchatbk.spf  - F talk tab (full)
-_ncreate.spf  - CCC screen (the main CCC screen)
-_nemot.spf    - status button (awake/DND/daydreaming/needgroup/grouped/fishing/grouphunting/needhelp)
-_nemots.spf   - ^ but smaller (for vita list)
-_nexch.spf    - exchange panel
-_nfriend.spf  - friendslist
-_ngb00.spf    - right side of screen buttons (mail/status/worldlist)
-_ngb01.spf    - right side settings button
-_ngbi0.spf    - bottom of screen buttons ( asdfgh right side buttons)
-_ngbi0b.spf   - ^ large (/) screen buttons bottom (asdfgh)
-_ngbmb.spf    - ^ ngbi0b's keyring
-_ngcbtn.spf   - group page buttons (change/join/okay/group)
-_ngcbtn1.spf  - group page quit group button
-_ngcbtnb.spf  - group page manage/invite buttons green
-_ngcbtns.spf  - group page? manage/invite buttons wood
-_ngcdlg0.spf  - group main page
-_ngcdlg1.spf  - group create menu
-_nhk_bk.spf   - hotkey screen (hit help button)
-_nhk_m.spf    - hotkey ?overlay?
-_nhkk00.spf   - hotkey overlay compressed buttons asdfgh
-_nhkk01.spf   - hotkey overlay compressed buttons qwerty
-_nhkk02.spf   - hotkey overlay compressed buttons zxcv and (up/down/left/right)
-_nhkk021.spf  - hotkey overlay compressed buttons zxcv 
-_nhkk022.spf  - hotkey overlay compressed buttons (up/down/left/right)
-_nhkk03.spf   - hotkey overlay compressed buttons "enter 
-_nhkk04.spf   - hotkey overlay compressed buttons ~!tab
-_nhkk05.spf   - hotkey overlay compressed buttons f1f3f4
-_nhkk06.spf   - hotkey overlay compressed buttons f5f7f8
-_nhkk07.spf   - hotkey overlay compressed buttons f9f12
-_nhkk08.spf   - hotkey overlay compressed buttons page up page down
-_nhkk09.spf   - hotkey overlay compressed buttons 1234567890-
-_nhkk10.spf   - hotkey overlay compressed buttons spacebar
-_nhkk11.spf   - hotkey overlay compressed buttons b
-_nhkk12.spf   - hotkey overlay compressed buttons j
-_nhkk13.spf   - hotkey overlay compressed buttons /
-_ni_chlo.spf  - large screen / button
-_ni_exp.spf   - expand inv ext button
-_ni_expb.spf  - large screens expand view button
-_ni_gr0.spf   - leave group button small
-_ni_gr0b.spf  - leave group button large
-_ni_grp.spf   - group button small
-_ni_grpb.spf  - group button large
-_ni_maib.spf  - mail button large
-_ni_mail.spf  - mail button small
-_ni_sb.spf    -  unknown
-_ni_sbb.spf   - unknown
-_ni_scrs.spf  - large screen screenshot button
-_ni_sett.spf  - large screen settings button
-_ni_shob.spf  - large  screen portrait button
-_ni shot.spf  - small screen portrait button
-_ni_ws.spf    - eshop button?
-_ni_wsb.spf   - unknown ^?
-_ninv1.spf    - showing 1 line inventory panel
-_ninv3.spf    -  ^      3 panel
-_ninv5.spf    -  ^      5 panel
-_ninvbk.spf   -  ^      3 leather
-_ninvbke.spf  -  ^      5 leather
-_ninvbks.spf  -  ^      1 leather
-_ninvn.spf    - inventory numbering 1-=
-_ninvs1.spf   - h pane 1 line
-_ninvs3.spf   - h pane 3 line
-_nload.spf    - in game load screen 
-_nloadb0.spf  - 1%
-_nloadb1.spf  - 2-98%
-_nloadb2.spf  - 99-100%
-_nloadm.spf   - in game load map screen
-_nlogin.spf   - main screen log in typing screen
-_nmacros.spf  - f3 menu
-_nmailb.spf   - mail button
-_nmaill.spf   - mail screen
-_nmailr.spf   - recieve mail screen
-_nmails.spf   - send mail screen
-_nmoney.spf   - trade gold miniscreen
-_noptbtn.spf  - macro settings friends sounds button (stone?)
-_noptdlg.spf  - options dialog
-_noptext.spf  - exit game buttons
-_norb_hb.spf  - large screen hp
-_norb_hp.spf  - small screen hp
-_norb_mb.spf  - large screen mp
-_norb_mp.spf  - small screen mp
-_nping.spf    - ping indicator
-_nportbk.spf  - portrait backer
-_npw.spf      - new password screen
-_npw2.spf     - DOB screen
-_nsb1.spf     - create button main screen
-_nsb2.spf     - continue 
-_nsb3.spf     - password
-_nsb4.spf     - credit
-_nsb5.spf     - homepage
-_nsb6.spf     - exit
-_nsett.spf    - settings backboard
-_nsettb.spf   - settings numbers
-_nslogo.spf   - start screen middle orb
-_nslogo1.spf  - currently blank?
-_nsmbk.spf    - unknown looks like text box
-_nstart.spf   - main screen 
-_nstater.spf  - shift g pane / version
-_nstatex.spf  - shift g normal
-_nstatur.spf  - g /version
-_nstatus.spf  - g normal
-_nsvr1.spf    - login server selection (not usually seen)
-_nsvr2.spf    - ^ part 2
-_nsvr3.spf    - ^ bottom part
-_nui_al.spf   - album screen
-_nui_alb.spf  - album portraits
-_nui_alc.spf  - unknown
-_nui_b1.spf   - title button presentation screen
-_nui_ba.spf   - album save delete
-_nui_bn.spf   - album/event  next button
-_nui_bp.spf   - album/event prev button
-_nui_dr.spf   - legend page
-_nui_egb.spf  - group ungroup toggle
-_nui_eq.spf   - equip/ presentation page stat'd
-_nui_eqa.spf  - ^ no stats
-_nui_eqi.spf  - equip items icons?
-_nui_ev.spf   - quest log 11-40
-_nui_ev0.spf  - 41-70 71-98
-_nui_ev1.spf  - 99+ master
-_nui_eve.spf  - events question screen
-_nui_fm.spf   - family screen
-_nui_leg.spf  - legend icons
-_nui_nat.spf  - shields
-_nui_sk.spf   - spell/skill page
-_nui_ske.spf  - spell/skill reqs
-_nui_ski.spf  - legend/skill pages "fillable"
-_nui_tb1.spf  - tabs for status book
-_nui_tb2.spf  - active tabs for status book
-_nui_tba.spf  - save delete?
-_nui_tbc.spf  - close status book
-_nusers.spf   - worldlist
-_nusersb.spf  - class buttons world list
-addimg.spf    - ?
-backgrnd.spf  - leather playable background
-DlgBack2.spf  - ? diaglog background?
-exchange.spf  - exchange window
-f001.spf      - Korean words
-f002.spf      - ^
-f003.spf      - ^
-f004.spf      - ^
-f005.spf      - ^
-f006.spf      - ^
-f007.spf      - ^
-f008.spf      - ^
-f009.spf      - ^
-f00bm.spf     - balloon man world map
-f00bw.spf     - balloon woman world map
-f010.spf      - Korean words
-f011.spf      - ^
-f012.spf      - ^
-f013.spf      - ^
-f014.spf      - ^
-f015.spf      - ^
-f016.spf      - ^
-f017.spf      - ^
-f018.spf      - ^
-f019.spf      - ^
-f020.spf      - ^
-f021.spf      - ^
-f022.spf      - ^
-f022a.spf     - map house lights on/off
-f023.spf      - Korean words
-f024.spf      - ^
-f024a.spf     - ferris wheel moving world map
-f025.spf      - Korean words 
-f026.spf      - ^
-fw01.spf      - alsaids
-fw02.spf      - andarion
-fw03.spf      - nageling
-fw04.spf      - noes
-fw05.spf      - selaime
-fw06.spf      - silion
-gc_btnu.spf   - Korean button
-gc_dlg0.spf   -  leather group window
-gc_dlg1.spf   - Korean leather form group window
-gc_dbtn0.spf  - join button
-gc_gbtn1.spf  - reset button
-gc_gbtn2.spf  - cance?l button
-gc_gbtn3.spf  - ok button 
-gc_gbtn4.spf  - Korean word button
-gc_gbtn5.spf  - ^
-gc_gbtn6.spf  - ^
-gc_gbtn7.spf  - ^
-gc_gbtn8.spf  - ^
-gc_pane.spf   - group fillable
-gc_pane2.spf  - blue box?
-gc_tab00.spf  - Korean word button
-gc_tab01.spf  - ^
-gc_tab10.spf  - ^
-gc_tab11.spf  - ^
-lemap.spf     - mythosia map
-manufac.spf   - manufacture window
-manunext.spf  - next arrow ^
-manuprev.spf  - perv arrow ^
-mercback.spf  - Korean merch window 
-merccn.spf    -  next arrow ^
-merccp.spf    - back arrow ^
-mercnext.spf  - Korean word button
-mercprev.spf  - ^
-merctab.spf   - flash green button 
-money.spf     - money exchange screen
-nd_arw.spd    - up/down button
-nd_btns.spf   - Korean words buttons
-nd_f01.spf    - top left corner unknown
-nd_f02.spf    - top right corner 
-nd_f03.spf    - bottom left corner
-nd_f04.spf    - bottom right corner
-nd_f05.spf    - bottom/top?
-nd_f06.spf    - right/left?
-nd_f07.spf    - right/left?
-nd_f08.spf    - bottom/top?
-nd_f08_1.spf  - bottom/top?
-nd_mback.spf  - shop screen 4 items
-nd_mcn.spf    - next button >
-nd_mcp.spf    - back button <
-nd_mnext.spf  - next button
-nd_mprev.spf  - back button 
-nd_mtab.spf   - yellowish flash button 
-nd_n00.spf    -? text box
-nd_n00on.spf  -?
-nd_n01.spf    -?
-nd_n01on.spf  -?
-nd_n02.spf    -?
-nd_n02on.spf  -?
-nd_npcbg.spf  - npc image
-nd_talk.spf   - npc text
-sb_back.spf   -  leather -shop bag?
-sb_back2.spf  - panel - shop bag?
-sb_close.spf  - Korean words
-sb_get.spf    - ^
-sb_gift.spf   - ribbon
-sb_next.spf   - Korean words
-sb_next2.spf  - ^
-sb_prev.spf   - ^ 
-sb_prev2.spf  - ^
-sbbtn.spf     - ?
-term.spf      - Korean terms page
-termexit.spf  - exit button
-tileb.spf     - red tile?
-wsbtn.spf     - eshop button?
+# Setoa Archive — Control Files, EPF, SPF, and Asset Mapping
+#
+# This document catalogs all assets in the Setoa (and Cious) DAT archives used by the client,
+# mapping control files (.txt) to their referenced image files (.epf/.spf) and the C# classes
+# that consume them.
+#
+# Resolution order:
+#   Control .txt files: Cious first, then Setoa
+#   Image files (EPF/SPF): Setoa first, then Cious
+#   Image name resolution: try {name}.epf first, then {name}.spf
+#
+# Palette selection for EPF images is determined by the GetGuiPaletteNumber() prefix table
+# in UiComponentRepository.cs. SPF files use their own embedded palette (colorized or primary).
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# SECTION 1: CONTROL FILES (.txt) — Loaded via DataContext.UserControls.Get()
+#
+# Each control .txt file defines a UI panel layout with <CONTROL> blocks.
+# The <IMAGE> section in each block references an image name (bare, no extension)
+# and a frame index. UiComponentRepository resolves these to EPF/SPF files at load time.
+# ═══════════════════════════════════════════════════════════════════════════════
+
+# ── Login / Lobby Flow ─────────────────────────────────────────────────────────
+
+_nstart.txt
+  Class:    LobbyLoginControl : PrefabPanel
+  File:     Controls/LobbyLogin/LobbyLoginControl.cs
+  Purpose:  Start screen — animated logo, Continue/Exit/Create/Password/Credit/Homepage buttons
+  Images referenced by controls:
+    _nstart.epf/.spf   — Anchor background
+    _nslogo.epf/.spf    — LOGO animated frames (20 frames, range expansion)
+    _nbtn.epf/.spf      — Button normal/pressed states (shared button spritesheet)
+
+_nlogin.txt
+  Class:    LoginControl : PrefabPanel
+  File:     Controls/LobbyLogin/LoginControl.cs
+  Purpose:  Login dialog — username/password textboxes, OK/Cancel buttons
+  Images referenced by controls:
+    _nlogin.epf/.spf    — Anchor background
+    _nbtn.epf/.spf      — OK/Cancel button frames
+
+_nsvr.txt
+  Class:    ServerSelectControl : PrefabPanel
+  File:     Controls/LobbyLogin/ServerSelectControl.cs
+  Purpose:  Server selection list — server name/description rows
+  Images referenced by controls:
+    _nsvr.epf/.spf      — Anchor background
+    _nsvrmi.epf/.spf    — Top/Mid/Bot row images (server list entry backgrounds)
+
+_ncreate.txt
+  Class:    CharacterCreationControl : PrefabPanel
+  File:     Controls/LobbyLogin/CharacterCreationControl.cs
+  Purpose:  Character creation — gender, hair style/color, name/password, preview
+  Images referenced by controls:
+    _ncreate.epf/.spf   — Anchor background
+    _nbtn.epf/.spf      — OK/Cancel button frames
+    _ncbtn.epf/.spf     — AngleLeft/AngleRight/HairLeft/HairRight arrow buttons
+    _ncbh.epf/.spf      — Help button (HairColor swatch area)
+
+_nagree.txt
+  Class:    EulaNoticeControl : PrefabPanel
+  File:     Controls/LobbyLogin/EulaNoticeControl.cs
+  Purpose:  EULA/agreement notice — text display, OK/Cancel buttons
+  Images referenced by controls:
+    _nagree.epf/.spf    — Anchor background
+    _nbtn.epf/.spf      — OK/Cancel button frames
+
+_npw.txt
+  Class:    PasswordChangeControl : PrefabPanel
+  File:     Controls/LobbyLogin/PasswordChangeControl.cs
+  Purpose:  Password change dialog — current/new/confirm password fields, OK/Cancel
+  Images referenced by controls:
+    _npw.epf/.spf       — Anchor background
+    _nbtn.epf/.spf      — OK/Cancel button frames
+
+# ── Main Game HUD ──────────────────────────────────────────────────────────────
+
+_nbk_s.txt
+  Class:    WorldHudControl : PrefabPanel
+  File:     Controls/World/Hud/WorldHudControl.cs
+  Purpose:  Main game HUD frame (640x480) — viewport, chat, inventory tabs, HP/MP orbs,
+            player info labels, action buttons, effect bar overlay
+  Images referenced by controls:
+    _nbk_s.epf/.spf     — Anchor background (full HUD frame)
+    _nbkbtn.epf/.spf    — Action buttons (Bulletin, Layout, Chat, Emote, Group, Help, etc.)
+    _nbkicon.epf/.spf   — Tab icons (Inventory/Skills/Spells/Chat/Stats/Tools)
+    orb*.epf/.spf        — HP/MP orb images
+    gbicon*.epf/.spf     — Various HUD icon frames
+  Also manually loads:
+    lback.txt            — Persistent message panel (via DataContext.UserControls.Get("lback"))
+    lemot.txt            — Social status control (via DataContext.UserControls.Get("lemot"))
+    _nstatus.txt         — Stats panel overlay (via DataContext.UserControls.Get("_nstatus"))
+
+_nstatus.txt
+  Class:    StatsPanel : PrefabPanel (also ExtendedStatsPanel)
+  File:     Controls/World/Hud/Panel/StatsPanel.cs
+  Purpose:  Character stats overlay (640x480 transparent anchor) — two modes:
+            Normal (STR/INT/WIS/CON/DEX/HP/MP/EXP/Gold/Level) and Extended (AC/DMG/HIT/elements)
+  Images referenced by controls:
+    _nstatus.epf/.spf   — Status background images (Normal + ExtraStatus variants)
+
+# ── Self-Profile / Status Book ─────────────────────────────────────────────────
+
+_nui.txt
+  Class:    SelfProfileTabControl : PrefabPanel
+  File:     Controls/World/Hud/SelfProfile/SelfProfileTabControl.cs
+  Purpose:  Status book container — 6 tab buttons + content area + close button
+  Images referenced by controls:
+    _nui.epf/.spf        — Anchor background
+    _nui_tb.epf/.spf     — Tab button frames (normal/active per tab)
+  Also manually loads:
+    _nui_tb1.spf         — Small tab button state frames (TextureConverter.LoadSpfTextures)
+
+_nui_eq.txt
+  Class:    SelfProfileEquipmentTab : PrefabPanel
+  File:     Controls/World/Hud/SelfProfile/SelfProfileEquipmentTab.cs
+  Purpose:  Equipment/paperdoll tab — 14 equipment slots, stat labels, name/class/clan
+  Images referenced by controls:
+    _nui_eq.epf/.spf     — Tab page background
+    equip02.epf/.spf     — Equipment slot frames
+  Also manually loads:
+    _nemots.spf          — Emoticon status icons (8 frames)
+    _nui_nat.spf         — Nation flag icons (frameIndex = nationId - 1)
+
+_nui_sk.txt
+  Class:    SelfProfileAbilityMetadataTab : PrefabPanel
+  File:     Controls/World/Hud/SelfProfile/SelfProfileAbilityMetadataTab.cs
+  Purpose:  Skills/abilities metadata tab — icon + name + level rows
+  Images referenced by controls:
+    _nui_sk.epf/.spf     — Tab page background
+
+_nui_dr.txt
+  Class:    SelfProfileLegendTab : PrefabPanel
+  File:     Controls/World/Hud/SelfProfile/SelfProfileLegendTab.cs
+  Purpose:  Legend marks tab — colored legend entries with icons
+  Images referenced by controls:
+    _nui_dr.epf/.spf     — Tab page background
+  Also manually loads:
+    legends.epf          — Legend mark icons (GetEpfImages, palette 3)
+
+_nui_ev.txt
+  Class:    SelfProfileEventsTab : PrefabPanel
+  File:     Controls/World/Hud/SelfProfile/SelfProfileEventsTab.cs
+  Purpose:  Events/achievements tab — 2-column, 14 rows per column, NEXT/PREV pagination
+  Images referenced by controls:
+    _nui_ev.epf/.spf     — Tab page background
+
+_nui_al.txt
+  Class:    StatusBookTabPage : PrefabPanel (generic)
+  File:     Controls/World/Hud/SelfProfile/StatusBookTabPage.cs
+  Purpose:  Album tab — placeholder/generic tab page
+  Images referenced by controls:
+    _nui_al.epf/.spf     — Tab page background
+
+_nui_fm.txt
+  Class:    SelfProfileFamilyTab : PrefabPanel
+  File:     Controls/World/Hud/SelfProfile/SelfProfileFamilyTab.cs
+  Purpose:  Family/genealogy tab — Mother/Father/Son/Brother text fields, stat labels
+  Images referenced by controls:
+    _nui_fm.epf/.spf     — Tab page background
+
+# ── World Popups & Dialogs ─────────────────────────────────────────────────────
+
+_nexch.txt
+  Class:    ExchangeControl : PrefabPanel
+  File:     Controls/World/Popups/ExchangeControl.cs
+  Purpose:  Exchange/trade dialog — two-sided item grids (4 each), gold, OK/Cancel/ACK
+  Images referenced by controls:
+    _nexch.epf/.spf      — Anchor background
+    _nbtn.epf/.spf       — OK/Cancel button frames
+
+_nmoney.txt
+  Class:    GoldExchangeControl : PrefabPanel
+  File:     Controls/World/Popups/GoldExchangeControl.cs
+  Purpose:  Gold exchange input — amount textbox, OK/Cancel
+  Images referenced by controls:
+    _nmoney.epf/.spf     — Anchor background
+    _nbtn.epf/.spf       — OK/Cancel button frames
+
+_nmaill.txt
+  Class:    MailListControl : PrefabPanel
+  File:     Controls/World/Popups/MailListControl.cs
+  Purpose:  Mail inbox list — scrollable rows (date/author/subject), View/New/Reply/Delete/Up/Quit
+  Images referenced by controls:
+    _nmaill.epf/.spf     — Anchor background
+    _nbtn.epf/.spf       — Action button frames
+
+_nmailr.txt
+  Class:    MailReadControl : PrefabPanel
+  File:     Controls/World/Popups/MailReadControl.cs
+  Purpose:  Mail read view — word-wrapped body, author/title/date, Prev/Next/Reply/Delete/Up/Quit
+  Images referenced by controls:
+    _nmailr.epf/.spf     — Anchor background
+    _nbtn.epf/.spf       — Action button frames
+
+_nmails.txt
+  Class:    MailSendControl : PrefabPanel
+  File:     Controls/World/Popups/MailSendControl.cs
+  Purpose:  Mail compose — recipient/subject fields, multi-line body, Send/Cancel
+  Images referenced by controls:
+    _nmails.epf/.spf     — Anchor background
+    _nbtn.epf/.spf       — Send/Cancel button frames
+
+_ngcdlg0.txt
+  Class:    GroupControl : PrefabPanel
+  File:     Controls/World/Popups/GroupControl.cs
+  Purpose:  Group/party dialog — 13 member slots (USER0-USER12), invite button, OK
+  Images referenced by controls:
+    _ngcdlg0.epf/.spf    — Anchor background
+    _nbtn.epf/.spf       — Invite/OK button frames
+
+lnpcd.txt
+  Class:    NpcDialogControl : PrefabPanel
+  File:     Controls/World/Popups/NpcDialogControl.cs
+  Purpose:  NPC dialog — name label, response options, Top/Close/Prev/Next/UpArrow/DownArrow
+  Images referenced by controls:
+    lnpcd.epf/.spf       — Anchor background (likely in Cious archive)
+    _nbtn.epf/.spf       — Navigation button frames
+
+lssbook.txt
+  Class:    ChantEditControl : PrefabPanel
+  File:     Controls/World/Popups/ChantEditControl.cs
+  Purpose:  Chant/ability edit dialog — multi-line text, OK/Cancel
+  Images referenced by controls:
+    lssbook.epf/.spf     — Anchor background (likely in Cious archive)
+  Also manually loads:
+    butt001.epf          — Custom OK/Cancel buttons (GetEpfImages, palette 0)
+
+_nhotkem.txt
+  Class:    HotkeyHelpControl : PrefabPanel
+  File:     Controls/World/Popups/HotkeyHelpControl.cs
+  Purpose:  Hotkey help overlay (full-screen 640x480) — keyboard diagram, key group details
+  Images referenced by controls:
+    _nhotkem.epf/.spf    — Anchor background
+    _nhk_bk.epf/.spf     — Keyboard background
+    _nhk_m.epf/.spf      — Keyboard diagram (MAIN rect)
+  Also manually loads:
+    _nhotkey.txt         — Key group hit rects (C00-C13) via DataContext.UserControls.Get("_nhotkey")
+    _nhke##.spf          — Detail explanation images (14 files, _nhke00 through _nhke13, from national.dat)
+
+_nhotkey.txt
+  Class:    (consumed by HotkeyHelpControl)
+  File:     Controls/World/Popups/HotkeyHelpControl.cs
+  Purpose:  Key group rect definitions — C00-C13 single rects + C001-C022 sub-group rects
+  Note:     Not a visual panel itself — provides hit test rectangles for _nhotkem
+
+# ── Options / Settings ─────────────────────────────────────────────────────────
+
+_noptdlg.txt
+  Class:    MainOptionsControl : PrefabPanel
+  File:     Controls/World/Options/MainOptionsControl.cs
+  Purpose:  Options menu — music/sound volume sliders, Friends/Macro/Setting/ExitGame buttons
+  Images referenced by controls:
+    _noptdlg.epf/.spf    — Anchor background
+    option04.epf/.spf     — Slider thumb (Tick control, palette 0)
+    _nbtn.epf/.spf        — Action button frames
+
+_nmacro.txt
+  Class:    MacroMenuControl : PrefabPanel
+  File:     Controls/World/Options/MacroMenuControl.cs
+  Purpose:  Macro menu (F3) — 8 macro slots (F5-F12), selection highlight, OK/Cancel
+  Images referenced by controls:
+    _nmacro.epf/.spf     — Anchor background
+    _nbtn.epf/.spf       — OK/Cancel button frames
+
+_nsett.txt
+  Class:    SettingsControl : PrefabPanel
+  File:     Controls/World/Options/SettingsControl.cs
+  Purpose:  Settings dialog (F4) — 8 toggle checkboxes, OK/Cancel
+  Images referenced by controls:
+    _nsett.epf/.spf      — Anchor background
+    _nbtn.epf/.spf       — OK/Cancel button frames
+  Also manually loads:
+    _nsettb.spf          — Toggle button frames (checked/unchecked, TextureConverter.LoadSpfTextures)
+
+_nfriend.txt
+  Class:    FriendsListControl : PrefabPanel
+  File:     Controls/World/Options/FriendsListControl.cs
+  Purpose:  Friends list — two-column (online=green, offline=gray), OK/Cancel
+  Images referenced by controls:
+    _nfriend.epf/.spf    — Anchor background
+    _nbtn.epf/.spf       — OK/Cancel button frames
+
+# ── HUD Sub-controls ──────────────────────────────────────────────────────────
+
+lback.txt
+  Class:    (consumed by WorldHudControl)
+  File:     Controls/World/Hud/WorldHudControl.cs
+  Purpose:  Persistent message panel (lower-right overlay) — EmoticonDialog rect
+  Images referenced by controls:
+    lback.epf/.spf       — Background (likely in Cious archive, palette 4)
+
+lemot.txt
+  Class:    SocialStatusControl : PrefabPanel
+  File:     Controls/World/Hud/SocialStatusControl.cs
+  Purpose:  Social status/emoticon picker — 8 emotion buttons (Emot0-Emot7), description label
+  Images referenced by controls:
+    lemot.epf/.spf       — Anchor background (likely in Cious archive)
+    emot*.epf/.spf       — Emotion button frames
+  Also manually loads:
+    emot000.epf          — Emoticon icons (8 frames, GetEpfImages, palette 0)
+
+_nusers.txt
+  Class:    WorldListControl : PrefabPanel
+  File:     Controls/World/Hud/WorldListControl.cs
+  Purpose:  World/server list display — scrollable entries, country/master tab buttons
+  Images referenced by controls:
+    _nusers.epf/.spf     — Anchor background
+    _nbtn.epf/.spf       — CountryBtn/MasterBtn button frames
+  Also manually loads:
+    _nusersb.spf         — Tab button frames (9 tabs x 2 states, TextureConverter.LoadSpfTextures)
+
+# ── Loading Screens ────────────────────────────────────────────────────────────
+
+_nload.txt
+  Class:    LoadingBar : PrefabPanel
+  File:     Controls/World/ViewPort/LoadingBar.cs
+  Purpose:  Generic loading screen with progress bar
+  Images referenced by controls:
+    _nload.epf/.spf      — Anchor background
+  Also manually loads:
+    _nloadb0.spf         — Loading bar start cap (TextureConverter.LoadSpfTexture)
+    _nloadb1.spf         — Loading bar fill segment (tiled)
+    _nloadb2.spf         — Loading bar end cap
+
+_nloadm.txt
+  Class:    MapLoadingBar : PrefabPanel
+  File:     Controls/World/ViewPort/MapLoadingBar.cs
+  Purpose:  Map-specific loading screen
+  Images referenced by controls:
+    _nloadm.epf/.spf     — Anchor background
 
 
+# ═══════════════════════════════════════════════════════════════════════════════
+# SECTION 2: STANDALONE IMAGE FILES — Loaded directly (not via control .txt)
+#
+# These EPF/SPF files are loaded by specific controls outside of the control file
+# parsing pipeline. They are accessed via TextureConverter.Load*, GetEpfImages,
+# GetSpfImage/GetSpfImages, or GetFieldImage.
+# ═══════════════════════════════════════════════════════════════════════════════
 
-_nagree.txt   - opening page agreement (ya'lls acknowledgement page on startup)
-_narlist.txt  - possibly mail screen homepage
-_narti.txt    - personal mail screen
-_nartin.txt   - read mail screen ?
-_nbdlist.txt  - mail listed 
-_nbk_l.txt    - playing in / mode
-_nbk_s.txt    - playing normal
-_nbworld.txt  - probably original world map
-_ncreate.txt  - character creation screen
-_nexch.txt    - exchange screen
-_nfriend.txt  - friendslist screen popup
-_ngcdlg0.txt  - group screen (no names)
-_ngcdlg1.txt  - form group screen
-_ngcmain.txt  - group screen (with names)
-_nhotkem.txt  - help screen nothing highlighted
-_nhotkey.txt  - help screen with sert of hotkeys highlighted
-_nload.txt    - first login load screen
-_nloadm.txt   - map load screen
-_nlogin.txt   - main login (type username/pw)
-_nmacro.txt   - f3 menu pulldown
-_nmaill.txt   - mail main screen
-_nmailr.txt   - mail reading screen
-_nmails.txt   - mail sending screen
-_nmoney.txt   - start money exchange miniscreen
-_noptdlg.txt  - option screen
-_npw.txt      - change password (mainscreen)
-_npw2.txt     - DOB confirmation to ^
-_nsett.txt    - f4 menu
-_nstart.txt   - main screen 
-_nstatur.txt  - playing g screen /screen 
-_nstatus.txt  - playing g screen normal
-_nsvr.txt     - sever select screen (usually unseen autoselected)
-_nui.txt      - status book first page
-_nui_al.txt   - status book album page?
-_nui_alb.txt  - status book album page?
-_nui_dr.txt   - status book legend page
-_nui_eq.txt   - status book equipment page stats
-_nui_eqa.txt  - status book equipment page no stats
-_nui_ev.txt   - status book event pages
-_nui_eve.txt  - status book looking AT event
-_nui_fm.txt   - status book family
-_nui_pi.txt   -  ? possible status book album?
-_nui_sk.txt   - status book skill page
-_nui_ske.txt  - status book looking AT skill
-_nui_ski.txt  - status book -skills-
-_nusers.txt   - world list pages
-field001-010.txt - no.
-lagre.txt     - legends agreement
-larlist.txt   - legends
-larre.txt     - legends
-larti.txt     - legends
-lback.txt     - legends
-lbang.txt     - legends
-lbdlist.txt   - legends
-lbgrp.txt     - legends
-lbworld.txt   - legends
-lcreate.txt   - legends character creation
-lemot.txt     - legends
-lequip.txt    - legends 
-lexch.txt     - legends (might still be used exchange)
-lexchai.txt   - legends exchange confirmation
-lfamily.txt   - legends
-lfriends.txt  - legends 
-lgcdlg0.txt   - legends grouping
-lgcdlg1.txt   - legends form group
-lgcmain.txt   - legends group filling
-lgcpane.txt   - legends grouping 
-litemex.txt   - legends
-lkey.txt      - legends 
-llalbum.txt   - legends 
-lldi.txt      - legends 
-llegend2.txt  - legends 
-llegends.txt  - legends 
-llevent.txt   - legends 
-llgui.txt     - legends 
-llinfo.txt    - legends 
-llmi.txt      - legends 
-llodmap.txt   - legends 
-llodusr.txt   - legends 
-llogin.txt    - legends 
-llspell.txt   - legends 
-llsprop.txt   - legends 
-lmacro.txt    - legends 
-lmail.txt     - legends 
-lmain.txt     - legends 
-lmanu.txt     - legends  manufacturing
-lmanu2.txt    - legends  manufacturing
-lmerc.txt     - legends 
-lmerc2.txt    - legends 
-lmerd.txt     - legends 
-lmllist.txt   - legends 
-lmoney.txt    - legends  money exchange screen
-lmsg.txt      - legends
-lnewa.txt     - legends 
-lnewm.txt     - legends 
-lnpcd.txt     - legends NPC conversing
-lnpcd2.txt    - legends NPC conversing
-lnpcd3.txt    - legends NPC conversing
-lnpcd4.txt    - Legends NPC conversing
-lnpcnid.txt   - legends account creation?
-lopt.txt      - legends options
-lpasswd.txt   - legends  password changer
-lpasswd1.txt  - legends  password changer confirmation
-lpopup.txt    - popup confirmation?
-lscroll.txt   - legends 
-lset.txt      - legends 
-lshop0.txt    - legends item shop
-lshop1.txt    - legends item shop
-lshop2.txt    - legends item shop
-lshopba2.txt  - legends item shop bought
-lshopbag.txt  - legends item shop bought
-lssback.txt   - legends
-lssbook.txt   - legends status book
-lstat.txt     - legends stats
-lsvr.txt      - legends server message
-lsvrb.txt     - legends
-lterm.txt     - legends terms and conditions
-lterm2.txt    - legends^
-ltermset.txt  - ^
-luser.txt     - legends account creation
+# ── EPF Files (from Setoa) ─────────────────────────────────────────────────────
+
+mouse.epf
+  Loaded by:  ChaosGame.cs:175  (TextureConverter.LoadEpfTextures)
+  Purpose:    Custom cursor frames
+  Palette:    gui 3
+
+scroll.epf
+  Loaded by:  ScrollBarControl.cs:43  (TextureConverter.LoadEpfTextures)
+  Purpose:    Scrollbar frames — up arrow, down arrow, thumb
+  Palette:    gui 0
+
+dlgframe.epf
+  Loaded by:  OkPopupMessageControl.cs:211, ItemTooltipControl.cs:183  (GetEpfImages)
+  Purpose:    Dialog frame 9-patch borders (corners + edges for scalable dialogs)
+  Palette:    gui 0
+
+butt001.epf
+  Loaded by:  OkPopupMessageControl.cs:91-128, ChantEditControl.cs:148  (GetEpfImages)
+  Purpose:    Standard button spritesheet — OK/Cancel/Yes/No in normal+pressed states
+  Palette:    gui 0
+
+spelled.epf
+  Loaded by:  EffectBarControl.cs:44  (GetEpfImages)
+  Purpose:    Active effect/buff bar background icons
+  Palette:    gui 0  (note: loaded via GetEpfImages which auto-selects via prefix)
+
+emot000.epf
+  Loaded by:  SocialStatusControl.cs:65  (GetEpfImages)
+  Purpose:    Emoticon/social status icons (8 frames for 8 status types)
+  Palette:    gui 0
+
+legends.epf
+  Loaded by:  SelfProfileLegendTab.cs:90  (TextureConverter.LoadEpfTextures)
+  Purpose:    Legend mark icons (indexed by mark icon ID)
+  Palette:    gui 3
+
+# ── EPF Files — Icon Sheets (from Setoa, via PanelIconRepository) ──────────────
+
+skill001.epf
+  Loaded by:  PanelIconRepository.cs:35  (EpfFile.FromArchive)
+  Purpose:    Skill icon spritesheet — full-color icons indexed by skill sprite ID
+  Palette:    gui06.pal (dedicated palette, not from gui multi-palette)
+
+skill003.epf
+  Loaded by:  PanelIconRepository.cs:33  (EpfFile.FromArchive)
+  Purpose:    Skill icon spritesheet — greyed-out variant for cooldown display
+  Palette:    gui06.pal
+
+spell001.epf
+  Loaded by:  PanelIconRepository.cs:36  (EpfFile.FromArchive)
+  Purpose:    Spell icon spritesheet — full-color icons indexed by spell sprite ID
+  Palette:    gui06.pal
+
+# ── SPF Files (from Setoa) ─────────────────────────────────────────────────────
+
+DlgBack2.spf
+  Loaded by:  OkPopupMessageControl.cs:58  (GetSpfImage)
+  Purpose:    Dialog background tile — tiled to fill scalable dialog bodies
+  Palette:    Embedded (SPF self-contained)
+
+_nchatbk.spf
+  Loaded by:  ChatPanel.cs:32, MessageHistoryPanel.cs:32  (TextureConverter.LoadSpfTexture)
+  Purpose:    Chat panel background (shared by chat tab and Shift+F message history)
+  Palette:    Embedded
+
+_ninvs3.spf
+  Loaded by:  ToolsPanel.cs:25  (TextureConverter.LoadSpfTexture)
+  Purpose:    Tools panel background (3-line variant for 36-slot grid)
+  Palette:    Embedded
+
+_nui_tb1.spf
+  Loaded by:  SelfProfileTabControl.cs:76  (TextureConverter.LoadSpfTextures)
+  Purpose:    Status book tab button states — 6 tabs x 2 states (normal/small)
+  Palette:    Embedded
+
+_nui_nat.spf
+  Loaded by:  SelfProfileEquipmentTab.cs:346  (TextureConverter.LoadSpfTexture, per frame)
+  Purpose:    Nation/country flag icons — frameIndex = nationId - 1
+  Palette:    Embedded
+
+_nemots.spf
+  Loaded by:  SelfProfileEquipmentTab.cs:175  (TextureConverter.LoadSpfTextures)
+  Purpose:    Emoticon status icons for equipment paperdoll (8 frames)
+  Palette:    Embedded
+
+_nsettb.spf
+  Loaded by:  SettingsControl.cs:92  (TextureConverter.LoadSpfTextures)
+  Purpose:    Settings toggle button frames — 8 settings x 2 states (checked/unchecked)
+  Palette:    Embedded
+
+_nusersb.spf
+  Loaded by:  WorldListControl.cs:133  (TextureConverter.LoadSpfTextures)
+  Purpose:    World list tab button frames — 9 tabs x 2 states
+  Palette:    Embedded
+
+_nloadb0.spf
+  Loaded by:  LoadingBar.cs:31  (TextureConverter.LoadSpfTexture)
+  Purpose:    Loading bar start cap
+  Palette:    Embedded
+
+_nloadb1.spf
+  Loaded by:  LoadingBar.cs:32  (TextureConverter.LoadSpfTexture)
+  Purpose:    Loading bar fill segment (tiled horizontally)
+  Palette:    Embedded
+
+_nloadb2.spf
+  Loaded by:  LoadingBar.cs:33  (TextureConverter.LoadSpfTexture)
+  Purpose:    Loading bar end cap
+  Palette:    Embedded
+
+# ── SPF Files (from national.dat) ─────────────────────────────────────────────
+
+_nhke00.spf through _nhke13.spf  (14 files)
+  Loaded by:  HotkeyHelpControl.cs:181  (TextureConverter.LoadNationalSpfTexture)
+  Purpose:    Hotkey help detail explanation images — one per key group (F1, F3, etc.)
+  Archive:    national.dat (NOT Setoa)
+  Palette:    Embedded
+
+# ── SPF Files (from Setoa, referenced by control .txt only — no direct load) ──
+
+_nhk_bk.spf
+  Referenced by: _nhotkem.txt control file (keyboard background)
+  Palette:    Embedded
+
+_nhk_m.spf
+  Referenced by: _nhotkem.txt control file (keyboard diagram at MAIN rect)
+  Palette:    Embedded
+
+# ── Field Images (EPF + PAL pairs, from Setoa) ────────────────────────────────
+
+field###.epf + field###.pal  (dynamic names from server WorldMapArgs.FieldName)
+  Loaded by:  WorldMap.cs:91  (GetFieldImage)
+  Purpose:    World map background images — server specifies field name per map area
+  Palette:    Dedicated .pal file alongside .epf (not gui palette)
 
 
+# ═══════════════════════════════════════════════════════════════════════════════
+# SECTION 3: PALETTE & DATA FILES
+# ═══════════════════════════════════════════════════════════════════════════════
+
+gui.pal  (multi-palette, indices 0-17)
+  Loaded by:  UiComponentRepository.cs:18  (Palette.FromArchive("gui", DatArchives.Setoa))
+  Purpose:    Master GUI palette set — used for all EPF rendering in control files
+  Archive:    Setoa
+
+gui06.pal
+  Loaded by:  PanelIconRepository.cs:11  (Palette.FromEntry(DatArchives.Setoa["gui06.pal"]))
+  Purpose:    Dedicated palette for skill/spell icon sheets (skill001, skill003, spell001)
+  Archive:    Setoa
+
+msg.tbl
+  Loaded by:  UiComponentRepository.cs:190  (GetMessageTableLines)
+  Purpose:    Localized UI strings (codepage 949) — social status names at lines 36+
+  Archive:    Setoa
 
 
+# ═══════════════════════════════════════════════════════════════════════════════
+# SECTION 4: GUI PALETTE PREFIX TABLE
+#
+# GetGuiPaletteNumber() maps image name prefixes to gui palette indices.
+# Exceptions (must check before broader prefix) are marked with *.
+# ═══════════════════════════════════════════════════════════════════════════════
+
+# Pal  Prefixes
+#  0   gbicon02, mernum, emot00*, emotdlg*, lsbackm*, setup12*, setup13*, setup14*, (default)
+#  1   gbicon12, orb
+#  2   gbicon01, gbicon03
+#  3   emot, equip02, mouse, legends
+#  4   lback, dlgcre, lod0, setup
+#  5   nation
+#  6   skill0, spell0
+#  7   lodbk
+#  8   dlgcre01*
+#  9   staff
+# 10   lsback, lss, leicon
+# 11   ldi
+# 12   lwmap, tmapv
+# 13   bw_back, bw_check
+# 14   kdesc, key, khotkey
+# 15   lg_
+# 16   bw_flag
+# 17   album_b, album
 
 
+# ═══════════════════════════════════════════════════════════════════════════════
+# SECTION 5: SUMMARY — QUICK REFERENCE
+# ═══════════════════════════════════════════════════════════════════════════════
+
+# Control .txt files:        34 total
+#   Login flow:              _nstart, _nlogin, _nsvr, _ncreate, _nagree, _npw
+#   Main HUD:                _nbk_s, _nstatus
+#   Self-profile tabs:       _nui, _nui_eq, _nui_sk, _nui_dr, _nui_ev, _nui_al, _nui_fm
+#   Popups/dialogs:          _nexch, _nmoney, _nmaill, _nmailr, _nmails, _ngcdlg0, lnpcd, lssbook, _nhotkem, _nhotkey
+#   Options/settings:        _noptdlg, _nmacro, _nsett, _nfriend
+#   HUD sub-controls:        lback, lemot, _nusers
+#   Loading:                 _nload, _nloadm
+#
+# Standalone EPF files:      10 (mouse, scroll, dlgframe, butt001, spelled, emot000, legends, skill001, skill003, spell001)
+# Standalone SPF files:      15 (_nchatbk, _ninvs3, _nui_tb1, _nui_nat, _nemots, _nsettb, _nusersb, _nloadb0/1/2, DlgBack2, _nhk_bk, _nhk_m, _nhke00-13)
+# Palette files:             2  (gui multi-palette, gui06)
+# Data files:                1  (msg.tbl)
+# Field image pairs:         Dynamic (field###.epf + field###.pal, server-driven)
+
+# Shared image files (used by multiple controls via their .txt definitions):
+#   _nbtn.epf/.spf           — Standard OK/Cancel/action buttons (used by ~15+ controls)

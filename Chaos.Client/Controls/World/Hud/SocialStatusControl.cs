@@ -43,6 +43,8 @@ public sealed class SocialStatusControl : PrefabPanel
         DescriptionLabel = CreateLabel("Description", TextAlignment.Center);
 
         // Wire Emot0 and Emot1 from the prefab — set hover and selected textures from prefab images
+        var cache = UiRenderer.Instance!;
+
         for (var i = 0; i < STATUS_COUNT; i++)
             if (elements.TryGetValue($"Emot{i}", out var element) && element is UIButton btn)
             {
@@ -52,7 +54,7 @@ public sealed class SocialStatusControl : PrefabPanel
                 var prefab = PrefabSet[$"Emot{i}"];
 
                 if (prefab.Images.Count > 2)
-                    btn.SelectedTexture = TextureConverter.ToTexture2D(device, prefab.Images[2]);
+                    btn.SelectedTexture = cache.GetPrefabTexture(PrefabSet.Name, $"Emot{i}", 2);
 
                 WireButton(btn, i);
                 StatusButtons[i] = btn;
@@ -62,7 +64,6 @@ public sealed class SocialStatusControl : PrefabPanel
         if (StatusButtons[0] is { } first && StatusButtons[1] is { } second)
         {
             var stride = second.X - first.X;
-            var frames = DataContext.UserControls.GetEpfImages("emot000.epf");
 
             for (var i = 2; i < STATUS_COUNT; i++)
             {
@@ -71,20 +72,6 @@ public sealed class SocialStatusControl : PrefabPanel
 
                 var frameBase = i * FRAMES_PER_STATUS;
 
-                if ((frameBase >= frames.Length) || frames[frameBase] is null)
-                    continue;
-
-                var normalTex = TextureConverter.ToTexture2D(device, frames[frameBase]);
-
-                Texture2D? hoverTex = null;
-                Texture2D? selectedTex = null;
-
-                if (((frameBase + 1) < frames.Length) && frames[frameBase + 1] is { } hoverImg)
-                    hoverTex = TextureConverter.ToTexture2D(device, hoverImg);
-
-                if (((frameBase + 2) < frames.Length) && frames[frameBase + 2] is { } selectedImg)
-                    selectedTex = TextureConverter.ToTexture2D(device, selectedImg);
-
                 var btn = new UIButton
                 {
                     Name = $"Emot{i}",
@@ -92,19 +79,16 @@ public sealed class SocialStatusControl : PrefabPanel
                     Y = first.Y,
                     Width = first.Width,
                     Height = first.Height,
-                    NormalTexture = normalTex,
-                    PressedTexture = hoverTex,
-                    HoverTexture = hoverTex,
-                    SelectedTexture = selectedTex
+                    NormalTexture = cache.GetEpfTexture("emot000.epf", frameBase),
+                    PressedTexture = cache.GetEpfTexture("emot000.epf", frameBase + 1),
+                    HoverTexture = cache.GetEpfTexture("emot000.epf", frameBase + 1),
+                    SelectedTexture = cache.GetEpfTexture("emot000.epf", frameBase + 2)
                 };
 
                 WireButton(btn, i);
                 AddChild(btn);
                 StatusButtons[i] = btn;
             }
-
-            foreach (var img in frames)
-                img?.Dispose();
         }
     }
 

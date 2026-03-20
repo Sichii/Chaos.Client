@@ -29,7 +29,7 @@ public sealed class ChatPanel : UIPanel
         Name = "Chat";
         DisplayBounds = displayBounds;
 
-        Background = TextureConverter.LoadSpfTexture(device, "_nchatbk.spf");
+        Background = UiRenderer.Instance!.GetSpfTexture("_nchatbk.spf");
 
         MaxVisibleLines = displayBounds.Height > 0 ? displayBounds.Height / GLYPH_HEIGHT : 0;
         LineTextures = new CachedText[MaxVisibleLines];

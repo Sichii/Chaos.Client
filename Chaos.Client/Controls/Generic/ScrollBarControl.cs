@@ -24,46 +24,25 @@ public sealed class ScrollBarControl : UIElement
     private const int FRAME_THUMB = 8;
     private const int FRAME_TRACK = 9;
 
-    private static Texture2D?[]? SharedFrames;
-    private static int SharedFrameRefCount;
+    private const float REPEAT_DELAY_MS = 50f;
+    private const string SCROLL_EPF = "scroll.epf";
+
     private int ActiveZone = -1;
 
     private bool Dragging;
     private int DragOffsetY;
+    private float RepeatTimer;
 
     public int MaxValue { get; set; }
     public int TotalItems { get; set; }
     public int Value { get; set; }
     public int VisibleItems { get; set; }
 
-    public ScrollBarControl(GraphicsDevice device)
-    {
-        Width = BUTTON_SIZE;
-
-        SharedFrames ??= TextureConverter.LoadEpfTextures(device, "scroll.epf");
-
-        SharedFrameRefCount++;
-    }
-
-    public override void Dispose()
-    {
-        SharedFrameRefCount--;
-
-        if ((SharedFrameRefCount <= 0) && SharedFrames is not null)
-        {
-            foreach (var tex in SharedFrames)
-                tex?.Dispose();
-
-            SharedFrames = null;
-            SharedFrameRefCount = 0;
-        }
-
-        base.Dispose();
-    }
+    public ScrollBarControl(GraphicsDevice device) => Width = BUTTON_SIZE;
 
     public override void Draw(SpriteBatch spriteBatch)
     {
-        if (!Visible || SharedFrames is null || (SharedFrames.Length < 10))
+        if (!Visible)
             return;
 
         var sx = ScreenX;
@@ -73,41 +52,40 @@ public sealed class ScrollBarControl : UIElement
         var scrollable = TotalItems > VisibleItems;
 
         // Tiled track background
-        if (SharedFrames[FRAME_TRACK] is { } trackTex)
-            for (var tileY = trackStart; tileY < trackEnd; tileY += BUTTON_SIZE)
-            {
-                var tileH = Math.Min(BUTTON_SIZE, trackEnd - tileY);
+        var trackTex = GetFrame(FRAME_TRACK);
 
-                spriteBatch.Draw(
-                    trackTex,
-                    new Vector2(sx, tileY),
-                    new Rectangle(
-                        0,
-                        0,
-                        BUTTON_SIZE,
-                        tileH),
-                    Color.White);
-            }
+        for (var tileY = trackStart; tileY < trackEnd; tileY += BUTTON_SIZE)
+        {
+            var tileH = Math.Min(BUTTON_SIZE, trackEnd - tileY);
+
+            spriteBatch.Draw(
+                trackTex,
+                new Vector2(sx, tileY),
+                new Rectangle(
+                    0,
+                    0,
+                    BUTTON_SIZE,
+                    tileH),
+                Color.White);
+        }
 
         // Up arrow
-        var upFrame = scrollable && (ActiveZone == 0) ? FRAME_UP_ACTIVE : FRAME_UP_NORMAL;
-
-        if (SharedFrames[upFrame] is { } upTex)
-            spriteBatch.Draw(upTex, new Vector2(sx, sy), Color.White);
+        var upFrame = scrollable && (ActiveZone == 0) ? FRAME_UP_NORMAL : FRAME_UP_ACTIVE;
+        spriteBatch.Draw(GetFrame(upFrame), new Vector2(sx, sy), Color.White);
 
         // Down arrow
-        var downFrame = scrollable && (ActiveZone == 4) ? FRAME_DOWN_ACTIVE : FRAME_DOWN_NORMAL;
-
-        if (SharedFrames[downFrame] is { } downTex)
-            spriteBatch.Draw(downTex, new Vector2(sx, trackEnd), Color.White);
+        var downFrame = scrollable && (ActiveZone == 4) ? FRAME_DOWN_NORMAL : FRAME_DOWN_ACTIVE;
+        spriteBatch.Draw(GetFrame(downFrame), new Vector2(sx, trackEnd), Color.White);
 
         // Thumb (only when scrollable)
-        if (scrollable && SharedFrames[FRAME_THUMB] is { } thumbTex)
+        if (scrollable)
         {
             var thumbY = GetThumbY(trackStart, trackEnd);
-            spriteBatch.Draw(thumbTex, new Vector2(sx, thumbY), Color.White);
+            spriteBatch.Draw(GetFrame(FRAME_THUMB), new Vector2(sx, thumbY), Color.White);
         }
     }
+
+    private static Texture2D GetFrame(int index) => UiRenderer.Instance!.GetEpfTexture(SCROLL_EPF, index);
 
     private int GetThumbY(int trackStart, int trackEnd)
     {
@@ -159,7 +137,23 @@ public sealed class ScrollBarControl : UIElement
             return;
         }
 
-        if (input.WasLeftButtonPressed)
+        var isNewPress = input.WasLeftButtonPressed;
+        var isHeld = input.IsLeftButtonHeld && !isNewPress;
+
+        if (isHeld)
+        {
+            RepeatTimer += (float)gameTime.ElapsedGameTime.TotalMilliseconds;
+
+            if (RepeatTimer < REPEAT_DELAY_MS)
+                return;
+
+            RepeatTimer -= REPEAT_DELAY_MS;
+        }
+
+        if (isNewPress)
+            RepeatTimer = 0;
+
+        if (isNewPress || isHeld)
         {
             var mx = input.MouseX;
             var my = input.MouseY;
@@ -197,6 +191,9 @@ public sealed class ScrollBarControl : UIElement
         }
 
         if (input.WasLeftButtonReleased)
+        {
             ActiveZone = -1;
+            RepeatTimer = 0;
+        }
     }
 }

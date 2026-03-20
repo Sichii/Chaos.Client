@@ -1,7 +1,6 @@
 <Project Sdk="Microsoft.NET.Sdk">
     <ItemGroup>
         <ProjectReference Include="..\Chaos.Client.Data\Chaos.Client.Data.csproj"/>
-        <ProjectReference Include="..\Chaos.Client.Common\Chaos.Client.Common.csproj"/>
     </ItemGroup>
 
     <ItemGroup>

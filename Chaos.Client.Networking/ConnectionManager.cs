@@ -973,22 +973,6 @@ public sealed class ConnectionManager : IDisposable
     }
 
     /// <summary>
-    ///     Sends a group chat message. Protocol: whisper to the "!!" channel name.
-    /// </summary>
-    public void SendGroupMessage(string message)
-    {
-        if (State != ConnectionState.World)
-            return;
-
-        Client.Send(
-            new WhisperArgs
-            {
-                TargetName = "!!",
-                Message = message
-            });
-    }
-
-    /// <summary>
     ///     Sends a menu interaction response (pursuit selection).
     /// </summary>
     public void SendMenuResponse(

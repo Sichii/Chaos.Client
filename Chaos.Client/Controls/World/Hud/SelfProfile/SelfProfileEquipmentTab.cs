@@ -1,6 +1,5 @@
 #region
 using Chaos.Client.Controls.Components;
-using Chaos.Client.Data;
 using Chaos.Client.Definitions;
 using Chaos.Client.Rendering;
 using Chaos.DarkAges.Definitions;
@@ -172,7 +171,10 @@ public sealed class SelfProfileEquipmentTab : PrefabPanel
             humanStateElement.Visible = false;
 
         // Load emoticon icons from _nemots.spf (frames 0-7)
-        EmoticonIcons = TextureConverter.LoadSpfTextures(device, "_nemots.spf");
+        EmoticonIcons = new Texture2D?[EMOTICON_FRAME_COUNT];
+
+        for (var i = 0; i < EMOTICON_FRAME_COUNT; i++)
+            EmoticonIcons[i] = UiRenderer.Instance!.GetSpfTexture("_nemots.spf", i);
 
         // Emoticon status text label — centered in HumanState rect
         EmoticonLabel = CreateLabel("HumanState", TextAlignment.Center);
@@ -311,8 +313,7 @@ public sealed class SelfProfileEquipmentTab : PrefabPanel
     /// <summary>
     ///     Renders an item icon from the panel item sprite sheet using the same pipeline as inventory icons.
     /// </summary>
-    private Texture2D? RenderItemIcon(ushort spriteId)
-        => TextureConverter.RenderSprite(Device, DataContext.PanelItems.GetPanelItemSprite(spriteId));
+    private Texture2D RenderItemIcon(ushort spriteId) => UiRenderer.Instance!.GetItemIcon(spriteId);
 
     /// <summary>
     ///     Sets the emoticon/social status icon and text. State 0-7 maps to _nemots.spf frames.
@@ -343,7 +344,7 @@ public sealed class SelfProfileEquipmentTab : PrefabPanel
         NationIconTexture = null;
 
         if (nationId > 0)
-            NationIconTexture = TextureConverter.LoadSpfTexture(Device, "_nui_nat.spf", nationId - 1);
+            NationIconTexture = UiRenderer.Instance!.GetSpfTexture("_nui_nat.spf", nationId - 1);
     }
 
     /// <summary>
@@ -397,13 +398,8 @@ public sealed class SelfProfileEquipmentTab : PrefabPanel
         visual.ItemName = itemName ?? string.Empty;
 
         var texture = RenderItemIcon(sprite);
-
-        if (texture is not null)
-        {
-            visual.ItemTexture = texture;
-            visual.Image.Texture = texture;
-        } else
-            visual.Image.Texture = visual.PlaceholderTexture;
+        visual.ItemTexture = texture;
+        visual.Image.Texture = texture;
     }
 
     public override void Update(GameTime gameTime, InputBuffer input)

@@ -16,11 +16,13 @@ public sealed class PlayerDataRepository
     private const string MACRO_FILE = "Macro.cfg";
     private const string SKILL_BOOK_FILE = "SkillBook.cfg";
     private const string SPELL_BOOK_FILE = "SpellBook.cfg";
-
     private string PlayerDirectory { get; set; } = null!;
 
     public string FamilyListPath => Path.Combine(PlayerDirectory, FAMILY_LIST_FILE);
     public string FriendListPath => Path.Combine(PlayerDirectory, FRIEND_LIST_FILE);
+
+    // ReSharper disable once ConditionIsAlwaysTrueOrFalseAccordingToNullableAPIContract
+    public bool IsInitialized => PlayerDirectory is not null;
     public string MacroPath => Path.Combine(PlayerDirectory, MACRO_FILE);
     public string SkillBookPath => Path.Combine(PlayerDirectory, SKILL_BOOK_FILE);
     public string SpellBookPath => Path.Combine(PlayerDirectory, SPELL_BOOK_FILE);
@@ -162,7 +164,7 @@ public sealed class PlayerDataRepository
                     .Trim();
 
             // Strip surrounding double quotes
-            if ((line.Length >= 2) && (line[0] == '"') && (line[^1] == '"'))
+            if (line is ['"', _, ..] && (line[^1] == '"'))
                 line = line[1..^1];
 
             macros[i] = line;
@@ -232,10 +234,8 @@ public sealed class PlayerDataRepository
     /// </summary>
     private static void SaveChantBook(string path, List<SkillChantEntry> entries)
     {
-        using var writer = new StreamWriter(path, false, Encoding.UTF8)
-        {
-            NewLine = "\n"
-        };
+        using var writer = new StreamWriter(path, false, Encoding.UTF8);
+        writer.NewLine = "\n";
 
         writer.WriteLine("SkillbookUsed");
 
@@ -297,10 +297,8 @@ public sealed class PlayerDataRepository
     /// </summary>
     public void SaveSpellChants(List<SpellChantEntry> entries)
     {
-        using var writer = new StreamWriter(SpellBookPath, false, Encoding.UTF8)
-        {
-            NewLine = "\n"
-        };
+        using var writer = new StreamWriter(SpellBookPath, false, Encoding.UTF8);
+        writer.NewLine = "\n";
 
         writer.WriteLine("SpellbookUsed");
 

@@ -87,7 +87,12 @@ public sealed class SelfProfileLegendTab : PrefabPanel
         AddChild(ScrollBar);
 
         // Legend mark icons from legends.epf
-        IconFrames = TextureConverter.LoadEpfTextures(device, "legends.epf");
+        var cache = UiRenderer.Instance!;
+        var frameCount = cache.GetEpfFrameCount("legends.epf");
+        IconFrames = new Texture2D[frameCount];
+
+        for (var i = 0; i < frameCount; i++)
+            IconFrames[i] = cache.GetEpfTexture("legends.epf", i);
     }
 
     public override void Dispose()

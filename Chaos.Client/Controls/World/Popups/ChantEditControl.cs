@@ -1,6 +1,5 @@
 #region
 using Chaos.Client.Controls.Components;
-using Chaos.Client.Data;
 using Chaos.Client.Rendering;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
@@ -145,19 +144,9 @@ public sealed class ChantEditControl : PrefabPanel
         int x,
         int y)
     {
-        var allFrames = DataContext.UserControls.GetEpfImages("butt001.epf");
-
-        Texture2D? normalTex = null;
-        Texture2D? pressedTex = null;
-
-        if (normalFrame < allFrames.Length)
-            normalTex = TextureConverter.ToTexture2D(device, allFrames[normalFrame]);
-
-        if (pressedFrame < allFrames.Length)
-            pressedTex = TextureConverter.ToTexture2D(device, allFrames[pressedFrame]);
-
-        foreach (var img in allFrames)
-            img?.Dispose();
+        var cache = UiRenderer.Instance!;
+        var normalTex = cache.GetEpfTexture("butt001.epf", normalFrame);
+        var pressedTex = cache.GetEpfTexture("butt001.epf", pressedFrame);
 
         var button = new UIButton
         {
@@ -235,6 +224,7 @@ public sealed class ChantEditControl : PrefabPanel
 
         if (MidImage is not null)
         {
+            MidImage.Visible = LineCount > 0;
             MidImage.Height = totalMidHeight;
             MidImage.Y = TOP_HEIGHT;
         }

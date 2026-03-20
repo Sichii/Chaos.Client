@@ -162,13 +162,10 @@ public sealed class WorldState
 
         foreach (var entity in Entities.Values)
         {
-            if (entity.Type == ClientEntityType.GroundItem)
-                continue;
-
             if (entity.Id == PlayerEntityId)
                 continue;
 
-            if ((entity.Type == ClientEntityType.Creature) && (entity.CreatureType == CreatureType.WalkThrough))
+            if (!IsBlockingEntity(entity))
                 continue;
 
             blocked.Add(new Point(entity.TileX, entity.TileY));
@@ -208,6 +205,18 @@ public sealed class WorldState
     ///     Returns the display name of an entity, or null if not tracked.
     /// </summary>
     public string? GetEntityName(uint id) => Entities.TryGetValue(id, out var entity) ? entity.Name : null;
+
+    /// <summary>
+    ///     Returns the first ground item at the specified tile, or null.
+    /// </summary>
+    public WorldEntity? GetGroundItemAt(int tileX, int tileY)
+    {
+        foreach (var entity in Entities.Values)
+            if ((entity.Type == ClientEntityType.GroundItem) && (entity.TileX == tileX) && (entity.TileY == tileY))
+                return entity;
+
+        return null;
+    }
 
     /// <summary>
     ///     Returns the player entity, or null if not yet tracked.
@@ -251,7 +260,8 @@ public sealed class WorldState
         uint id,
         int oldX,
         int oldY,
-        Direction direction)
+        Direction direction,
+        int? walkFrameCount = null)
     {
         if (!Entities.TryGetValue(id, out var entity))
             return;
@@ -262,7 +272,7 @@ public sealed class WorldState
         entity.TileY = oldY + dy;
         entity.Direction = direction;
 
-        AnimationManager.StartWalk(entity, direction);
+        AnimationManager.StartWalk(entity, direction, walkFrameCount);
     }
 
     /// <summary>
@@ -282,16 +292,31 @@ public sealed class WorldState
     }
 
     /// <summary>
-    ///     Returns true if there is a ground item at the specified tile.
+    ///     Returns true if any blocking entity (aisling, non-WalkThrough creature) occupies the tile,
+    ///     excluding the specified entity ID (typically the player).
     /// </summary>
-    public bool HasGroundItemAt(int tileX, int tileY)
+    public bool HasBlockingEntityAt(int tileX, int tileY, uint excludeId)
     {
         foreach (var entity in Entities.Values)
-            if ((entity.TileX == tileX) && (entity.TileY == tileY) && (entity.Type == ClientEntityType.GroundItem))
+        {
+            if ((entity.TileX != tileX) || (entity.TileY != tileY) || (entity.Id == excludeId))
+                continue;
+
+            if (IsBlockingEntity(entity))
                 return true;
+        }
 
         return false;
     }
+
+    /// <summary>
+    ///     Returns true if there is a ground item at the specified tile.
+    /// </summary>
+    public bool HasGroundItemAt(int tileX, int tileY) => GetGroundItemAt(tileX, tileY) is not null;
+
+    private static bool IsBlockingEntity(WorldEntity entity)
+        => (entity.Type == ClientEntityType.Aisling)
+           || ((entity.Type == ClientEntityType.Creature) && (entity.CreatureType != CreatureType.WalkThrough));
 
     /// <summary>
     ///     Removes an entity from tracking.
