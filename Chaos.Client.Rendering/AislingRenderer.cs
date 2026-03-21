@@ -42,6 +42,60 @@ public record struct AislingAppearance
 }
 
 /// <summary>
+///     A cached per-layer texture with the positioning metadata needed at draw time.
+/// </summary>
+public readonly record struct AislingLayerTexture(Texture2D Texture, char TypeLetter);
+
+/// <summary>
+///     Cache key that uniquely identifies a single rendered layer texture.
+/// </summary>
+public readonly record struct LayerCacheKey(
+    char TypeLetter,
+    int SpriteId,
+    int FrameIndex,
+    bool IsMale,
+    int PaletteKey,
+    string AnimSuffix);
+
+/// <summary>
+///     All the draw data needed to render an aisling as individual layer SpriteBatch draws.
+/// </summary>
+public sealed class AislingDrawData
+{
+    public LayerSlot[] DrawOrder = [];
+    public bool FlipHorizontal;
+    public AislingLayerTexture?[] Layers = new AislingLayerTexture?[(int)LayerSlot.Count];
+}
+
+/// <summary>
+///     Layer slots for aisling composite ordering. Each slot is one visual layer.
+/// </summary>
+public enum LayerSlot
+{
+    BodyB,
+    Body,
+    Pants,
+    Face,
+    Boots,
+    HeadH,
+    HeadE,
+    HeadF,
+    Armor,
+    Arms,
+    WeaponW,
+    WeaponP,
+    Shield,
+    Acc1C,
+    Acc1G,
+    Acc2C,
+    Acc2G,
+    Acc3C,
+    Acc3G,
+    Emotion,
+    Count
+}
+
+/// <summary>
 ///     Renders aisling sprites by compositing body, equipment, and hair layers. All layers are positioned relative to body
 ///     center (BODY_CENTER_X, BODY_CENTER_Y). Horizontal flipping (for Down/Left directions) mirrors around the body
 ///     center.
@@ -60,14 +114,16 @@ public sealed class AislingRenderer : IDisposable
     private const int MAX_FEMALE_HAIR_STYLE = 17;
     private const int MAX_HAIR_COLOR = 13;
     private const string WALK_ANIM = "01";
+    private const string IDLE_ANIM = "04";
+    public const string PEASANT_ANIM_SUFFIX = "03";
 
-    private const int BODY_WIDTH = 57;
-    private const int BODY_HEIGHT = 85;
-    private const int LAYER_OFFSET_PADDING = 27;
-    private const int COMPOSITE_WIDTH = BODY_WIDTH + LAYER_OFFSET_PADDING * 2;
-    private const int COMPOSITE_HEIGHT = BODY_HEIGHT;
-    private const int BODY_CENTER_X = BODY_WIDTH / 2;
-    private const int BODY_CENTER_Y = BODY_HEIGHT / 2;
+    public const int BODY_WIDTH = 57;
+    public const int BODY_HEIGHT = 85;
+    public const int LAYER_OFFSET_PADDING = 27;
+    public const int COMPOSITE_WIDTH = BODY_WIDTH + LAYER_OFFSET_PADDING * 2;
+    public const int COMPOSITE_HEIGHT = BODY_HEIGHT;
+    public const int BODY_CENTER_X = BODY_WIDTH / 2;
+    public const int BODY_CENTER_Y = BODY_HEIGHT / 2;
 
     // EPFs contain frames for 2 base directions only:
     //   Frames 0-4: Up (away-facing)
@@ -86,8 +142,9 @@ public sealed class AislingRenderer : IDisposable
     ];
 
     // Front-facing composite order (first drawn = back-most)
-    private static readonly LayerSlot[] FRONT_ORDER =
+    public static readonly LayerSlot[] FRONT_ORDER =
     [
+        LayerSlot.BodyB,
         LayerSlot.HeadF,
         LayerSlot.Acc1G,
         LayerSlot.Acc2G,
@@ -95,6 +152,7 @@ public sealed class AislingRenderer : IDisposable
         LayerSlot.Body,
         LayerSlot.Pants,
         LayerSlot.Face,
+        LayerSlot.Emotion,
         LayerSlot.Boots,
         LayerSlot.HeadH,
         LayerSlot.Armor,
@@ -109,8 +167,9 @@ public sealed class AislingRenderer : IDisposable
     ];
 
     // Back-facing composite order
-    private static readonly LayerSlot[] BACK_ORDER =
+    public static readonly LayerSlot[] BACK_ORDER =
     [
+        LayerSlot.BodyB,
         LayerSlot.Acc1G,
         LayerSlot.Acc2G,
         LayerSlot.Acc3G,
@@ -132,24 +191,553 @@ public sealed class AislingRenderer : IDisposable
     ];
 
     private readonly AislingDataRepository Data = DataContext.AislingData;
+    private readonly EpfFile? EmotionsEpf = LoadEmotionsEpf();
+    private readonly Dictionary<LayerCacheKey, AislingLayerTexture> LayerTextureCache = new();
 
     /// <inheritdoc />
-    public void Dispose() => ClearCache();
+    public void Dispose()
+    {
+        ClearCache();
+        ClearLayerCache();
+    }
 
     /// <summary>
     ///     Clears the cached EPF files. Call on map change to free memory.
     /// </summary>
     public void ClearCache() => Data.ClearEpfCache();
 
-    #region Compositing
     /// <summary>
-    ///     Composites all layers into a single image. Layers align via RenderImage's Left/Top LAYER_OFFSET_PADDING (baked into each
-    ///     SKImage). Flipping mirrors around BODY_CENTER_X for Down/Left directions.
+    ///     Clears the cached per-layer textures. Call on map change to free GPU memory.
+    /// </summary>
+    public void ClearLayerCache()
+    {
+        foreach (var entry in LayerTextureCache.Values)
+            entry.Texture.Dispose();
+
+        LayerTextureCache.Clear();
+    }
+
+    /// <summary>
+    ///     Returns the X draw offset for a layer type. Weapons (w/p) and accessories (c/g) are shifted left by 27px relative
+    ///     to the body center to align correctly.
+    /// </summary>
+    public static int GetLayerOffsetX(char typeLetter) => typeLetter is 'w' or 'p' or 'c' or 'g' ? -27 : 0;
+
+    /// <summary>
+    ///     Returns true if a frame index represents a front-facing direction for the given animation suffix.
+    /// </summary>
+    public static bool IsFrontFacing(int frameIndex, string animSuffix)
+        => animSuffix switch
+        {
+            "01" => WALK_FRONT_FRAMES.Contains(frameIndex),
+            "02" => frameIndex is 2 or 3,
+            "03" => frameIndex is 1 or 4 or 5 or 8 or 9,
+            _    => frameIndex >= 5
+        };
+
+    private static EpfFile? LoadEmotionsEpf()
+    {
+        if (!DatArchives.Legend.TryGetValue("emot01.epf", out var entry))
+            return null;
+
+        return EpfFile.FromEntry(entry);
+    }
+
+    #region Palette Resolution
+    private Palette? ResolvePalette(
+        PaletteLookup lookup,
+        int spriteId,
+        DisplayColor dyeColor,
+        KhanPalOverrideType overrideType)
+    {
+        var paletteNumber = lookup.Table.GetPaletteNumber(spriteId, overrideType);
+
+        if (paletteNumber >= 1000)
+            paletteNumber -= 1000;
+
+        if (!lookup.Palettes.TryGetValue(paletteNumber, out var basePalette))
+            return null;
+
+        return Data.ApplyDye(basePalette, dyeColor);
+    }
+    #endregion
+
+    /// <summary>
+    ///     A rendered layer with its EpfFrame positioning metadata preserved (composited rendering path only).
+    /// </summary>
+    private readonly record struct LayerInfo(
+        SKImage Image,
+        short FrameLeft,
+        short FrameTop,
+        char TypeLetter) : IDisposable
+    {
+        public void Dispose() => Image.Dispose();
+    }
+
+    #region Per-Layer Rendering (GPU draw path)
+    /// <summary>
+    ///     Resolves all layers for an aisling into individually cached textures. Returns draw data that can be rendered via
+    ///     multiple SpriteBatch.Draw() calls — no SkiaSharp compositing needed.
+    /// </summary>
+    public AislingDrawData GetLayerFrames(
+        GraphicsDevice device,
+        in AislingAppearance appearance,
+        int frameIndex,
+        string animSuffix = WALK_ANIM,
+        bool flipHorizontal = false,
+        bool? isFrontFacing = null,
+        int emotionFrame = -1)
+    {
+        var drawData = new AislingDrawData
+        {
+            FlipHorizontal = flipHorizontal
+        };
+        var isFront = isFrontFacing ?? IsFrontFacing(frameIndex, animSuffix);
+        drawData.DrawOrder = isFront ? FRONT_ORDER : BACK_ORDER;
+
+        var idleFallbackFrame = animSuffix == IDLE_ANIM ? isFront ? RIGHT_IDLE_FRAME : UP_IDLE_FRAME : -1;
+
+        ResolveAllLayers(
+            device,
+            drawData.Layers,
+            in appearance,
+            frameIndex,
+            animSuffix,
+            idleFallbackFrame);
+
+        // Emotion overlay — only on front-facing frames
+        if (isFront && (emotionFrame >= 0) && EmotionsEpf is not null && (emotionFrame < EmotionsEpf.Count))
+        {
+            var frame = EmotionsEpf[emotionFrame];
+
+            if (Data.BodyPalettes.TryGetValue(appearance.BodyColor, out var palette))
+            {
+                var paletteKey = appearance.BodyColor;
+
+                var cacheKey = new LayerCacheKey(
+                    'o',
+                    0,
+                    emotionFrame,
+                    appearance.IsMale,
+                    paletteKey,
+                    "em");
+
+                drawData.Layers[(int)LayerSlot.Emotion] = GetOrCreateLayerTexture(
+                    device,
+                    cacheKey,
+                    frame,
+                    palette,
+                    'o');
+            }
+        }
+
+        return drawData;
+    }
+
+    private void ResolveAllLayers(
+        GraphicsDevice device,
+        AislingLayerTexture?[] layers,
+        in AislingAppearance appearance,
+        int frameIndex,
+        string anim,
+        int idleFallbackFrame = -1)
+    {
+        // Beast body (type b, always id 1) — behind all other layers
+        layers[(int)LayerSlot.BodyB] = ResolveEquipLayerTexture(
+            device,
+            'b',
+            BODY_ID,
+            DisplayColor.Default,
+            in appearance,
+            frameIndex,
+            anim,
+            idleFallbackFrame);
+
+        // Body (type m, always id 1)
+        layers[(int)LayerSlot.Body] = ResolveBodyPaletteLayerTexture(
+            device,
+            'm',
+            BODY_ID,
+            in appearance,
+            frameIndex,
+            anim,
+            idleFallbackFrame);
+
+        // Pants (type n, always id 1) — only if server sent a pants color
+        if (appearance.PantsColor.HasValue)
+            layers[(int)LayerSlot.Pants] = ResolveEquipLayerTexture(
+                device,
+                'n',
+                PANTS_ID,
+                appearance.PantsColor.Value,
+                in appearance,
+                frameIndex,
+                anim,
+                idleFallbackFrame);
+
+        // Face (type o, uses body palette)
+        if (appearance.FaceSprite > 0)
+            layers[(int)LayerSlot.Face] = ResolveBodyPaletteLayerTexture(
+                device,
+                'o',
+                appearance.FaceSprite,
+                in appearance,
+                frameIndex,
+                anim,
+                idleFallbackFrame);
+
+        // Boots
+        if (appearance.BootsSprite > 0)
+            layers[(int)LayerSlot.Boots] = ResolveEquipLayerTexture(
+                device,
+                'l',
+                appearance.BootsSprite,
+                appearance.BootsColor,
+                in appearance,
+                frameIndex,
+                anim,
+                idleFallbackFrame);
+
+        // Head layers (h, e, f)
+        if (appearance.HeadSprite > 0)
+        {
+            layers[(int)LayerSlot.HeadH] = ResolveEquipLayerTexture(
+                device,
+                'h',
+                appearance.HeadSprite,
+                appearance.HeadColor,
+                in appearance,
+                frameIndex,
+                anim,
+                idleFallbackFrame);
+
+            layers[(int)LayerSlot.HeadE] = ResolveEquipLayerTexture(
+                device,
+                'e',
+                appearance.HeadSprite,
+                appearance.HeadColor,
+                in appearance,
+                frameIndex,
+                anim,
+                idleFallbackFrame);
+
+            layers[(int)LayerSlot.HeadF] = ResolveEquipLayerTexture(
+                device,
+                'f',
+                appearance.HeadSprite,
+                appearance.HeadColor,
+                in appearance,
+                frameIndex,
+                anim,
+                idleFallbackFrame);
+        }
+
+        // Armor/Overcoat
+        if (appearance.OvercoatSprite > 0)
+            ResolveArmorLayers(
+                device,
+                layers,
+                appearance.OvercoatSprite,
+                appearance.OvercoatColor,
+                in appearance,
+                frameIndex,
+                anim,
+                idleFallbackFrame);
+        else if (appearance.ArmorSprite > 0)
+            ResolveArmorLayers(
+                device,
+                layers,
+                appearance.ArmorSprite,
+                appearance.ArmorColor,
+                in appearance,
+                frameIndex,
+                anim,
+                idleFallbackFrame);
+
+        // Weapon (w + p sub-layers)
+        if (appearance.WeaponSprite > 0)
+        {
+            layers[(int)LayerSlot.WeaponW] = ResolveEquipLayerTexture(
+                device,
+                'w',
+                appearance.WeaponSprite,
+                DisplayColor.Default,
+                in appearance,
+                frameIndex,
+                anim,
+                idleFallbackFrame);
+
+            layers[(int)LayerSlot.WeaponP] = ResolveEquipLayerTexture(
+                device,
+                'p',
+                appearance.WeaponSprite,
+                DisplayColor.Default,
+                in appearance,
+                frameIndex,
+                anim,
+                idleFallbackFrame);
+        }
+
+        // Shield
+        if (appearance.ShieldSprite > 0)
+            layers[(int)LayerSlot.Shield] = ResolveEquipLayerTexture(
+                device,
+                's',
+                appearance.ShieldSprite,
+                DisplayColor.Default,
+                in appearance,
+                frameIndex,
+                anim,
+                idleFallbackFrame);
+
+        // Accessories (c + g sub-layers each)
+        if (appearance.Accessory1Sprite > 0)
+        {
+            layers[(int)LayerSlot.Acc1C] = ResolveEquipLayerTexture(
+                device,
+                'c',
+                appearance.Accessory1Sprite,
+                appearance.Accessory1Color,
+                in appearance,
+                frameIndex,
+                anim,
+                idleFallbackFrame);
+
+            layers[(int)LayerSlot.Acc1G] = ResolveEquipLayerTexture(
+                device,
+                'g',
+                appearance.Accessory1Sprite,
+                appearance.Accessory1Color,
+                in appearance,
+                frameIndex,
+                anim,
+                idleFallbackFrame);
+        }
+
+        if (appearance.Accessory2Sprite > 0)
+        {
+            layers[(int)LayerSlot.Acc2C] = ResolveEquipLayerTexture(
+                device,
+                'c',
+                appearance.Accessory2Sprite,
+                appearance.Accessory2Color,
+                in appearance,
+                frameIndex,
+                anim,
+                idleFallbackFrame);
+
+            layers[(int)LayerSlot.Acc2G] = ResolveEquipLayerTexture(
+                device,
+                'g',
+                appearance.Accessory2Sprite,
+                appearance.Accessory2Color,
+                in appearance,
+                frameIndex,
+                anim,
+                idleFallbackFrame);
+        }
+
+        if (appearance.Accessory3Sprite > 0)
+        {
+            layers[(int)LayerSlot.Acc3C] = ResolveEquipLayerTexture(
+                device,
+                'c',
+                appearance.Accessory3Sprite,
+                appearance.Accessory3Color,
+                in appearance,
+                frameIndex,
+                anim,
+                idleFallbackFrame);
+
+            layers[(int)LayerSlot.Acc3G] = ResolveEquipLayerTexture(
+                device,
+                'g',
+                appearance.Accessory3Sprite,
+                appearance.Accessory3Color,
+                in appearance,
+                frameIndex,
+                anim,
+                idleFallbackFrame);
+        }
+    }
+
+    private void ResolveArmorLayers(
+        GraphicsDevice device,
+        AislingLayerTexture?[] layers,
+        int spriteId,
+        DisplayColor color,
+        in AislingAppearance appearance,
+        int frameIndex,
+        string anim,
+        int idleFallbackFrame = -1)
+    {
+        var isOverType = spriteId >= 1000;
+        var adjustedId = isOverType ? spriteId - 1000 : spriteId;
+        var bodyLetter = isOverType ? 'i' : 'u';
+        var armsLetter = isOverType ? 'j' : 'a';
+
+        layers[(int)LayerSlot.Armor] = ResolveEquipLayerTexture(
+            device,
+            bodyLetter,
+            adjustedId,
+            color,
+            in appearance,
+            frameIndex,
+            anim,
+            idleFallbackFrame);
+
+        layers[(int)LayerSlot.Arms] = ResolveEquipLayerTexture(
+            device,
+            armsLetter,
+            adjustedId,
+            color,
+            in appearance,
+            frameIndex,
+            anim,
+            idleFallbackFrame);
+    }
+
+    private AislingLayerTexture? ResolveBodyPaletteLayerTexture(
+        GraphicsDevice device,
+        char typeLetter,
+        int spriteId,
+        in AislingAppearance appearance,
+        int frameIndex,
+        string anim,
+        int idleFallbackFrame = -1)
+    {
+        if (spriteId <= 0)
+            return null;
+
+        (var epf, var resolvedFrame) = ResolveLayerEpf(
+            typeLetter,
+            spriteId,
+            in appearance,
+            frameIndex,
+            anim,
+            idleFallbackFrame);
+
+        if (epf is null || (resolvedFrame < 0))
+            return null;
+
+        var frame = epf[resolvedFrame];
+
+        if (!Data.BodyPalettes.TryGetValue(appearance.BodyColor, out var palette))
+            return null;
+
+        var paletteKey = appearance.BodyColor;
+
+        var cacheKey = new LayerCacheKey(
+            typeLetter,
+            spriteId,
+            resolvedFrame,
+            appearance.IsMale,
+            paletteKey,
+            anim);
+
+        return GetOrCreateLayerTexture(
+            device,
+            cacheKey,
+            frame,
+            palette,
+            typeLetter);
+    }
+
+    private AislingLayerTexture? ResolveEquipLayerTexture(
+        GraphicsDevice device,
+        char typeLetter,
+        int spriteId,
+        DisplayColor dyeColor,
+        in AislingAppearance appearance,
+        int frameIndex,
+        string anim,
+        int idleFallbackFrame = -1)
+    {
+        if (spriteId <= 0)
+            return null;
+
+        (var epf, var resolvedFrame) = ResolveLayerEpf(
+            typeLetter,
+            spriteId,
+            in appearance,
+            frameIndex,
+            anim,
+            idleFallbackFrame);
+
+        if (epf is null || (resolvedFrame < 0))
+            return null;
+
+        var frame = epf[resolvedFrame];
+        var lookup = Data.GetPaletteLookup(typeLetter);
+
+        var palette = ResolvePalette(
+            lookup,
+            spriteId,
+            dyeColor,
+            appearance.OverrideType);
+
+        if (palette is null)
+            return null;
+
+        var paletteNumber = lookup.Table.GetPaletteNumber(spriteId, appearance.OverrideType);
+
+        if (paletteNumber >= 1000)
+            paletteNumber -= 1000;
+
+        var paletteKey = paletteNumber * 256 + (int)dyeColor;
+
+        var cacheKey = new LayerCacheKey(
+            typeLetter,
+            spriteId,
+            resolvedFrame,
+            appearance.IsMale,
+            paletteKey,
+            anim);
+
+        return GetOrCreateLayerTexture(
+            device,
+            cacheKey,
+            frame,
+            palette,
+            typeLetter);
+    }
+
+    private AislingLayerTexture? GetOrCreateLayerTexture(
+        GraphicsDevice device,
+        LayerCacheKey cacheKey,
+        EpfFrame frame,
+        Palette palette,
+        char typeLetter)
+    {
+        if (LayerTextureCache.TryGetValue(cacheKey, out var cached))
+            return cached;
+
+        var image = Graphics.RenderImage(frame, palette);
+
+        if (image is null)
+            return null;
+
+        try
+        {
+            var texture = TextureConverter.ToTexture2D(device, image);
+
+            var entry = new AislingLayerTexture(texture, typeLetter);
+            LayerTextureCache[cacheKey] = entry;
+
+            return entry;
+        } finally
+        {
+            image.Dispose();
+        }
+    }
+    #endregion
+
+    #region Composited Rendering (paperdoll/preview path)
+    /// <summary>
+    ///     Composites all layers into a single image. Used for paperdoll and character creation preview.
     /// </summary>
     private static SKImage? Composite(LayerInfo?[] layers, LayerSlot[] order, bool flipHorizontal)
     {
-        // Fixed canvas size so the body center is always at the same position across all frames.
-        // Without this, different animation frames produce different composite sizes, causing wobble.
         var width = COMPOSITE_WIDTH;
         var height = COMPOSITE_HEIGHT;
 
@@ -178,10 +766,10 @@ public sealed class AislingRenderer : IDisposable
 
         return SKImage.FromBitmap(bitmap);
     }
-    #endregion
 
     /// <summary>
-    ///     Renders a full aisling with all visible equipment layers.
+    ///     Renders a full aisling with all visible equipment layers into a single composited texture.
+    ///     Used for paperdoll and other non-world rendering. For world rendering, use GetLayerFrames() instead.
     /// </summary>
     public Texture2D? Render(
         GraphicsDevice device,
@@ -189,22 +777,46 @@ public sealed class AislingRenderer : IDisposable
         int frameIndex,
         string animSuffix = WALK_ANIM,
         bool flipHorizontal = false,
-        bool? isFrontFacing = null)
+        bool? isFrontFacing = null,
+        int emotionFrame = -1)
     {
         var layers = new LayerInfo?[(int)LayerSlot.Count];
 
         try
         {
+            var isFront = isFrontFacing ?? IsFrontFacing(frameIndex, animSuffix);
+
+            var idleFallbackFrame = animSuffix == IDLE_ANIM ? isFront ? RIGHT_IDLE_FRAME : UP_IDLE_FRAME : -1;
+
             RenderAllLayers(
                 layers,
                 in appearance,
                 frameIndex,
-                animSuffix);
+                animSuffix,
+                idleFallbackFrame);
+
+            // Emotion overlay — only on front-facing frames
+            if (isFront && (emotionFrame >= 0) && EmotionsEpf is not null && (emotionFrame < EmotionsEpf.Count))
+            {
+                var frame = EmotionsEpf[emotionFrame];
+
+                if (Data.BodyPalettes.TryGetValue(appearance.BodyColor, out var palette))
+                {
+                    var image = Graphics.RenderImage(frame, palette);
+
+                    if (image is not null)
+                        layers[(int)LayerSlot.Emotion] = new LayerInfo(
+                            image,
+                            frame.Left,
+                            frame.Top,
+                            'o');
+                }
+            }
 
             if (!layers[(int)LayerSlot.Body].HasValue)
                 return null;
 
-            var order = isFrontFacing ?? IsFrontFacing(frameIndex, animSuffix) ? FRONT_ORDER : BACK_ORDER;
+            var order = isFront ? FRONT_ORDER : BACK_ORDER;
 
             using var composite = Composite(layers, order, flipHorizontal);
 
@@ -223,9 +835,6 @@ public sealed class AislingRenderer : IDisposable
     /// <summary>
     ///     Renders a character creation preview (body + hair layers only).
     /// </summary>
-    /// <param name="walkFrame">
-    ///     Walk cycle position (0–4). 0 = idle, 1–4 = walk steps.
-    /// </param>
     public Texture2D? RenderPreview(
         GraphicsDevice device,
         Gender gender,
@@ -250,7 +859,6 @@ public sealed class AislingRenderer : IDisposable
             HeadColor = hairColor
         };
 
-        // Up/Left use Up frames (0-4), Right/Down use Right frames (5-9)
         var baseFrame = directionIndex is 0 or 3 ? UP_IDLE_FRAME : RIGHT_IDLE_FRAME;
         var frameIndex = baseFrame + Math.Clamp(walkFrame, 0, 4);
         var flip = directionIndex is 2 or 3;
@@ -262,87 +870,33 @@ public sealed class AislingRenderer : IDisposable
             WALK_ANIM,
             flip);
     }
-
-    #region Palette Resolution
-    private Palette? ResolvePalette(
-        PaletteLookup lookup,
-        int spriteId,
-        DisplayColor dyeColor,
-        KhanPalOverrideType overrideType)
-    {
-        var paletteNumber = lookup.Table.GetPaletteNumber(spriteId, overrideType);
-
-        if (paletteNumber >= 1000)
-            paletteNumber -= 1000;
-
-        if (!lookup.Palettes.TryGetValue(paletteNumber, out var basePalette))
-            return null;
-
-        if (dyeColor == DisplayColor.Default)
-            return basePalette;
-
-        var colorIndex = (int)dyeColor;
-
-        if (!Data.DyeColorTable.Contains(colorIndex))
-            return basePalette;
-
-        return basePalette.Dye(Data.DyeColorTable[colorIndex]);
-    }
     #endregion
 
-    /// <summary>
-    ///     A rendered layer with its EpfFrame positioning metadata preserved. Left/Top from the EpfFrame are needed at
-    ///     composite time to correctly position layers (especially those with negative offsets where Graphics.RenderImage
-    ///     strips the LAYER_OFFSET_PADDING).
-    /// </summary>
-    private readonly record struct LayerInfo(
-        SKImage Image,
-        short FrameLeft,
-        short FrameTop,
-        char TypeLetter) : IDisposable
-    {
-        public void Dispose() => Image.Dispose();
-    }
-
-    private enum LayerSlot
-    {
-        Body,
-        Pants,
-        Face,
-        Boots,
-        HeadH,
-        HeadE,
-        HeadF,
-        Armor,
-        Arms,
-        WeaponW,
-        WeaponP,
-        Shield,
-        Acc1C,
-        Acc1G,
-        Acc2C,
-        Acc2G,
-        Acc3C,
-        Acc3G,
-        Count
-    }
-
-    #region Layer Rendering
+    #region Layer Rendering (composited path)
     private void RenderAllLayers(
         LayerInfo?[] layers,
         in AislingAppearance appearance,
         int frameIndex,
-        string anim)
+        string anim,
+        int idleFallbackFrame = -1)
     {
-        // Body (type m, always id 1)
+        layers[(int)LayerSlot.BodyB] = RenderEquipLayer(
+            'b',
+            BODY_ID,
+            DisplayColor.Default,
+            in appearance,
+            frameIndex,
+            anim,
+            idleFallbackFrame);
+
         layers[(int)LayerSlot.Body] = RenderBodyPaletteLayer(
             'm',
             BODY_ID,
             in appearance,
             frameIndex,
-            anim);
+            anim,
+            idleFallbackFrame);
 
-        // Pants (type n, always id 1) — only if server sent a pants color
         if (appearance.PantsColor.HasValue)
             layers[(int)LayerSlot.Pants] = RenderEquipLayer(
                 'n',
@@ -350,18 +904,18 @@ public sealed class AislingRenderer : IDisposable
                 appearance.PantsColor.Value,
                 in appearance,
                 frameIndex,
-                anim);
+                anim,
+                idleFallbackFrame);
 
-        // Face (type o, uses body palette)
         if (appearance.FaceSprite > 0)
             layers[(int)LayerSlot.Face] = RenderBodyPaletteLayer(
                 'o',
                 appearance.FaceSprite,
                 in appearance,
                 frameIndex,
-                anim);
+                anim,
+                idleFallbackFrame);
 
-        // Boots
         if (appearance.BootsSprite > 0)
             layers[(int)LayerSlot.Boots] = RenderEquipLayer(
                 'l',
@@ -369,9 +923,9 @@ public sealed class AislingRenderer : IDisposable
                 appearance.BootsColor,
                 in appearance,
                 frameIndex,
-                anim);
+                anim,
+                idleFallbackFrame);
 
-        // Head layers (h, e, f) — all share the same HeadSprite ID
         if (appearance.HeadSprite > 0)
         {
             layers[(int)LayerSlot.HeadH] = RenderEquipLayer(
@@ -380,7 +934,8 @@ public sealed class AislingRenderer : IDisposable
                 appearance.HeadColor,
                 in appearance,
                 frameIndex,
-                anim);
+                anim,
+                idleFallbackFrame);
 
             layers[(int)LayerSlot.HeadE] = RenderEquipLayer(
                 'e',
@@ -388,7 +943,8 @@ public sealed class AislingRenderer : IDisposable
                 appearance.HeadColor,
                 in appearance,
                 frameIndex,
-                anim);
+                anim,
+                idleFallbackFrame);
 
             layers[(int)LayerSlot.HeadF] = RenderEquipLayer(
                 'f',
@@ -396,11 +952,10 @@ public sealed class AislingRenderer : IDisposable
                 appearance.HeadColor,
                 in appearance,
                 frameIndex,
-                anim);
+                anim,
+                idleFallbackFrame);
         }
 
-        // Armor/Overcoat rendering — overcoat overrides armor
-        // Sprite number determines type letters: < 1000 → u/a, >= 1000 → i/j (ID - 1000)
         if (appearance.OvercoatSprite > 0)
             RenderArmorLayers(
                 layers,
@@ -408,7 +963,8 @@ public sealed class AislingRenderer : IDisposable
                 appearance.OvercoatColor,
                 in appearance,
                 frameIndex,
-                anim);
+                anim,
+                idleFallbackFrame);
         else if (appearance.ArmorSprite > 0)
             RenderArmorLayers(
                 layers,
@@ -416,9 +972,9 @@ public sealed class AislingRenderer : IDisposable
                 appearance.ArmorColor,
                 in appearance,
                 frameIndex,
-                anim);
+                anim,
+                idleFallbackFrame);
 
-        // Weapon (w + p sub-layers)
         if (appearance.WeaponSprite > 0)
         {
             layers[(int)LayerSlot.WeaponW] = RenderEquipLayer(
@@ -427,7 +983,8 @@ public sealed class AislingRenderer : IDisposable
                 DisplayColor.Default,
                 in appearance,
                 frameIndex,
-                anim);
+                anim,
+                idleFallbackFrame);
 
             layers[(int)LayerSlot.WeaponP] = RenderEquipLayer(
                 'p',
@@ -435,10 +992,10 @@ public sealed class AislingRenderer : IDisposable
                 DisplayColor.Default,
                 in appearance,
                 frameIndex,
-                anim);
+                anim,
+                idleFallbackFrame);
         }
 
-        // Shield (no dye)
         if (appearance.ShieldSprite > 0)
             layers[(int)LayerSlot.Shield] = RenderEquipLayer(
                 's',
@@ -446,9 +1003,9 @@ public sealed class AislingRenderer : IDisposable
                 DisplayColor.Default,
                 in appearance,
                 frameIndex,
-                anim);
+                anim,
+                idleFallbackFrame);
 
-        // Accessories (c + g sub-layers each)
         if (appearance.Accessory1Sprite > 0)
         {
             layers[(int)LayerSlot.Acc1C] = RenderEquipLayer(
@@ -457,7 +1014,8 @@ public sealed class AislingRenderer : IDisposable
                 appearance.Accessory1Color,
                 in appearance,
                 frameIndex,
-                anim);
+                anim,
+                idleFallbackFrame);
 
             layers[(int)LayerSlot.Acc1G] = RenderEquipLayer(
                 'g',
@@ -465,7 +1023,8 @@ public sealed class AislingRenderer : IDisposable
                 appearance.Accessory1Color,
                 in appearance,
                 frameIndex,
-                anim);
+                anim,
+                idleFallbackFrame);
         }
 
         if (appearance.Accessory2Sprite > 0)
@@ -476,7 +1035,8 @@ public sealed class AislingRenderer : IDisposable
                 appearance.Accessory2Color,
                 in appearance,
                 frameIndex,
-                anim);
+                anim,
+                idleFallbackFrame);
 
             layers[(int)LayerSlot.Acc2G] = RenderEquipLayer(
                 'g',
@@ -484,7 +1044,8 @@ public sealed class AislingRenderer : IDisposable
                 appearance.Accessory2Color,
                 in appearance,
                 frameIndex,
-                anim);
+                anim,
+                idleFallbackFrame);
         }
 
         if (appearance.Accessory3Sprite > 0)
@@ -495,7 +1056,8 @@ public sealed class AislingRenderer : IDisposable
                 appearance.Accessory3Color,
                 in appearance,
                 frameIndex,
-                anim);
+                anim,
+                idleFallbackFrame);
 
             layers[(int)LayerSlot.Acc3G] = RenderEquipLayer(
                 'g',
@@ -503,7 +1065,8 @@ public sealed class AislingRenderer : IDisposable
                 appearance.Accessory3Color,
                 in appearance,
                 frameIndex,
-                anim);
+                anim,
+                idleFallbackFrame);
         }
     }
 
@@ -513,7 +1076,8 @@ public sealed class AislingRenderer : IDisposable
         DisplayColor color,
         in AislingAppearance appearance,
         int frameIndex,
-        string anim)
+        string anim,
+        int idleFallbackFrame = -1)
     {
         var isOverType = spriteId >= 1000;
         var adjustedId = isOverType ? spriteId - 1000 : spriteId;
@@ -526,7 +1090,8 @@ public sealed class AislingRenderer : IDisposable
             color,
             in appearance,
             frameIndex,
-            anim);
+            anim,
+            idleFallbackFrame);
 
         layers[(int)LayerSlot.Arms] = RenderEquipLayer(
             armsLetter,
@@ -534,29 +1099,33 @@ public sealed class AislingRenderer : IDisposable
             color,
             in appearance,
             frameIndex,
-            anim);
+            anim,
+            idleFallbackFrame);
     }
 
-    /// <summary>
-    ///     Renders a layer that uses the body palette (body, face).
-    /// </summary>
     private LayerInfo? RenderBodyPaletteLayer(
         char typeLetter,
         int spriteId,
         in AislingAppearance appearance,
         int frameIndex,
-        string anim)
+        string anim,
+        int idleFallbackFrame = -1)
     {
         if (spriteId <= 0)
             return null;
 
-        var fileName = $"{appearance.GenderPrefix}{typeLetter}{spriteId:D3}{anim}";
-        var epf = TryLoadEpf(typeLetter, appearance.IsMale, fileName);
+        (var epf, var resolvedFrame) = ResolveLayerEpf(
+            typeLetter,
+            spriteId,
+            in appearance,
+            frameIndex,
+            anim,
+            idleFallbackFrame);
 
-        if (epf is null || (frameIndex >= epf.Count))
+        if (epf is null || (resolvedFrame < 0))
             return null;
 
-        var frame = epf[frameIndex];
+        var frame = epf[resolvedFrame];
 
         if (!Data.BodyPalettes.TryGetValue(appearance.BodyColor, out var palette))
             return null;
@@ -573,27 +1142,30 @@ public sealed class AislingRenderer : IDisposable
             typeLetter);
     }
 
-    /// <summary>
-    ///     Renders an equipment layer using PaletteLookup with optional dye.
-    /// </summary>
     private LayerInfo? RenderEquipLayer(
         char typeLetter,
         int spriteId,
         DisplayColor dyeColor,
         in AislingAppearance appearance,
         int frameIndex,
-        string anim)
+        string anim,
+        int idleFallbackFrame = -1)
     {
         if (spriteId <= 0)
             return null;
 
-        var fileName = $"{appearance.GenderPrefix}{typeLetter}{spriteId:D3}{anim}";
-        var epf = TryLoadEpf(typeLetter, appearance.IsMale, fileName);
+        (var epf, var resolvedFrame) = ResolveLayerEpf(
+            typeLetter,
+            spriteId,
+            in appearance,
+            frameIndex,
+            anim,
+            idleFallbackFrame);
 
-        if (epf is null || (frameIndex >= epf.Count))
+        if (epf is null || (resolvedFrame < 0))
             return null;
 
-        var frame = epf[frameIndex];
+        var frame = epf[resolvedFrame];
         var lookup = Data.GetPaletteLookup(typeLetter);
 
         var palette = ResolvePalette(
@@ -619,21 +1191,153 @@ public sealed class AislingRenderer : IDisposable
     #endregion
 
     #region Helpers
-    private static bool IsFrontFacing(int frameIndex, string animSuffix)
-        => animSuffix switch
-        {
-            "01" => WALK_FRONT_FRAMES.Contains(frameIndex),
-            "02" => frameIndex is 2 or 3,
-            "03" => frameIndex is 1 or 4 or 5 or 8 or 9,
-            _    => frameIndex >= 5
-        };
-
     /// <summary>
-    ///     Returns the X draw offset for a layer type. Weapons (w/p) and accessories (c/g) are shifted left by 27px relative
-    ///     to the body center to align correctly.
+    ///     Loads the EPF for a layer, handling "04" idle wrapping and "01" fallback.
     /// </summary>
-    private static int GetLayerOffsetX(char typeLetter) => typeLetter is 'w' or 'p' or 'c' or 'g' ? -27 : 0;
+    private (EpfFile? Epf, int FrameIndex) ResolveLayerEpf(
+        char typeLetter,
+        int spriteId,
+        in AislingAppearance appearance,
+        int frameIndex,
+        string anim,
+        int idleFallbackFrame)
+    {
+        var fileName = $"{appearance.GenderPrefix}{typeLetter}{spriteId:D3}{anim}";
+        var epf = TryLoadEpf(typeLetter, appearance.IsMale, fileName);
+
+        if ((anim == IDLE_ANIM) && epf is not null && (epf.Count >= 2) && (idleFallbackFrame >= 0))
+        {
+            var framesPerDir = epf.Count / 2;
+            var dirBase = idleFallbackFrame == RIGHT_IDLE_FRAME ? framesPerDir : 0;
+            frameIndex = dirBase + frameIndex % framesPerDir;
+        } else if ((epf is null || (frameIndex >= epf.Count)) && (idleFallbackFrame >= 0))
+        {
+            fileName = $"{appearance.GenderPrefix}{typeLetter}{spriteId:D3}{WALK_ANIM}";
+            epf = TryLoadEpf(typeLetter, appearance.IsMale, fileName);
+            frameIndex = idleFallbackFrame;
+        }
+
+        if (epf is null || (frameIndex >= epf.Count))
+            return (null, -1);
+
+        return (epf, frameIndex);
+    }
 
     private EpfFile? TryLoadEpf(char typeLetter, bool isMale, string fileName) => Data.GetEquipmentEpf(typeLetter, isMale, fileName);
+
+    /// <summary>
+    ///     Scans all equipped layers for "04" idle animation EPFs and returns the max frames per direction found.
+    /// </summary>
+    public int GetIdleAnimFrameCount(in AislingAppearance appearance)
+    {
+        var maxFrames = 0;
+
+        CheckIdleEpf(
+            ref maxFrames,
+            'c',
+            appearance.Accessory1Sprite,
+            in appearance);
+
+        CheckIdleEpf(
+            ref maxFrames,
+            'g',
+            appearance.Accessory1Sprite,
+            in appearance);
+
+        CheckIdleEpf(
+            ref maxFrames,
+            'c',
+            appearance.Accessory2Sprite,
+            in appearance);
+
+        CheckIdleEpf(
+            ref maxFrames,
+            'g',
+            appearance.Accessory2Sprite,
+            in appearance);
+
+        CheckIdleEpf(
+            ref maxFrames,
+            'c',
+            appearance.Accessory3Sprite,
+            in appearance);
+
+        CheckIdleEpf(
+            ref maxFrames,
+            'g',
+            appearance.Accessory3Sprite,
+            in appearance);
+
+        CheckIdleEpf(
+            ref maxFrames,
+            'h',
+            appearance.HeadSprite,
+            in appearance);
+
+        CheckIdleEpf(
+            ref maxFrames,
+            'e',
+            appearance.HeadSprite,
+            in appearance);
+
+        CheckIdleEpf(
+            ref maxFrames,
+            'f',
+            appearance.HeadSprite,
+            in appearance);
+
+        CheckIdleEpf(
+            ref maxFrames,
+            'w',
+            appearance.WeaponSprite,
+            in appearance);
+
+        CheckIdleEpf(
+            ref maxFrames,
+            'p',
+            appearance.WeaponSprite,
+            in appearance);
+
+        return maxFrames;
+    }
+
+    private void CheckIdleEpf(
+        ref int maxFrames,
+        char typeLetter,
+        int spriteId,
+        in AislingAppearance appearance)
+    {
+        if (spriteId <= 0)
+            return;
+
+        var fileName = $"{appearance.GenderPrefix}{typeLetter}{spriteId:D3}{IDLE_ANIM}";
+        var epf = TryLoadEpf(typeLetter, appearance.IsMale, fileName);
+
+        if (epf is not null && (epf.Count >= 2))
+            maxFrames = Math.Max(maxFrames, epf.Count / 2);
+    }
+
+    /// <summary>
+    ///     Returns true if the displayed armor/overcoat has an EPF file for the given animation suffix.
+    /// </summary>
+    public bool HasArmorAnimation(in AislingAppearance appearance, string animSuffix)
+    {
+        var spriteId = appearance.OvercoatSprite > 0
+            ? appearance.OvercoatSprite
+            : appearance.ArmorSprite > 0
+                ? appearance.ArmorSprite
+                : 0;
+
+        if (spriteId <= 0)
+            return true;
+
+        var isOverType = spriteId >= 1000;
+        var adjustedId = isOverType ? spriteId - 1000 : spriteId;
+        var bodyLetter = isOverType ? 'i' : 'u';
+        var fileName = $"{appearance.GenderPrefix}{bodyLetter}{adjustedId:D3}{animSuffix}";
+        var epf = TryLoadEpf(bodyLetter, appearance.IsMale, fileName);
+
+        return epf is not null;
+    }
     #endregion
 }

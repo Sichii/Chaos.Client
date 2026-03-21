@@ -22,7 +22,6 @@ public sealed class WorldListControl : PrefabPanel
 {
     private const float SLIDE_DURATION_MS = 250f;
     private const int ROW_HEIGHT = 12;
-    private const int SCROLLBAR_WIDTH = 16;
     private const int TAB_COUNT = 9;
 
     private const int STATUS_ICON_COUNT = 8;
@@ -93,9 +92,8 @@ public sealed class WorldListControl : PrefabPanel
         ScrollBar = new ScrollBarControl(device)
         {
             Name = "ScrollBar",
-            X = UsersListRect.X + UsersListRect.Width - SCROLLBAR_WIDTH,
+            X = UsersListRect.X + UsersListRect.Width - ScrollBarControl.DEFAULT_WIDTH,
             Y = UsersListRect.Y,
-            Width = SCROLLBAR_WIDTH,
             Height = UsersListRect.Height
         };
 
@@ -126,7 +124,7 @@ public sealed class WorldListControl : PrefabPanel
         AddChild(TotalNumLabel);
 
         // Row entries
-        var rowWidth = UsersListRect.Width - SCROLLBAR_WIDTH - 5;
+        var rowWidth = UsersListRect.Width - ScrollBarControl.DEFAULT_WIDTH - 5;
         RowEntries = new WorldListEntryControl[MaxVisibleRows];
 
         for (var i = 0; i < MaxVisibleRows; i++)

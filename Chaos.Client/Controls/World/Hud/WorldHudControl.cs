@@ -327,7 +327,7 @@ public sealed class WorldHudControl : PrefabPanel
 
         // Chat (F)
         var chatDisplayBounds = GetRect("ChattingRect");
-        ChatDisplay = new ChatPanel(Device, chatDisplayBounds);
+        ChatDisplay = new ChatPanel(Device, chatDisplayBounds, tabRect);
         RegisterTab(HudTab.Chat, ChatDisplay, tabRect);
 
         // Stats (G) / Extended Stats (Shift+G) — both load from _nstatus prefab
@@ -342,7 +342,12 @@ public sealed class WorldHudControl : PrefabPanel
 
         // Message History (Shift+F) — displays orange bar messages in a tab panel
         var msgHistoryBounds = GetRect("ChattingRect");
-        var msgHistoryPanel = new MessageHistoryPanel(Device, msgHistoryBounds, OrangeBar.GetHistory());
+
+        var msgHistoryPanel = new MessageHistoryPanel(
+            Device,
+            msgHistoryBounds,
+            tabRect,
+            OrangeBar.GetHistory());
         RegisterTab(HudTab.MessageHistory, msgHistoryPanel, tabRect);
 
         // Wire tab button clicks: BTN_INV0=A, BTN_INV1=S, BTN_INV2=D, BTN_INV3=F, BTN_INV4=G, BTN_INV5=H

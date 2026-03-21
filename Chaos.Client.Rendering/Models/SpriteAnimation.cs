@@ -12,13 +12,19 @@ public sealed class SpriteAnimation : IDisposable
     public EffectBlendMode BlendMode { get; }
     public int FrameIntervalMs { get; }
     public SpriteFrame[] Frames { get; }
+    public bool IsEfa { get; }
     public int FrameCount => Frames.Length;
 
-    public SpriteAnimation(SpriteFrame[] frames, int frameIntervalMs = 100, EffectBlendMode blendMode = EffectBlendMode.Normal)
+    public SpriteAnimation(
+        SpriteFrame[] frames,
+        int frameIntervalMs = 100,
+        EffectBlendMode blendMode = EffectBlendMode.Normal,
+        bool isEfa = false)
     {
         Frames = frames;
         FrameIntervalMs = frameIntervalMs;
         BlendMode = blendMode;
+        IsEfa = isEfa;
     }
 
     public void Dispose()

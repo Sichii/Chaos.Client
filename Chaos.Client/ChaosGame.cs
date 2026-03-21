@@ -80,7 +80,8 @@ public sealed class ChaosGame : Game
         {
             PreferredBackBufferWidth = VIRTUAL_WIDTH,
             PreferredBackBufferHeight = VIRTUAL_HEIGHT,
-            PreferredDepthStencilFormat = DepthFormat.Depth24Stencil8
+            PreferredDepthStencilFormat = DepthFormat.Depth24Stencil8,
+            SynchronizeWithVerticalRetrace = false
         };
 
         Connection = new ConnectionManager();
@@ -284,6 +285,8 @@ public sealed class ChaosGame : Game
         // F12 — toggle debug overlay (handled globally before screen update)
         if (Input.WasKeyPressed(Keys.F12))
             DebugOverlay.Toggle();
+
+        DebugOverlay.Update(gameTime);
 
         // Drain and process network packets each frame
         PacketBuffer.Clear();

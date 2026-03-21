@@ -99,9 +99,8 @@ public sealed class MailListControl : PrefabPanel
         ScrollBar = new ScrollBarControl(device)
         {
             Name = "ScrollBar",
-            X = MailListRect.X + MailListRect.Width - 16,
+            X = MailListRect.X + MailListRect.Width - ScrollBarControl.DEFAULT_WIDTH,
             Y = MailListRect.Y,
-            Width = 16,
             Height = MailListRect.Height
         };
 

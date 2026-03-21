@@ -38,14 +38,14 @@ public sealed class EffectRenderer : IDisposable
     /// <summary>
     ///     Returns frame count, interval, and blend mode for an effect, or null if the effect doesn't exist.
     /// </summary>
-    public (int FrameCount, int FrameIntervalMs, EffectBlendMode BlendMode)? GetEffectInfo(GraphicsDevice device, int effectId)
+    public (int FrameCount, int FrameIntervalMs, bool IsEfa, EffectBlendMode BlendMode)? GetEffectInfo(GraphicsDevice device, int effectId)
     {
         var animation = GetOrLoadAnimation(device, effectId);
 
         if (animation is null)
             return null;
 
-        return (animation.FrameCount, animation.FrameIntervalMs, animation.BlendMode);
+        return (animation.FrameCount, animation.FrameIntervalMs, animation.IsEfa, animation.BlendMode);
     }
 
     /// <summary>
@@ -118,7 +118,11 @@ public sealed class EffectRenderer : IDisposable
             _                         => EffectBlendMode.Normal
         };
 
-        return new SpriteAnimation(frames, intervalMs, blendMode);
+        return new SpriteAnimation(
+            frames,
+            intervalMs,
+            blendMode,
+            true);
     }
 
     private SpriteAnimation? LoadEpfAnimation(GraphicsDevice device, int effectId, EffectTableEntry tableEntry)

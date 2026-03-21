@@ -1,5 +1,6 @@
 #region
 using Chaos.Client.Controls.Components;
+using Chaos.Client.Controls.Generic;
 using Chaos.Client.Rendering;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
@@ -18,12 +19,17 @@ public sealed class MessageHistoryPanel : UIPanel
     private readonly IReadOnlyList<string> History;
     private readonly CachedText[] LineTextures;
     private readonly int MaxVisibleLines;
+    private readonly ScrollBarControl ScrollBar;
     private int LastHistoryCount;
     private int RenderedHistoryCount = -1;
     private int RenderedScrollOffset = -1;
     private int ScrollOffset;
 
-    public MessageHistoryPanel(GraphicsDevice device, Rectangle displayBounds, IReadOnlyList<string> history)
+    public MessageHistoryPanel(
+        GraphicsDevice device,
+        Rectangle displayBounds,
+        Rectangle panelBounds,
+        IReadOnlyList<string> history)
     {
         Name = "MessageHistory";
         DisplayBounds = displayBounds;
@@ -36,6 +42,24 @@ public sealed class MessageHistoryPanel : UIPanel
 
         for (var i = 0; i < MaxVisibleLines; i++)
             LineTextures[i] = new CachedText(device);
+
+        var relX = displayBounds.X - panelBounds.X;
+        var relY = displayBounds.Y - panelBounds.Y;
+
+        ScrollBar = new ScrollBarControl(device)
+        {
+            X = relX + displayBounds.Width - ScrollBarControl.DEFAULT_WIDTH,
+            Y = relY,
+            Height = displayBounds.Height
+        };
+
+        ScrollBar.OnValueChanged += v =>
+        {
+            ScrollOffset = v;
+            RenderedScrollOffset = -1;
+        };
+
+        AddChild(ScrollBar);
     }
 
     public override void Dispose()
@@ -107,9 +131,17 @@ public sealed class MessageHistoryPanel : UIPanel
         {
             ScrollOffset = 0;
             LastHistoryCount = History.Count;
+
+            ScrollBar.TotalItems = History.Count;
+            ScrollBar.VisibleItems = MaxVisibleLines;
+            ScrollBar.MaxValue = Math.Max(0, History.Count - MaxVisibleLines);
+            ScrollBar.Value = 0;
         }
 
         if ((input.ScrollDelta != 0) && (History.Count > MaxVisibleLines))
+        {
             ScrollOffset = Math.Clamp(ScrollOffset - input.ScrollDelta, 0, History.Count - MaxVisibleLines);
+            ScrollBar.Value = ScrollOffset;
+        }
     }
 }

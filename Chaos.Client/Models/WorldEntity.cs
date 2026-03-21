@@ -17,6 +17,9 @@ namespace Chaos.Client.Models;
 public sealed class WorldEntity
 {
     public BodyAnimation? ActiveBodyAnimation { get; set; }
+
+    // Emote overlay — animated frame range in emot01.epf, -1 = no active emote
+    public int ActiveEmoteFrame { get; set; } = -1;
     public float AnimElapsedMs { get; set; }
     public int AnimFrameCount { get; set; }
     public int AnimFrameIndex { get; set; }
@@ -31,9 +34,21 @@ public sealed class WorldEntity
     // Draw ordering: monotonic counter incremented each time entity enters a tile.
     // Higher = arrived more recently = draws on top of entities in the same category at the same tile.
     public uint ArrivalOrder { get; set; }
+    public int BodyAnimRepeatsLeft { get; set; }
     public CreatureType CreatureType { get; set; }
     public Direction Direction { get; set; }
+    public float EmoteDurationMs { get; set; }
+    public float EmoteElapsedMs { get; set; }
+    public int EmoteFrameCount { get; set; }
+    public float EmoteRemainingMs { get; set; }
+    public int EmoteStartFrame { get; set; }
     public uint Id { get; init; }
+    public float IdleAnimElapsedMs { get; set; }
+
+    // Idle animation — frames per direction in "04" EPF (0 = no idle anim)
+    // IdleAnimTick increments independently of AnimState so idle cycling survives body animations.
+    public int IdleAnimFrameCount { get; set; }
+    public int IdleAnimTick { get; set; }
     public string Name { get; set; } = string.Empty;
     public ushort SpriteId { get; set; }
 
@@ -44,4 +59,5 @@ public sealed class WorldEntity
     public Vector2 VisualOffset { get; set; }
     public Vector2 WalkStartOffset { get; set; }
     public int SortDepth => TileX + TileY;
+    public bool UsesCreatureWalkTiming => (Type == ClientEntityType.Creature) || (Appearance is null && (SpriteId > 0));
 }

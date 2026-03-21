@@ -1,6 +1,7 @@
 #region
 using Chaos.Client.Data.Models;
 using Chaos.Client.Rendering;
+using Chaos.DarkAges.Definitions;
 using Microsoft.Xna.Framework.Graphics;
 #endregion
 
@@ -24,4 +25,15 @@ public sealed class InventoryPanel : PanelBase
         => Name = "Inventory";
 
     protected override Texture2D? RenderIcon(ushort spriteId) => UiRenderer.Instance!.GetItemIcon(spriteId);
+
+    public void SetSlot(byte slot, ushort sprite, DisplayColor color)
+    {
+        var control = FindSlot(slot);
+
+        if (control is null)
+            return;
+
+        control.NormalTexture?.Dispose();
+        control.NormalTexture = UiRenderer.Instance!.GetItemIcon(sprite, color);
+    }
 }

@@ -11,6 +11,7 @@ using Chaos.Client.Controls.World.ViewPort;
 using Chaos.Client.Data;
 using Chaos.Client.Data.Definitions;
 using Chaos.Client.Data.Models;
+using Chaos.Client.Data.Utilities;
 using Chaos.Client.Definitions;
 using Chaos.Client.Extensions;
 using Chaos.Client.Models;
@@ -89,8 +90,9 @@ public sealed class WorldScreen : IScreen
         AlphaDestinationBlend = Blend.InverseSourceAlpha
     };
 
-    // Aisling texture cache: keyed by entity ID, invalidated when appearance/frame/suffix changes
-    private readonly Dictionary<uint, AislingCacheEntry> AislingCache = new();
+    // Aisling draw data cache: keyed by entity ID, invalidated when appearance/frame/suffix changes.
+    // Individual layer textures are owned by AislingRenderer.LayerTextureCache — this just tracks which draw data is current.
+    private readonly Dictionary<uint, AislingDrawDataEntry> AislingCache = new();
 
     private readonly CastingManager CastingManager = new();
 
@@ -115,6 +117,10 @@ public sealed class WorldScreen : IScreen
     private Camera Camera = null!;
     private ChantEditControl ChantEdit = null!;
     private ContextMenu ContextMenu = null!;
+    private int DebugFpsDisplay;
+    private float DebugFpsElapsed;
+    private int DebugFpsFrameCount;
+    private CachedText? DebugFpsText;
     private GraphicsDevice Device = null!;
     private ExchangeControl Exchange = null!;
     private FriendsListControl FriendsList = null!;
@@ -153,6 +159,9 @@ public sealed class WorldScreen : IScreen
     private uint? PathfindingTargetEntityId;
     private Direction? QueuedWalkDirection;
     private RasterizerState ScissorRasterizerState = null!;
+
+    // True when the client explicitly requested its own profile — prevents unsolicited SelfProfile packets from opening the panel
+    private bool SelfProfileRequested;
     private SettingsControl SettingsDialog = null!;
     private SocialStatusControl SocialStatusPicker = null!;
     private float SpacebarTimer;
@@ -574,7 +583,11 @@ public sealed class WorldScreen : IScreen
             WorldHud.BulletinButton.OnClick += () => Game.Connection.SendBoardInteraction(BoardRequestType.BoardList);
 
         if (WorldHud.LegendButton is not null)
-            WorldHud.LegendButton.OnClick += () => Game.Connection.RequestSelfProfile();
+            WorldHud.LegendButton.OnClick += () =>
+            {
+                SelfProfileRequested = true;
+                Game.Connection.RequestSelfProfile();
+            };
 
         if (WorldHud.TownMapButton is not null)
             WorldHud.TownMapButton.OnClick += () =>
@@ -731,6 +744,24 @@ public sealed class WorldScreen : IScreen
             // All entities step discretely by default. Player gets smooth lerp only if setting enabled.
             var isSmooth = (entity == player) && smoothScroll;
             AnimationManager.Advance(entity, elapsedMs, isSmooth);
+
+            // Tick emote overlay timer and cycle animated emote frames
+            if (entity.ActiveEmoteFrame >= 0)
+            {
+                entity.EmoteElapsedMs += elapsedMs;
+                entity.EmoteRemainingMs -= elapsedMs;
+
+                if (entity.EmoteRemainingMs <= 0)
+                {
+                    entity.ActiveEmoteFrame = -1;
+                    entity.EmoteFrameCount = 0;
+                } else if (entity.EmoteFrameCount > 1)
+                {
+                    var frameDuration = entity.EmoteDurationMs / entity.EmoteFrameCount;
+                    var frameIndex = (int)(entity.EmoteElapsedMs / frameDuration) % entity.EmoteFrameCount;
+                    entity.ActiveEmoteFrame = entity.EmoteStartFrame + frameIndex;
+                }
+            }
         }
 
         Game.World.UpdateEffects(elapsedMs);
@@ -1011,15 +1042,18 @@ public sealed class WorldScreen : IScreen
             if (hoverEntity is not null && hoverEntity.Type is ClientEntityType.Aisling or ClientEntityType.Creature)
                 HighlightedEntityId = hoverEntity.Id;
 
-            // Click to select target
-            if (input.WasLeftButtonPressed
-                && hoverEntity is not null
-                && hoverEntity.Type is ClientEntityType.Aisling or ClientEntityType.Creature)
-                CastingManager.SelectTarget(
-                    hoverEntity.Id,
-                    hoverEntity.TileX,
-                    hoverEntity.TileY,
-                    Game.Connection);
+            // Click to select target, or cancel if clicking on nothing
+            if (input.WasLeftButtonPressed)
+            {
+                if (hoverEntity is not null && hoverEntity.Type is ClientEntityType.Aisling or ClientEntityType.Creature)
+                    CastingManager.SelectTarget(
+                        hoverEntity.Id,
+                        hoverEntity.TileX,
+                        hoverEntity.TileY,
+                        Game.Connection);
+                else
+                    CastingManager.Reset();
+            }
 
             WorldHud.Update(gameTime, input);
 
@@ -1079,8 +1113,10 @@ public sealed class WorldScreen : IScreen
             if (input.WasKeyPressed(Keys.A))
             {
                 if (WorldHud.ActiveTab == HudTab.Inventory)
+                {
+                    SelfProfileRequested = true;
                     Game.Connection.RequestSelfProfile();
-                else
+                } else
                     WorldHud.ShowTab(HudTab.Inventory);
             } else if (input.WasKeyPressed(Keys.S))
                 WorldHud.ShowTab(shift ? HudTab.SkillsAlt : HudTab.Skills);
@@ -1179,8 +1215,10 @@ public sealed class WorldScreen : IScreen
                     var altEntity = GetEntityAtScreen(input.MouseX, input.MouseY);
 
                     if (altEntity is not null && (altEntity.Id == Game.Connection.AislingId))
+                    {
+                        SelfProfileRequested = true;
                         Game.Connection.RequestSelfProfile();
-                    else
+                    } else
                         HandleWorldClick(input.MouseX, input.MouseY);
                 } else
                     HandleWorldClick(input.MouseX, input.MouseY);
@@ -1223,8 +1261,9 @@ public sealed class WorldScreen : IScreen
                     }
                 } else if (player.AnimState == EntityAnimState.Walking)
                 {
-                    var totalDuration = player.AnimFrameCount * player.AnimFrameIntervalMs;
-                    var progress = totalDuration > 0 ? player.AnimElapsedMs / totalDuration : 1f;
+                    // Must match AdvanceWalk's totalDuration formula: frameCount * interval
+                    var totalDuration = Math.Max(1f, player.AnimFrameCount * player.AnimFrameIntervalMs);
+                    var progress = player.AnimElapsedMs / totalDuration;
 
                     if (progress >= WALK_QUEUE_THRESHOLD)
                         QueuedWalkDirection = direction.Value;
@@ -1409,12 +1448,14 @@ public sealed class WorldScreen : IScreen
     }
     #endregion
 
-    private record struct AislingCacheEntry(
+    private record struct AislingDrawDataEntry(
         AislingAppearance Appearance,
         int FrameIndex,
         bool Flip,
+        bool IsFrontFacing,
         string AnimSuffix,
-        Texture2D? Texture);
+        int EmotionFrame,
+        AislingDrawData? DrawData);
 
     #region Diagonal Stripe Rendering
     /// <summary>
@@ -1770,45 +1811,86 @@ public sealed class WorldScreen : IScreen
         var appearance = entity.Appearance.Value;
         (var frameIndex, var flip, var animSuffix, var isFrontFacing) = AnimationManager.GetAislingFrame(entity);
 
-        // Check cache — re-render if appearance, frame, flip, or animation suffix changed
+        var emotionFrame = entity.ActiveEmoteFrame;
+
+        // Check cache — re-resolve layer frames if appearance, frame, flip, animation suffix, or emotion changed.
+        // Individual layer textures are cached globally in AislingRenderer — this just tracks which draw data is current.
         if (!AislingCache.TryGetValue(entity.Id, out var cached)
             || (cached.Appearance != appearance)
             || (cached.FrameIndex != frameIndex)
             || (cached.Flip != flip)
-            || (cached.AnimSuffix != animSuffix))
+            || (cached.IsFrontFacing != isFrontFacing)
+            || (cached.AnimSuffix != animSuffix)
+            || (cached.EmotionFrame != emotionFrame))
         {
-            cached.Texture?.Dispose();
-
-            var texture = Game.AislingRenderer.Render(
+            var drawData = Game.AislingRenderer.GetLayerFrames(
                 Device,
                 in appearance,
                 frameIndex,
                 animSuffix,
                 flip,
-                isFrontFacing);
+                isFrontFacing,
+                emotionFrame);
 
-            if (texture is null)
+            if (!drawData.Layers[(int)LayerSlot.Body].HasValue)
                 return 0;
 
-            cached = new AislingCacheEntry(
+            cached = new AislingDrawDataEntry(
                 appearance,
                 frameIndex,
                 flip,
+                isFrontFacing,
                 animSuffix,
-                texture);
+                emotionFrame,
+                drawData);
             AislingCache[entity.Id] = cached;
         }
 
-        // Position: tile center minus body center, plus visual offset for walk interpolation
-        var drawX = tileCenterX + entity.VisualOffset.X - BODY_CENTER_X;
-        var drawY = tileCenterY + entity.VisualOffset.Y - BODY_CENTER_Y;
-        var screenPos = Camera.WorldToScreen(new Vector2(drawX, drawY));
+        var drawDataRef = cached.DrawData!;
 
-        var drawTexture = HighlightedEntityId == entity.Id ? GetOrCreateTintedTexture(cached.Texture!, entity.Id) : cached.Texture;
+        // Base position: composite canvas origin relative to tile center
+        var baseX = tileCenterX + entity.VisualOffset.X - BODY_CENTER_X;
+        var baseY = tileCenterY + entity.VisualOffset.Y - BODY_CENTER_Y;
+        var flipPivot = AislingRenderer.BODY_CENTER_X + AislingRenderer.LAYER_OFFSET_PADDING;
 
-        spriteBatch.Draw(drawTexture, screenPos, Color.White);
+        // Highlight tint: approximate the blue-shift via a color multiply
+        var tintColor = HighlightedEntityId == entity.Id ? new Color(170, 200, 255) : Color.White;
 
-        return (int)screenPos.Y + cached.Texture!.Height;
+        // Draw each layer in order
+        foreach (var slot in drawDataRef.DrawOrder)
+        {
+            if (drawDataRef.Layers[(int)slot] is not { } layer)
+                continue;
+
+            var layerOffsetX = AislingRenderer.GetLayerOffsetX(layer.TypeLetter) + AislingRenderer.LAYER_OFFSET_PADDING;
+
+            float compositeX;
+
+            if (drawDataRef.FlipHorizontal)
+                compositeX = 2 * flipPivot - layerOffsetX - layer.Texture.Width;
+            else
+                compositeX = layerOffsetX;
+
+            var worldPos = new Vector2(baseX + compositeX, baseY);
+            var screenPos = Camera.WorldToScreen(worldPos);
+            var effects = drawDataRef.FlipHorizontal ? SpriteEffects.FlipHorizontally : SpriteEffects.None;
+
+            spriteBatch.Draw(
+                layer.Texture,
+                screenPos,
+                null,
+                tintColor,
+                0f,
+                Vector2.Zero,
+                1f,
+                effects,
+                0f);
+        }
+
+        // Return bottom edge for hitbox calculation (body layer defines the aisling's visual bounds)
+        var bodyScreenPos = Camera.WorldToScreen(new Vector2(baseX, baseY));
+
+        return (int)bodyScreenPos.Y + AislingRenderer.COMPOSITE_HEIGHT;
     }
 
     /// <summary>
@@ -2268,6 +2350,68 @@ public sealed class WorldScreen : IScreen
                     hoverRect.Height),
                 Color.Magenta);
         }
+
+        // Entity hitboxes (the click-detection rects, not the tile rects)
+        foreach (var hitbox in EntityHitBoxes)
+        {
+            var rect = hitbox.ScreenRect;
+
+            spriteBatch.Draw(
+                pixel,
+                new Rectangle(
+                    rect.X,
+                    rect.Y,
+                    rect.Width,
+                    1),
+                Color.Orange * 0.8f);
+
+            spriteBatch.Draw(
+                pixel,
+                new Rectangle(
+                    rect.X,
+                    rect.Bottom - 1,
+                    rect.Width,
+                    1),
+                Color.Orange * 0.8f);
+
+            spriteBatch.Draw(
+                pixel,
+                new Rectangle(
+                    rect.X,
+                    rect.Y,
+                    1,
+                    rect.Height),
+                Color.Orange * 0.8f);
+
+            spriteBatch.Draw(
+                pixel,
+                new Rectangle(
+                    rect.Right - 1,
+                    rect.Y,
+                    1,
+                    rect.Height),
+                Color.Orange * 0.8f);
+        }
+
+        // FPS counter (top-left of viewport)
+        DebugFpsFrameCount++;
+        DebugFpsElapsed += (float)Game.TargetElapsedTime.TotalMilliseconds;
+
+        if (DebugFpsElapsed >= 1000f)
+        {
+            var prevFps = DebugFpsDisplay;
+            DebugFpsDisplay = DebugFpsFrameCount;
+            DebugFpsFrameCount = 0;
+            DebugFpsElapsed -= 1000f;
+
+            if (prevFps != DebugFpsDisplay)
+            {
+                DebugFpsText ??= new CachedText(Device);
+                DebugFpsText.Update($"FPS: {DebugFpsDisplay}", Color.White);
+            }
+        }
+
+        DebugFpsText?.Draw(spriteBatch, new Vector2(5, 5));
     }
 
     /// <summary>
@@ -2451,6 +2595,7 @@ public sealed class WorldScreen : IScreen
         Game.World.Clear();
         Game.CreatureRenderer.Clear();
         Game.AislingRenderer.ClearCache();
+        Game.AislingRenderer.ClearLayerCache();
         ClearAislingCache();
         ClearGroundItemCache();
         ClearChatBubbles();
@@ -2618,6 +2763,18 @@ public sealed class WorldScreen : IScreen
             LoadPlayerMacros();
             LoadPlayerChants();
         }
+
+        // Check for idle animation ("04") frames on this aisling's body
+        var entity = Game.World.GetEntity(args.Id);
+
+        if (entity?.Appearance is { } appearance)
+        {
+            entity.IdleAnimFrameCount = Game.AislingRenderer.GetIdleAnimFrameCount(in appearance);
+
+            // Start idle cycling if entity is currently idle
+            if (entity.AnimState == EntityAnimState.Idle)
+                AnimationManager.ResetToIdle(entity);
+        }
     }
 
     private void HandleRemoveEntity(uint id)
@@ -2628,12 +2785,8 @@ public sealed class WorldScreen : IScreen
         if (entity is { Type: ClientEntityType.Creature })
             CreateDyingEffect(entity);
 
-        // Clean up aisling cache
-        if (AislingCache.TryGetValue(id, out var entry))
-        {
-            entry.Texture?.Dispose();
-            AislingCache.Remove(id);
-        }
+        // Clean up aisling draw data cache (layer textures are owned by AislingRenderer)
+        AislingCache.Remove(id);
 
         // Remove entity from WorldState (ChaosGame skips removal when WorldScreen is active)
         Game.World.RemoveEntity(id);
@@ -2695,11 +2848,14 @@ public sealed class WorldScreen : IScreen
         player.TileX = newX;
         player.TileY = newY;
 
-        var walkFrames = player.Appearance is null && (player.SpriteId > 0)
-            ? Game.CreatureRenderer.GetWalkFrameCount(player.SpriteId)
-            : null;
+        var walkFrames = player.UsesCreatureWalkTiming ? Game.CreatureRenderer.GetWalkFrameCount(player.SpriteId) : null;
 
-        AnimationManager.StartWalk(player, direction, walkFrames);
+        AnimationManager.StartWalk(
+            player,
+            direction,
+            player.UsesCreatureWalkTiming,
+            true,
+            walkFrames);
         WorldHud.SetCoords(player.TileX, player.TileY);
     }
 
@@ -2748,7 +2904,16 @@ public sealed class WorldScreen : IScreen
 
             // Blank chant clears the overlay without creating a new one
             if (entityExists && !string.IsNullOrEmpty(args.Message))
+            {
+                // Chant replaces any active chat bubble
+                if (ChatBubbles.TryGetValue(args.SourceId, out var existingBubble))
+                {
+                    existingBubble.Dispose();
+                    ChatBubbles.Remove(args.SourceId);
+                }
+
                 ChantOverlays[args.SourceId] = ChantOverlay.Create(Device, args.SourceId, args.Message);
+            }
 
             return;
         }
@@ -2765,6 +2930,13 @@ public sealed class WorldScreen : IScreen
             return;
 
         var isShout = args.PublicMessageType == PublicMessageType.Shout;
+
+        // Chat bubble replaces any active chant overlay
+        if (ChantOverlays.TryGetValue(args.SourceId, out var existingChantForBubble))
+        {
+            existingChantForBubble.Dispose();
+            ChantOverlays.Remove(args.SourceId);
+        }
 
         if (ChatBubbles.TryGetValue(args.SourceId, out var existing))
             existing.Dispose();
@@ -2889,7 +3061,7 @@ public sealed class WorldScreen : IScreen
 
     private void HandleAddItemToPane(AddItemToPaneArgs args)
     {
-        WorldHud.Inventory.SetSlot(args.Item.Slot, args.Item.Sprite);
+        WorldHud.Inventory.SetSlot(args.Item.Slot, args.Item.Sprite, args.Item.Color);
         WorldHud.Inventory.SetSlotName(args.Item.Slot, Game.Connection.InventorySlots[args.Item.Slot].Name);
 
         var slotControl = WorldHud.Inventory.GetSlotControl(args.Item.Slot);
@@ -2974,9 +3146,12 @@ public sealed class WorldScreen : IScreen
 
     private void HandleSkillSlotClicked(byte slot)
     {
-        // Send chant line if one is set for this skill
         var skillSlot = WorldHud.SkillBook.GetSkillSlot(slot) ?? WorldHud.SkillBookAlt.GetSkillSlot(slot);
 
+        if (skillSlot is not null && (skillSlot.CooldownPercent > 0))
+            return;
+
+        // Send chant line if one is set for this skill
         if (skillSlot is not null && !string.IsNullOrEmpty(skillSlot.Chant))
             Game.Connection.SendChant(skillSlot.Chant);
 
@@ -2994,6 +3169,9 @@ public sealed class WorldScreen : IScreen
         };
 
         if (spellSlot is null || string.IsNullOrEmpty(spellSlot.AbilityName))
+            return;
+
+        if (spellSlot.CooldownPercent > 0)
             return;
 
         // NoTarget spells cast immediately (no cast mode)
@@ -3235,12 +3413,12 @@ public sealed class WorldScreen : IScreen
                 break;
 
             case HudTab.Skills:
-                Game.Connection.UseSkill(byteSlot);
+                HandleSkillSlotClicked(byteSlot);
 
                 break;
 
             case HudTab.SkillsAlt:
-                Game.Connection.UseSkill((byte)(byteSlot + 36));
+                HandleSkillSlotClicked((byte)(byteSlot + 36));
 
                 break;
 
@@ -3304,9 +3482,7 @@ public sealed class WorldScreen : IScreen
 
     private void ClearAislingCache()
     {
-        foreach (var entry in AislingCache.Values)
-            entry.Texture?.Dispose();
-
+        // Layer textures are owned by AislingRenderer.LayerTextureCache — just clear the draw data references
         AislingCache.Clear();
     }
 
@@ -4168,7 +4344,11 @@ public sealed class WorldScreen : IScreen
         } else
             GroupPanel.ClearGroup();
 
-        ShowStatusBook();
+        if (SelfProfileRequested)
+        {
+            SelfProfileRequested = false;
+            ShowStatusBook();
+        }
     }
 
     private void HandleOtherProfile(OtherProfileArgs args)
@@ -4184,8 +4364,8 @@ public sealed class WorldScreen : IScreen
         if (entity is null)
             return;
 
-        // Never interrupt an in-progress body animation
-        if (entity.AnimState == EntityAnimState.BodyAnim)
+        // Emotes are body animations — ignore if any body anim or emote overlay is already playing
+        if ((entity.AnimState == EntityAnimState.BodyAnim) || (entity.ActiveEmoteFrame >= 0))
             return;
 
         // Creatures use their MpfFile attack frame counts; aislings use EPF suffix-based frame counts
@@ -4200,7 +4380,34 @@ public sealed class WorldScreen : IScreen
                     args.AnimationSpeed,
                     in info);
         } else
-            AnimationManager.StartBodyAnimation(entity, args.BodyAnimation, args.AnimationSpeed);
+        {
+            (var suffix, var framesPerDir, _, _) = AnimationManager.ResolveBodyAnimParams(args.BodyAnimation);
+
+            if (framesPerDir > 0)
+            {
+                // Has body animation frames — skip if armor doesn't support it (exempt "03" peasant anims)
+                if (entity.Appearance.HasValue
+                    && (suffix != AnimationManager.PEASANT_ANIM_SUFFIX)
+                    && !Game.AislingRenderer.HasArmorAnimation(entity.Appearance.Value, suffix))
+                    return;
+
+                AnimationManager.StartBodyAnimation(entity, args.BodyAnimation, args.AnimationSpeed);
+            } else if (DataUtilities.IsEmote(args.BodyAnimation))
+            {
+                // Emote overlay — face/bubble icon composited into the aisling sprite
+                (var startFrame, var frameCount, var durationMs) = AnimationManager.ResolveEmoteFrames(args.BodyAnimation);
+
+                if (startFrame >= 0)
+                {
+                    entity.EmoteStartFrame = startFrame;
+                    entity.EmoteFrameCount = frameCount;
+                    entity.ActiveEmoteFrame = startFrame;
+                    entity.EmoteDurationMs = durationMs;
+                    entity.EmoteElapsedMs = 0;
+                    entity.EmoteRemainingMs = durationMs;
+                }
+            }
+        }
 
         if (args.Sound.HasValue)
             Game.SoundManager.PlaySound(args.Sound.Value);
@@ -4210,19 +4417,24 @@ public sealed class WorldScreen : IScreen
     {
         // Ground-targeted effect
         if (args is { TargetPoint: not null, TargetAnimation: > 0 })
-            CreateEffect(args.TargetAnimation, targetTileX: args.TargetPoint.Value.X, targetTileY: args.TargetPoint.Value.Y);
+            CreateEffect(
+                args.TargetAnimation,
+                args.AnimationSpeed,
+                targetTileX: args.TargetPoint.Value.X,
+                targetTileY: args.TargetPoint.Value.Y);
 
         // Entity-targeted effect on target
         if (args is { TargetId: > 0, TargetAnimation: > 0 })
-            CreateEffect(args.TargetAnimation, args.TargetId.Value);
+            CreateEffect(args.TargetAnimation, args.AnimationSpeed, args.TargetId.Value);
 
         // Source-side effect (caster visual)
         if (args is { SourceId: > 0, SourceAnimation: > 0 })
-            CreateEffect(args.SourceAnimation, args.SourceId.Value);
+            CreateEffect(args.SourceAnimation, args.AnimationSpeed, args.SourceId.Value);
     }
 
     private void CreateEffect(
         int effectId,
+        ushort animationSpeed,
         uint? targetEntityId = null,
         int? targetTileX = null,
         int? targetTileY = null)
@@ -4232,7 +4444,14 @@ public sealed class WorldScreen : IScreen
         if (info is null)
             return;
 
-        (var frameCount, var frameIntervalMs, var blendMode) = info.Value;
+        (var frameCount, var fileIntervalMs, var isEfa, var blendMode) = info.Value;
+
+        // EFA effects use the interval from the file; EPF effects use the packet's animation speed
+        float frameIntervalMs = isEfa
+            ? fileIntervalMs > 0 ? fileIntervalMs : 50
+            : animationSpeed > 0
+                ? animationSpeed
+                : 50;
 
         // Cancel any existing effect on the same entity — only one effect per entity at a time
         if (targetEntityId.HasValue)
@@ -4246,7 +4465,7 @@ public sealed class WorldScreen : IScreen
                 TileX = targetTileX,
                 TileY = targetTileY,
                 FrameCount = frameCount,
-                FrameIntervalMs = frameIntervalMs > 0 ? frameIntervalMs : 50,
+                FrameIntervalMs = frameIntervalMs,
                 BlendMode = blendMode
             });
     }

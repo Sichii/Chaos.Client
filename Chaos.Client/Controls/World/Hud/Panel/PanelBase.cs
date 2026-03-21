@@ -141,7 +141,7 @@ public abstract class PanelBase : UIPanel
         base.Draw(spriteBatch);
 
         if (SlotNumberOverlay is not null)
-            spriteBatch.Draw(SlotNumberOverlay, new Vector2(ScreenX, ScreenY), Color.White);
+            spriteBatch.Draw(SlotNumberOverlay, new Vector2(ScreenX - 17, ScreenY + 3), Color.White);
     }
 
     /// <summary>

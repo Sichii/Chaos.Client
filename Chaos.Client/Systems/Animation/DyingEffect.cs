@@ -65,7 +65,7 @@ public sealed class DyingEffect : IDisposable
         Texture = new Texture2D(device, TextureWidth, TextureHeight);
         Texture.SetData(Pixels);
 
-        // Compute step size per the original DA algorithm
+        // Compute vertical step size based on texture height
         int adjusted;
 
         if (TextureHeight < 121)
@@ -81,39 +81,28 @@ public sealed class DyingEffect : IDisposable
     public void Dispose() => Texture.Dispose();
 
     /// <summary>
-    ///     Shifts every odd scanline down by Step pixels and clears the original position. Operates on the Pixels array
-    ///     in-place, then uploads to the Texture.
+    ///     Shifts every odd column down by Step pixels and clears the original position. Operates on the Pixels array
+    ///     in-place, then uploads to the Texture. Creates horizontal scanline dissolve bands.
     /// </summary>
     private void ApplyScanlineDissolve()
     {
-        // Process odd rows from bottom to top so we don't overwrite data we still need
-        for (var row = TextureHeight - 1; row >= 0; row--)
+        // Process odd columns; for each, shift pixels down by Step rows
+        for (var col = 0; col < TextureWidth; col++)
         {
-            if ((row % 2) == 0)
+            if ((col % 2) == 0)
                 continue;
 
-            var srcOffset = row * TextureWidth;
-            var dstRow = row + Step;
-
-            // Copy this odd row down by Step pixels (if destination is in bounds)
-            if (dstRow < TextureHeight)
+            // Shift from bottom to top so we don't overwrite data we still need
+            for (var row = TextureHeight - 1; row >= 0; row--)
             {
-                var dstOffset = dstRow * TextureWidth;
+                var srcIndex = row * TextureWidth + col;
+                var dstRow = row + Step;
 
-                Array.Copy(
-                    Pixels,
-                    srcOffset,
-                    Pixels,
-                    dstOffset,
-                    TextureWidth);
+                if (dstRow < TextureHeight)
+                    Pixels[dstRow * TextureWidth + col] = Pixels[srcIndex];
+
+                Pixels[srcIndex] = Color.Transparent;
             }
-
-            // Clear the original row
-            Array.Fill(
-                Pixels,
-                Color.Transparent,
-                srcOffset,
-                TextureWidth);
         }
 
         Texture.SetData(Pixels);

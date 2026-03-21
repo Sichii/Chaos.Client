@@ -1,5 +1,6 @@
 #region
 using Chaos.Client.Data;
+using Chaos.DarkAges.Definitions;
 using DALib.Drawing;
 using DALib.Utility;
 using Microsoft.Xna.Framework;
@@ -198,14 +199,28 @@ public sealed class UiRenderer : IDisposable
     /// <summary>
     ///     Renders and caches an inventory/equipment item icon.
     /// </summary>
-    public Texture2D GetItemIcon(ushort spriteId)
+    public Texture2D GetItemIcon(ushort spriteId, DisplayColor color = DisplayColor.Default)
     {
-        var key = $"item:{spriteId}";
+        var key = color == DisplayColor.Default ? $"item:{spriteId}" : $"item:{spriteId}:{(int)color}";
 
         if (Cache.TryGetValue(key, out var cached))
             return cached;
 
-        var texture = RenderSprite(DataContext.PanelItems.GetPanelItemSprite(spriteId));
+        var palettized = DataContext.PanelItems.GetPanelItemSprite(spriteId);
+
+        if (palettized is not null && (color != DisplayColor.Default))
+        {
+            var dyedPalette = DataContext.AislingData.ApplyDye(palettized.Palette, color);
+
+            if (dyedPalette != palettized.Palette)
+                palettized = new Palettized<EpfFrame>
+                {
+                    Entity = palettized.Entity,
+                    Palette = dyedPalette
+                };
+        }
+
+        var texture = RenderSprite(palettized);
 
         if (texture is null)
             return MissingTexture;

@@ -13,6 +13,7 @@ namespace Chaos.Client.Controls.Generic;
 /// </summary>
 public sealed class ScrollBarControl : UIElement
 {
+    public const int DEFAULT_WIDTH = 16;
     private const int BUTTON_SIZE = 16;
 
     // scroll.epf frame order: left(0,1), right(2,3), up(4,5), down(6,7), thumb(8), track(9)

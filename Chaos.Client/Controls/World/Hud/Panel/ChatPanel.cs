@@ -1,5 +1,6 @@
 #region
 using Chaos.Client.Controls.Components;
+using Chaos.Client.Controls.Generic;
 using Chaos.Client.Rendering;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
@@ -20,11 +21,12 @@ public sealed class ChatPanel : UIPanel
     private readonly Rectangle DisplayBounds;
     private readonly CachedText[] LineTextures;
     private readonly int MaxVisibleLines;
+    private readonly ScrollBarControl ScrollBar;
     private int LogVersion;
     private int RenderedVersion = -1;
     private int ScrollOffset;
 
-    public ChatPanel(GraphicsDevice device, Rectangle displayBounds)
+    public ChatPanel(GraphicsDevice device, Rectangle displayBounds, Rectangle panelBounds)
     {
         Name = "Chat";
         DisplayBounds = displayBounds;
@@ -36,6 +38,25 @@ public sealed class ChatPanel : UIPanel
 
         for (var i = 0; i < MaxVisibleLines; i++)
             LineTextures[i] = new CachedText(device);
+
+        // Position relative to panel origin (panel is placed at panelBounds by RegisterTab)
+        var relX = displayBounds.X - panelBounds.X;
+        var relY = displayBounds.Y - panelBounds.Y;
+
+        ScrollBar = new ScrollBarControl(device)
+        {
+            X = relX + displayBounds.Width - ScrollBarControl.DEFAULT_WIDTH,
+            Y = relY,
+            Height = displayBounds.Height
+        };
+
+        ScrollBar.OnValueChanged += v =>
+        {
+            ScrollOffset = v;
+            LogVersion++;
+        };
+
+        AddChild(ScrollBar);
     }
 
     public void AddMessage(string text, Color color)
@@ -66,6 +87,11 @@ public sealed class ChatPanel : UIPanel
         // Auto-scroll to bottom on new message
         ScrollOffset = 0;
         LogVersion++;
+
+        ScrollBar.TotalItems = ChatLog.Count;
+        ScrollBar.VisibleItems = MaxVisibleLines;
+        ScrollBar.MaxValue = Math.Max(0, ChatLog.Count - MaxVisibleLines);
+        ScrollBar.Value = 0;
     }
 
     public override void Dispose()
@@ -135,8 +161,8 @@ public sealed class ChatPanel : UIPanel
 
         if ((input.ScrollDelta != 0) && (ChatLog.Count > MaxVisibleLines))
         {
-            // Scroll up = positive delta, scroll down = negative delta
             ScrollOffset = Math.Clamp(ScrollOffset - input.ScrollDelta, 0, ChatLog.Count - MaxVisibleLines);
+            ScrollBar.Value = ScrollOffset;
             LogVersion++;
         }
     }

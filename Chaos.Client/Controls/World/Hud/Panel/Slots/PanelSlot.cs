@@ -139,7 +139,8 @@ public class PanelSlot : UIButton
         var hovering = ContainsPoint(input.MouseX, input.MouseY);
 
         // Double-click detection — must happen before base.Update consumes the click
-        if (input.WasLeftButtonPressed && hovering && NormalTexture is not null)
+        // Slots on cooldown cannot be activated or dragged
+        if (input.WasLeftButtonPressed && hovering && NormalTexture is not null && (CooldownPercent <= 0))
         {
             var now = (float)gameTime.TotalGameTime.TotalMilliseconds;
 
@@ -156,7 +157,7 @@ public class PanelSlot : UIButton
         }
 
         // Drag detection — mouse held and moved away from origin
-        if (input.IsLeftButtonHeld && hovering && !DoubleClickFired && NormalTexture is not null)
+        if (input.IsLeftButtonHeld && hovering && !DoubleClickFired && NormalTexture is not null && (CooldownPercent <= 0))
 
             // Drag starts when the mouse moves while pressed on this slot
             if (input.WasLeftButtonPressed)

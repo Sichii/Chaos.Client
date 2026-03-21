@@ -43,8 +43,8 @@ public sealed class HealthBar : UIElement
         var innerY = ScreenY + 1;
         var fillWidth = (int)(INNER_WIDTH * (HealthPercent / 100f));
 
-        // Border + background (black frame with black fill)
-        DrawBorderedRect(
+        // Border only — unfilled area is transparent
+        DrawBorder(
             spriteBatch,
             spriteBatch.GraphicsDevice,
             new Rectangle(
@@ -52,7 +52,6 @@ public sealed class HealthBar : UIElement
                 ScreenY,
                 TOTAL_WIDTH,
                 TOTAL_HEIGHT),
-            FrameColor,
             FrameColor);
 
         // Fill

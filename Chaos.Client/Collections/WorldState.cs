@@ -272,7 +272,11 @@ public sealed class WorldState
         entity.TileY = oldY + dy;
         entity.Direction = direction;
 
-        AnimationManager.StartWalk(entity, direction, walkFrameCount);
+        AnimationManager.StartWalk(
+            entity,
+            direction,
+            entity.UsesCreatureWalkTiming,
+            walkFrameOverride: walkFrameCount);
     }
 
     /// <summary>
@@ -288,7 +292,11 @@ public sealed class WorldState
         entity.TileY = oldY + dy;
         entity.Direction = direction;
 
-        AnimationManager.StartWalk(entity, direction);
+        AnimationManager.StartWalk(
+            entity,
+            direction,
+            entity.UsesCreatureWalkTiming,
+            true);
     }
 
     /// <summary>

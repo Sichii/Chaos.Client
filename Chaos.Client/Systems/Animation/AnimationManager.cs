@@ -17,7 +17,9 @@ namespace Chaos.Client.Systems.Animation;
 public static class AnimationManager
 {
     private const int DEFAULT_WALK_FRAMES = 4;
-    private const float DEFAULT_WALK_FRAME_MS = 150f;
+    private const float DEFAULT_WALK_FRAME_MS = 114;
+    private const float REMOTE_AISLING_WALK_FRAME_MS = 100f;
+    private const float CREATURE_WALK_FRAME_MS = 100f;
     private const float MIN_WALK_DURATION_MS = 75f;
 
     // The server's AnimationSpeed value × 10 = total animation duration in ms.
@@ -25,6 +27,9 @@ public static class AnimationManager
     private const float BODY_ANIM_SPEED_TO_MS = 10f;
     private const float DEFAULT_BODY_ANIM_FRAME_MS = 150f;
     private const float CREATURE_ATTACK_FRAME_MS = 300f;
+    private const float IDLE_ANIM_FRAME_MS = 250f;
+
+    public const string PEASANT_ANIM_SUFFIX = "03";
 
     // Aisling walk anim "01": frame 0 = Up idle, 1-4 = Up walk; frame 5 = Right idle, 6-9 = Right walk
     private const int AISLING_UP_WALK_BASE = 1;
@@ -34,7 +39,12 @@ public static class AnimationManager
     /// <summary>
     ///     Sets up walk animation state on an entity. Call after updating tile position.
     /// </summary>
-    public static void StartWalk(WorldEntity entity, Direction direction, int? walkFrameOverride = null)
+    public static void StartWalk(
+        WorldEntity entity,
+        Direction direction,
+        bool isCreature = false,
+        bool isLocalPlayer = false,
+        int? walkFrameOverride = null)
     {
         var frameCount = walkFrameOverride ?? DEFAULT_WALK_FRAMES;
 
@@ -42,7 +52,13 @@ public static class AnimationManager
         entity.AnimFrameIndex = 0;
         entity.AnimElapsedMs = 0;
         entity.AnimFrameCount = frameCount;
-        entity.AnimFrameIntervalMs = DEFAULT_WALK_FRAME_MS;
+
+        entity.AnimFrameIntervalMs = isCreature
+            ? CREATURE_WALK_FRAME_MS
+            : isLocalPlayer
+                ? DEFAULT_WALK_FRAME_MS
+                : REMOTE_AISLING_WALK_FRAME_MS;
+
         entity.WalkStartOffset = GetWalkOffset(direction);
         entity.VisualOffset = entity.WalkStartOffset;
     }
@@ -60,12 +76,31 @@ public static class AnimationManager
         if (framesPerDir == 0)
             return;
 
+        var repeats = bodyAnim switch
+        {
+            BodyAnimation.Wave => 1,
+            _                  => 0
+        };
+
+        float frameIntervalMs;
+
+        // Emotes with body animations use total duration from the emote table, divided across frames and repeats
+        if (DataUtilities.IsEmote(bodyAnim))
+        {
+            (_, _, var emoteDuration) = ResolveEmoteFrames(bodyAnim);
+            frameIntervalMs = (emoteDuration > 0 ? emoteDuration : DEFAULT_BODY_ANIM_FRAME_MS) / framesPerDir / (1 + repeats);
+        } else
+
+            // Non-emote body animations: animSpeed * 10 = per-frame interval
+            frameIntervalMs = animSpeed > 0 ? animSpeed * BODY_ANIM_SPEED_TO_MS : DEFAULT_BODY_ANIM_FRAME_MS;
+
         entity.AnimState = EntityAnimState.BodyAnim;
         entity.ActiveBodyAnimation = bodyAnim;
         entity.AnimFrameIndex = 0;
         entity.AnimElapsedMs = 0;
         entity.AnimFrameCount = framesPerDir;
-        entity.AnimFrameIntervalMs = animSpeed > 0 ? animSpeed * BODY_ANIM_SPEED_TO_MS : DEFAULT_BODY_ANIM_FRAME_MS;
+        entity.AnimFrameIntervalMs = frameIntervalMs;
+        entity.BodyAnimRepeatsLeft = repeats;
     }
 
     /// <summary>
@@ -127,6 +162,10 @@ public static class AnimationManager
     /// </param>
     public static void Advance(WorldEntity entity, float elapsedMs, bool smoothScroll = false)
     {
+        // Idle animation ticks independently so it survives body animations
+        if (entity.IdleAnimFrameCount > 0)
+            AdvanceIdleAnim(entity, elapsedMs);
+
         switch (entity.AnimState)
         {
             case EntityAnimState.Walking:
@@ -145,7 +184,8 @@ public static class AnimationManager
     {
         entity.AnimElapsedMs += elapsedMs;
 
-        var totalDuration = Math.Max(MIN_WALK_DURATION_MS, (entity.AnimFrameCount - 1) * entity.AnimFrameIntervalMs);
+        // Total duration includes all frames — each frame gets a full interval (including the last).
+        var totalDuration = Math.Max(MIN_WALK_DURATION_MS, entity.AnimFrameCount * entity.AnimFrameIntervalMs);
         var progress = Math.Clamp(entity.AnimElapsedMs / totalDuration, 0f, 1f);
 
         entity.AnimFrameIndex = Math.Clamp((int)(progress * entity.AnimFrameCount), 0, entity.AnimFrameCount - 1);
@@ -155,13 +195,10 @@ public static class AnimationManager
         // ensures every intermediate value is also integer.
         if (smoothScroll)
         {
-            // Smooth: interpolate using elapsed time, but snap to integer pixels
-            var startX = (int)entity.WalkStartOffset.X;
-            var startY = (int)entity.WalkStartOffset.Y;
-            var elapsedSteps = (int)(progress * 1000);
-            var x = startX - startX * elapsedSteps / 1000;
-            var y = startY - startY * elapsedSteps / 1000;
-            entity.VisualOffset = new Vector2(x, y);
+            // Smooth: interpolate at 2x the stepped frame rate (double the visual steps).
+            var smoothFrameCount = entity.AnimFrameCount * 2;
+            var smoothFrameIndex = Math.Clamp((int)(progress * smoothFrameCount), 0, smoothFrameCount - 1);
+            entity.VisualOffset = GetSteppedWalkOffset(entity.WalkStartOffset, smoothFrameIndex, smoothFrameCount);
         } else
 
             // Stepped: offset jumps discretely with each animation frame
@@ -169,6 +206,17 @@ public static class AnimationManager
 
         if (progress >= 1f)
             ResetToIdle(entity);
+    }
+
+    private static void AdvanceIdleAnim(WorldEntity entity, float elapsedMs)
+    {
+        entity.IdleAnimElapsedMs += elapsedMs;
+
+        while (entity.IdleAnimElapsedMs >= IDLE_ANIM_FRAME_MS)
+        {
+            entity.IdleAnimTick++;
+            entity.IdleAnimElapsedMs -= IDLE_ANIM_FRAME_MS;
+        }
     }
 
     private static void AdvanceBodyAnim(WorldEntity entity, float elapsedMs)
@@ -182,7 +230,14 @@ public static class AnimationManager
         }
 
         if (entity.AnimFrameIndex >= entity.AnimFrameCount)
-            ResetToIdle(entity);
+        {
+            if (entity.BodyAnimRepeatsLeft > 0)
+            {
+                entity.BodyAnimRepeatsLeft--;
+                entity.AnimFrameIndex = 0;
+            } else
+                ResetToIdle(entity);
+        }
     }
 
     public static void ResetToIdle(WorldEntity entity)
@@ -280,9 +335,11 @@ public static class AnimationManager
 
             default:
             {
-                // Idle: frame 0 = Up idle, frame 5 = Right idle
                 var isFront = entity.Direction is Direction.Right or Direction.Down;
                 var flip = entity.Direction is Direction.Down or Direction.Left;
+
+                if (entity.IdleAnimFrameCount > 0)
+                    return (entity.IdleAnimTick, flip, "04", isFront);
 
                 return (isFront ? 5 : 0, flip, "01", isFront);
             }
@@ -299,7 +356,15 @@ public static class AnimationManager
     public static (string Suffix, int FramesPerDirection, int UpStart, int RightStart) ResolveBodyAnimParams(BodyAnimation anim)
     {
         if (DataUtilities.IsEmote(anim))
-            return ("01", 0, 0, 0);
+        {
+            // BlowKiss and Wave are emotes with body animations from "03"
+            return anim switch
+            {
+                BodyAnimation.BlowKiss => ("03", 2, 2, 4),
+                BodyAnimation.Wave     => ("03", 2, 6, 8),
+                _                      => ("01", 0, 0, 0)
+            };
+        }
 
         // Reference: ChaosAssetManager AnimationDefinitions
         return anim switch
@@ -308,9 +373,7 @@ public static class AnimationManager
             BodyAnimation.Assail => ("02", 2, 0, 2),
 
             // 03 — peasant animations (shared file)
-            BodyAnimation.HandsUp  => ("03", 1, 0, 1),
-            BodyAnimation.BlowKiss => ("03", 2, 2, 4),
-            BodyAnimation.Wave     => ("03", 2, 6, 8),
+            BodyAnimation.HandsUp => ("03", 1, 0, 1),
 
             // b — priest/bard
             BodyAnimation.PriestCast => ("b", 3, 0, 3),
@@ -346,6 +409,51 @@ public static class AnimationManager
             _ => ("02", 2, 0, 2)
         };
     }
+
+    private const float DEFAULT_EMOTE_DURATION_MS = 1500f;
+
+    /// <summary>
+    ///     Maps an emote BodyAnimation to the starting frame index, frame count, and total display duration in emot01.epf.
+    ///     Multi-frame emotes cycle evenly across the display duration. Returns (-1, 0, 0) for non-emotes.
+    /// </summary>
+    public static (int StartFrame, int FrameCount, float DurationMs) ResolveEmoteFrames(BodyAnimation anim)
+        => anim switch
+        {
+            BodyAnimation.Smile       => (0, 1, DEFAULT_EMOTE_DURATION_MS),
+            BodyAnimation.Cry         => (1, 1, DEFAULT_EMOTE_DURATION_MS),
+            BodyAnimation.Frown       => (2, 1, DEFAULT_EMOTE_DURATION_MS),
+            BodyAnimation.Wink        => (3, 1, DEFAULT_EMOTE_DURATION_MS),
+            BodyAnimation.Surprise    => (4, 1, DEFAULT_EMOTE_DURATION_MS),
+            BodyAnimation.Tongue      => (5, 1, DEFAULT_EMOTE_DURATION_MS),
+            BodyAnimation.Pleasant    => (6, 1, DEFAULT_EMOTE_DURATION_MS),
+            BodyAnimation.Snore       => (7, 2, 2000),
+            BodyAnimation.Mouth       => (9, 2, 2000),
+            BodyAnimation.BlowKiss    => (2, 2, 2000),
+            BodyAnimation.Wave        => (6, 2, 1375),
+            BodyAnimation.RockOn      => (11, 1, DEFAULT_EMOTE_DURATION_MS),
+            BodyAnimation.Peace       => (12, 1, DEFAULT_EMOTE_DURATION_MS),
+            BodyAnimation.Stop        => (13, 1, DEFAULT_EMOTE_DURATION_MS),
+            BodyAnimation.Ouch        => (14, 1, DEFAULT_EMOTE_DURATION_MS),
+            BodyAnimation.Impatient   => (15, 3, DEFAULT_EMOTE_DURATION_MS),
+            BodyAnimation.Shock       => (18, 1, DEFAULT_EMOTE_DURATION_MS),
+            BodyAnimation.Pleasure    => (19, 1, DEFAULT_EMOTE_DURATION_MS),
+            BodyAnimation.Love        => (20, 1, DEFAULT_EMOTE_DURATION_MS),
+            BodyAnimation.SweatDrop   => (21, 1, DEFAULT_EMOTE_DURATION_MS),
+            BodyAnimation.Whistle     => (22, 1, DEFAULT_EMOTE_DURATION_MS),
+            BodyAnimation.Irritation  => (23, 1, DEFAULT_EMOTE_DURATION_MS),
+            BodyAnimation.Silly       => (24, 1, DEFAULT_EMOTE_DURATION_MS),
+            BodyAnimation.Cute        => (25, 1, DEFAULT_EMOTE_DURATION_MS),
+            BodyAnimation.Yelling     => (26, 1, DEFAULT_EMOTE_DURATION_MS),
+            BodyAnimation.Mischievous => (27, 1, DEFAULT_EMOTE_DURATION_MS),
+            BodyAnimation.Evil        => (28, 1, DEFAULT_EMOTE_DURATION_MS),
+            BodyAnimation.Horror      => (29, 1, DEFAULT_EMOTE_DURATION_MS),
+            BodyAnimation.PuppyDog    => (30, 1, DEFAULT_EMOTE_DURATION_MS),
+            BodyAnimation.StoneFaced  => (31, 1, DEFAULT_EMOTE_DURATION_MS),
+            BodyAnimation.Tears       => (32, 3, DEFAULT_EMOTE_DURATION_MS),
+            BodyAnimation.FiredUp     => (35, 3, DEFAULT_EMOTE_DURATION_MS),
+            BodyAnimation.Confused    => (38, 4, 2000),
+            _                         => (-1, 0, 0)
+        };
 
     private static (int FrameIndex, bool Flip) GetCreatureIdleFrame(Direction direction, in CreatureAnimInfo info)
     {

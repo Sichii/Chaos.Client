@@ -1,7 +1,10 @@
 #region
 using System.Collections.Frozen;
+using Chaos.DarkAges.Definitions;
 using DALib.Data;
 using DALib.Drawing;
+using SkiaSharp;
+using CONSTANTS = DALib.Definitions.CONSTANTS;
 #endregion
 
 namespace Chaos.Client.Data.Repositories;
@@ -17,6 +20,8 @@ public sealed class AislingDataRepository
 
     public IDictionary<int, Palette> BodyPalettes { get; } = Palette.FromArchive("palm", DatArchives.Khanpal)
                                                                     .ToFrozenDictionary();
+
+    private SKColor[]? DefaultDyeColors { get; }
 
     public ColorTable DyeColorTable { get; }
 
@@ -56,6 +61,30 @@ public sealed class AislingDataRepository
             DyeColorTable = ColorTable.FromEntry(entry);
         else
             DyeColorTable = new ColorTable();
+
+        // Cache the default (undyed) colors — entry 0 contains the placeholder colors at palette slots 98-103
+        if (DyeColorTable.Contains(0))
+            DefaultDyeColors = DyeColorTable[0].Colors;
+    }
+
+    /// <summary>
+    ///     Applies dye to a palette if the color is non-default and the palette supports dyeing. Returns the original palette
+    ///     if dye cannot be applied.
+    /// </summary>
+    public Palette ApplyDye(Palette basePalette, DisplayColor color)
+    {
+        if (color == DisplayColor.Default)
+            return basePalette;
+
+        if (!IsDyeable(basePalette))
+            return basePalette;
+
+        var colorIndex = (int)color;
+
+        if (!DyeColorTable.Contains(colorIndex))
+            return basePalette;
+
+        return basePalette.Dye(DyeColorTable[colorIndex]);
     }
 
     /// <summary>
@@ -125,4 +154,19 @@ public sealed class AislingDataRepository
             'w'               => PalW,
             _                 => PalB
         };
+
+    /// <summary>
+    ///     Returns true if the palette has the default dye colors at indices 98-103, meaning it supports dye application.
+    /// </summary>
+    public bool IsDyeable(Palette palette)
+    {
+        if (DefaultDyeColors is null)
+            return false;
+
+        for (var i = 0; i < DefaultDyeColors.Length; i++)
+            if (palette[CONSTANTS.PALETTE_DYE_INDEX_START + i] != DefaultDyeColors[i])
+                return false;
+
+        return true;
+    }
 }
