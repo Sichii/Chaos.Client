@@ -160,7 +160,7 @@ public sealed class TabMapRenderer : IDisposable
             }
 
             Atlas.Add(
-                mask.ToString(),
+                mask,
                 tilePixels,
                 TILE_W,
                 TILE_H);
@@ -197,8 +197,7 @@ public sealed class TabMapRenderer : IDisposable
             }
 
             Atlas.Add(
-                entityIndices[i]
-                    .ToString(),
+                entityIndices[i],
                 tilePixels,
                 TILE_W,
                 TILE_H);
@@ -267,7 +266,7 @@ public sealed class TabMapRenderer : IDisposable
 
         foreach ((var tx, var ty, var mask) in Entries)
         {
-            var region = Atlas.TryGetRegion(mask.ToString());
+            var region = Atlas.TryGetRegion(mask);
 
             if (!region.HasValue)
                 continue;
@@ -377,7 +376,7 @@ public sealed class TabMapRenderer : IDisposable
             else
                 atlasIndex = ATLAS_CREATURE;
 
-            var region = Atlas!.TryGetRegion(atlasIndex.ToString());
+            var region = Atlas!.TryGetRegion(atlasIndex);
 
             if (!region.HasValue)
                 continue;

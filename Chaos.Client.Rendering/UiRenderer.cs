@@ -1,4 +1,5 @@
 #region
+using System.Buffers;
 using Chaos.Client.Data;
 using Chaos.DarkAges.Definitions;
 using DALib.Drawing;
@@ -123,14 +124,22 @@ public sealed class UiRenderer : IDisposable
 
     private CachedTexture2D CreateTintedTexture(Texture2D source)
     {
-        var pixels = new Color[source.Width * source.Height];
-        source.GetData(pixels);
-        TextureConverter.TintPixels(pixels);
+        var count = source.Width * source.Height;
+        var pixels = ArrayPool<Color>.Shared.Rent(count);
 
-        var tinted = new CachedTexture2D(Device, source.Width, source.Height);
-        tinted.SetData(pixels);
+        try
+        {
+            source.GetData(pixels, 0, count);
+            TextureConverter.TintPixels(pixels, count);
 
-        return tinted;
+            var tinted = new CachedTexture2D(Device, source.Width, source.Height);
+            tinted.SetData(pixels, 0, count);
+
+            return tinted;
+        } finally
+        {
+            ArrayPool<Color>.Shared.Return(pixels);
+        }
     }
 
     /// <summary>

@@ -1,6 +1,7 @@
 #region
 using Chaos.Client.Controls.Components;
 using Chaos.Client.Models;
+using Chaos.Extensions.Common;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using Microsoft.Xna.Framework.Input;
@@ -178,24 +179,24 @@ public sealed class FriendsListControl : PrefabPanel
 
         RenderedVersion = DataVersion;
 
-        var onlineFriends = Friends.Where(f => f.IsOnline)
-                                   .ToList();
+        using var onlineFriends = Friends.Where(f => f.IsOnline)
+                                         .ToRented();
 
-        var offlineFriends = Friends.Where(f => !f.IsOnline)
-                                    .ToList();
+        using var offlineFriends = Friends.Where(f => !f.IsOnline)
+                                          .ToRented();
 
         for (var i = 0; i < MAX_VISIBLE_ROWS; i++)
         {
             if (i < onlineFriends.Count)
                 LeftNameCaches[i]
-                    .Update(onlineFriends[i].Name, new Color(150, 255, 150));
+                    .Update(onlineFriends.Array[i].Name, new Color(150, 255, 150));
             else
                 LeftNameCaches[i]
                     .Update(string.Empty, Color.White);
 
             if (i < offlineFriends.Count)
                 RightNameCaches[i]
-                    .Update(offlineFriends[i].Name, new Color(150, 150, 150));
+                    .Update(offlineFriends.Array[i].Name, new Color(150, 150, 150));
             else
                 RightNameCaches[i]
                     .Update(string.Empty, Color.White);

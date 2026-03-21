@@ -25,6 +25,7 @@ public sealed class WorldListControl : PrefabPanel
     private const int TAB_COUNT = 9;
 
     private const int STATUS_ICON_COUNT = 8;
+    private readonly List<WorldListEntry> FilterBuffer = [];
 
     private readonly int MaxVisibleRows;
     private readonly WorldListEntryControl[] RowEntries;
@@ -203,27 +204,34 @@ public sealed class WorldListControl : PrefabPanel
 
     private void ApplyFilter()
     {
-        FilteredEntries = ActiveTab switch
+        if (ActiveTab == 0)
         {
-            0 => AllEntries,
-            1 => AllEntries.Where(e => e.IsMaster)
-                           .ToList(),
-            2 => AllEntries.Where(e => e.BaseClass == BaseClass.Warrior)
-                           .ToList(),
-            3 => AllEntries.Where(e => e.BaseClass == BaseClass.Rogue)
-                           .ToList(),
-            4 => AllEntries.Where(e => e.BaseClass == BaseClass.Wizard)
-                           .ToList(),
-            5 => AllEntries.Where(e => e.BaseClass == BaseClass.Priest)
-                           .ToList(),
-            6 => AllEntries.Where(e => e.BaseClass == BaseClass.Monk)
-                           .ToList(),
-            7 => AllEntries.Where(e => e.BaseClass == BaseClass.Peasant)
-                           .ToList(),
-            8 => AllEntries.Where(e => e.IsGuilded)
-                           .ToList(),
-            _ => AllEntries
-        };
+            FilteredEntries = AllEntries;
+        } else
+        {
+            FilterBuffer.Clear();
+
+            foreach (var e in AllEntries)
+            {
+                var match = ActiveTab switch
+                {
+                    1 => e.IsMaster,
+                    2 => e.BaseClass == BaseClass.Warrior,
+                    3 => e.BaseClass == BaseClass.Rogue,
+                    4 => e.BaseClass == BaseClass.Wizard,
+                    5 => e.BaseClass == BaseClass.Priest,
+                    6 => e.BaseClass == BaseClass.Monk,
+                    7 => e.BaseClass == BaseClass.Peasant,
+                    8 => e.IsGuilded,
+                    _ => false
+                };
+
+                if (match)
+                    FilterBuffer.Add(e);
+            }
+
+            FilteredEntries = FilterBuffer;
+        }
 
         ScrollBar.TotalItems = FilteredEntries.Count;
         ScrollBar.VisibleItems = MaxVisibleRows;

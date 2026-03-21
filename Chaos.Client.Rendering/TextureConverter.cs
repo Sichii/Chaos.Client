@@ -50,23 +50,31 @@ public static class TextureConverter
     /// </summary>
     public static Texture2D CreateTintedTexture(GraphicsDevice device, Texture2D source)
     {
-        var pixels = new Color[source.Width * source.Height];
-        source.GetData(pixels);
-        TintPixels(pixels);
+        var count = source.Width * source.Height;
+        var pixels = ArrayPool<Color>.Shared.Rent(count);
 
-        var tinted = new Texture2D(device, source.Width, source.Height);
-        tinted.SetData(pixels);
+        try
+        {
+            source.GetData(pixels, 0, count);
+            TintPixels(pixels, count);
 
-        return tinted;
+            var tinted = new Texture2D(device, source.Width, source.Height);
+            tinted.SetData(pixels, 0, count);
+
+            return tinted;
+        } finally
+        {
+            ArrayPool<Color>.Shared.Return(pixels);
+        }
     }
 
     /// <summary>
     ///     Applies a blue-shift tint to a pixel array in-place. Shared by both TextureConverter (regular Texture2D) and
     ///     UiRenderer (CachedTexture2D).
     /// </summary>
-    internal static void TintPixels(Color[] pixels)
+    internal static void TintPixels(Color[] pixels, int count)
     {
-        for (var i = 0; i < pixels.Length; i++)
+        for (var i = 0; i < count; i++)
         {
             var p = pixels[i];
 

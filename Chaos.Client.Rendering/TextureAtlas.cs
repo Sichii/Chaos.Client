@@ -36,6 +36,7 @@ public sealed class TextureAtlas : IDisposable
     private const int DEFAULT_MAX_PAGE_SIZE = 2048;
     private const int MAX_SHELF_ENTRY_SIZE = 512;
 
+    private readonly Dictionary<int, AtlasRegion> BuildIntRegions = new();
     private readonly Dictionary<string, AtlasRegion> BuildRegions = new(StringComparer.OrdinalIgnoreCase);
 
     private readonly int CellHeight;
@@ -43,15 +44,16 @@ public sealed class TextureAtlas : IDisposable
     private readonly GraphicsDevice Device;
     private readonly int MaxPageSize;
     private readonly PackingMode Mode;
-    private readonly List<PendingEntry> PendingEntries = [];
     private readonly List<Texture2D> Pages = [];
+    private readonly List<PendingEntry> PendingEntries = [];
 
+    private FrozenDictionary<int, AtlasRegion> IntRegions = FrozenDictionary<int, AtlasRegion>.Empty;
     private FrozenDictionary<string, AtlasRegion> Regions = FrozenDictionary<string, AtlasRegion>.Empty;
 
     /// <summary>
     ///     The total number of entries packed into the atlas.
     /// </summary>
-    public int EntryCount => Regions.Count;
+    public int EntryCount => Regions.Count + IntRegions.Count;
 
     /// <summary>
     ///     The number of atlas page textures created after Build().
@@ -85,7 +87,9 @@ public sealed class TextureAtlas : IDisposable
 
         Pages.Clear();
         Regions = FrozenDictionary<string, AtlasRegion>.Empty;
+        IntRegions = FrozenDictionary<int, AtlasRegion>.Empty;
         BuildRegions.Clear();
+        BuildIntRegions.Clear();
         PendingEntries.Clear();
     }
 
@@ -100,13 +104,14 @@ public sealed class TextureAtlas : IDisposable
         PendingEntries.Add(
             new PendingEntry(
                 key,
+                null,
                 pixels,
                 source.Width,
                 source.Height));
     }
 
     /// <summary>
-    ///     Adds raw pixel data to be packed into the atlas on the next Build() call.
+    ///     Adds raw pixel data with a string key to be packed into the atlas on the next Build() call.
     /// </summary>
     public void Add(
         string key,
@@ -115,6 +120,40 @@ public sealed class TextureAtlas : IDisposable
         int height)
         => PendingEntries.Add(
             new PendingEntry(
+                key,
+                null,
+                pixels,
+                width,
+                height));
+
+    /// <summary>
+    ///     Adds a texture with an integer key to be packed into the atlas on the next Build() call.
+    /// </summary>
+    public void Add(int key, Texture2D source)
+    {
+        var pixels = new Color[source.Width * source.Height];
+        source.GetData(pixels);
+
+        PendingEntries.Add(
+            new PendingEntry(
+                null,
+                key,
+                pixels,
+                source.Width,
+                source.Height));
+    }
+
+    /// <summary>
+    ///     Adds raw pixel data with an integer key to be packed into the atlas on the next Build() call.
+    /// </summary>
+    public void Add(
+        int key,
+        Color[] pixels,
+        int width,
+        int height)
+        => PendingEntries.Add(
+            new PendingEntry(
+                null,
                 key,
                 pixels,
                 width,
@@ -129,6 +168,7 @@ public sealed class TextureAtlas : IDisposable
             return;
 
         BuildRegions.Clear();
+        BuildIntRegions.Clear();
 
         switch (Mode)
         {
@@ -144,7 +184,9 @@ public sealed class TextureAtlas : IDisposable
         }
 
         Regions = BuildRegions.ToFrozenDictionary(StringComparer.OrdinalIgnoreCase);
+        IntRegions = BuildIntRegions.ToFrozenDictionary();
         BuildRegions.Clear();
+        BuildIntRegions.Clear();
         PendingEntries.Clear();
     }
 
@@ -201,7 +243,13 @@ public sealed class TextureAtlas : IDisposable
                     destY,
                     entry.Width,
                     entry.Height);
-                BuildRegions[entry.Key] = new AtlasRegion(pageTexture, sourceRect);
+                var region = new AtlasRegion(pageTexture, sourceRect);
+
+                if (entry.StringKey is not null)
+                    BuildRegions[entry.StringKey] = region;
+
+                if (entry.IntKey.HasValue)
+                    BuildIntRegions[entry.IntKey.Value] = region;
             }
 
             pageTexture.SetData(pixels);
@@ -307,7 +355,13 @@ public sealed class TextureAtlas : IDisposable
                 y,
                 entry.Width,
                 entry.Height);
-            BuildRegions[entry.Key] = new AtlasRegion(pageTexture, sourceRect);
+            var region = new AtlasRegion(pageTexture, sourceRect);
+
+            if (entry.StringKey is not null)
+                BuildRegions[entry.StringKey] = region;
+
+            if (entry.IntKey.HasValue)
+                BuildIntRegions[entry.IntKey.Value] = region;
         }
 
         pageTexture.SetData(pixels);
@@ -315,12 +369,18 @@ public sealed class TextureAtlas : IDisposable
     }
 
     /// <summary>
-    ///     Returns the atlas region for the given key, or null if not found.
+    ///     Returns the atlas region for the given string key, or null if not found.
     /// </summary>
     public AtlasRegion? TryGetRegion(string key) => Regions.TryGetValue(key, out var region) ? region : null;
 
+    /// <summary>
+    ///     Returns the atlas region for the given integer key, or null if not found.
+    /// </summary>
+    public AtlasRegion? TryGetRegion(int key) => IntRegions.TryGetValue(key, out var region) ? region : null;
+
     private readonly record struct PendingEntry(
-        string Key,
+        string? StringKey,
+        int? IntKey,
         Color[] Pixels,
         int Width,
         int Height);

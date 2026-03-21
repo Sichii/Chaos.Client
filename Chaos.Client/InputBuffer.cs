@@ -24,8 +24,9 @@ public sealed class InputBuffer : IDisposable
     // Frame snapshot — frozen at the start of each Update()
     private HashSet<Keys> FramePresses = [];
     private HashSet<Keys> FrameReleases = [];
-    private char[] FrameText = [];
     private MouseState PreviousMouse;
+    private char[] TextBuffer = [];
+    private int TextCount;
 
     // Virtual resolution transform — raw window coords → virtual 640×480 coords
     private float VirtualScale = 1f;
@@ -81,7 +82,7 @@ public sealed class InputBuffer : IDisposable
             HeldKeys.Clear();
             FramePresses.Clear();
             FrameReleases.Clear();
-            FrameText = Array.Empty<char>();
+            TextCount = 0;
             PreviousMouse = CurrentMouse;
             CurrentMouse = Mouse.GetState();
 
@@ -98,7 +99,16 @@ public sealed class InputBuffer : IDisposable
         foreach (var key in PendingReleases)
             FrameReleases.Add(key);
 
-        FrameText = PendingText.Count > 0 ? [.. PendingText] : [];
+        TextCount = PendingText.Count;
+
+        if (TextCount > 0)
+        {
+            if (TextBuffer.Length < TextCount)
+                TextBuffer = new char[Math.Max(TextCount, 16)];
+
+            for (var i = 0; i < TextCount; i++)
+                TextBuffer[i] = PendingText[i];
+        }
 
         PendingPresses.Clear();
         PendingReleases.Clear();
@@ -128,7 +138,7 @@ public sealed class InputBuffer : IDisposable
     /// <summary>
     ///     Characters typed during this frame (from TextInput events). Includes key-repeat characters from the OS.
     /// </summary>
-    public ReadOnlySpan<char> TextInput => FrameText;
+    public ReadOnlySpan<char> TextInput => TextBuffer.AsSpan(0, TextCount);
     #endregion
 
     #region Mouse

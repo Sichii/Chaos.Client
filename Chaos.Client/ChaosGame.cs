@@ -60,6 +60,11 @@ public sealed class ChaosGame : Game
     public EffectRenderer EffectRenderer { get; } = new();
 
     /// <summary>
+    ///     Shared item sprite renderer with frame offset metadata. Evicted on map change.
+    /// </summary>
+    public ItemRenderer ItemRenderer { get; } = new();
+
+    /// <summary>
     ///     Client settings loaded from the DarkAges config file.
     /// </summary>
     public ClientSettings Settings { get; } = ClientSettings.Load();
@@ -267,6 +272,7 @@ public sealed class ChaosGame : Game
         CreatureRenderer.Dispose();
         AislingRenderer.Dispose();
         EffectRenderer.Dispose();
+        ItemRenderer.Dispose();
         SoundManager.Dispose();
         UiRenderer.Instance?.Dispose();
         UiRenderer.Instance = null;

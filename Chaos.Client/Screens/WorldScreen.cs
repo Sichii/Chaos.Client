@@ -105,9 +105,6 @@ public sealed class WorldScreen : IScreen
     // Draw-pass hitbox list: rebuilt every frame during entity rendering, in draw order (back-to-front)
     private readonly List<EntityHitBox> EntityHitBoxes = new(256);
 
-    // Ground item texture cache: keyed by item sprite ID
-    private readonly Dictionary<int, Texture2D?> GroundItemCache = new();
-
     // Active health bars: keyed by entity ID, reset on each HealthBar packet
     private readonly Dictionary<uint, HealthBar> HealthBars = new();
 
@@ -727,7 +724,7 @@ public sealed class WorldScreen : IScreen
         ScissorRasterizerState.Dispose();
         Root?.Dispose();
         ClearAislingCache();
-        ClearGroundItemCache();
+        Game.ItemRenderer.Clear();
         ClearChatBubbles();
         ClearHealthBars();
         ClearChantOverlays();
@@ -1961,20 +1958,22 @@ public sealed class WorldScreen : IScreen
         float tileCenterX,
         float tileCenterY)
     {
-        var spriteId = (int)entity.SpriteId;
+        var sprite = Game.ItemRenderer.GetSprite(Device, entity.SpriteId);
 
-        if (!GroundItemCache.TryGetValue(spriteId, out var texture))
-        {
-            texture = LoadGroundItemTexture(spriteId);
-            GroundItemCache[spriteId] = texture;
-        }
-
-        if (texture is null)
+        if (sprite is null)
             return;
 
-        // Center the item sprite on the tile
-        var drawX = tileCenterX - texture.Width / 2f;
-        var drawY = tileCenterY - texture.Height / 2f;
+        var texture = sprite.Value.Texture;
+
+        // Center the visual content (not the canvas) on the tile
+        // The texture includes Left/Top transparent padding from SimpleRender,
+        // so the content center is at (Left + PixelWidth/2, Top + PixelHeight/2)
+        var contentWidth = texture.Width - sprite.Value.FrameLeft;
+        var contentHeight = texture.Height - sprite.Value.FrameTop;
+        var contentCenterX = sprite.Value.FrameLeft + contentWidth / 2f;
+        var contentCenterY = sprite.Value.FrameTop + contentHeight / 2f;
+        var drawX = tileCenterX - contentCenterX;
+        var drawY = tileCenterY - contentCenterY;
         var screenPos = Camera.WorldToScreen(new Vector2(drawX, drawY));
 
         spriteBatch.Draw(texture, screenPos, Color.White);
@@ -2585,8 +2584,6 @@ public sealed class WorldScreen : IScreen
         var cursorTexture = GetDraggingPanel() is not null ? TileCursorDragTexture : TileCursorTexture;
         spriteBatch.Draw(cursorTexture!, new Vector2((int)tileScreen.X, (int)tileScreen.Y), Color.White);
     }
-
-    private Texture2D LoadGroundItemTexture(int spriteId) => UiRenderer.Instance!.GetItemIcon((ushort)spriteId);
     #endregion
 
     #region Map Assembly
@@ -2606,7 +2603,7 @@ public sealed class WorldScreen : IScreen
         Game.AislingRenderer.ClearCache();
         Game.AislingRenderer.ClearLayerCache();
         ClearAislingCache();
-        ClearGroundItemCache();
+        Game.ItemRenderer.Clear();
         ClearChatBubbles();
         ClearHealthBars();
         ClearChantOverlays();
@@ -3493,14 +3490,6 @@ public sealed class WorldScreen : IScreen
     {
         // Layer textures are owned by AislingRenderer.LayerTextureCache — just clear the draw data references
         AislingCache.Clear();
-    }
-
-    private void ClearGroundItemCache()
-    {
-        foreach (var texture in GroundItemCache.Values)
-            texture?.Dispose();
-
-        GroundItemCache.Clear();
     }
 
     private void ClearChatBubbles()

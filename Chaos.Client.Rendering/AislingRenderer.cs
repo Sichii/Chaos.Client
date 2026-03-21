@@ -193,6 +193,7 @@ public sealed class AislingRenderer : IDisposable
     private readonly AislingDataRepository Data = DataContext.AislingData;
     private readonly EpfFile? EmotionsEpf = LoadEmotionsEpf();
     private readonly Dictionary<LayerCacheKey, AislingLayerTexture> LayerTextureCache = new();
+    private readonly LayerInfo?[] RenderLayers = new LayerInfo?[(int)LayerSlot.Count];
     private readonly Dictionary<Texture2D, Texture2D> TintedTextureCache = new();
 
     /// <inheritdoc />
@@ -807,7 +808,8 @@ public sealed class AislingRenderer : IDisposable
         bool? isFrontFacing = null,
         int emotionFrame = -1)
     {
-        var layers = new LayerInfo?[(int)LayerSlot.Count];
+        var layers = RenderLayers;
+        Array.Clear(layers, 0, layers.Length);
 
         try
         {

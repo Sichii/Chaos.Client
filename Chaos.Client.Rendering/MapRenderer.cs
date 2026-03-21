@@ -50,7 +50,7 @@ public sealed class MapRenderer : IDisposable
             CONSTANTS.TILE_HEIGHT);
 
         foreach ((var tileId, var texture) in BgTextureCache)
-            atlas.Add(tileId.ToString(), texture);
+            atlas.Add(tileId, texture);
 
         atlas.Build();
 
@@ -116,7 +116,7 @@ public sealed class MapRenderer : IDisposable
                 // Prefer atlas path — all bg tiles in a single texture enables SpriteBatch batching
                 if (BgAtlas is not null)
                 {
-                    var region = BgAtlas.TryGetRegion(bgIndex.ToString());
+                    var region = BgAtlas.TryGetRegion(bgIndex);
 
                     if (region.HasValue)
                     {

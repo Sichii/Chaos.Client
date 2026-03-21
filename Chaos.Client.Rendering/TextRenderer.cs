@@ -1,4 +1,5 @@
 #region
+using System.Buffers;
 using System.Text;
 using System.Text.RegularExpressions;
 using Chaos.Client.Data;
@@ -181,25 +182,34 @@ public static class TextRenderer
             textColor.A);
         var width = Math.Max(1, MeasureWidth(text));
 
-        var pixelBuffer = new byte[width * GLYPH_HEIGHT * 4];
+        var byteCount = width * GLYPH_HEIGHT * 4;
+        var pixelBuffer = ArrayPool<byte>.Shared.Rent(byteCount);
 
-        DrawTextLine(
-            pixelBuffer,
-            width,
-            text,
-            0,
-            0,
-            skColor);
+        try
+        {
+            Array.Clear(pixelBuffer, 0, byteCount);
 
-        var texture = new Texture2D(
-            device,
-            width,
-            GLYPH_HEIGHT,
-            false,
-            SurfaceFormat.Color);
-        texture.SetData(pixelBuffer);
+            DrawTextLine(
+                pixelBuffer,
+                width,
+                text,
+                0,
+                0,
+                skColor);
 
-        return texture;
+            var texture = new Texture2D(
+                device,
+                width,
+                GLYPH_HEIGHT,
+                false,
+                SurfaceFormat.Color);
+            texture.SetData(pixelBuffer, 0, byteCount);
+
+            return texture;
+        } finally
+        {
+            ArrayPool<byte>.Shared.Return(pixelBuffer);
+        }
     }
 
     /// <summary>
@@ -229,34 +239,43 @@ public static class TextRenderer
         var surfaceWidth = Math.Max(1, maxWidth);
         var surfaceHeight = Math.Max(1, maxHeight);
 
-        var pixelBuffer = new byte[surfaceWidth * surfaceHeight * 4];
+        var byteCount = surfaceWidth * surfaceHeight * 4;
+        var pixelBuffer = ArrayPool<byte>.Shared.Rent(byteCount);
 
-        var y = 0;
-
-        foreach (var line in lines)
+        try
         {
-            if ((y + GLYPH_HEIGHT) > surfaceHeight)
-                break;
+            Array.Clear(pixelBuffer, 0, byteCount);
 
-            DrawTextLine(
-                pixelBuffer,
+            var y = 0;
+
+            foreach (var line in lines)
+            {
+                if ((y + GLYPH_HEIGHT) > surfaceHeight)
+                    break;
+
+                DrawTextLine(
+                    pixelBuffer,
+                    surfaceWidth,
+                    line,
+                    0,
+                    y,
+                    skColor);
+                y += GLYPH_HEIGHT;
+            }
+
+            var texture = new Texture2D(
+                device,
                 surfaceWidth,
-                line,
-                0,
-                y,
-                skColor);
-            y += GLYPH_HEIGHT;
+                surfaceHeight,
+                false,
+                SurfaceFormat.Color);
+            texture.SetData(pixelBuffer, 0, byteCount);
+
+            return texture;
+        } finally
+        {
+            ArrayPool<byte>.Shared.Return(pixelBuffer);
         }
-
-        var texture = new Texture2D(
-            device,
-            surfaceWidth,
-            surfaceHeight,
-            false,
-            SurfaceFormat.Color);
-        texture.SetData(pixelBuffer);
-
-        return texture;
     }
 
     /// <summary>
