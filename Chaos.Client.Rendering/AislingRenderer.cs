@@ -193,6 +193,7 @@ public sealed class AislingRenderer : IDisposable
     private readonly AislingDataRepository Data = DataContext.AislingData;
     private readonly EpfFile? EmotionsEpf = LoadEmotionsEpf();
     private readonly Dictionary<LayerCacheKey, AislingLayerTexture> LayerTextureCache = new();
+    private readonly Dictionary<Texture2D, Texture2D> TintedTextureCache = new();
 
     /// <inheritdoc />
     public void Dispose()
@@ -215,6 +216,18 @@ public sealed class AislingRenderer : IDisposable
             entry.Texture.Dispose();
 
         LayerTextureCache.Clear();
+        ClearTintedCache();
+    }
+
+    /// <summary>
+    ///     Clears all cached tinted textures. Call when the highlighted entity changes.
+    /// </summary>
+    public void ClearTintedCache()
+    {
+        foreach (var texture in TintedTextureCache.Values)
+            texture.Dispose();
+
+        TintedTextureCache.Clear();
     }
 
     /// <summary>
@@ -222,6 +235,20 @@ public sealed class AislingRenderer : IDisposable
     ///     to the body center to align correctly.
     /// </summary>
     public static int GetLayerOffsetX(char typeLetter) => typeLetter is 'w' or 'p' or 'c' or 'g' ? -27 : 0;
+
+    /// <summary>
+    ///     Returns a tinted (blue-shifted) copy of a layer texture, caching it for reuse.
+    /// </summary>
+    public Texture2D GetOrCreateTintedTexture(GraphicsDevice device, Texture2D source)
+    {
+        if (TintedTextureCache.TryGetValue(source, out var tinted))
+            return tinted;
+
+        tinted = TextureConverter.CreateTintedTexture(device, source);
+        TintedTextureCache[source] = tinted;
+
+        return tinted;
+    }
 
     /// <summary>
     ///     Returns true if a frame index represents a front-facing direction for the given animation suffix.

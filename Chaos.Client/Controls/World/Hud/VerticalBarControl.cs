@@ -68,7 +68,11 @@ public sealed class VerticalBarControl : IDisposable
         if ((Frames.Length == 0) || (CurrentFrame >= Frames.Length))
             return;
 
-        spriteBatch.Draw(Frames[CurrentFrame], new Vector2(parentX + Rect.X, parentY + Rect.Y), Color.White);
+        AtlasHelper.Draw(
+            spriteBatch,
+            Frames[CurrentFrame],
+            new Vector2(parentX + Rect.X, parentY + Rect.Y),
+            Color.White);
     }
 
     public void UpdateValue(int current, int max)

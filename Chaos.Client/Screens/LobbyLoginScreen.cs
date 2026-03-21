@@ -8,6 +8,7 @@ using Chaos.Client.Controls.LobbyLogin;
 using Chaos.Client.Data;
 using Chaos.Client.Definitions;
 using Chaos.Client.Networking;
+using Chaos.Client.Rendering;
 using Chaos.Cryptography;
 using Chaos.DarkAges.Definitions;
 using Chaos.Networking.Entities.Server;
@@ -56,6 +57,8 @@ public sealed class LobbyLoginScreen : IScreen
         spriteBatch.Begin(samplerState: GlobalSettings.Sampler);
         Root!.Draw(spriteBatch);
         spriteBatch.End();
+
+        DebugOverlay.SnapshotDrawCount(spriteBatch.GraphicsDevice);
     }
 
     /// <inheritdoc />
@@ -137,6 +140,9 @@ public sealed class LobbyLoginScreen : IScreen
         Root.AddChild(PasswordChangeControl);
         Root.AddChild(PopupMessage);
         Root.AddChild(StatusLabel);
+
+        // Build UI atlas after all login controls are constructed
+        UiRenderer.Instance?.BuildAtlas();
 
         // Auto-connect to lobby
         BeginLobbyConnect();

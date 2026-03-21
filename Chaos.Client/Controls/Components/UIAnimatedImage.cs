@@ -1,4 +1,5 @@
 #region
+using Chaos.Client.Rendering;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 #endregion
@@ -33,7 +34,11 @@ public class UIAnimatedImage : UIElement
 
         var frame = Frames[CurrentFrame];
 
-        spriteBatch.Draw(frame, new Vector2(ScreenX, ScreenY), Color.White);
+        AtlasHelper.Draw(
+            spriteBatch,
+            frame,
+            new Vector2(ScreenX, ScreenY),
+            Color.White);
     }
 
     public override void Update(GameTime gameTime, InputBuffer input)

@@ -1,4 +1,5 @@
 #region
+using Chaos.Client.Rendering;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 #endregion
@@ -73,7 +74,11 @@ public class UIButton : UIElement
             drawY += (Height - texture.Height) / 2;
         }
 
-        spriteBatch.Draw(texture, new Vector2(drawX, drawY), Color.White);
+        AtlasHelper.Draw(
+            spriteBatch,
+            texture,
+            new Vector2(drawX, drawY),
+            Color.White);
     }
 
     public event Action? OnClick;

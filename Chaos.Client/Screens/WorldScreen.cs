@@ -215,6 +215,9 @@ public sealed class WorldScreen : IScreen
             DrawChatBubbles(spriteBatch);
             spriteBatch.End();
 
+            // Snapshot draw count before debug draws so the reported count excludes debug visualizations
+            DebugOverlay.SnapshotDrawCount(Device);
+
             // Debug overlay: entity hitboxes, tile grid, etc.
             if (DebugOverlay.IsActive)
             {
@@ -661,6 +664,9 @@ public sealed class WorldScreen : IScreen
             panel.OnSlotHoverEnter += slot => WorldHud.SetDescription(slot.SlotName);
             panel.OnSlotHoverExit += () => WorldHud.SetDescription(null);
         }
+
+        // Build UI atlas after all HUD controls are constructed
+        UiRenderer.Instance?.BuildAtlas();
     }
 
     /// <inheritdoc />
@@ -1853,8 +1859,7 @@ public sealed class WorldScreen : IScreen
         var baseY = tileCenterY + entity.VisualOffset.Y - BODY_CENTER_Y;
         var flipPivot = AislingRenderer.BODY_CENTER_X + AislingRenderer.LAYER_OFFSET_PADDING;
 
-        // Highlight tint: approximate the blue-shift via a color multiply
-        var tintColor = HighlightedEntityId == entity.Id ? new Color(170, 200, 255) : Color.White;
+        var isHighlighted = HighlightedEntityId == entity.Id;
 
         // Draw each layer in order
         foreach (var slot in drawDataRef.DrawOrder)
@@ -1875,11 +1880,13 @@ public sealed class WorldScreen : IScreen
             var screenPos = Camera.WorldToScreen(worldPos);
             var effects = drawDataRef.FlipHorizontal ? SpriteEffects.FlipHorizontally : SpriteEffects.None;
 
+            var drawTexture = isHighlighted ? Game.AislingRenderer.GetOrCreateTintedTexture(Device, layer.Texture) : layer.Texture;
+
             spriteBatch.Draw(
-                layer.Texture,
+                drawTexture,
                 screenPos,
                 null,
-                tintColor,
+                Color.White,
                 0f,
                 Vector2.Zero,
                 1f,
@@ -1921,6 +1928,8 @@ public sealed class WorldScreen : IScreen
         HighlightTintedTexture = null;
         HighlightTintedEntityId = null;
         HighlightTintedSource = null;
+
+        Game.AislingRenderer.ClearTintedCache();
     }
 
     private void DrawEntityEffects(SpriteBatch spriteBatch, WorldEntity entity)

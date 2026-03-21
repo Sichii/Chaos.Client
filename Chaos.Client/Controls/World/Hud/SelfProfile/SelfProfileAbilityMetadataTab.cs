@@ -171,7 +171,11 @@ public sealed class SelfProfileAbilityMetadataTab : PrefabPanel
             var rowY = colY + i * ROW_HEIGHT;
 
             if (icons[i] is { } icon)
-                spriteBatch.Draw(icon, new Vector2(colX + ICON_X, rowY + ICON_Y), Color.White);
+                AtlasHelper.Draw(
+                    spriteBatch,
+                    icon,
+                    new Vector2(colX + ICON_X, rowY + ICON_Y),
+                    Color.White);
 
             nameCaches[i]
                 .Draw(spriteBatch, new Vector2(colX + NAME_X, rowY + NAME_Y));

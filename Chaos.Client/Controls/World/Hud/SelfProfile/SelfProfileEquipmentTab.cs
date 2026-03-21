@@ -274,7 +274,11 @@ public sealed class SelfProfileEquipmentTab : PrefabPanel
 
         // Nation icon
         if (NationIconTexture is not null && (NationRect != Rectangle.Empty))
-            spriteBatch.Draw(NationIconTexture, new Vector2(sx + NationRect.X, sy + NationRect.Y), Color.White);
+            AtlasHelper.Draw(
+                spriteBatch,
+                NationIconTexture,
+                new Vector2(sx + NationRect.X, sy + NationRect.Y),
+                Color.White);
 
         // Paperdoll — horizontally centered, bottom-aligned within the HumanImage rect
         if (PaperdollTexture is not null && (PaperdollRect != Rectangle.Empty))
@@ -289,7 +293,11 @@ public sealed class SelfProfileEquipmentTab : PrefabPanel
         if ((HumanIconRect != Rectangle.Empty)
             && (EmoticonState < EmoticonIcons.Length)
             && EmoticonIcons[EmoticonState] is { } emoticonIcon)
-            spriteBatch.Draw(emoticonIcon, new Vector2(sx + HumanIconRect.X, sy + HumanIconRect.Y), Color.White);
+            AtlasHelper.Draw(
+                spriteBatch,
+                emoticonIcon,
+                new Vector2(sx + HumanIconRect.X, sy + HumanIconRect.Y),
+                Color.White);
     }
 
     /// <summary>

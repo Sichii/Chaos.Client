@@ -85,8 +85,7 @@ public sealed class TabMapRenderer : IDisposable
 
     private readonly byte[] SotpData;
     private AlphaTestEffect? AlphaTest;
-    private Texture2D? Atlas;
-    private Rectangle[] AtlasSourceRects = [];
+    private TextureAtlas? Atlas;
     private (int X, int Y, byte Mask)[] Entries = [];
 
     // Precomputed: which tiles are walls, and their neighbor masks
@@ -108,13 +107,16 @@ public sealed class TabMapRenderer : IDisposable
     }
 
     /// <summary>
-    ///     Builds a texture atlas: 16 border-collapse wall variants + 3 solid entity diamonds. All colors fully opaque —
+    ///     Builds a texture atlas: 16 border-collapse wall variants + 4 solid entity diamonds. All colors fully opaque —
     ///     overall transparency applied via SpriteBatch tint at draw time.
     /// </summary>
     private void BuildAtlas(GraphicsDevice device)
     {
-        var atlasWidth = TILE_W * ATLAS_TOTAL;
-        var pixels = new Color[atlasWidth * TILE_H];
+        Atlas = new TextureAtlas(
+            device,
+            PackingMode.Grid,
+            TILE_W,
+            TILE_H);
 
         // 16 border-collapse variants (indices 0-15)
         for (var mask = 0; mask < 16; mask++)
@@ -124,7 +126,7 @@ public sealed class TabMapRenderer : IDisposable
             var hasBottomRight = (mask & MASK_BOTTOM_RIGHT) != 0;
             var hasBottomLeft = (mask & MASK_BOTTOM_LEFT) != 0;
 
-            var xOffset = mask * TILE_W;
+            var tilePixels = new Color[TILE_W * TILE_H];
 
             for (var row = 0; row < TILE_H; row++)
             {
@@ -153,9 +155,15 @@ public sealed class TabMapRenderer : IDisposable
                             drawBorder = true;
                     }
 
-                    pixels[row * atlasWidth + xOffset + x] = drawBorder ? BORDER_COLOR : FILL_COLOR;
+                    tilePixels[row * TILE_W + x] = drawBorder ? BORDER_COLOR : FILL_COLOR;
                 }
             }
+
+            Atlas.Add(
+                mask.ToString(),
+                tilePixels,
+                TILE_W,
+                TILE_H);
         }
 
         // Entity diamonds: solid fill (indices 16-19)
@@ -167,9 +175,17 @@ public sealed class TabMapRenderer : IDisposable
             COLOR_MERCHANT
         ];
 
+        int[] entityIndices =
+        [
+            ATLAS_PLAYER,
+            ATLAS_CREATURE,
+            ATLAS_AISLING,
+            ATLAS_MERCHANT
+        ];
+
         for (var i = 0; i < entityColors.Length; i++)
         {
-            var xOffset = (16 + i) * TILE_W;
+            var tilePixels = new Color[TILE_W * TILE_H];
             var color = entityColors[i];
 
             for (var row = 0; row < TILE_H; row++)
@@ -177,21 +193,18 @@ public sealed class TabMapRenderer : IDisposable
                 (var sx, var ex) = DiamondRows[row];
 
                 for (var x = sx; x <= ex; x++)
-                    pixels[row * atlasWidth + xOffset + x] = color;
+                    tilePixels[row * TILE_W + x] = color;
             }
-        }
 
-        Atlas = new Texture2D(device, atlasWidth, TILE_H);
-        Atlas.SetData(pixels);
-
-        AtlasSourceRects = new Rectangle[ATLAS_TOTAL];
-
-        for (var m = 0; m < ATLAS_TOTAL; m++)
-            AtlasSourceRects[m] = new Rectangle(
-                m * TILE_W,
-                0,
+            Atlas.Add(
+                entityIndices[i]
+                    .ToString(),
+                tilePixels,
                 TILE_W,
                 TILE_H);
+        }
+
+        Atlas.Build();
     }
 
     /// <summary>
@@ -254,19 +267,24 @@ public sealed class TabMapRenderer : IDisposable
 
         foreach ((var tx, var ty, var mask) in Entries)
         {
+            var region = Atlas.TryGetRegion(mask.ToString());
+
+            if (!region.HasValue)
+                continue;
+
             var isoX = (MapHeight - 1 + tx - ty) * HALF_TILE_W;
             var isoY = (tx + ty) * HALF_TILE_H;
             var screenX = (int)(offsetX + isoX * Zoom);
             var screenY = (int)(offsetY + isoY * Zoom);
 
             spriteBatch.Draw(
-                Atlas,
+                region.Value.Atlas,
                 new Rectangle(
                     screenX,
                     screenY,
                     scaledTileW,
                     scaledTileH),
-                AtlasSourceRects[mask],
+                region.Value.SourceRect,
                 Color.White);
         }
 
@@ -359,19 +377,24 @@ public sealed class TabMapRenderer : IDisposable
             else
                 atlasIndex = ATLAS_CREATURE;
 
+            var region = Atlas!.TryGetRegion(atlasIndex.ToString());
+
+            if (!region.HasValue)
+                continue;
+
             var entIsoX = (MapHeight - 1 + entity.TileX - entity.TileY) * HALF_TILE_W;
             var entIsoY = (entity.TileX + entity.TileY) * HALF_TILE_H;
             var entScreenX = (int)(offsetX + entIsoX * Zoom);
             var entScreenY = (int)(offsetY + entIsoY * Zoom);
 
             spriteBatch.Draw(
-                Atlas,
+                region.Value.Atlas,
                 new Rectangle(
                     entScreenX,
                     entScreenY,
                     scaledTileW,
                     scaledTileH),
-                AtlasSourceRects[atlasIndex],
+                region.Value.SourceRect,
                 Color.White);
         }
     }

@@ -85,7 +85,8 @@ public sealed class OrangeBarControl : UIElement
         // Reveal expand texture (1:1, no stretching)
         var revealHeight = Math.Min(totalHeight, PaneBg.Height - 4);
 
-        spriteBatch.Draw(
+        AtlasHelper.Draw(
+            spriteBatch,
             PaneBg,
             new Vector2(paneX, topY),
             new Rectangle(
@@ -98,7 +99,8 @@ public sealed class OrangeBarControl : UIElement
         // Bottom 4px edge
         var srcY = PaneBg.Height - 4;
 
-        spriteBatch.Draw(
+        AtlasHelper.Draw(
+            spriteBatch,
             PaneBg,
             new Vector2(paneX, topY + totalHeight),
             new Rectangle(

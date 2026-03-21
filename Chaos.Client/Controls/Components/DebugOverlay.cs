@@ -34,6 +34,7 @@ public static class DebugOverlay
     private static int Gen2Delta;
     private static float Gen2FlashTimer;
     private static float LastFrameTimeMs;
+    private static long SnappedDrawCount;
 
     public static bool IsActive { get; set; }
 
@@ -197,7 +198,7 @@ public static class DebugOverlay
     private static void DrawPerformanceStats(SpriteBatch spriteBatch, GraphicsDevice device)
     {
         // Background for stats area
-        var statsHeight = 80;
+        var statsHeight = 92;
 
         UIElement.DrawRect(
             spriteBatch,
@@ -218,6 +219,8 @@ public static class DebugOverlay
         var gcMode = GCSettings.IsServerGC ? "Server" : "Workstation";
         var latencyMode = GCSettings.LatencyMode;
 
+        var drawCount = SnappedDrawCount;
+
         var lines = new (string Text, Color Color)[]
         {
             ($"{fps:F0} FPS  {LastFrameTimeMs:F1}ms", LastFrameTimeMs > 20
@@ -225,6 +228,7 @@ public static class DebugOverlay
                 : LastFrameTimeMs > 17
                     ? Color.Yellow
                     : Color.Lime),
+            ($"Draws: {drawCount}", drawCount > 3000 ? Color.Yellow : Color.White),
             ($"Heap: {heapMb:F1} MB  ({gcMode})", Color.White),
             ($"GC: G0={LastGen0Count} G1={LastGen1Count} G2={LastGen2Count}", Color.White),
             ($"  \u0394 G0={Gen0Delta} G1={Gen1Delta} G2={Gen2Delta}", Gen2Delta > 0 ? Color.Red : Color.Gray),
@@ -257,6 +261,12 @@ public static class DebugOverlay
             texture.Dispose();
         }
     }
+
+    /// <summary>
+    ///     Captures the GPU draw count before the debug overlay renders its own draws. Call immediately before Draw() so the
+    ///     reported count excludes debug overlay draws.
+    /// </summary>
+    public static void SnapshotDrawCount(GraphicsDevice device) => SnappedDrawCount = device.Metrics.DrawCount;
 
     public static void Toggle() => IsActive = !IsActive;
 

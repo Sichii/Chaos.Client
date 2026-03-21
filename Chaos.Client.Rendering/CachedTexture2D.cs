@@ -11,6 +11,12 @@ namespace Chaos.Client.Rendering;
 /// </summary>
 public sealed class CachedTexture2D : Texture2D
 {
+    /// <summary>
+    ///     When set, this texture's content lives inside an atlas. AtlasHelper.Draw() uses this to draw the correct sub-region
+    ///     from the atlas texture instead of drawing this individual texture.
+    /// </summary>
+    public AtlasRegion? AtlasRegion { get; internal set; }
+
     public CachedTexture2D(GraphicsDevice device, int width, int height)
         : base(
             device,

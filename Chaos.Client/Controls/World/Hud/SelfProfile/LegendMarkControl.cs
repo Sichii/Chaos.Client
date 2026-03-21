@@ -1,5 +1,6 @@
 #region
 using Chaos.Client.Controls.Components;
+using Chaos.Client.Rendering;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 #endregion
@@ -49,7 +50,11 @@ public sealed class LegendMarkControl : UIElement
 
         // Draw icon
         if (Icon.Texture is not null)
-            spriteBatch.Draw(Icon.Texture, new Vector2(sx, sy), Color.White);
+            AtlasHelper.Draw(
+                spriteBatch,
+                Icon.Texture,
+                new Vector2(sx, sy),
+                Color.White);
 
         // Draw text vertically centered relative to icon
         var textHeight = TextCache.Texture?.Height ?? 0;

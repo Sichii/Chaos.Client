@@ -59,7 +59,8 @@ public sealed class ScrollBarControl : UIElement
         {
             var tileH = Math.Min(BUTTON_SIZE, trackEnd - tileY);
 
-            spriteBatch.Draw(
+            AtlasHelper.Draw(
+                spriteBatch,
                 trackTex,
                 new Vector2(sx, tileY),
                 new Rectangle(
@@ -72,17 +73,32 @@ public sealed class ScrollBarControl : UIElement
 
         // Up arrow
         var upFrame = scrollable && (ActiveZone == 0) ? FRAME_UP_NORMAL : FRAME_UP_ACTIVE;
-        spriteBatch.Draw(GetFrame(upFrame), new Vector2(sx, sy), Color.White);
+
+        AtlasHelper.Draw(
+            spriteBatch,
+            GetFrame(upFrame),
+            new Vector2(sx, sy),
+            Color.White);
 
         // Down arrow
         var downFrame = scrollable && (ActiveZone == 4) ? FRAME_DOWN_NORMAL : FRAME_DOWN_ACTIVE;
-        spriteBatch.Draw(GetFrame(downFrame), new Vector2(sx, trackEnd), Color.White);
+
+        AtlasHelper.Draw(
+            spriteBatch,
+            GetFrame(downFrame),
+            new Vector2(sx, trackEnd),
+            Color.White);
 
         // Thumb (only when scrollable)
         if (scrollable)
         {
             var thumbY = GetThumbY(trackStart, trackEnd);
-            spriteBatch.Draw(GetFrame(FRAME_THUMB), new Vector2(sx, thumbY), Color.White);
+
+            AtlasHelper.Draw(
+                spriteBatch,
+                GetFrame(FRAME_THUMB),
+                new Vector2(sx, thumbY),
+                Color.White);
         }
     }
 

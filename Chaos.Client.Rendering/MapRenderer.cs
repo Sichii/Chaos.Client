@@ -15,6 +15,8 @@ public sealed class MapRenderer : IDisposable
     private readonly Dictionary<int, Texture2D> BgTextureCache = new();
     private readonly Dictionary<int, Texture2D> FgTextureCache = new();
 
+    private TextureAtlas? BgAtlas;
+
     /// <summary>
     ///     Extra tile margin derived from the tallest foreground tile on the current map. Used by callers to expand visible
     ///     bounds for foreground culling.
@@ -23,6 +25,9 @@ public sealed class MapRenderer : IDisposable
 
     public void Dispose()
     {
+        BgAtlas?.Dispose();
+        BgAtlas = null;
+
         foreach (var texture in BgTextureCache.Values)
             texture.Dispose();
 
@@ -31,6 +36,31 @@ public sealed class MapRenderer : IDisposable
 
         BgTextureCache.Clear();
         FgTextureCache.Clear();
+    }
+
+    private void BuildBgAtlas(GraphicsDevice device)
+    {
+        if (BgTextureCache.Count == 0)
+            return;
+
+        var atlas = new TextureAtlas(
+            device,
+            PackingMode.Grid,
+            CONSTANTS.TILE_WIDTH,
+            CONSTANTS.TILE_HEIGHT);
+
+        foreach ((var tileId, var texture) in BgTextureCache)
+            atlas.Add(tileId.ToString(), texture);
+
+        atlas.Build();
+
+        // Dispose individual textures — the atlas owns the pixel data now
+        foreach (var texture in BgTextureCache.Values)
+            texture.Dispose();
+
+        BgTextureCache.Clear();
+
+        BgAtlas = atlas;
     }
 
     /// <summary>
@@ -58,6 +88,7 @@ public sealed class MapRenderer : IDisposable
 
     /// <summary>
     ///     Draws background tiles in y-major order (floor tiles, no overlap concerns).
+    ///     Uses the background tile atlas when available for single-draw-call batching.
     /// </summary>
     public void DrawBackground(SpriteBatch spriteBatch, MapFile mapFile, Camera camera)
     {
@@ -73,15 +104,37 @@ public sealed class MapRenderer : IDisposable
                 if (bgIndex <= 0)
                     continue;
 
-                var bgTexture = GetOrCreateBgTexture(device, bgIndex);
-
-                if (bgTexture is null)
-                    continue;
-
                 var worldPos = Camera.TileToWorld(x, y, mapFile.Height);
                 var screenPos = camera.WorldToScreen(worldPos);
 
-                spriteBatch.Draw(bgTexture, screenPos, Color.White);
+                if (((screenPos.X + CONSTANTS.TILE_WIDTH) <= 0)
+                    || (screenPos.X >= camera.ViewportWidth)
+                    || ((screenPos.Y + CONSTANTS.TILE_HEIGHT) <= 0)
+                    || (screenPos.Y >= camera.ViewportHeight))
+                    continue;
+
+                // Prefer atlas path — all bg tiles in a single texture enables SpriteBatch batching
+                if (BgAtlas is not null)
+                {
+                    var region = BgAtlas.TryGetRegion(bgIndex.ToString());
+
+                    if (region.HasValue)
+                    {
+                        spriteBatch.Draw(
+                            region.Value.Atlas,
+                            screenPos,
+                            region.Value.SourceRect,
+                            Color.White);
+
+                        continue;
+                    }
+                }
+
+                // Fallback to individual texture
+                var bgTexture = GetOrCreateBgTexture(device, bgIndex);
+
+                if (bgTexture is not null)
+                    spriteBatch.Draw(bgTexture, screenPos, Color.White);
             }
         }
     }
@@ -175,7 +228,7 @@ public sealed class MapRenderer : IDisposable
 
     /// <summary>
     ///     Preloads all unique tile textures used by the map into GPU caches. Computes the foreground extra margin from the
-    ///     tallest foreground tile.
+    ///     tallest foreground tile. Builds a background tile atlas for batched rendering.
     /// </summary>
     public void PreloadMapTiles(GraphicsDevice device, MapFile mapFile)
     {
@@ -215,5 +268,8 @@ public sealed class MapRenderer : IDisposable
 
         // Convert max pixel height to tile rows: each tile row = 14px
         ForegroundExtraMargin = (int)MathF.Ceiling(maxFgHeight / (float)CONSTANTS.HALF_TILE_HEIGHT);
+
+        // Build background tile atlas from all preloaded tiles
+        BuildBgAtlas(device);
     }
 }

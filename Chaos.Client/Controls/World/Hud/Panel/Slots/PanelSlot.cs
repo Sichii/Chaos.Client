@@ -1,6 +1,7 @@
 #region
 using Chaos.Client.Controls.Components;
 using Chaos.Client.Definitions;
+using Chaos.Client.Rendering;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 #endregion
@@ -83,13 +84,21 @@ public class PanelSlot : UIButton
             switch (CooldownStyle)
             {
                 case CooldownStyle.Swap:
-                    spriteBatch.Draw(CooldownTexture, pos, Color.White);
+                    AtlasHelper.Draw(
+                        spriteBatch,
+                        CooldownTexture,
+                        pos,
+                        Color.White);
 
                     break;
 
                 case CooldownStyle.Progressive:
                     // Grey base icon (skill003 variant)
-                    spriteBatch.Draw(GreyTexture ?? icon, pos, Color.White);
+                    AtlasHelper.Draw(
+                        spriteBatch,
+                        GreyTexture ?? icon,
+                        pos,
+                        Color.White);
 
                     // Tinted icon progressively revealed top-to-bottom as cooldown elapses
                     var elapsed = 1f - CooldownPercent;
@@ -103,7 +112,8 @@ public class PanelSlot : UIButton
                             CooldownTexture.Width,
                             revealHeight);
 
-                        spriteBatch.Draw(
+                        AtlasHelper.Draw(
+                            spriteBatch,
                             CooldownTexture,
                             pos,
                             srcRect,
@@ -113,12 +123,20 @@ public class PanelSlot : UIButton
                     break;
 
                 default:
-                    spriteBatch.Draw(icon, pos, Color.White);
+                    AtlasHelper.Draw(
+                        spriteBatch,
+                        icon,
+                        pos,
+                        Color.White);
 
                     break;
             }
         else
-            spriteBatch.Draw(icon, pos, Color.White);
+            AtlasHelper.Draw(
+                spriteBatch,
+                icon,
+                pos,
+                Color.White);
     }
 
     /// <summary>

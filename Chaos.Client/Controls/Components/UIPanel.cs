@@ -1,4 +1,5 @@
 #region
+using Chaos.Client.Rendering;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 #endregion
@@ -47,7 +48,11 @@ public class UIPanel : UIElement
         }
 
         if (Background is not null)
-            spriteBatch.Draw(Background, new Vector2(ScreenX, ScreenY), Color.White);
+            AtlasHelper.Draw(
+                spriteBatch,
+                Background,
+                new Vector2(ScreenX, ScreenY),
+                Color.White);
 
         foreach (var child in Children)
             if (child.Visible)

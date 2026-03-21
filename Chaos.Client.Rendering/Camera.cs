@@ -72,7 +72,7 @@ public sealed class Camera
         var bl = WorldToTileFractional(bottomLeft.X, bottomLeft.Y, mapHeight);
         var br = WorldToTileFractional(bottomRight.X, bottomRight.Y, mapHeight);
 
-        var minMargin = TILE_MARGIN + extraMargin;
+        var maxMargin = TILE_MARGIN + extraMargin;
 
         var minTileX = (int)MathF.Floor(
                            Min(
@@ -80,7 +80,7 @@ public sealed class Camera
                                tr.X,
                                bl.X,
                                br.X))
-                       - minMargin;
+                       - TILE_MARGIN;
 
         var minTileY = (int)MathF.Floor(
                            Min(
@@ -88,7 +88,7 @@ public sealed class Camera
                                tr.Y,
                                bl.Y,
                                br.Y))
-                       - minMargin;
+                       - TILE_MARGIN;
 
         var maxTileX = (int)MathF.Ceiling(
                            Max(
@@ -96,7 +96,7 @@ public sealed class Camera
                                tr.X,
                                bl.X,
                                br.X))
-                       + TILE_MARGIN;
+                       + maxMargin;
 
         var maxTileY = (int)MathF.Ceiling(
                            Max(
@@ -104,7 +104,7 @@ public sealed class Camera
                                tr.Y,
                                bl.Y,
                                br.Y))
-                       + TILE_MARGIN;
+                       + maxMargin;
 
         minTileX = Math.Clamp(minTileX, 0, mapWidth - 1);
         minTileY = Math.Clamp(minTileY, 0, mapHeight - 1);

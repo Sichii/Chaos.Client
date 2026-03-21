@@ -141,7 +141,11 @@ public abstract class PanelBase : UIPanel
         base.Draw(spriteBatch);
 
         if (SlotNumberOverlay is not null)
-            spriteBatch.Draw(SlotNumberOverlay, new Vector2(ScreenX - 17, ScreenY + 3), Color.White);
+            AtlasHelper.Draw(
+                spriteBatch,
+                SlotNumberOverlay,
+                new Vector2(ScreenX - 17, ScreenY + 3),
+                Color.White);
     }
 
     /// <summary>

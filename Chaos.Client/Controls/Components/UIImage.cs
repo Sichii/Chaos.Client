@@ -1,4 +1,5 @@
 #region
+using Chaos.Client.Rendering;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 #endregion
@@ -24,7 +25,12 @@ public class UIImage : UIElement
             return;
 
         base.Draw(spriteBatch);
-        spriteBatch.Draw(Texture, new Vector2(ScreenX, ScreenY), Color.White);
+
+        AtlasHelper.Draw(
+            spriteBatch,
+            Texture,
+            new Vector2(ScreenX, ScreenY),
+            Color.White);
     }
 
     public override void Update(GameTime gameTime, InputBuffer input) { }

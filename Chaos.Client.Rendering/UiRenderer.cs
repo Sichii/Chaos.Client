@@ -22,10 +22,13 @@ public sealed class UiRenderer : IDisposable
     private static readonly Color CheckerA = new(255, 0, 255); // neon purple
     private static readonly Color CheckerB = new(0, 255, 0); // neon green
 
+    private const int MAX_ATLAS_ENTRY_SIZE = 512;
+
     private readonly Dictionary<string, CachedTexture2D> Cache = new(StringComparer.OrdinalIgnoreCase);
     private readonly GraphicsDevice Device;
     private readonly Dictionary<string, int> EpfFrameCounts = new(StringComparer.OrdinalIgnoreCase);
     private CachedTexture2D? MissingTextureField;
+    private TextureAtlas? UiAtlas;
 
     public static UiRenderer? Instance { get; set; }
 
@@ -38,10 +41,57 @@ public sealed class UiRenderer : IDisposable
 
     public void Dispose() => Clear();
 
+    /// <summary>
+    ///     Builds a texture atlas from all currently cached UI textures. Textures larger than 512px in either dimension are
+    ///     skipped. After building, CachedTexture2D entries have their AtlasRegion set so AtlasHelper.Draw() can route draws
+    ///     through the atlas. Safe to call multiple times — rebuilds from scratch each time.
+    /// </summary>
+    public void BuildAtlas()
+    {
+        // Dispose previous atlas and clear regions
+        UiAtlas?.Dispose();
+        UiAtlas = null;
+
+        foreach (var texture in Cache.Values)
+            texture.AtlasRegion = null;
+
+        var atlas = new TextureAtlas(Device, PackingMode.Shelf);
+
+        foreach ((var key, var texture) in Cache)
+        {
+            if ((texture.Width > MAX_ATLAS_ENTRY_SIZE) || (texture.Height > MAX_ATLAS_ENTRY_SIZE))
+                continue;
+
+            if (texture.IsDisposed)
+                continue;
+
+            atlas.Add(key, texture);
+        }
+
+        atlas.Build();
+
+        // Set AtlasRegion on each cached texture that was packed
+        foreach ((var key, var texture) in Cache)
+        {
+            var region = atlas.TryGetRegion(key);
+
+            if (region.HasValue)
+                texture.AtlasRegion = region.Value;
+        }
+
+        UiAtlas = atlas;
+    }
+
     public void Clear()
     {
+        UiAtlas?.Dispose();
+        UiAtlas = null;
+
         foreach (var texture in Cache.Values)
+        {
+            texture.AtlasRegion = null;
             texture.ForceDispose();
+        }
 
         Cache.Clear();
         EpfFrameCounts.Clear();
