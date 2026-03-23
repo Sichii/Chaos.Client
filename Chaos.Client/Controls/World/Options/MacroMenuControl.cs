@@ -152,7 +152,9 @@ public sealed class MacroMenuControl : PrefabPanel
     }
 
     public event Action? OnClose;
+    #pragma warning disable CS0067 // not yet wired
     public event Action<int, string, string>? OnMacroChanged;
+    #pragma warning restore CS0067
     public event Action? OnOk;
 
     private void RefreshCaches()

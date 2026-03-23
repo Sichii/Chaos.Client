@@ -16,8 +16,8 @@ namespace Chaos.Client.Controls.World.Popups;
 public sealed class ItemTooltipControl : UIPanel
 {
     private const int MAX_CHARS_PER_LINE = 25;
-    private const int CHAR_CELL_WIDTH = 6;
-    private const int LINE_HEIGHT = 12;
+    private const int CHAR_CELL_WIDTH = TextRenderer.CHAR_WIDTH;
+    private const int LINE_HEIGHT = TextRenderer.CHAR_HEIGHT;
     private const int PADDING = 6;
 
     private static readonly Color DurabilityColor = new(100, 149, 237);

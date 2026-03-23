@@ -83,6 +83,7 @@ public sealed class WorldHudControl : PrefabPanel
 
     // Buttons — right side
     public UIButton? OptionButton { get; }
+    public PromptControl Prompt { get; }
     public UIButton? ScreenshotButton { get; }
     public UIButton? TownMapButton { get; }
 
@@ -113,6 +114,19 @@ public sealed class WorldHudControl : PrefabPanel
             0,
             128);
 
+        // Prompt — same position/size as ChatInput, white bg + black text, hidden by default
+        Prompt = new PromptControl(device)
+        {
+            Name = "Prompt",
+            X = ChatInput.X,
+            Y = ChatInput.Y,
+            Width = ChatInput.Width,
+            Height = ChatInput.Height,
+            ZIndex = 1
+        };
+
+        AddChild(Prompt);
+
         // Inventory area
         InventoryBounds = GetRect("InventoryRect");
 
@@ -128,7 +142,7 @@ public sealed class WorldHudControl : PrefabPanel
         PlayerNameLabel = CreateLabel("SZ_ID", TextAlignment.Center)!;
         ZoneNameLabel = CreateLabel("SZ_ZONE", TextAlignment.Center)!;
         WeightLabel = CreateLabel("SZ_WEIGHT", TextAlignment.Center)!;
-        CoordsLabel = CreateLabel("SZ_XY")!;
+        CoordsLabel = CreateLabel("SZ_XY", TextAlignment.Center)!;
         ServerNameLabel = CreateLabel("SZ_SERVER", TextAlignment.Center);
         DescriptionLabel = CreateLabel("SZ_DESCRIPTION");
 
@@ -300,6 +314,7 @@ public sealed class WorldHudControl : PrefabPanel
         UpdateMp((int)attrs.CurrentMp, (int)attrs.MaximumMp);
         SetWeight(attrs.CurrentWeight, attrs.MaxWeight);
 
+        Inventory.UpdateGold(attrs.Gold);
         StatsPanel.UpdateAttributes(attrs);
         ExtendedStatsPanel.UpdateAttributes(attrs);
     }
@@ -425,6 +440,8 @@ public sealed class WorldHudControl : PrefabPanel
     }
 
     public void AddChatMessage(string text, Color color) => ChatDisplay.AddMessage(text, color);
+
+    public bool IsOrangeBarDragging => OrangeBar.IsDragging;
 
     public void ShowOrangeBarMessage(string text) => OrangeBar.ShowMessage(text);
 

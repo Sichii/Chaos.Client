@@ -108,7 +108,9 @@ public sealed class GroupControl : PrefabPanel
 
     public event Action? OnClose;
     public event Action? OnInvite;
+    #pragma warning disable CS0067 // not yet wired
     public event Action? OnLeave;
+    #pragma warning restore CS0067
 
     private void RefreshLabels()
     {

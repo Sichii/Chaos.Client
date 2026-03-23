@@ -14,6 +14,8 @@ public class UITextBox : UIElement
     private const int CURSOR_BLINK_MS = 530;
     private const int CURSOR_WIDTH = 1;
 
+    private static UITextBox? FocusedTextBox;
+
     private readonly GraphicsDevice Device;
     private readonly CachedText TextCache;
     private double CursorTimer;
@@ -22,7 +24,7 @@ public class UITextBox : UIElement
     private CachedText? PrefixCache;
     private int SelectionAnchor;
     public TextAlignment Alignment { get; set; } = TextAlignment.Left;
-    public int CursorPosition { get; private set; }
+    public int CursorPosition { get; internal set; }
 
     /// <summary>
     ///     Background color drawn behind the textbox when focused. Null = no overlay.
@@ -33,12 +35,24 @@ public class UITextBox : UIElement
 
     public bool IsFocused
     {
-        get => field;
+        get;
 
         set
         {
+            if (field == value)
+                return;
+
             field = value;
             BackgroundColor = value ? FocusedBackgroundColor : null;
+
+            if (value)
+            {
+                if (FocusedTextBox is not null && (FocusedTextBox != this))
+                    FocusedTextBox.IsFocused = false;
+
+                FocusedTextBox = this;
+            } else if (FocusedTextBox == this)
+                FocusedTextBox = null;
         }
     }
 

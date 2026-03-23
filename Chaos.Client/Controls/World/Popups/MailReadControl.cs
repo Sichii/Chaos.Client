@@ -14,6 +14,8 @@ namespace Chaos.Client.Controls.World.Popups;
 /// </summary>
 public sealed class MailReadControl : PrefabPanel
 {
+    private const int BULLETIN_RECT_LEFT = 8;
+    private const int BULLETIN_RECT_BOTTOM = 304;
     private const int LINE_HEIGHT = 12;
 
     private readonly UILabel? AuthorLabel;
@@ -31,6 +33,7 @@ public sealed class MailReadControl : PrefabPanel
     public string CurrentAuthor { get; private set; } = string.Empty;
 
     public short CurrentPostId { get; private set; }
+    public bool IsPublicBoard { get; set; }
     public UIButton? DeleteButton { get; }
     public UIButton? NewButton { get; }
     public UIButton? NextButton { get; }
@@ -41,9 +44,11 @@ public sealed class MailReadControl : PrefabPanel
     public UIButton? UpButton { get; }
 
     public MailReadControl(GraphicsDevice device)
-        : base(device, "_nmailr")
+        : base(device, "_nmailr", false)
     {
         Name = "MailRead";
+        X = BULLETIN_RECT_LEFT;
+        Y = BULLETIN_RECT_BOTTOM - Height;
         Visible = false;
 
         var elements = AutoPopulate();
@@ -180,6 +185,10 @@ public sealed class MailReadControl : PrefabPanel
         DateLabel?.SetText($"{month}/{day}");
 
         PrevButton?.Enabled = enablePrev;
+
+        // Public boards don't support reply (no recipient)
+        if (ReplyButton is not null)
+            ReplyButton.Visible = !IsPublicBoard;
 
         // Word-wrap message into lines
         WrappedLines = TextRenderer.WrapLines(message, ContentRect.Width);

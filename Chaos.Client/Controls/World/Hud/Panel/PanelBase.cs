@@ -17,15 +17,17 @@ namespace Chaos.Client.Controls.World.Hud.Panel;
 /// </summary>
 public abstract class PanelBase : UIPanel
 {
-    private const int ICON_SIZE = 32;
-    private const int CELL_WIDTH = 36;
-    private const int CELL_HEIGHT = 33;
-    private const int COLUMNS = 12;
-    private const int VISIBLE_SLOTS = 36;
+    protected const int ICON_SIZE = 32;
+    protected const int CELL_WIDTH = 36;
+    protected const int CELL_HEIGHT = 33;
+    protected const int COLUMNS = 12;
+    protected const int NORMAL_VISIBLE_SLOTS = 36;
 
     private static Texture2D? SlotNumberOverlay;
 
-    protected readonly GraphicsDevice Device;
+    protected readonly int GridOffsetX;
+    protected readonly int GridOffsetY;
+    protected readonly int MaxSlots;
     protected readonly int SlotOffset;
     protected readonly PanelSlot[] Slots;
     private int DragMouseX;
@@ -45,6 +47,11 @@ public abstract class PanelBase : UIPanel
     ///     True when the user is actively dragging a slot icon.
     /// </summary>
     public bool IsDragging { get; private set; }
+
+    /// <summary>
+    ///     The number of currently visible grid slots.
+    /// </summary>
+    public int VisibleSlotCount { get; protected set; } = NORMAL_VISIBLE_SLOTS;
 
     /// <summary>
     ///     The 1-based slot number being dragged, or 0 if not dragging.
@@ -70,8 +77,10 @@ public abstract class PanelBase : UIPanel
         int gridOffsetX = 8,
         int gridOffsetY = 6)
     {
-        Device = device;
-        SlotOffset = secondary ? VISIBLE_SLOTS : 0;
+        MaxSlots = maxSlots;
+        GridOffsetX = gridOffsetX;
+        GridOffsetY = gridOffsetY;
+        SlotOffset = secondary ? NORMAL_VISIBLE_SLOTS : 0;
 
         if (hudPrefabSet.Contains("InventoryBackground"))
         {
@@ -83,10 +92,11 @@ public abstract class PanelBase : UIPanel
 
         SlotNumberOverlay ??= UiRenderer.Instance!.GetSpfTexture("_ninvn.spf");
 
-        // Create slot controls for the visible grid cells
-        Slots = new PanelSlot[VISIBLE_SLOTS];
+        // Create slot controls for all possible grid cells (visibility controlled per slot)
+        var totalSlots = Math.Min(maxSlots - SlotOffset, maxSlots);
+        Slots = new PanelSlot[totalSlots];
 
-        for (var i = 0; i < VISIBLE_SLOTS; i++)
+        for (var i = 0; i < totalSlots; i++)
         {
             var slotIndex = SlotOffset + i;
 
@@ -101,6 +111,7 @@ public abstract class PanelBase : UIPanel
             slot.Y = gridOffsetY + row * CELL_HEIGHT;
             slot.Width = ICON_SIZE;
             slot.Height = ICON_SIZE;
+            slot.Visible = i < NORMAL_VISIBLE_SLOTS;
 
             slot.OnDoubleClick += s => OnSlotClicked?.Invoke(s);
             slot.OnDragStart += OnDragStarted;
@@ -148,6 +159,16 @@ public abstract class PanelBase : UIPanel
                 Color.White);
     }
 
+    protected virtual PanelSlot? FindHoveredSlot(InputBuffer input)
+    {
+        for (var i = 0; (i < VisibleSlotCount) && (i < Slots.Length); i++)
+            if (Slots[i]
+                .ContainsPoint(input.MouseX, input.MouseY))
+                return Slots[i];
+
+        return null;
+    }
+
     /// <summary>
     ///     Finds the PanelSlotControl for a 1-based slot number, or null if out of range or not visible.
     /// </summary>
@@ -155,7 +176,7 @@ public abstract class PanelBase : UIPanel
     {
         var index = slot - 1;
 
-        if ((index < SlotOffset) || (index >= (SlotOffset + VISIBLE_SLOTS)))
+        if ((index < SlotOffset) || (index >= (SlotOffset + VisibleSlotCount)))
             return null;
 
         var gridIndex = index - SlotOffset;
@@ -164,11 +185,25 @@ public abstract class PanelBase : UIPanel
     }
 
     /// <summary>
+    ///     Returns the 1-based slot number at the given screen coordinates, or null if no slot is at that position.
+    /// </summary>
+    public byte? GetSlotAtPosition(int mouseX, int mouseY)
+    {
+        for (var i = 0; (i < VisibleSlotCount) && (i < Slots.Length); i++)
+            if (Slots[i]
+                    .ContainsPoint(mouseX, mouseY)
+                && Slots[i].NormalTexture is not null)
+                return Slots[i].Slot;
+
+        return null;
+    }
+
+    /// <summary>
     ///     Returns the PanelSlotControl for a 1-based slot number, or null if out of range or not visible.
     /// </summary>
     public PanelSlot? GetSlotControl(byte slot) => FindSlot(slot);
 
-    private void OnDragStarted(PanelSlot source)
+    protected void OnDragStarted(PanelSlot source)
     {
         DragSource = source;
         IsDragging = true;
@@ -236,15 +271,7 @@ public abstract class PanelBase : UIPanel
         }
 
         // Hover event — find which slot the mouse is over
-        PanelSlot? hoveredSlot = null;
-
-        foreach (var slot in Slots)
-            if (slot.ContainsPoint(input.MouseX, input.MouseY))
-            {
-                hoveredSlot = slot;
-
-                break;
-            }
+        var hoveredSlot = FindHoveredSlot(input);
 
         if (hoveredSlot != LastHoveredSlot)
         {

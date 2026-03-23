@@ -6,10 +6,10 @@ using Chaos.Client.Definitions;
 using Chaos.Client.Models;
 using Chaos.Client.Networking;
 using Chaos.Client.Rendering;
+using Chaos.DarkAges.Definitions;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using Microsoft.Xna.Framework.Input;
-using EquipmentSlot = Chaos.DarkAges.Definitions.EquipmentSlot;
 #endregion
 
 namespace Chaos.Client.Controls.World.Hud.SelfProfile;
@@ -163,7 +163,10 @@ public sealed class SelfProfileTabControl : PrefabPanel
         page.Y = ContentRect.Y;
 
         if (page is SelfProfileEquipmentTab equipTab)
+        {
             equipTab.OnUnequip += slot => OnUnequip?.Invoke(slot);
+            equipTab.OnGroupToggled += () => OnGroupToggled?.Invoke();
+        }
 
         return page;
     }
@@ -186,6 +189,7 @@ public sealed class SelfProfileTabControl : PrefabPanel
     }
 
     public event Action? OnClose;
+    public event Action? OnGroupToggled;
     public event Action<EquipmentSlot>? OnUnequip;
 
     #region Events API

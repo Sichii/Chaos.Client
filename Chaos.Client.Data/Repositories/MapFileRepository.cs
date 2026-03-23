@@ -1,29 +1,19 @@
-﻿#region
-using Chaos.Client.Data.Abstractions;
+#region
 using DALib.Data;
 using DALib.Extensions;
 #endregion
 
 namespace Chaos.Client.Data.Repositories;
 
-public sealed class MapFileRepository : RepositoryBase
+public sealed class MapFileRepository
 {
     public MapFile? GetMapFile(string key, int width, int height)
     {
-        try
-        {
-            key = key.WithExtension(".map");
-
-            return GetOrCreate(key, () => LoadMapFile(key, width, height));
-        } catch
-        {
-            return null;
-        }
-    }
-
-    private MapFile LoadMapFile(string key, int width, int height)
-    {
+        key = key.WithExtension(".map");
         var path = Path.Combine(DataContext.DataPath, "maps", key);
+
+        if (!File.Exists(path))
+            return null;
 
         return MapFile.FromFile(path, width, height);
     }

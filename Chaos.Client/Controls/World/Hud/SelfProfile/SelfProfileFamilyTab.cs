@@ -7,13 +7,13 @@ using Microsoft.Xna.Framework.Graphics;
 namespace Chaos.Client.Controls.World.Hud.SelfProfile;
 
 /// <summary>
-///     Family tab page (_nui_fm). Displays player and spouse name, plus 10 family stat labels.
+///     Family tab page (_nui_fm). Displays player and spouse name, plus 10 editable family member text fields.
 /// </summary>
 public sealed class SelfProfileFamilyTab : PrefabPanel
 {
     private readonly UILabel? FamilyLabel;
     private readonly UILabel? SelfLabel;
-    private readonly UILabel?[] TextLabels = new UILabel?[10];
+    private readonly UITextBox?[] TextFields = new UITextBox?[10];
 
     public SelfProfileFamilyTab(GraphicsDevice device, string prefabName)
         : base(device, prefabName, false)
@@ -27,22 +27,22 @@ public sealed class SelfProfileFamilyTab : PrefabPanel
         FamilyLabel = CreateLabel("Family");
 
         for (var i = 0; i < 10; i++)
-            TextLabels[i] = CreateLabel($"Text{i}");
+            TextFields[i] = CreateTextBox($"Text{i}");
     }
 
     public FamilyList GetFamilyMembers()
         => new()
         {
-            Mother = TextLabels[0]?.Text ?? string.Empty,
-            Father = TextLabels[1]?.Text ?? string.Empty,
-            Son1 = TextLabels[2]?.Text ?? string.Empty,
-            Son2 = TextLabels[3]?.Text ?? string.Empty,
-            Brother1 = TextLabels[4]?.Text ?? string.Empty,
-            Brother2 = TextLabels[5]?.Text ?? string.Empty,
-            Brother3 = TextLabels[6]?.Text ?? string.Empty,
-            Brother4 = TextLabels[7]?.Text ?? string.Empty,
-            Brother5 = TextLabels[8]?.Text ?? string.Empty,
-            Brother6 = TextLabels[9]?.Text ?? string.Empty
+            Mother = TextFields[0]?.Text ?? string.Empty,
+            Father = TextFields[1]?.Text ?? string.Empty,
+            Son1 = TextFields[2]?.Text ?? string.Empty,
+            Son2 = TextFields[3]?.Text ?? string.Empty,
+            Brother1 = TextFields[4]?.Text ?? string.Empty,
+            Brother2 = TextFields[5]?.Text ?? string.Empty,
+            Brother3 = TextFields[6]?.Text ?? string.Empty,
+            Brother4 = TextFields[7]?.Text ?? string.Empty,
+            Brother5 = TextFields[8]?.Text ?? string.Empty,
+            Brother6 = TextFields[9]?.Text ?? string.Empty
         };
 
     /// <summary>
@@ -59,8 +59,7 @@ public sealed class SelfProfileFamilyTab : PrefabPanel
     /// </summary>
     public void SetTextField(int index, string text)
     {
-        if (index is >= 0 and < 10)
-            TextLabels[index]
-                ?.SetText(text);
+        if (index is >= 0 and < 10 && TextFields[index] is { } field)
+            field.Text = text;
     }
 }

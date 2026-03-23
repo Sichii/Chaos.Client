@@ -1,6 +1,7 @@
 #region
 using Chaos.Client.Data.Abstractions;
 using DALib.Drawing;
+using DALib.Drawing.Virtualized;
 using DALib.Utility;
 #endregion
 
@@ -12,22 +13,16 @@ public sealed class PanelIconRepository : RepositoryBase
 
     private Palettized<EpfFrame>? GetFrame(int spriteId, string sheetName)
     {
-        try
-        {
-            var iconSheet = GetOrCreate(sheetName, () => EpfFile.FromArchive(sheetName, DatArchives.Setoa));
+        var iconSheet = GetOrCreate(sheetName, () => EpfView.FromArchive(sheetName, DatArchives.Setoa));
 
-            if ((spriteId < 0) || (spriteId >= iconSheet.Count))
-                return null;
-
-            return new Palettized<EpfFrame>
-            {
-                Entity = iconSheet[spriteId],
-                Palette = Gui06Palette
-            };
-        } catch
-        {
+        if (!iconSheet.TryGetValue(spriteId, out var frame))
             return null;
-        }
+
+        return new Palettized<EpfFrame>
+        {
+            Entity = frame!,
+            Palette = Gui06Palette
+        };
     }
 
     public Palettized<EpfFrame>? GetSkillGreyIcon(int spriteId) => GetFrame(spriteId, "skill003");

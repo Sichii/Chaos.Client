@@ -33,4 +33,9 @@ public abstract class RepositoryBase
         if (value is IDisposable disposable)
             disposable.Dispose();
     }
+
+    /// <summary>
+    ///     Removes a cached entry so it will be reloaded on next access.
+    /// </summary>
+    public void Invalidate(string key) => Cache.Remove(key);
 }

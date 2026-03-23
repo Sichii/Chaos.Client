@@ -98,6 +98,13 @@ public abstract class PrefabPanel : UIPanel
         "UpArrow",
         "DownArrow",
 
+        // Merchant dialog (lnpcd3)
+        "Btn1",
+        "PagePrev",
+        "PageNext",
+        "TabPrev",
+        "TabNext",
+
         // Equipment tab (_nui_eq)
         "GroupBtn",
 
@@ -201,6 +208,9 @@ public abstract class PrefabPanel : UIPanel
         if (!PrefabSet.Contains(name))
             return null;
 
+        if (ReuseOrRemoveExistingChild<UIButton>(name) is { } existing)
+            return existing;
+
         var button = CreateButtonFromPrefab(PrefabSet[name]);
 
         if (button is not null)
@@ -239,6 +249,9 @@ public abstract class PrefabPanel : UIPanel
         if (!PrefabSet.Contains(name))
             return null;
 
+        if (ReuseOrRemoveExistingChild<UIImage>(name) is { } existing)
+            return existing;
+
         var image = CreateImageFromPrefab(PrefabSet[name]);
 
         if (image is not null)
@@ -272,6 +285,13 @@ public abstract class PrefabPanel : UIPanel
         if (!PrefabSet.Contains(name))
             return null;
 
+        if (ReuseOrRemoveExistingChild<UILabel>(name) is { } existing)
+        {
+            existing.Alignment = alignment;
+
+            return existing;
+        }
+
         var rect = PrefabSet[name].Control.Rect;
 
         if (rect is null)
@@ -298,6 +318,13 @@ public abstract class PrefabPanel : UIPanel
     {
         if (!PrefabSet.Contains(name))
             return null;
+
+        if (ReuseOrRemoveExistingChild<UITextBox>(name) is { } existing)
+        {
+            existing.MaxLength = maxLength;
+
+            return existing;
+        }
 
         var textBox = CreateTextBoxFromPrefab(PrefabSet[name]);
 
@@ -351,6 +378,34 @@ public abstract class PrefabPanel : UIPanel
     }
 
     public virtual void Hide() => Visible = false;
+
+    /// <summary>
+    ///     If a child with the given name already exists and is of type T, returns it. Otherwise removes and disposes all
+    ///     children with that name, and returns null.
+    /// </summary>
+    private T? ReuseOrRemoveExistingChild<T>(string name) where T: UIElement
+    {
+        T? reusable = null;
+
+        for (var i = Children.Count - 1; i >= 0; i--)
+        {
+            if (!string.Equals(Children[i].Name, name, StringComparison.OrdinalIgnoreCase))
+                continue;
+
+            if (reusable is null && Children[i] is T match)
+            {
+                reusable = match;
+
+                continue;
+            }
+
+            var child = Children[i];
+            Children.RemoveAt(i);
+            child.Dispose();
+        }
+
+        return reusable;
+    }
 
     public virtual void Show() => Visible = true;
 }

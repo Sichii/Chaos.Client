@@ -1,6 +1,7 @@
 #region
 using Chaos.Client.Controls.Components;
 using Chaos.Client.Rendering;
+using Chaos.DarkAges.Definitions;
 using Chaos.Networking.Entities.Server;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
@@ -20,25 +21,42 @@ public sealed class NpcDialogControl : PrefabPanel
     private readonly UILabel? NpcNameLabel;
     private readonly List<OptionEntry> Options = [];
     private readonly Rectangle OptionsRect;
+    private readonly UIImage? PortraitBackground;
 
-    // NPC info
+    // NPC portrait
     private readonly Rectangle PortraitRect;
 
     // Dialog state
     private readonly UIImage? TextImage;
     private readonly Rectangle TextRect;
+    private int HoveredOption = -1;
+    private UIImage? PortraitSprite;
     private int SelectedOption = -1;
 
     // Current dialog/menu context
     public ushort DialogId { get; private set; }
+    public bool IsMenuMode { get; private set; }
+
+    /// <summary>
+    ///     The creature/item sprite ID for the portrait.
+    /// </summary>
+    public ushort PortraitSpriteId { get; private set; }
+
     public ushort PursuitId { get; private set; }
+
+    /// <summary>
+    ///     Whether the current dialog has a portrait illustration.
+    /// </summary>
+    public bool ShouldIllustrate { get; private set; }
+
+    public EntityType SourceEntityType { get; private set; }
     public uint? SourceId { get; private set; }
 
     public UIButton? CloseButton { get; }
     public UITextBox? InputTextBox { get; }
     public UIButton? NextButton { get; }
-    public UIButton? OkButton { get; }
     public UIButton? PreviousButton { get; }
+    public UIButton? TopButton { get; }
 
     public NpcDialogControl(GraphicsDevice device)
         : base(device, "lnpcd")
@@ -48,10 +66,10 @@ public sealed class NpcDialogControl : PrefabPanel
 
         var elements = AutoPopulate();
 
-        CloseButton = elements.GetValueOrDefault("Close") as UIButton;
-        NextButton = elements.GetValueOrDefault("Next") as UIButton;
-        PreviousButton = elements.GetValueOrDefault("Previous") as UIButton ?? elements.GetValueOrDefault("Prev") as UIButton;
-        OkButton = elements.GetValueOrDefault("OK") as UIButton;
+        CloseButton = elements.GetValueOrDefault("CloseBtn") as UIButton;
+        NextButton = elements.GetValueOrDefault("NextBtn") as UIButton;
+        PreviousButton = elements.GetValueOrDefault("PrevBtn") as UIButton;
+        TopButton = elements.GetValueOrDefault("TopBtn") as UIButton;
 
         if (CloseButton is not null)
             CloseButton.OnClick += () =>
@@ -66,15 +84,18 @@ public sealed class NpcDialogControl : PrefabPanel
         if (PreviousButton is not null)
             PreviousButton.OnClick += () => OnPrevious?.Invoke();
 
-        if (OkButton is not null)
-            OkButton.OnClick += () => OnTextSubmit?.Invoke(InputTextBox?.Text ?? string.Empty);
+        if (TopButton is not null)
+            TopButton.OnClick += () => OnClose?.Invoke();
 
-        // Layout rects — try likely control names
-        PortraitRect = GetRect("Portrait") != Rectangle.Empty ? GetRect("Portrait") : GetRect("NpcImage");
-        TextRect = GetRect("Text") != Rectangle.Empty ? GetRect("Text") : GetRect("Talk");
-        OptionsRect = GetRect("Options") != Rectangle.Empty ? GetRect("Options") : GetRect("Menu");
+        // Layout rects
+        PortraitRect = GetRect("NPCTile");
+        TextRect = GetRect("Text");
+        OptionsRect = GetRect("MenuDialog");
 
-        NpcNameLabel = CreateLabel("Name") ?? CreateLabel("NpcName");
+        // Portrait background (nd_npcbg.spf)
+        PortraitBackground = elements.GetValueOrDefault("NPCTile") as UIImage;
+
+        NpcNameLabel = CreateLabel("Name");
 
         TextImage = new UIImage
         {
@@ -95,6 +116,7 @@ public sealed class NpcDialogControl : PrefabPanel
 
         Options.Clear();
         SelectedOption = -1;
+        HoveredOption = -1;
     }
 
     public override void Draw(SpriteBatch spriteBatch)
@@ -111,7 +133,12 @@ public sealed class NpcDialogControl : PrefabPanel
         for (var i = 0; i < Options.Count; i++)
         {
             var opt = Options[i];
-            var color = i == SelectedOption ? Color.Yellow : Color.White;
+
+            var color = i == SelectedOption
+                ? Color.Yellow
+                : i == HoveredOption
+                    ? Color.LightGoldenrodYellow
+                    : Color.White;
 
             opt.CachedText ??= new CachedText(Device);
             opt.CachedText.Update(opt.Text, color);
@@ -119,10 +146,25 @@ public sealed class NpcDialogControl : PrefabPanel
         }
     }
 
+    /// <summary>
+    ///     Gets the pursuit ID for the menu option at the given index, or 0 if not a menu or out of range.
+    /// </summary>
+    public ushort GetOptionPursuitId(int optionIndex)
+    {
+        if ((optionIndex < 0) || (optionIndex >= Options.Count))
+            return 0;
+
+        return Options[optionIndex].PursuitId;
+    }
+
     public override void Hide()
     {
         Visible = false;
         ClearOptions();
+        SetPortrait(null);
+
+        if (PortraitBackground is not null)
+            PortraitBackground.Visible = false;
     }
 
     // Events
@@ -152,21 +194,57 @@ public sealed class NpcDialogControl : PrefabPanel
     }
 
     /// <summary>
+    ///     Sets the NPC portrait sprite texture, centered in the NPCTile rect.
+    /// </summary>
+    public void SetPortrait(Texture2D? texture)
+    {
+        if (PortraitSprite is not null)
+        {
+            Children.Remove(PortraitSprite);
+            PortraitSprite = null;
+        }
+
+        if (texture is null || (PortraitRect == Rectangle.Empty))
+            return;
+
+        PortraitSprite = new UIImage
+        {
+            Name = "PortraitSprite",
+            Texture = texture,
+            X = PortraitRect.X + (PortraitRect.Width - texture.Width) / 2,
+            Y = PortraitRect.Y + (PortraitRect.Height - texture.Height) / 2,
+            Width = texture.Width,
+            Height = texture.Height,
+            Visible = true
+        };
+        AddChild(PortraitSprite);
+    }
+
+    /// <summary>
     ///     Shows an NPC dialog with text and optional Next/Previous navigation.
     /// </summary>
     public void ShowDialog(DisplayDialogArgs args)
     {
+        IsMenuMode = false;
+        SourceEntityType = args.EntityType;
         DialogId = args.DialogId;
         PursuitId = args.PursuitId ?? 0;
         SourceId = args.SourceId;
+        ShouldIllustrate = args.ShouldIllustrate;
+        PortraitSpriteId = args.Sprite;
+
+        if (PortraitBackground is not null)
+            PortraitBackground.Visible = args.ShouldIllustrate;
 
         NpcNameLabel?.SetText(args.Name);
         RenderDialogText(args.Text);
 
         // Navigation buttons
-        NextButton?.Visible = args.HasNextButton;
+        if (NextButton is not null)
+            NextButton.Visible = args.HasNextButton;
 
-        PreviousButton?.Visible = args.HasPreviousButton;
+        if (PreviousButton is not null)
+            PreviousButton.Visible = args.HasPreviousButton;
 
         // Input field for text entry dialogs
         if (InputTextBox is not null)
@@ -194,6 +272,7 @@ public sealed class NpcDialogControl : PrefabPanel
                 Options.Add(
                     new OptionEntry(
                         option,
+                        0,
                         new Rectangle(
                             OptionsRect.X,
                             y,
@@ -211,17 +290,36 @@ public sealed class NpcDialogControl : PrefabPanel
     /// </summary>
     public void ShowMenu(DisplayMenuArgs args)
     {
+        IsMenuMode = true;
+        SourceEntityType = args.EntityType;
         PursuitId = args.PursuitId;
         SourceId = args.SourceId;
+        ShouldIllustrate = args.ShouldIllustrate;
+        PortraitSpriteId = args.Sprite;
+
+        if (PortraitBackground is not null)
+            PortraitBackground.Visible = args.ShouldIllustrate;
 
         NpcNameLabel?.SetText(args.Name);
         RenderDialogText(args.Text);
 
-        NextButton?.Visible = false;
+        if (NextButton is not null)
+            NextButton.Visible = false;
 
-        PreviousButton?.Visible = false;
+        if (PreviousButton is not null)
+            PreviousButton.Visible = false;
 
-        InputTextBox?.Visible = false;
+        if (InputTextBox is not null)
+        {
+            var hasInput = args.MenuType is MenuType.TextEntry or MenuType.TextEntryWithArgs;
+            InputTextBox.Visible = hasInput;
+
+            if (hasInput)
+            {
+                InputTextBox.Text = string.Empty;
+                InputTextBox.IsFocused = true;
+            }
+        }
 
         ClearOptions();
 
@@ -229,11 +327,12 @@ public sealed class NpcDialogControl : PrefabPanel
         {
             var y = OptionsRect.Y;
 
-            foreach ((var text, _) in args.Options)
+            foreach ((var text, var pursuitId) in args.Options)
             {
                 Options.Add(
                     new OptionEntry(
                         text,
+                        pursuitId,
                         new Rectangle(
                             OptionsRect.X,
                             y,
@@ -259,8 +358,11 @@ public sealed class NpcDialogControl : PrefabPanel
             return;
         }
 
-        // Option selection via mouse click
-        if (input.WasLeftButtonPressed && (Options.Count > 0))
+        // Option hover tracking
+        HoveredOption = -1;
+
+        if (Options.Count > 0)
+        {
             for (var i = 0; i < Options.Count; i++)
             {
                 var optRect = Options[i].Rect;
@@ -272,12 +374,19 @@ public sealed class NpcDialogControl : PrefabPanel
                     && (input.MouseY >= sy)
                     && (input.MouseY < (sy + optRect.Height)))
                 {
-                    SelectedOption = i;
-                    OnOptionSelected?.Invoke(i);
+                    HoveredOption = i;
 
                     break;
                 }
             }
+        }
+
+        // Option selection via mouse click
+        if (input.WasLeftButtonPressed && (HoveredOption >= 0))
+        {
+            SelectedOption = HoveredOption;
+            OnOptionSelected?.Invoke(HoveredOption);
+        }
 
         // Text submit via Enter
         if (InputTextBox is not null && InputTextBox.Visible && input.WasKeyPressed(Keys.Enter))
@@ -286,9 +395,10 @@ public sealed class NpcDialogControl : PrefabPanel
         base.Update(gameTime, input);
     }
 
-    private sealed class OptionEntry(string text, Rectangle rect)
+    private sealed class OptionEntry(string text, ushort pursuitId, Rectangle rect)
     {
         public CachedText? CachedText { get; set; }
+        public ushort PursuitId { get; } = pursuitId;
         public Rectangle Rect { get; } = rect;
         public string Text { get; } = text;
     }

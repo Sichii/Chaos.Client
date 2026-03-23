@@ -21,7 +21,9 @@ namespace Chaos.Client.Screens;
 
 public sealed class LobbyLoginScreen : IScreen
 {
+    private readonly bool ReturningFromWorld;
     private bool AwaitingCharFinalize;
+
     private uint? CachedNoticeCheckSum;
     private bool ChangingPassword;
     private CharacterCreationControl CharCreateControl = null!;
@@ -47,6 +49,8 @@ public sealed class LobbyLoginScreen : IScreen
 
     /// <inheritdoc />
     public UIPanel? Root { get; private set; }
+
+    public LobbyLoginScreen(bool returningFromWorld = false) => ReturningFromWorld = returningFromWorld;
 
     /// <inheritdoc />
     public void Dispose() => Root?.Dispose();
@@ -144,8 +148,16 @@ public sealed class LobbyLoginScreen : IScreen
         // Build UI atlas after all login controls are constructed
         UiRenderer.Instance?.BuildAtlas();
 
-        // Auto-connect to lobby
-        BeginLobbyConnect();
+        if (ReturningFromWorld)
+        {
+            // Already connected to login server via redirect — skip lobby handshake, show login directly
+            StartPanel.Visible = false;
+            LoginControl.Show();
+            SetStatus("Logged out.", Color.LightBlue);
+        } else
+
+            // Fresh start — connect to lobby
+            BeginLobbyConnect();
     }
 
     /// <inheritdoc />

@@ -2,6 +2,7 @@
 using System.Collections.Frozen;
 using Chaos.Client.Data.Abstractions;
 using DALib.Drawing;
+using DALib.Drawing.Virtualized;
 using DALib.Utility;
 #endregion
 
@@ -12,7 +13,7 @@ public sealed class CreatureSpriteRepository : RepositoryBase
     private readonly IDictionary<int, Palette> Palettes = Palette.FromArchive("mns", DatArchives.Hades)
                                                                  .ToFrozenDictionary();
 
-    public Palettized<MpfFile>? GetCreatureSprite(int spriteId)
+    public Palettized<MpfView>? GetCreatureSprite(int spriteId)
     {
         if (spriteId == 0)
             return null;
@@ -26,15 +27,15 @@ public sealed class CreatureSpriteRepository : RepositoryBase
         }
     }
 
-    private Palettized<MpfFile>? LoadCreatureSprite(int spriteId)
+    private Palettized<MpfView>? LoadCreatureSprite(int spriteId)
     {
         if (!DatArchives.Hades.TryGetValue($"mns{spriteId:D3}.mpf", out var entry))
             return null;
 
-        var mpfFile = MpfFile.FromEntry(entry);
+        var mpfFile = MpfView.FromEntry(entry);
 
         if (Palettes.TryGetValue(mpfFile.PaletteNumber, out var palette))
-            return new Palettized<MpfFile>
+            return new Palettized<MpfView>
             {
                 Entity = mpfFile,
                 Palette = palette

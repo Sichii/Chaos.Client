@@ -4,24 +4,8 @@
         <File Path="Directory.Packages.props"/>
     </Folder>
     <Project Path="../dalib/DALib/DALib.csproj"/>
-    <Project Path="Chaos.Client.Data/Chaos.Client.Data.csproj">
-        <BuildType Solution="Release|*" Project="?"/>
-        <Platform Solution="Release|*" Project="?"/>
-        <Build Solution="Release|*" Project="false"/>
-    </Project>
-    <Project Path="Chaos.Client.Networking/Chaos.Client.Networking.csproj">
-        <BuildType Solution="Release|*" Project="?"/>
-        <Platform Solution="Release|*" Project="?"/>
-        <Build Solution="Release|*" Project="false"/>
-    </Project>
-    <Project Path="Chaos.Client.Rendering/Chaos.Client.Rendering.csproj">
-        <BuildType Solution="Release|*" Project="?"/>
-        <Platform Solution="Release|*" Project="?"/>
-        <Build Solution="Release|*" Project="false"/>
-    </Project>
-    <Project Path="Chaos.Client/Chaos.Client.csproj">
-        <BuildType Solution="Release|*" Project="?"/>
-        <Platform Solution="Release|*" Project="?"/>
-        <Build Solution="Release|*" Project="false"/>
-    </Project>
+    <Project Path="Chaos.Client.Data/Chaos.Client.Data.csproj"/>
+    <Project Path="Chaos.Client.Networking/Chaos.Client.Networking.csproj"/>
+    <Project Path="Chaos.Client.Rendering/Chaos.Client.Rendering.csproj"/>
+    <Project Path="Chaos.Client/Chaos.Client.csproj"/>
 </Solution>

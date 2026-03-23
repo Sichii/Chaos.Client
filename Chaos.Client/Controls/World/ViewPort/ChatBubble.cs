@@ -15,8 +15,8 @@ namespace Chaos.Client.Controls.World.ViewPort;
 public sealed class ChatBubble : UIImage
 {
     private const int MAX_LINE_CHARS = 18;
-    private const int CHAR_CELL_WIDTH = 6;
-    private const int LINE_HEIGHT = 12;
+    private const int CHAR_CELL_WIDTH = TextRenderer.CHAR_WIDTH;
+    private const int LINE_HEIGHT = TextRenderer.CHAR_HEIGHT;
 
     private const int LEFT_CAP_WIDTH = 7;
     private const int RIGHT_CAP_WIDTH = 7;

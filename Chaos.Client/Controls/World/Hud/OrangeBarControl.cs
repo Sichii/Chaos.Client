@@ -23,11 +23,11 @@ public sealed class OrangeBarControl : UIElement
     private readonly Texture2D? PaneBg;
 
     private readonly Rectangle TextBounds;
-
-    private bool Dragging;
     private int DragMouseStartY;
     private int ExpandedLines;
     private Rectangle WrapBounds;
+
+    public bool IsDragging { get; private set; }
 
     public OrangeBarControl(GraphicsDevice device, ControlPrefabSet hudPrefabSet)
     {
@@ -155,20 +155,20 @@ public sealed class OrangeBarControl : UIElement
         var sx = Parent?.ScreenX ?? 0;
         var sy = Parent?.ScreenY ?? 0;
 
-        if (!Dragging && input.WasLeftButtonPressed)
+        if (!IsDragging && input.WasLeftButtonPressed)
         {
             var mx = input.MouseX - sx;
             var my = input.MouseY - sy;
 
             if (WrapBounds.Contains(mx, my))
             {
-                Dragging = true;
+                IsDragging = true;
                 DragMouseStartY = input.MouseY;
                 ExpandedLines = 0;
             }
         }
 
-        if (Dragging)
+        if (IsDragging)
         {
             if (input.IsLeftButtonHeld)
             {
@@ -176,7 +176,7 @@ public sealed class OrangeBarControl : UIElement
                 ExpandedLines = Math.Clamp(dragPixels / GLYPH_HEIGHT, 0, MAX_EXPAND_LINES - 1);
             } else
             {
-                Dragging = false;
+                IsDragging = false;
                 ExpandedLines = 0;
             }
         }

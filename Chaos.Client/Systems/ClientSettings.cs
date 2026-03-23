@@ -7,19 +7,19 @@ namespace Chaos.Client.Systems;
 public sealed class ClientSettings
 {
     private const string FILE_NAME = "Darkages.cfg";
+    public bool AutoAcceptGroupInvites { get; set; } = true;
     public int ChattingMode { get; set; }
     public bool DoGroundAnimation { get; set; } = true;
-    public bool GroupAnswer { get; set; }
-    public bool GroupObjectOption { get; set; } = true;
-    public bool MonsterSayRecordMode { get; set; } = true;
+    public int EnableProfileClick { get; set; }
+    public bool GroupOpen { get; set; }
     public int MusicVolume { get; set; } = 5;
+    public bool RecordNpcChat { get; set; } = true;
     public int ScrollLevel { get; set; }
-    public bool SkillSpellSelectByToggle { get; set; } = true;
 
     // Defaults match the original client
     public int SoundVolume { get; set; } = 5;
     public int Speed { get; set; } = 100;
-    public int UserClickMode { get; set; }
+    public bool UseShiftKeyForAltPanels { get; set; } = true;
 
     private static string FilePath => Path.Combine(AppContext.BaseDirectory, FILE_NAME);
 
@@ -68,12 +68,12 @@ public sealed class ClientSettings
                         break;
 
                     case "SkillSpellSelectByToggle":
-                        settings.SkillSpellSelectByToggle = value == "1";
+                        settings.UseShiftKeyForAltPanels = value == "1";
 
                         break;
 
                     case "GroupAnswer":
-                        settings.GroupAnswer = value == "1";
+                        settings.GroupOpen = value == "1";
 
                         break;
 
@@ -85,17 +85,17 @@ public sealed class ClientSettings
 
                     case "UserClickMode":
                         if (int.TryParse(value, out var ucm))
-                            settings.UserClickMode = ucm;
+                            settings.EnableProfileClick = ucm;
 
                         break;
 
                     case "MonsterSayRecordMode":
-                        settings.MonsterSayRecordMode = value == "1";
+                        settings.RecordNpcChat = value == "1";
 
                         break;
 
                     case "GroupObjectOption":
-                        settings.GroupObjectOption = value == "1";
+                        settings.AutoAcceptGroupInvites = value == "1";
 
                         break;
 
@@ -143,12 +143,12 @@ public sealed class ClientSettings
             writer.WriteLine($"doGroundAnimation : {(DoGroundAnimation ? 1 : 0)}");
             writer.WriteLine($"Sound Volume : {SoundVolume}");
             writer.WriteLine($"Music Volume : {MusicVolume}");
-            writer.WriteLine($"SkillSpellSelectByToggle : {(SkillSpellSelectByToggle ? 1 : 0)}");
-            writer.WriteLine($"GroupAnswer : {(GroupAnswer ? 1 : 0)}");
+            writer.WriteLine($"SkillSpellSelectByToggle : {(UseShiftKeyForAltPanels ? 1 : 0)}");
+            writer.WriteLine($"GroupAnswer : {(GroupOpen ? 1 : 0)}");
             writer.WriteLine($"ScrollLevel : {ScrollLevel}");
-            writer.WriteLine($"UserClickMode : {UserClickMode}");
-            writer.WriteLine($"MonsterSayRecordMode : {(MonsterSayRecordMode ? 1 : 0)}");
-            writer.WriteLine($"GroupObjectOption : {(GroupObjectOption ? 1 : 0)}");
+            writer.WriteLine($"UserClickMode : {EnableProfileClick}");
+            writer.WriteLine($"MonsterSayRecordMode : {(RecordNpcChat ? 1 : 0)}");
+            writer.WriteLine($"GroupObjectOption : {(AutoAcceptGroupInvites ? 1 : 0)}");
         } catch
         {
             // Best effort — don't crash on save failure

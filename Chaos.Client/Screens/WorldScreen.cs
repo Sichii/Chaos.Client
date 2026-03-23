@@ -15,6 +15,7 @@ using Chaos.Client.Data.Utilities;
 using Chaos.Client.Definitions;
 using Chaos.Client.Extensions;
 using Chaos.Client.Models;
+using Chaos.Client.Networking;
 using Chaos.Client.Rendering;
 using Chaos.Client.Systems;
 using Chaos.Client.Systems.Animation;
@@ -29,22 +30,7 @@ using DALib.Extensions;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using Microsoft.Xna.Framework.Input;
-using ChaosPoint = Chaos.Geometry.Point;
-using BoardOrResponseType = Chaos.DarkAges.Definitions.BoardOrResponseType;
-using BoardRequestType = Chaos.DarkAges.Definitions.BoardRequestType;
-using ClientGroupSwitch = Chaos.DarkAges.Definitions.ClientGroupSwitch;
-using ServerGroupSwitch = Chaos.DarkAges.Definitions.ServerGroupSwitch;
-using CONSTANTS = DALib.Definitions.CONSTANTS;
-using DialogArgsType = Chaos.DarkAges.Definitions.DialogArgsType;
-using ExchangeRequestType = Chaos.DarkAges.Definitions.ExchangeRequestType;
-using ExchangeResponseType = Chaos.DarkAges.Definitions.ExchangeResponseType;
-using MarkColor = Chaos.DarkAges.Definitions.MarkColor;
-using NpcEntityType = Chaos.DarkAges.Definitions.EntityType;
 using TileFlags = DALib.Definitions.TileFlags;
-using PanelType = Chaos.DarkAges.Definitions.PanelType;
-using PublicMessageType = Chaos.DarkAges.Definitions.PublicMessageType;
-using ServerMessageType = Chaos.DarkAges.Definitions.ServerMessageType;
-using UserOption = Chaos.DarkAges.Definitions.UserOption;
 #endregion
 
 namespace Chaos.Client.Screens;
@@ -56,9 +42,6 @@ namespace Chaos.Client.Screens;
 /// </summary>
 public sealed class WorldScreen : IScreen
 {
-    private const int HALF_TILE_WIDTH = CONSTANTS.HALF_TILE_WIDTH;
-    private const int HALF_TILE_HEIGHT = CONSTANTS.HALF_TILE_HEIGHT;
-
     // Walk queue: when walk animation is >= 75% complete, one walk can be queued
     private const float WALK_QUEUE_THRESHOLD = 0.75f;
 
@@ -69,7 +52,6 @@ public sealed class WorldScreen : IScreen
     // Canvas is padded by 27px on each side for weapon/accessory layers, so body center shifts right.
     private const int BODY_CENTER_X = 28 + 27;
     private const int BODY_CENTER_Y = 70;
-    private const float DOUBLE_CLICK_MS = 300f;
 
     // Entity hitbox dimensions (screen pixels)
     private const int HITBOX_WIDTH = 28;
@@ -77,6 +59,10 @@ public sealed class WorldScreen : IScreen
 
     // Health bar Y offset from entity tile center (higher = further above entity)
     private const int HEALTH_BAR_Y_OFFSET = 61;
+
+    // Name tag Y offset from entity tile center (above health bars)
+    private const int NAME_TAG_Y_OFFSET = 72;
+    private static readonly Color NAME_TAG_SHADOW_COLOR = new(20, 20, 20);
 
     private const string SPOUSE_PREFIX = "Spouse: ";
     private const string GROUP_MEMBERS_PREFIX = "Group members";
@@ -102,11 +88,21 @@ public sealed class WorldScreen : IScreen
     // Active chat bubbles: keyed by entity ID, one per entity (new message replaces old)
     private readonly Dictionary<uint, ChatBubble> ChatBubbles = new();
 
+    // Cached debug label textures: keyed by entity ID, re-rendered only when name/position changes
+    private readonly Dictionary<uint, CachedText> DebugLabelCache = new();
+
     // Draw-pass hitbox list: rebuilt every frame during entity rendering, in draw order (back-to-front)
     private readonly List<EntityHitBox> EntityHitBoxes = new(256);
+    private readonly FpsCounter FpsCounter = new();
 
     // Active health bars: keyed by entity ID, reset on each HealthBar packet
     private readonly Dictionary<uint, HealthBar> HealthBars = new();
+    private readonly EntityHighlightState Highlight = new();
+
+    // Cached name tag textures: keyed by entity ID, re-rendered only when name/color changes
+    private readonly Dictionary<uint, CachedText> NameTagCache = new();
+    private readonly PathfindingState Pathfinding = new();
+    private readonly List<(CachedText Text, Vector2 Position)> PendingDebugLabels = new();
 
     // Cached chant data — loaded once per login, invalidated on save
     private List<SkillChantEntry>? CachedSkillChants;
@@ -114,30 +110,25 @@ public sealed class WorldScreen : IScreen
     private Camera Camera = null!;
     private ChantEditControl ChantEdit = null!;
     private ContextMenu ContextMenu = null!;
-    private int DebugFpsDisplay;
-    private float DebugFpsElapsed;
-    private int DebugFpsFrameCount;
-    private CachedText? DebugFpsText;
+    private short CurrentMapId;
+
+    private DarknessRenderer DarknessRenderer = null!;
     private GraphicsDevice Device = null!;
     private ExchangeControl Exchange = null!;
+    private byte? ExchangeAmountSlot;
     private FriendsListControl FriendsList = null!;
 
     private ChaosGame Game = null!;
+    private GoldExchangeControl GoldDrop = null!;
     private GroupControl GroupPanel = null!;
-    private uint? HighlightedEntityId;
-    private uint? HighlightTintedEntityId;
-    private Texture2D? HighlightTintedSource;
-    private Texture2D? HighlightTintedTexture;
     private HotkeyHelpControl HotkeyHelp = null!;
     private PanelSlot? HoveredInventorySlot;
     private bool IsGameMaster;
     private ItemTooltipControl ItemTooltip = null!;
-    private int LastClickTileX;
-    private int LastClickTileY;
-    private float LastClickTimer = DOUBLE_CLICK_MS;
-    private int LastRightClickTileX;
-    private int LastRightClickTileY;
-    private float LastRightClickTimer = DOUBLE_CLICK_MS;
+    private TileClickTracker LeftClickTracker = new();
+
+    // True while awaiting a paginated board response (append instead of replace)
+    private bool LoadingMoreBoardPosts;
     private MacroMenuControl MacroMenu = null!;
     private MailListControl MailList = null!;
     private MailReadControl MailRead = null!;
@@ -150,16 +141,19 @@ public sealed class WorldScreen : IScreen
     private MapRenderer MapRenderer = null!;
 
     // Overlay panels (rendered on top of HUD)
+    private MerchantDialogControl MerchantDialog = null!;
+    private NotepadControl Notepad = null!;
     private NpcDialogControl NpcDialog = null!;
-    private Stack<IPoint>? PathfindingPath;
-    private float PathfindingRetargetTimer;
-    private uint? PathfindingTargetEntityId;
+    private OtherProfileControl OtherProfile = null!;
+    private bool PendingLoginSwitch;
     private Direction? QueuedWalkDirection;
+    private TileClickTracker RightClickTracker = new();
     private RasterizerState ScissorRasterizerState = null!;
 
     // True when the client explicitly requested its own profile — prevents unsolicited SelfProfile packets from opening the panel
     private bool SelfProfileRequested;
     private SettingsControl SettingsDialog = null!;
+    private SilhouetteRenderer SilhouetteRenderer = null!;
     private SocialStatusControl SocialStatusPicker = null!;
     private float SpacebarTimer;
     private SelfProfileTabControl StatusBook = null!;
@@ -183,6 +177,40 @@ public sealed class WorldScreen : IScreen
     /// <inheritdoc />
     public void Draw(SpriteBatch spriteBatch, GameTime gameTime)
     {
+        // Pre-composite transparent aislings into per-entity RTs before world drawing
+        if (MapFile is not null && MapPreloaded)
+        {
+            SilhouetteRenderer.Clear();
+
+            var player = Game.World.GetPlayerEntity();
+
+            // Collect silhouette entries (any entity type)
+            if (player is not null)
+                SilhouetteRenderer.AddSilhouette(new SilhouetteRenderer.SilhouetteEntry(player));
+
+            // Collect transparent aisling entries (need per-entity compositing for uniform alpha)
+            foreach (var entity in Game.World.GetSortedEntities())
+                if ((entity.Type == ClientEntityType.Aisling) && entity.IsTransparent)
+                    SilhouetteRenderer.AddTransparent(
+                        entity,
+                        Game.AislingRenderer,
+                        Highlight.ShowTintHighlight && (Highlight.HoveredEntityId == entity.Id));
+
+            SilhouetteRenderer.PreRenderTransparents(Game.AislingRenderer);
+
+            // Pre-render silhouettes into a screen-sized RT (must happen before main RT drawing starts,
+            // because RT switching discards the main RT's contents)
+            SilhouetteRenderer.PreRenderSilhouettes(batch =>
+            {
+                batch.Begin(SpriteSortMode.Immediate, BlendState.AlphaBlend, GlobalSettings.Sampler);
+
+                foreach (var entry in SilhouetteRenderer.SilhouetteEntries)
+                    DrawEntity(batch, entry.Entity);
+
+                batch.End();
+            });
+        }
+
         // Pass 1: World rendering — clipped to the HUD viewport area, camera transform
         if (MapFile is not null && MapPreloaded)
         {
@@ -207,10 +235,26 @@ public sealed class WorldScreen : IScreen
                 null,
                 transform);
             DrawForegroundAndEntities(spriteBatch);
+            SilhouetteRenderer.DrawSilhouettes(spriteBatch);
             DrawChantOverlays(spriteBatch);
             DrawHealthBars(spriteBatch);
+            DrawNameTags(spriteBatch);
             DrawChatBubbles(spriteBatch);
             spriteBatch.End();
+
+            // Darkness overlay — drawn over the world in screen space (no camera transform)
+            if (DarknessRenderer.IsActive)
+            {
+                var viewport = WorldHud.ViewportBounds;
+                DarknessRenderer.Update(Camera, viewport);
+
+                spriteBatch.Begin(
+                    blendState: BlendState.NonPremultiplied,
+                    samplerState: GlobalSettings.Sampler,
+                    rasterizerState: ScissorRasterizerState);
+                DarknessRenderer.Draw(spriteBatch, viewport);
+                spriteBatch.End();
+            }
 
             // Snapshot draw count before debug draws so the reported count excludes debug visualizations
             DebugOverlay.SnapshotDrawCount(Device);
@@ -219,7 +263,7 @@ public sealed class WorldScreen : IScreen
             if (DebugOverlay.IsActive)
             {
                 spriteBatch.Begin(
-                    SpriteSortMode.Immediate,
+                    SpriteSortMode.Deferred,
                     BlendState.AlphaBlend,
                     GlobalSettings.Sampler,
                     null,
@@ -321,6 +365,7 @@ public sealed class WorldScreen : IScreen
         Game.Connection.OnDisplayGroupInvite += HandleDisplayGroupInvite;
 
         // Profiles
+        Game.Connection.OnEditableProfileRequest += HandleEditableProfileRequest;
         Game.Connection.OnSelfProfile += HandleSelfProfile;
         Game.Connection.OnOtherProfile += HandleOtherProfile;
 
@@ -335,6 +380,7 @@ public sealed class WorldScreen : IScreen
 
         // Logout
         Game.Connection.OnExitResponse += HandleExitResponse;
+        Game.Connection.StateChanged += HandleStateChanged;
 
         // Health bars
         Game.Connection.OnHealthBar += HandleHealthBar;
@@ -372,6 +418,8 @@ public sealed class WorldScreen : IScreen
         };
         MapRenderer = new MapRenderer();
         TabMapRenderer = new TabMapRenderer();
+        SilhouetteRenderer = new SilhouetteRenderer(graphicsDevice);
+        DarknessRenderer = new DarknessRenderer(graphicsDevice);
 
         ScissorRasterizerState = new RasterizerState
         {
@@ -384,6 +432,9 @@ public sealed class WorldScreen : IScreen
         // Overlay panels — ZIndex: -2 sub-panels, -1 slide panels, 0 standard (default), 1 popups, 2 context menu
         NpcDialog = new NpcDialogControl(graphicsDevice);
         WireNpcDialog();
+
+        MerchantDialog = new MerchantDialogControl(graphicsDevice);
+        WireMerchantDialog();
 
         MainOptions = new MainOptionsControl(graphicsDevice)
         {
@@ -413,7 +464,7 @@ public sealed class WorldScreen : IScreen
             switch (index)
             {
                 case 6:
-                    Game.Settings.GroupObjectOption = value;
+                    Game.Settings.AutoAcceptGroupInvites = value;
 
                     break;
                 case 8:
@@ -421,33 +472,34 @@ public sealed class WorldScreen : IScreen
 
                     break;
                 case 9:
-                    Game.Settings.SkillSpellSelectByToggle = value;
+                    Game.Settings.UseShiftKeyForAltPanels = value;
 
                     break;
                 case 10:
-                    Game.Settings.UserClickMode = value ? 1 : 0;
+                    Game.Settings.EnableProfileClick = value ? 1 : 0;
 
                     break;
                 case 11:
-                    Game.Settings.MonsterSayRecordMode = value;
+                    Game.Settings.RecordNpcChat = value;
 
                     break;
                 case 12:
-                    Game.Settings.GroupAnswer = value;
+                    // Server-authoritative — send toggle, server responds with updated profile
+                    Game.Connection.ToggleGroup();
 
-                    break;
+                    return;
             }
 
             Game.Settings.Save();
         };
 
         // Apply saved local settings to the settings dialog
-        SettingsDialog.SetSettingValue(6, Game.Settings.GroupObjectOption);
+        SettingsDialog.SetSettingValue(6, Game.Settings.AutoAcceptGroupInvites);
         SettingsDialog.SetSettingValue(8, Game.Settings.ScrollLevel > 0);
-        SettingsDialog.SetSettingValue(9, Game.Settings.SkillSpellSelectByToggle);
-        SettingsDialog.SetSettingValue(10, Game.Settings.UserClickMode > 0);
-        SettingsDialog.SetSettingValue(11, Game.Settings.MonsterSayRecordMode);
-        SettingsDialog.SetSettingValue(12, Game.Settings.GroupAnswer);
+        SettingsDialog.SetSettingValue(9, Game.Settings.UseShiftKeyForAltPanels);
+        SettingsDialog.SetSettingValue(10, Game.Settings.EnableProfileClick > 0);
+        SettingsDialog.SetSettingValue(11, Game.Settings.RecordNpcChat);
+        SettingsDialog.SetSettingValue(12, Game.Settings.GroupOpen);
 
         MacroMenu = new MacroMenuControl(graphicsDevice)
         {
@@ -480,6 +532,34 @@ public sealed class WorldScreen : IScreen
         FriendsList.OnOk += SavePlayerFriendList;
 
         Exchange = new ExchangeControl(graphicsDevice);
+
+        GoldDrop = new GoldExchangeControl(graphicsDevice)
+        {
+            ZIndex = 2
+        };
+
+        GoldDrop.OnConfirm += amount =>
+        {
+            if (ExchangeAmountSlot.HasValue)
+            {
+                // Exchange stackable item amount response
+                Game.Connection.SendExchangeInteraction(
+                    ExchangeRequestType.AddStackableItem,
+                    Exchange.OtherUserId,
+                    ExchangeAmountSlot.Value,
+                    (byte)Math.Min(amount, byte.MaxValue));
+
+                ExchangeAmountSlot = null;
+            } else if (Exchange.Visible && (GoldDrop.TargetEntityId == Exchange.OtherUserId))
+
+                // Exchange gold setting
+                Game.Connection.SendExchangeInteraction(ExchangeRequestType.SetGold, Exchange.OtherUserId, goldAmount: (int)amount);
+            else if (GoldDrop.TargetEntityId.HasValue)
+                Game.Connection.DropGoldOnCreature((int)amount, GoldDrop.TargetEntityId.Value);
+            else
+                Game.Connection.DropGold((int)amount, GoldDrop.TargetTileX, GoldDrop.TargetTileY);
+        };
+
         MailList = new MailListControl(graphicsDevice);
         MailRead = new MailReadControl(graphicsDevice);
         MailSend = new MailSendControl(graphicsDevice);
@@ -494,6 +574,8 @@ public sealed class WorldScreen : IScreen
         StatusBook.OnUnequip += slot => Game.Connection.Unequip(slot);
         StatusBook.OnClose += SavePlayerFamilyList;
 
+        StatusBook.OnGroupToggled += () => Game.Connection.ToggleGroup();
+
         SocialStatusPicker = new SocialStatusControl(graphicsDevice);
 
         SocialStatusPicker.OnStatusSelected += status =>
@@ -503,6 +585,17 @@ public sealed class WorldScreen : IScreen
         };
 
         TextPopup = new TextPopupControl(graphicsDevice)
+        {
+            ZIndex = 2
+        };
+
+        Notepad = new NotepadControl(graphicsDevice)
+        {
+            ZIndex = 2
+        };
+        Notepad.OnSave += (slot, text) => Game.Connection.SendSetNotepad(slot, text);
+
+        OtherProfile = new OtherProfileControl(graphicsDevice)
         {
             ZIndex = 2
         };
@@ -537,6 +630,7 @@ public sealed class WorldScreen : IScreen
         Root.AddChild(WorldHud);
         Root.AddChild(ItemTooltip);
         Root.AddChild(NpcDialog);
+        Root.AddChild(MerchantDialog);
         Root.AddChild(MainOptions);
         Root.AddChild(SettingsDialog);
         Root.AddChild(MacroMenu);
@@ -545,11 +639,14 @@ public sealed class WorldScreen : IScreen
         Root.AddChild(WorldList);
         Root.AddChild(FriendsList);
         Root.AddChild(Exchange);
+        Root.AddChild(GoldDrop);
         Root.AddChild(MailList);
         Root.AddChild(MailRead);
         Root.AddChild(MailSend);
         Root.AddChild(StatusBook);
+        Root.AddChild(OtherProfile);
         Root.AddChild(TextPopup);
+        Root.AddChild(Notepad);
         Root.AddChild(ChantEdit);
         Root.AddChild(WorldMap);
         Root.AddChild(SocialStatusPicker);
@@ -621,7 +718,7 @@ public sealed class WorldScreen : IScreen
             };
 
         if (WorldHud.ExpandButton is not null)
-            WorldHud.ExpandButton.OnClick += () => WorldHud.ShowOrangeBarMessage("Hud expant is not yet implmented.");
+            WorldHud.ExpandButton.OnClick += () => WorldHud.Inventory.ToggleExpand();
 
         // Request current server settings (populates setting names/values)
         Game.Connection.SendOptionToggle(UserOption.Request);
@@ -696,6 +793,7 @@ public sealed class WorldScreen : IScreen
         Game.Connection.OnDisplayExchange -= HandleDisplayExchange;
         Game.Connection.OnDisplayBoard -= HandleDisplayBoard;
         Game.Connection.OnDisplayGroupInvite -= HandleDisplayGroupInvite;
+        Game.Connection.OnEditableProfileRequest -= HandleEditableProfileRequest;
         Game.Connection.OnSelfProfile -= HandleSelfProfile;
         Game.Connection.OnOtherProfile -= HandleOtherProfile;
         Game.Connection.OnBodyAnimation -= HandleBodyAnimation;
@@ -704,6 +802,7 @@ public sealed class WorldScreen : IScreen
         Game.Connection.OnCancelCasting -= CastingManager.Reset;
         Game.Connection.OnMapChangePending -= HandleMapChangePending;
         Game.Connection.OnExitResponse -= HandleExitResponse;
+        Game.Connection.StateChanged -= HandleStateChanged;
         Game.Connection.OnHealthBar -= HandleHealthBar;
         Game.Connection.OnEffect -= HandleEffect;
         Game.Connection.OnLightLevel -= HandleLightLevel;
@@ -722,21 +821,33 @@ public sealed class WorldScreen : IScreen
         MapRenderer.Dispose();
         TabMapRenderer.Dispose();
         ScissorRasterizerState.Dispose();
+        DarknessRenderer?.Dispose();
+        SilhouetteRenderer?.Dispose();
         Root?.Dispose();
         ClearAislingCache();
         Game.ItemRenderer.Clear();
         ClearChatBubbles();
         ClearHealthBars();
         ClearChantOverlays();
+        ClearNameTagCache();
+        ClearDebugLabelCache();
     }
 
     /// <inheritdoc />
     public void Update(GameTime gameTime)
     {
+        if (PendingLoginSwitch)
+        {
+            PendingLoginSwitch = false;
+            Game.Screens.Switch(new LobbyLoginScreen(true));
+
+            return;
+        }
+
         var input = Game.Input;
         var elapsedMs = (float)gameTime.ElapsedGameTime.TotalMilliseconds;
-        LastClickTimer += elapsedMs;
-        LastRightClickTimer += elapsedMs;
+        LeftClickTracker.Tick(elapsedMs);
+        RightClickTracker.Tick(elapsedMs);
 
         // Advance entity animations and active effects
         var smoothScroll = Game.Settings.ScrollLevel > 0;
@@ -790,14 +901,14 @@ public sealed class WorldScreen : IScreen
         // Execute next pathfinding step when player becomes idle
         if (!movementHandled && player is not null && (player.AnimState == EntityAnimState.Idle))
         {
-            if (PathfindingPath is { Count: > 0 })
+            if (Pathfinding.Path is { Count: > 0 })
             {
                 // If chasing an entity that no longer exists, stop
-                if (PathfindingTargetEntityId.HasValue && Game.World.GetEntity(PathfindingTargetEntityId.Value) is null)
-                    ClearPathfinding();
+                if (Pathfinding.TargetEntityId.HasValue && Game.World.GetEntity(Pathfinding.TargetEntityId.Value) is null)
+                    Pathfinding.Clear();
                 else
                 {
-                    var nextPoint = PathfindingPath.Pop();
+                    var nextPoint = Pathfinding.Path.Pop();
                     var dx = nextPoint.X - player.TileX;
                     var dy = nextPoint.Y - player.TileY;
 
@@ -821,15 +932,15 @@ public sealed class WorldScreen : IScreen
                         PredictAndWalk(player, pathDir.Value);
                         movementHandled = true;
                     } else
-                        ClearPathfinding();
+                        Pathfinding.Clear();
                 }
-            } else if (PathfindingTargetEntityId.HasValue)
+            } else if (Pathfinding.TargetEntityId.HasValue)
             {
                 // Path exhausted with entity target — check if adjacent and assail, or re-pathfind
-                var target = Game.World.GetEntity(PathfindingTargetEntityId.Value);
+                var target = Game.World.GetEntity(Pathfinding.TargetEntityId.Value);
 
                 if (target is null)
-                    ClearPathfinding();
+                    Pathfinding.Clear();
                 else if (IsAdjacent(
                              player.TileX,
                              player.TileY,
@@ -850,28 +961,28 @@ public sealed class WorldScreen : IScreen
                     }
 
                     Game.Connection.Spacebar();
-                    ClearPathfinding();
+                    Pathfinding.Clear();
                     movementHandled = true;
                 } else
                 {
                     // Entity moved — re-pathfind on 100ms timer
-                    PathfindingRetargetTimer += elapsedMs;
+                    Pathfinding.RetargetTimer += elapsedMs;
 
-                    if (PathfindingRetargetTimer >= 100f)
+                    if (Pathfinding.RetargetTimer >= 100f)
                     {
-                        PathfindingRetargetTimer = 0;
+                        Pathfinding.RetargetTimer = 0;
                         PathfindToEntity(player, target);
 
-                        if (PathfindingPath is null)
-                            ClearPathfinding();
+                        if (Pathfinding.Path is null)
+                            Pathfinding.Clear();
                     }
                 }
             }
         }
 
         // Tick re-pathfind timer while walking toward an entity target
-        if (PathfindingTargetEntityId.HasValue && player is not null && (player.AnimState == EntityAnimState.Walking))
-            PathfindingRetargetTimer += elapsedMs;
+        if (Pathfinding.TargetEntityId.HasValue && player is not null && (player.AnimState == EntityAnimState.Walking))
+            Pathfinding.RetargetTimer += elapsedMs;
 
         // Camera follows player's visual position (tile + walk interpolation offset)
         FollowPlayerCamera();
@@ -880,6 +991,13 @@ public sealed class WorldScreen : IScreen
         if (NpcDialog.Visible)
         {
             NpcDialog.Update(gameTime, input);
+
+            return;
+        }
+
+        if (MerchantDialog.Visible)
+        {
+            MerchantDialog.Update(gameTime, input);
 
             return;
         }
@@ -959,9 +1077,31 @@ public sealed class WorldScreen : IScreen
             return;
         }
 
+        if (WorldHud.Prompt.Visible)
+        {
+            WorldHud.Prompt.Update(gameTime, input);
+
+            return;
+        }
+
+        if (GoldDrop.Visible)
+        {
+            GoldDrop.Update(gameTime, input);
+
+            return;
+        }
+
         if (Exchange.Visible)
         {
+            WorldHud.Update(gameTime, input);
             Exchange.Update(gameTime, input);
+
+            // Allow setting gold by clicking MyMoney area — shows gold amount popup
+            if (input.WasLeftButtonPressed && Exchange.IsMyMoneyClicked(input.MouseX, input.MouseY))
+            {
+                ExchangeAmountSlot = null;
+                GoldDrop.ShowForTarget(Exchange.OtherUserId, 0, 0);
+            }
 
             return;
         }
@@ -994,11 +1134,25 @@ public sealed class WorldScreen : IScreen
             return;
         }
 
+        if (Notepad.Visible)
+        {
+            Notepad.Update(gameTime, input);
+
+            return;
+        }
+
         if (StatusBook.Visible)
         {
             // HUD panels still receive input while the status book is open (drag-and-drop)
             WorldHud.Update(gameTime, input);
             StatusBook.Update(gameTime, input);
+
+            return;
+        }
+
+        if (OtherProfile.Visible)
+        {
+            OtherProfile.Update(gameTime, input);
 
             return;
         }
@@ -1025,6 +1179,21 @@ public sealed class WorldScreen : IScreen
             return;
         }
 
+        // Track which entity the mouse is hovering over (for name tags, tint highlight, targeting)
+        var hoverEntity = GetEntityAtScreen(input.MouseX, input.MouseY);
+
+        var newHoveredId = hoverEntity is not null && hoverEntity.Type is ClientEntityType.Aisling or ClientEntityType.Creature
+            ? hoverEntity.Id
+            : (uint?)null;
+
+        if (newHoveredId != Highlight.HoveredEntityId)
+            ClearHighlightCache();
+
+        Highlight.HoveredEntityId = newHoveredId;
+
+        // Tint highlight only shows during spell targeting or item dragging
+        Highlight.ShowTintHighlight = CastingManager.IsTargeting || GetDraggingPanel() is not null;
+
         // Tick casting timer (chant lines are sent on a 1-second interval)
         CastingManager.Update(elapsedMs, Game.Connection);
 
@@ -1037,13 +1206,6 @@ public sealed class WorldScreen : IScreen
 
                 return;
             }
-
-            // Highlight entities under cursor
-            HighlightedEntityId = null;
-            var hoverEntity = GetEntityAtScreen(input.MouseX, input.MouseY);
-
-            if (hoverEntity is not null && hoverEntity.Type is ClientEntityType.Aisling or ClientEntityType.Creature)
-                HighlightedEntityId = hoverEntity.Id;
 
             // Click to select target, or cancel if clicking on nothing
             if (input.WasLeftButtonPressed)
@@ -1110,17 +1272,34 @@ public sealed class WorldScreen : IScreen
                 return;
             }
 
-            // Tab panel switching
+            // Tab panel switching — blocked while dragging the orange bar
             var shift = input.IsKeyHeld(Keys.LeftShift) || input.IsKeyHeld(Keys.RightShift);
 
-            if (input.WasKeyPressed(Keys.A))
+            if (WorldHud.IsOrangeBarDragging)
             {
-                if (WorldHud.ActiveTab == HudTab.Inventory)
+                // Suppress all panel switching / expand while dragging
+            } else if (input.WasKeyPressed(Keys.A))
+            {
+                if (shift && (WorldHud.ActiveTab == HudTab.Inventory))
+                {
+                    WorldHud.Inventory.ToggleExpand();
+                } else if (shift)
+                {
+                    WorldHud.ShowTab(HudTab.Inventory);
+
+                    if (!WorldHud.Inventory.IsExpanded)
+                        WorldHud.Inventory.ToggleExpand();
+                } else if (WorldHud.ActiveTab == HudTab.Inventory)
                 {
                     SelfProfileRequested = true;
                     Game.Connection.RequestSelfProfile();
                 } else
+                {
                     WorldHud.ShowTab(HudTab.Inventory);
+
+                    if (WorldHud.Inventory.IsExpanded)
+                        WorldHud.Inventory.ToggleExpand();
+                }
             } else if (input.WasKeyPressed(Keys.S))
                 WorldHud.ShowTab(shift ? HudTab.SkillsAlt : HudTab.Skills);
             else if (input.WasKeyPressed(Keys.D))
@@ -1131,9 +1310,6 @@ public sealed class WorldScreen : IScreen
                 WorldHud.ShowTab(shift ? HudTab.ExtendedStats : HudTab.Stats);
             else if (input.WasKeyPressed(Keys.H))
                 WorldHud.ShowTab(HudTab.Tools);
-            else if (input.WasKeyPressed(Keys.T))
-                if (!WorldHud.ChatInput.IsFocused)
-                    FocusChat(string.Empty, Color.White);
 
             // Tab — toggle tab map overlay
             if (input.WasKeyPressed(Keys.Tab))
@@ -1190,7 +1366,7 @@ public sealed class WorldScreen : IScreen
             {
                 Game.Connection.Spacebar();
                 SpacebarTimer = SPACEBAR_INTERVAL_MS;
-                ClearPathfinding();
+                Pathfinding.Clear();
             } else if (!input.IsKeyHeld(Keys.Space))
                 SpacebarTimer = 0;
 
@@ -1247,7 +1423,7 @@ public sealed class WorldScreen : IScreen
 
             // Arrow key press cancels any active pathfinding
             if (direction.HasValue)
-                ClearPathfinding();
+                Pathfinding.Clear();
 
             if (direction.HasValue && player is not null && !movementHandled)
             {
@@ -1279,7 +1455,10 @@ public sealed class WorldScreen : IScreen
         // Update inventory tooltip position to follow cursor
         if (HoveredInventorySlot is not null && ItemTooltip.Visible)
         {
-            ItemTooltip.X = Math.Clamp(input.MouseX + 15, 0, ChaosGame.VIRTUAL_WIDTH - ItemTooltip.Width);
+            var rightX = input.MouseX + 15;
+
+            ItemTooltip.X = (rightX + ItemTooltip.Width) <= ChaosGame.VIRTUAL_WIDTH ? rightX : input.MouseX - ItemTooltip.Width;
+
             ItemTooltip.Y = Math.Clamp(input.MouseY + 15, 0, ChaosGame.VIRTUAL_HEIGHT - ItemTooltip.Height);
         }
 
@@ -1290,6 +1469,8 @@ public sealed class WorldScreen : IScreen
         UpdateChatBubbles(gameTime, input);
         UpdateChantOverlays(gameTime, input);
         UpdateHealthBars(gameTime);
+
+        // Player silhouette is pre-rendered at the start of Draw
     }
 
     #region Exchange Wiring
@@ -1311,19 +1492,35 @@ public sealed class WorldScreen : IScreen
         // Mail list events
         MailList.OnViewPost += postId =>
         {
-            Game.Connection.SendBoardInteraction(BoardRequestType.ViewPost, MailList.BoardId, postId);
+            Game.Connection.SendBoardInteraction(
+                BoardRequestType.ViewPost,
+                MailList.BoardId,
+                postId,
+                controls: BoardControls.RequestPost);
         };
 
         MailList.OnNewMail += () =>
         {
             MailList.Hide();
             MailSend.BoardId = MailList.BoardId;
+            MailSend.IsPublicBoard = MailList.IsPublicBoard;
             MailSend.ShowCompose();
         };
 
         MailList.OnDeletePost += postId => Game.Connection.SendBoardInteraction(BoardRequestType.Delete, MailList.BoardId, postId);
 
-        MailList.OnReplyPost += postId => Game.Connection.SendBoardInteraction(BoardRequestType.ViewPost, MailList.BoardId, postId);
+        MailList.OnReplyPost += postId => Game.Connection.SendBoardInteraction(
+            BoardRequestType.ViewPost,
+            MailList.BoardId,
+            postId,
+            controls: BoardControls.RequestPost);
+
+        // Pagination: load next page of posts starting from the last visible post
+        MailList.OnLoadMorePosts += lastPostId =>
+        {
+            LoadingMoreBoardPosts = true;
+            Game.Connection.SendBoardInteraction(BoardRequestType.ViewBoard, MailList.BoardId, startPostId: lastPostId);
+        };
 
         // Mail read events
         MailRead.OnClose += () =>
@@ -1338,6 +1535,7 @@ public sealed class WorldScreen : IScreen
         {
             MailRead.Hide();
             MailSend.BoardId = MailRead.BoardId;
+            MailSend.IsPublicBoard = MailRead.IsPublicBoard;
             MailSend.ShowCompose(MailRead.CurrentAuthor);
         };
 
@@ -1351,31 +1549,50 @@ public sealed class WorldScreen : IScreen
         {
             MailRead.Hide();
             MailSend.BoardId = MailRead.BoardId;
+            MailSend.IsPublicBoard = MailRead.IsPublicBoard;
             MailSend.ShowCompose();
         };
 
         MailRead.OnPrev += () =>
         {
-            // Request previous post
-            var prevId = (short)(MailRead.CurrentPostId - 1);
-            Game.Connection.SendBoardInteraction(BoardRequestType.ViewPost, MailRead.BoardId, prevId);
+            // Server expects postId+1 for PreviousPage (it decrements internally)
+            var prevId = (short)(MailRead.CurrentPostId + 1);
+
+            Game.Connection.SendBoardInteraction(
+                BoardRequestType.ViewPost,
+                MailRead.BoardId,
+                prevId,
+                controls: BoardControls.PreviousPage);
         };
 
         MailRead.OnNext += () =>
         {
-            var nextId = (short)(MailRead.CurrentPostId + 1);
-            Game.Connection.SendBoardInteraction(BoardRequestType.ViewPost, MailRead.BoardId, nextId);
+            // Server expects postId-1 for NextPage (it increments internally)
+            var nextId = (short)(MailRead.CurrentPostId - 1);
+
+            Game.Connection.SendBoardInteraction(
+                BoardRequestType.ViewPost,
+                MailRead.BoardId,
+                nextId,
+                controls: BoardControls.NextPage);
         };
 
         // Mail send events
         MailSend.OnSend += (recipient, subject, body) =>
         {
-            Game.Connection.SendBoardInteraction(
-                BoardRequestType.SendMail,
-                MailSend.BoardId,
-                to: recipient,
-                subject: subject,
-                message: body);
+            if (MailSend.IsPublicBoard)
+                Game.Connection.SendBoardInteraction(
+                    BoardRequestType.NewPost,
+                    MailSend.BoardId,
+                    subject: subject,
+                    message: body);
+            else
+                Game.Connection.SendBoardInteraction(
+                    BoardRequestType.SendMail,
+                    MailSend.BoardId,
+                    to: recipient,
+                    subject: subject,
+                    message: body);
 
             MailSend.Hide();
         };
@@ -1392,6 +1609,48 @@ public sealed class WorldScreen : IScreen
     }
     #endregion
 
+    #region Merchant Dialog Wiring
+    private void WireMerchantDialog()
+    {
+        MerchantDialog.OnClose += () =>
+        {
+            if (MerchantDialog.SourceId is { } sourceId)
+                Game.Connection.SendMenuResponse(MerchantDialog.SourceEntityType, sourceId, MerchantDialog.PursuitId);
+        };
+
+        MerchantDialog.OnItemSelected += selectedIndex =>
+        {
+            if (MerchantDialog.SourceId is not { } sourceId)
+                return;
+
+            var slot = MerchantDialog.GetEntrySlot(selectedIndex);
+
+            if (slot is null)
+                return;
+
+            // ShowPlayerItems/ShowPlayerSkills/ShowPlayerSpells send the slot byte
+            // ShowItems/ShowSkills/ShowSpells send the name as an arg
+            if (MerchantDialog.CurrentMenuType is MenuType.ShowPlayerItems or MenuType.ShowPlayerSkills or MenuType.ShowPlayerSpells)
+                Game.Connection.SendMenuResponse(
+                    MerchantDialog.SourceEntityType,
+                    sourceId,
+                    MerchantDialog.PursuitId,
+                    slot.Value);
+            else
+            {
+                var name = MerchantDialog.GetEntryName(selectedIndex);
+
+                if (name is not null)
+                    Game.Connection.SendMenuResponse(
+                        MerchantDialog.SourceEntityType,
+                        sourceId,
+                        MerchantDialog.PursuitId,
+                        args: [name]);
+            }
+        };
+    }
+    #endregion
+
     #region NPC Dialog Wiring
     private void WireNpcDialog()
     {
@@ -1399,7 +1658,7 @@ public sealed class WorldScreen : IScreen
         {
             if (NpcDialog.SourceId is { } sourceId)
                 Game.Connection.SendDialogResponse(
-                    NpcEntityType.Creature,
+                    NpcDialog.SourceEntityType,
                     sourceId,
                     NpcDialog.PursuitId,
                     0); // dialogId 0 = close
@@ -1409,7 +1668,7 @@ public sealed class WorldScreen : IScreen
         {
             if (NpcDialog.SourceId is { } sourceId)
                 Game.Connection.SendDialogResponse(
-                    NpcEntityType.Creature,
+                    NpcDialog.SourceEntityType,
                     sourceId,
                     NpcDialog.PursuitId,
                     (ushort)(NpcDialog.DialogId + 1));
@@ -1419,7 +1678,7 @@ public sealed class WorldScreen : IScreen
         {
             if (NpcDialog.SourceId is { } sourceId)
                 Game.Connection.SendDialogResponse(
-                    NpcEntityType.Creature,
+                    NpcDialog.SourceEntityType,
                     sourceId,
                     NpcDialog.PursuitId,
                     (ushort)(NpcDialog.DialogId - 1));
@@ -1427,26 +1686,52 @@ public sealed class WorldScreen : IScreen
 
         NpcDialog.OnOptionSelected += optionIndex =>
         {
-            if (NpcDialog.SourceId is { } sourceId)
+            if (NpcDialog.SourceId is not { } sourceId)
+                return;
+
+            if (NpcDialog.IsMenuMode)
+            {
+                // Menu responses use MenuInteraction opcode (0x39) with the option's pursuit ID
+                var pursuitId = NpcDialog.GetOptionPursuitId(optionIndex);
+
+                Game.Connection.SendMenuResponse(NpcDialog.SourceEntityType, sourceId, pursuitId);
+            } else
+            {
+                // Dialog responses use DialogInteraction opcode (0x3A) with option index
                 Game.Connection.SendDialogResponse(
-                    NpcEntityType.Creature,
+                    NpcDialog.SourceEntityType,
                     sourceId,
                     NpcDialog.PursuitId,
                     (ushort)(NpcDialog.DialogId + 1),
                     DialogArgsType.MenuResponse,
                     (byte)(optionIndex + 1));
+            }
         };
 
         NpcDialog.OnTextSubmit += text =>
         {
-            if (NpcDialog.SourceId is { } sourceId)
+            if (NpcDialog.SourceId is not { } sourceId)
+                return;
+
+            if (NpcDialog.IsMenuMode)
+            {
+                // Menu text responses use MenuInteraction opcode (0x39)
+                Game.Connection.SendMenuResponse(
+                    NpcDialog.SourceEntityType,
+                    sourceId,
+                    NpcDialog.PursuitId,
+                    args: [text]);
+            } else
+            {
+                // Dialog text responses use DialogInteraction opcode (0x3A)
                 Game.Connection.SendDialogResponse(
-                    NpcEntityType.Creature,
+                    NpcDialog.SourceEntityType,
                     sourceId,
                     NpcDialog.PursuitId,
                     (ushort)(NpcDialog.DialogId + 1),
                     DialogArgsType.TextResponse,
                     args: [text]);
+            }
         };
     }
     #endregion
@@ -1549,8 +1834,8 @@ public sealed class WorldScreen : IScreen
                 continue;
 
             var tileWorld = Camera.TileToWorld(dying.TileX, dying.TileY, MapFile.Height);
-            var tileCenterX = tileWorld.X + HALF_TILE_WIDTH;
-            var tileCenterY = tileWorld.Y + HALF_TILE_HEIGHT;
+            var tileCenterX = tileWorld.X + DaLibConstants.HALF_TILE_WIDTH;
+            var tileCenterY = tileWorld.Y + DaLibConstants.HALF_TILE_HEIGHT;
 
             var texCenterX = dying.CenterX - Math.Min(0, (int)dying.Left);
             var texCenterY = dying.CenterY - Math.Min(0, (int)dying.Top);
@@ -1594,8 +1879,8 @@ public sealed class WorldScreen : IScreen
             DrawSingleEffect(
                 spriteBatch,
                 effect,
-                tileWorld.X + HALF_TILE_WIDTH,
-                tileWorld.Y + HALF_TILE_HEIGHT,
+                tileWorld.X + DaLibConstants.HALF_TILE_WIDTH,
+                tileWorld.Y + DaLibConstants.HALF_TILE_HEIGHT,
                 Vector2.Zero);
         }
     }
@@ -1683,8 +1968,8 @@ public sealed class WorldScreen : IScreen
             return;
 
         var tileWorldPos = Camera.TileToWorld(entity.TileX, entity.TileY, MapFile.Height);
-        var tileCenterX = tileWorldPos.X + HALF_TILE_WIDTH;
-        var tileCenterY = tileWorldPos.Y + HALF_TILE_HEIGHT;
+        var tileCenterX = tileWorldPos.X + DaLibConstants.HALF_TILE_WIDTH;
+        var tileCenterY = tileWorldPos.Y + DaLibConstants.HALF_TILE_HEIGHT;
 
         var textureBottom = 0;
 
@@ -1775,7 +2060,8 @@ public sealed class WorldScreen : IScreen
 
         var effects = flip ? SpriteEffects.FlipHorizontally : SpriteEffects.None;
 
-        var drawTexture = HighlightedEntityId == entity.Id ? GetOrCreateTintedTexture(frame.Texture, entity.Id) : frame.Texture;
+        var shouldTint = Highlight.ShowTintHighlight && (Highlight.HoveredEntityId == entity.Id);
+        var drawTexture = shouldTint ? GetOrCreateTintedTexture(frame.Texture, entity.Id) : frame.Texture;
 
         spriteBatch.Draw(
             drawTexture,
@@ -1849,33 +2135,48 @@ public sealed class WorldScreen : IScreen
             AislingCache[entity.Id] = cached;
         }
 
-        var drawDataRef = cached.DrawData!;
+        var cachedDrawData = cached.DrawData!;
 
         // Base position: composite canvas origin relative to tile center
         var baseX = tileCenterX + entity.VisualOffset.X - BODY_CENTER_X;
         var baseY = tileCenterY + entity.VisualOffset.Y - BODY_CENTER_Y;
         var flipPivot = AislingRenderer.BODY_CENTER_X + AislingRenderer.LAYER_OFFSET_PADDING;
 
-        var isHighlighted = HighlightedEntityId == entity.Id;
+        var isHighlighted = Highlight.ShowTintHighlight && (Highlight.HoveredEntityId == entity.Id);
+
+        // Transparent aislings use the pre-composited render target for uniform alpha (no layer bleed-through)
+        if (entity.IsTransparent
+            && SilhouetteRenderer.DrawTransparentEntity(
+                spriteBatch,
+                entity,
+                Camera,
+                MapFile!.Height,
+                BODY_CENTER_X,
+                BODY_CENTER_Y))
+        {
+            var bodyScreenPos2 = Camera.WorldToScreen(new Vector2(baseX, baseY));
+
+            return (int)(bodyScreenPos2.Y + AislingRenderer.COMPOSITE_HEIGHT);
+        }
 
         // Draw each layer in order
-        foreach (var slot in drawDataRef.DrawOrder)
+        foreach (var slot in cachedDrawData.DrawOrder)
         {
-            if (drawDataRef.Layers[(int)slot] is not { } layer)
+            if (cachedDrawData.Layers[(int)slot] is not { } layer)
                 continue;
 
             var layerOffsetX = AislingRenderer.GetLayerOffsetX(layer.TypeLetter) + AislingRenderer.LAYER_OFFSET_PADDING;
 
             float compositeX;
 
-            if (drawDataRef.FlipHorizontal)
+            if (cachedDrawData.FlipHorizontal)
                 compositeX = 2 * flipPivot - layerOffsetX - layer.Texture.Width;
             else
                 compositeX = layerOffsetX;
 
             var worldPos = new Vector2(baseX + compositeX, baseY);
             var screenPos = Camera.WorldToScreen(worldPos);
-            var effects = drawDataRef.FlipHorizontal ? SpriteEffects.FlipHorizontally : SpriteEffects.None;
+            var effects = cachedDrawData.FlipHorizontal ? SpriteEffects.FlipHorizontally : SpriteEffects.None;
 
             var drawTexture = isHighlighted ? Game.AislingRenderer.GetOrCreateTintedTexture(Device, layer.Texture) : layer.Texture;
 
@@ -1906,26 +2207,12 @@ public sealed class WorldScreen : IScreen
     ///     Returns a tinted texture for the given source, caching it for the current highlighted entity. Regenerates when the
     ///     entity or source texture changes.
     /// </summary>
-    private Texture2D GetOrCreateTintedTexture(Texture2D source, uint entityId)
-    {
-        if (HighlightTintedTexture is not null && (HighlightTintedEntityId == entityId) && (HighlightTintedSource == source))
-            return HighlightTintedTexture;
-
-        HighlightTintedTexture?.Dispose();
-        HighlightTintedTexture = CreateTintedTexture(source);
-        HighlightTintedEntityId = entityId;
-        HighlightTintedSource = source;
-
-        return HighlightTintedTexture;
-    }
+    private Texture2D? GetOrCreateTintedTexture(Texture2D source, uint entityId)
+        => Highlight.GetOrCreateTinted(source, entityId, CreateTintedTexture);
 
     private void ClearHighlightCache()
     {
-        HighlightTintedTexture?.Dispose();
-        HighlightTintedTexture = null;
-        HighlightTintedEntityId = null;
-        HighlightTintedSource = null;
-
+        Highlight.ClearTint();
         Game.AislingRenderer.ClearTintedCache();
     }
 
@@ -1935,8 +2222,8 @@ public sealed class WorldScreen : IScreen
             return;
 
         var tileWorldPos = Camera.TileToWorld(entity.TileX, entity.TileY, MapFile.Height);
-        var tileCenterX = tileWorldPos.X + HALF_TILE_WIDTH;
-        var tileCenterY = tileWorldPos.Y + HALF_TILE_HEIGHT;
+        var tileCenterX = tileWorldPos.X + DaLibConstants.HALF_TILE_WIDTH;
+        var tileCenterY = tileWorldPos.Y + DaLibConstants.HALF_TILE_HEIGHT;
 
         foreach (var effect in Game.World.ActiveEffects)
         {
@@ -1958,7 +2245,7 @@ public sealed class WorldScreen : IScreen
         float tileCenterX,
         float tileCenterY)
     {
-        var sprite = Game.ItemRenderer.GetSprite(Device, entity.SpriteId);
+        var sprite = Game.ItemRenderer.GetSprite(Device, entity.SpriteId, entity.ItemColor);
 
         if (sprite is null)
             return;
@@ -2003,8 +2290,8 @@ public sealed class WorldScreen : IScreen
                 continue;
 
             var tileWorld = Camera.TileToWorld(entity.TileX, entity.TileY, MapFile.Height);
-            var tileCenterX = tileWorld.X + HALF_TILE_WIDTH;
-            var tileCenterY = tileWorld.Y + HALF_TILE_HEIGHT;
+            var tileCenterX = tileWorld.X + DaLibConstants.HALF_TILE_WIDTH;
+            var tileCenterY = tileWorld.Y + DaLibConstants.HALF_TILE_HEIGHT;
 
             var entityWorldX = tileCenterX + entity.VisualOffset.X;
             var entityWorldY = tileCenterY + entity.VisualOffset.Y - 64;
@@ -2060,8 +2347,8 @@ public sealed class WorldScreen : IScreen
             }
 
             var tileWorld = Camera.TileToWorld(entity.TileX, entity.TileY, MapFile.Height);
-            var entityWorldX = tileWorld.X + HALF_TILE_WIDTH + entity.VisualOffset.X;
-            var entityWorldY = tileWorld.Y + HALF_TILE_HEIGHT + entity.VisualOffset.Y - HEALTH_BAR_Y_OFFSET;
+            var entityWorldX = tileWorld.X + DaLibConstants.HALF_TILE_WIDTH + entity.VisualOffset.X;
+            var entityWorldY = tileWorld.Y + DaLibConstants.HALF_TILE_HEIGHT + entity.VisualOffset.Y - HEALTH_BAR_Y_OFFSET;
 
             var screenPos = Camera.WorldToScreen(new Vector2(entityWorldX - bar.Width / 2f, entityWorldY));
             bar.X = (int)screenPos.X + 1;
@@ -2081,6 +2368,56 @@ public sealed class WorldScreen : IScreen
     {
         foreach (var bar in HealthBars.Values)
             bar.Draw(spriteBatch);
+    }
+
+    private void DrawNameTags(SpriteBatch spriteBatch)
+    {
+        if (MapFile is null)
+            return;
+
+        var entities = Game.World.GetSortedEntities();
+
+        for (var i = 0; i < entities.Count; i++)
+        {
+            var entity = entities[i];
+
+            if (entity.Type != ClientEntityType.Aisling)
+                continue;
+
+            if (string.IsNullOrEmpty(entity.Name))
+                continue;
+
+            // NeutralHover/FriendlyHover: only show on hover, and not during targeting/dragging
+            var isHoverOnly = entity.NameTagStyle is NameTagStyle.NeutralHover or NameTagStyle.FriendlyHover;
+
+            if (isHoverOnly && (Highlight.ShowTintHighlight || (Highlight.HoveredEntityId != entity.Id)))
+                continue;
+
+            var nameColor = entity.NameTagStyle switch
+            {
+                NameTagStyle.Hostile       => new Color(255, 128, 0),
+                NameTagStyle.FriendlyHover => Color.LimeGreen,
+                _                          => Color.White
+            };
+
+            if (!NameTagCache.TryGetValue(entity.Id, out var cachedText))
+            {
+                cachedText = new CachedText(Device);
+                NameTagCache[entity.Id] = cachedText;
+            }
+
+            cachedText.UpdateShadowed(entity.Name, nameColor, NAME_TAG_SHADOW_COLOR);
+
+            if (cachedText.Texture is null)
+                continue;
+
+            var tileWorld = Camera.TileToWorld(entity.TileX, entity.TileY, MapFile.Height);
+            var entityWorldX = tileWorld.X + DaLibConstants.HALF_TILE_WIDTH + entity.VisualOffset.X;
+            var entityWorldY = tileWorld.Y + DaLibConstants.HALF_TILE_HEIGHT + entity.VisualOffset.Y - NAME_TAG_Y_OFFSET;
+            var screenPos = Camera.WorldToScreen(new Vector2(entityWorldX - cachedText.Texture.Width / 2f, entityWorldY));
+
+            cachedText.Draw(spriteBatch, screenPos);
+        }
     }
 
     private void UpdateChantOverlays(GameTime gameTime, InputBuffer input)
@@ -2107,8 +2444,8 @@ public sealed class WorldScreen : IScreen
                 continue;
 
             var tileWorld = Camera.TileToWorld(entity.TileX, entity.TileY, MapFile.Height);
-            var tileCenterX = tileWorld.X + HALF_TILE_WIDTH;
-            var tileCenterY = tileWorld.Y + HALF_TILE_HEIGHT;
+            var tileCenterX = tileWorld.X + DaLibConstants.HALF_TILE_WIDTH;
+            var tileCenterY = tileWorld.Y + DaLibConstants.HALF_TILE_HEIGHT;
 
             var entityWorldX = tileCenterX + entity.VisualOffset.X;
             var entityWorldY = tileCenterY + entity.VisualOffset.Y - 60;
@@ -2141,6 +2478,8 @@ public sealed class WorldScreen : IScreen
         if (MapFile is null)
             return;
 
+        PendingDebugLabels.Clear();
+
         var pixel = UIElement.GetPixel(Device);
 
         // Foreground tile hitboxes (doors, interactive objects)
@@ -2163,8 +2502,8 @@ public sealed class WorldScreen : IScreen
                 var tileRect = new Rectangle(
                     (int)topLeft.X,
                     (int)topLeft.Y,
-                    HALF_TILE_WIDTH * 2,
-                    HALF_TILE_HEIGHT * 2);
+                    DaLibConstants.HALF_TILE_WIDTH * 2,
+                    DaLibConstants.HALF_TILE_HEIGHT * 2);
 
                 spriteBatch.Draw(
                     pixel,
@@ -2207,7 +2546,7 @@ public sealed class WorldScreen : IScreen
         foreach (var entity in Game.World.GetSortedEntities())
         {
             var tileWorld = Camera.TileToWorld(entity.TileX, entity.TileY, MapFile.Height);
-            var tileCenterX = tileWorld.X + HALF_TILE_WIDTH;
+            var tileCenterX = tileWorld.X + DaLibConstants.HALF_TILE_WIDTH;
 
             // Draw tile hitbox (the isometric diamond as a screen-space rect)
             var topLeft = Camera.WorldToScreen(new Vector2(tileWorld.X, tileWorld.Y));
@@ -2215,8 +2554,8 @@ public sealed class WorldScreen : IScreen
             var tileRect = new Rectangle(
                 (int)topLeft.X,
                 (int)topLeft.Y,
-                HALF_TILE_WIDTH * 2,
-                HALF_TILE_HEIGHT * 2);
+                DaLibConstants.HALF_TILE_WIDTH * 2,
+                DaLibConstants.HALF_TILE_HEIGHT * 2);
 
             var color = entity.Type switch
             {
@@ -2266,12 +2605,22 @@ public sealed class WorldScreen : IScreen
             // Draw fill
             spriteBatch.Draw(pixel, tileRect, color * 0.15f);
 
-            // Entity name/info label
+            // Entity name/info label (cached, deferred to draw after all pixel-texture geometry)
             var label = $"{entity.Name} [{entity.Id}] ({entity.TileX},{entity.TileY})";
-            var labelTexture = TextRenderer.RenderText(Device, label, color);
-            var labelPos = Camera.WorldToScreen(new Vector2(tileCenterX - labelTexture.Width / 2f, tileWorld.Y - 12));
-            spriteBatch.Draw(labelTexture, labelPos, Color.White);
-            labelTexture.Dispose();
+
+            if (!DebugLabelCache.TryGetValue(entity.Id, out var cachedLabel))
+            {
+                cachedLabel = new CachedText(Device);
+                DebugLabelCache[entity.Id] = cachedLabel;
+            }
+
+            cachedLabel.Update(label, color);
+
+            if (cachedLabel.Texture is not null)
+            {
+                var labelPos = Camera.WorldToScreen(new Vector2(tileCenterX - cachedLabel.Texture.Width / 2f, tileWorld.Y - 12));
+                PendingDebugLabels.Add((cachedLabel, labelPos));
+            }
         }
 
         // Draw player position crosshair
@@ -2283,8 +2632,8 @@ public sealed class WorldScreen : IScreen
 
             var playerCenter = Camera.WorldToScreen(
                 new Vector2(
-                    playerWorld.X + HALF_TILE_WIDTH + player.VisualOffset.X,
-                    playerWorld.Y + HALF_TILE_HEIGHT + player.VisualOffset.Y));
+                    playerWorld.X + DaLibConstants.HALF_TILE_WIDTH + player.VisualOffset.X,
+                    playerWorld.Y + DaLibConstants.HALF_TILE_HEIGHT + player.VisualOffset.Y));
 
             spriteBatch.Draw(
                 pixel,
@@ -2317,8 +2666,8 @@ public sealed class WorldScreen : IScreen
             var hoverRect = new Rectangle(
                 (int)hoverScreen.X,
                 (int)hoverScreen.Y,
-                HALF_TILE_WIDTH * 2,
-                HALF_TILE_HEIGHT * 2);
+                DaLibConstants.HALF_TILE_WIDTH * 2,
+                DaLibConstants.HALF_TILE_HEIGHT * 2);
 
             spriteBatch.Draw(pixel, hoverRect, Color.Magenta * 0.3f);
 
@@ -2401,25 +2750,13 @@ public sealed class WorldScreen : IScreen
                 Color.Orange * 0.8f);
         }
 
+        // Deferred entity debug labels — drawn after all pixel-texture geometry to minimize batch breaks
+        foreach ((var text, var pos) in PendingDebugLabels)
+            text.Draw(spriteBatch, pos);
+
         // FPS counter (top-left of viewport)
-        DebugFpsFrameCount++;
-        DebugFpsElapsed += (float)Game.TargetElapsedTime.TotalMilliseconds;
-
-        if (DebugFpsElapsed >= 1000f)
-        {
-            var prevFps = DebugFpsDisplay;
-            DebugFpsDisplay = DebugFpsFrameCount;
-            DebugFpsFrameCount = 0;
-            DebugFpsElapsed -= 1000f;
-
-            if (prevFps != DebugFpsDisplay)
-            {
-                DebugFpsText ??= new CachedText(Device);
-                DebugFpsText.Update($"FPS: {DebugFpsDisplay}", Color.White);
-            }
-        }
-
-        DebugFpsText?.Draw(spriteBatch, new Vector2(5, 5));
+        FpsCounter.Update(Device, (float)Game.TargetElapsedTime.TotalMilliseconds);
+        FpsCounter.Draw(spriteBatch, new Vector2(5, 5));
     }
 
     /// <summary>
@@ -2428,8 +2765,8 @@ public sealed class WorldScreen : IScreen
     /// </summary>
     private static Texture2D CreateTileCursorTexture(GraphicsDevice device, Color color)
     {
-        const int WIDTH = HALF_TILE_WIDTH * 2; // 56
-        const int HEIGHT = HALF_TILE_HEIGHT * 2; // 28
+        const int WIDTH = DaLibConstants.HALF_TILE_WIDTH * 2; // 56
+        const int HEIGHT = DaLibConstants.HALF_TILE_HEIGHT * 2; // 28
 
         var pixels = new Color[WIDTH * HEIGHT];
 
@@ -2591,25 +2928,47 @@ public sealed class WorldScreen : IScreen
 
     private void HandleMapInfo(MapInfoArgs args)
     {
+        // Same map (refresh) — skip expensive teardown, just clear transient entity state
+        if ((args.MapId == CurrentMapId) && MapFile is not null)
+        {
+            ClearTransientState();
+            WorldHud.SetZoneName(args.Name);
+
+            return;
+        }
+
         // New map — dispose old caches, load fresh MapFile from local files
         MapRenderer.Dispose();
         MapRenderer = new MapRenderer();
         MapFile = LoadMapFile(args.MapId, args.Width, args.Height);
         MapPreloaded = false;
+        CurrentMapId = args.MapId;
 
-        // Clear entity state and caches for the new map
-        Game.World.Clear();
+        // Clear entity + renderer caches for the new map
+        ClearTransientState();
         Game.CreatureRenderer.Clear();
         Game.AislingRenderer.ClearCache();
         Game.AislingRenderer.ClearLayerCache();
-        ClearAislingCache();
         Game.ItemRenderer.Clear();
+
+        // Reset darkness state and load HEA light map for the new map
+        DarknessRenderer.OnMapChanged(args.MapId);
+
+        WorldHud.SetZoneName(args.Name);
+    }
+
+    private void ClearTransientState()
+    {
+        Game.World.Clear();
+        ClearAislingCache();
         ClearChatBubbles();
         ClearHealthBars();
         ClearChantOverlays();
-        ClearPathfinding();
-
-        WorldHud.SetZoneName(args.Name);
+        ClearNameTagCache();
+        ClearDebugLabelCache();
+        NpcDialog.Hide();
+        MerchantDialog.Hide();
+        Pathfinding.Clear();
     }
 
     private void HandleMapData(MapDataArgs args)
@@ -2669,7 +3028,7 @@ public sealed class WorldScreen : IScreen
                 var tile = mapFile.Tiles[x, y];
 
                 if (IsTileWall(tile.LeftForeground, sotpData) || IsTileWall(tile.RightForeground, sotpData))
-                    walls.Add(new ChaosPoint(x, y));
+                    walls.Add(new Geometry.Point(x, y));
             }
 
         return new Pathfinder(
@@ -2794,6 +3153,14 @@ public sealed class WorldScreen : IScreen
         // Clean up aisling draw data cache (layer textures are owned by AislingRenderer)
         AislingCache.Remove(id);
 
+        // Clean up cached name tag texture
+        if (NameTagCache.Remove(id, out var nameTag))
+            nameTag.Dispose();
+
+        // Clean up cached debug label texture
+        if (DebugLabelCache.Remove(id, out var debugLabel))
+            debugLabel.Dispose();
+
         // Remove entity from WorldState (ChaosGame skips removal when WorldScreen is active)
         Game.World.RemoveEntity(id);
     }
@@ -2884,7 +3251,7 @@ public sealed class WorldScreen : IScreen
             player.TileX = serverX;
             player.TileY = serverY;
             WorldHud.SetCoords(serverX, serverY);
-            ClearPathfinding();
+            Pathfinding.Clear();
         }
     }
 
@@ -3209,7 +3576,7 @@ public sealed class WorldScreen : IScreen
     private void HandleInventoryDropInViewport(byte slot, int mouseX, int mouseY)
     {
         // Dropped onto an equipment slot — equip the item
-        if (StatusBook.Visible && StatusBook.ContainsEquipmentSlotPoint(mouseX, mouseY))
+        if ((slot != 0) && StatusBook.Visible && StatusBook.ContainsEquipmentSlotPoint(mouseX, mouseY))
         {
             Game.Connection.UseItem(slot);
 
@@ -3228,32 +3595,119 @@ public sealed class WorldScreen : IScreen
         if (MapFile is null)
             return;
 
-        // Check if dropped on an entity (give item to NPC/player) — skip self (drop on ground instead)
+        // Check if dropped on an entity (give item/gold to NPC/player) — skip self (drop on ground instead)
         (var tileX, var tileY) = ScreenToTile(mouseX, mouseY);
         var entity = Game.World.GetEntityAt(tileX, tileY);
 
-        if (entity is not null
-            && entity.Type is ClientEntityType.Aisling or ClientEntityType.Creature
-            && (entity.Id != Game.Connection.AislingId))
-            Game.Connection.DropItemOnCreature(slot, entity.Id);
-        else
-            Game.Connection.DropItem(slot, tileX, tileY);
-    }
+        var droppedOnEntity = entity is not null
+                              && entity.Type is ClientEntityType.Aisling or ClientEntityType.Creature
+                              && (entity.Id != Game.Connection.AislingId);
 
-    private void HandleDisplayDialog(DisplayDialogArgs args)
-    {
-        // CloseDialog type means hide the NPC dialog
-        if (args.DialogType == DialogType.CloseDialog)
+        // Gold bag (slot 0) — show the gold amount popup
+        if (slot == 0)
         {
-            NpcDialog.Hide();
+            GoldDrop.Y = viewport.Y + (viewport.Height - GoldDrop.Height) / 2;
+            GoldDrop.ShowForTarget(droppedOnEntity ? entity!.Id : null, tileX, tileY);
 
             return;
         }
 
-        NpcDialog.ShowDialog(args);
+        if (droppedOnEntity)
+        {
+            Game.Connection.DropItemOnCreature(slot, entity!.Id);
+
+            return;
+        }
+
+        // Stackable items — prompt for count before dropping
+        if (Game.Connection.InventorySlots.TryGetValue(slot, out var slotInfo) && slotInfo.Stackable)
+        {
+            WorldHud.Prompt.ShowPrompt($"Number of items to drop [ 0 - {(int)slotInfo.Count} ]: ");
+
+            var capturedSlot = slot;
+            var capturedX = tileX;
+            var capturedY = tileY;
+
+            void OnPromptConfirm(string text)
+            {
+                WorldHud.Prompt.OnConfirm -= OnPromptConfirm;
+
+                if (int.TryParse(text, out var count) && (count > 0))
+                    Game.Connection.DropItem(
+                        capturedSlot,
+                        capturedX,
+                        capturedY,
+                        count);
+            }
+
+            WorldHud.Prompt.OnConfirm += OnPromptConfirm;
+
+            return;
+        }
+
+        Game.Connection.DropItem(slot, tileX, tileY);
     }
 
-    private void HandleDisplayMenu(DisplayMenuArgs args) => NpcDialog.ShowMenu(args);
+    private void HandleDisplayDialog(DisplayDialogArgs args)
+    {
+        // CloseDialog type means hide all dialog panels
+        if (args.DialogType == DialogType.CloseDialog)
+        {
+            NpcDialog.Hide();
+            MerchantDialog.Hide();
+
+            return;
+        }
+
+        // Dialog replaces any open merchant panel
+        MerchantDialog.Hide();
+        NpcDialog.ShowDialog(args);
+        RenderNpcPortrait();
+    }
+
+    private void HandleDisplayMenu(DisplayMenuArgs args)
+    {
+        if (args.MenuType is MenuType.ShowItems
+                             or MenuType.ShowPlayerItems
+                             or MenuType.ShowSkills
+                             or MenuType.ShowSpells
+                             or MenuType.ShowPlayerSkills
+                             or MenuType.ShowPlayerSpells)
+        {
+            NpcDialog.Hide();
+            MerchantDialog.ShowMerchant(args, Game.Connection);
+
+            return;
+        }
+
+        MerchantDialog.Hide();
+        NpcDialog.ShowMenu(args);
+        RenderNpcPortrait();
+    }
+
+    private void RenderNpcPortrait()
+    {
+        if (!NpcDialog.ShouldIllustrate || (NpcDialog.PortraitSpriteId == 0))
+        {
+            NpcDialog.SetPortrait(null);
+
+            return;
+        }
+
+        // Render creature standing frame at direction 0 (front-facing)
+        var animInfo = Game.CreatureRenderer.GetAnimInfo(NpcDialog.PortraitSpriteId);
+
+        if (animInfo is null)
+        {
+            NpcDialog.SetPortrait(null);
+
+            return;
+        }
+
+        var standingFrame = Game.CreatureRenderer.GetFrame(Device, NpcDialog.PortraitSpriteId, animInfo.Value.StandingFrameIndex);
+
+        NpcDialog.SetPortrait(standingFrame?.Texture);
+    }
 
     private void HandleEquipment(EquipmentArgs args) => StatusBook.SetEquipmentSlot(args.Slot, args.Item.Sprite);
 
@@ -3482,15 +3936,61 @@ public sealed class WorldScreen : IScreen
             // Whisper phase 2: prefix is "-> targetName: "
             var targetName = prefix[3..^2];
             Game.Connection.SendWhisper(targetName, message);
+        } else if (TryDispatchChatCommand(message))
+        {
+            // Handled as a slash command
         } else
             Game.Connection.SendPublicMessage(message);
     }
 
-    private void ClearAislingCache()
+    /// <summary>
+    ///     Handles slash commands typed in the chat input. Returns true if the message was a recognized command.
+    /// </summary>
+    private bool TryDispatchChatCommand(string message)
     {
-        // Layer textures are owned by AislingRenderer.LayerTextureCache — just clear the draw data references
-        AislingCache.Clear();
+        if (!message.StartsWith('/'))
+            return false;
+
+        // /ignore (no args) — show ignore list
+        if (message.EqualsI("/ignore"))
+        {
+            Game.Connection.SendIgnoreRequest();
+
+            return true;
+        }
+
+        // /ignore Name — add to ignore list
+        if (message.StartsWithI("/ignore "))
+        {
+            var name = message[8..]
+                .Trim();
+
+            if (name.Length > 0)
+                Game.Connection.SendAddIgnore(name);
+
+            return true;
+        }
+
+        // /unignore Name — remove from ignore list
+        if (message.StartsWithI("/unignore "))
+        {
+            var name = message[10..]
+                .Trim();
+
+            if (name.Length > 0)
+                Game.Connection.SendRemoveIgnore(name);
+
+            return true;
+        }
+
+        return false;
     }
+
+    private void ClearAislingCache()
+        =>
+
+            // Layer textures are owned by AislingRenderer.LayerTextureCache — just clear the draw data references
+            AislingCache.Clear();
 
     private void ClearChatBubbles()
     {
@@ -3514,6 +4014,22 @@ public sealed class WorldScreen : IScreen
             overlay.Dispose();
 
         ChantOverlays.Clear();
+    }
+
+    private void ClearNameTagCache()
+    {
+        foreach (var cached in NameTagCache.Values)
+            cached.Dispose();
+
+        NameTagCache.Clear();
+    }
+
+    private void ClearDebugLabelCache()
+    {
+        foreach (var cached in DebugLabelCache.Values)
+            cached.Dispose();
+
+        DebugLabelCache.Clear();
     }
 
     private void LoadPlayerFamilyList()
@@ -3805,15 +4321,9 @@ public sealed class WorldScreen : IScreen
     /// </summary>
     private void UpdateDragHighlight(InputBuffer input)
     {
+        // When not dragging, hover is already managed by the general hover detection in Update
         if (GetDraggingPanel() is null || MapFile is null)
-        {
-            if (HighlightedEntityId is not null)
-                ClearHighlightCache();
-
-            HighlightedEntityId = null;
-
             return;
-        }
 
         (var tileX, var tileY) = ScreenToTile(input.MouseX, input.MouseY);
         var entity = Game.World.GetEntityAt(tileX, tileY);
@@ -3827,10 +4337,10 @@ public sealed class WorldScreen : IScreen
                 ? entity.Id
                 : null;
 
-        if (newHighlight != HighlightedEntityId)
+        if (newHighlight != Highlight.HoveredEntityId)
             ClearHighlightCache();
 
-        HighlightedEntityId = newHighlight;
+        Highlight.HoveredEntityId = newHighlight;
     }
 
     /// <summary>
@@ -3911,11 +4421,7 @@ public sealed class WorldScreen : IScreen
         (var tileX, var tileY) = ScreenToTile(mouseX, mouseY);
 
         // Check for double-click (same tile within time window)
-        var isDoubleClick = (LastClickTimer < DOUBLE_CLICK_MS) && (tileX == LastClickTileX) && (tileY == LastClickTileY);
-
-        LastClickTimer = 0;
-        LastClickTileX = tileX;
-        LastClickTileY = tileY;
+        var isDoubleClick = LeftClickTracker.Click(tileX, tileY);
 
         if (isDoubleClick)
         {
@@ -3966,7 +4472,8 @@ public sealed class WorldScreen : IScreen
                 mouseX,
                 mouseY,
                 ("Whisper", () => FocusChat($"-> {name}: ", new Color(100, 149, 237))),
-                ("Click", () => Game.Connection.ClickEntity(entity.Id)));
+                ("Click", () => Game.Connection.ClickEntity(entity.Id)),
+                ("Ignore", () => Game.Connection.SendAddIgnore(name)));
         }
     }
 
@@ -3994,18 +4501,12 @@ public sealed class WorldScreen : IScreen
         tileX = Math.Clamp(tileX, 0, MapFile.Width - 1);
         tileY = Math.Clamp(tileY, 0, MapFile.Height - 1);
 
-        var isDoubleRightClick = (LastRightClickTimer < DOUBLE_CLICK_MS)
-                                 && (tileX == LastRightClickTileX)
-                                 && (tileY == LastRightClickTileY);
-
-        LastRightClickTimer = 0;
-        LastRightClickTileX = tileX;
-        LastRightClickTileY = tileY;
+        var isDoubleRightClick = RightClickTracker.Click(tileX, tileY);
 
         // Don't pathfind to current position
         if ((tileX == player.TileX) && (tileY == player.TileY))
         {
-            ClearPathfinding();
+            Pathfinding.Clear();
 
             return;
         }
@@ -4017,8 +4518,7 @@ public sealed class WorldScreen : IScreen
 
             if (entity is not null && entity.Type is ClientEntityType.Aisling or ClientEntityType.Creature)
             {
-                PathfindingTargetEntityId = entity.Id;
-                PathfindingRetargetTimer = 0;
+                Pathfinding.SetEntityTarget(entity.Id);
                 PathfindToEntity(player, entity);
 
                 return;
@@ -4026,7 +4526,7 @@ public sealed class WorldScreen : IScreen
         }
 
         // Single right-click — pathfind to ground tile
-        PathfindingTargetEntityId = null;
+        Pathfinding.TargetEntityId = null;
         PathfindToTile(player, tileX, tileY);
     }
 
@@ -4038,15 +4538,15 @@ public sealed class WorldScreen : IScreen
         var blockedPoints = Game.World.GetBlockedPoints();
 
         var path = MapPathfinder.FindPath(
-            new ChaosPoint(player.TileX, player.TileY),
-            new ChaosPoint(tileX, tileY),
+            new Geometry.Point(player.TileX, player.TileY),
+            new Geometry.Point(tileX, tileY),
             new PathOptions
             {
                 BlockedPoints = blockedPoints,
                 LimitRadius = null
             });
 
-        PathfindingPath = path.Count > 0 ? path : null;
+        Pathfinding.Path = path.Count > 0 ? path : null;
     }
 
     private void PathfindToEntity(WorldEntity player, WorldEntity target)
@@ -4061,7 +4561,7 @@ public sealed class WorldScreen : IScreen
                 target.TileX,
                 target.TileY))
         {
-            PathfindingPath = null;
+            Pathfinding.Path = null;
 
             return;
         }
@@ -4086,14 +4586,14 @@ public sealed class WorldScreen : IScreen
             if ((adjX == player.TileX) && (adjY == player.TileY))
             {
                 // Already adjacent
-                ClearPathfinding();
+                Pathfinding.Clear();
 
                 return;
             }
 
             var path = MapPathfinder.FindPath(
-                new ChaosPoint(player.TileX, player.TileY),
-                new ChaosPoint(adjX, adjY),
+                new Geometry.Point(player.TileX, player.TileY),
+                new Geometry.Point(adjX, adjY),
                 new PathOptions
                 {
                     BlockedPoints = blockedPoints,
@@ -4104,7 +4604,7 @@ public sealed class WorldScreen : IScreen
                 bestPath = path;
         }
 
-        PathfindingPath = bestPath;
+        Pathfinding.Path = bestPath;
     }
 
     private static bool IsAdjacent(
@@ -4127,13 +4627,6 @@ public sealed class WorldScreen : IScreen
             (-1, 0) => Direction.Left,
             _       => null
         };
-
-    private void ClearPathfinding()
-    {
-        PathfindingPath = null;
-        PathfindingTargetEntityId = null;
-        PathfindingRetargetTimer = 0;
-    }
     #endregion
 
     #region Server Event Handlers
@@ -4143,7 +4636,22 @@ public sealed class WorldScreen : IScreen
         {
             case ExchangeResponseType.StartExchange:
                 if (args.OtherUserId.HasValue)
-                    Exchange.StartExchange(args.OtherUserId.Value, args.OtherUserName);
+                {
+                    Exchange.StartExchange(args.OtherUserId.Value, args.OtherUserName, Game.Connection.AislingName);
+
+                    var viewport = WorldHud.ViewportBounds;
+                    Exchange.Y = viewport.Y + (viewport.Height - Exchange.Height) / 2;
+                }
+
+                break;
+
+            case ExchangeResponseType.RequestAmount:
+                // Server asks for count of a stackable item — show amount popup
+                if (args.FromSlot.HasValue)
+                {
+                    ExchangeAmountSlot = args.FromSlot.Value;
+                    GoldDrop.ShowForTarget(Exchange.OtherUserId, 0, 0);
+                }
 
                 break;
 
@@ -4173,9 +4681,9 @@ public sealed class WorldScreen : IScreen
 
             case ExchangeResponseType.Accept:
                 if (args.PersistExchange == true)
-                    Exchange.CloseExchange();
-                else
                     Exchange.ShowOtherAccepted();
+                else
+                    Exchange.CloseExchange();
 
                 if (args.Message is not null)
                     WorldHud.ShowOrangeBarMessage(args.Message);
@@ -4188,10 +4696,22 @@ public sealed class WorldScreen : IScreen
     {
         switch (args.Type)
         {
+            case BoardOrResponseType.BoardList:
+                if (args.Boards is { Count: > 0 } boards)
+                {
+                    // Auto-open the first non-mail board, or fall back to the first board
+                    var targetBoard = boards.FirstOrDefault(b => b.BoardId > 0) ?? boards.First();
+                    Game.Connection.SendBoardInteraction(BoardRequestType.ViewBoard, targetBoard.BoardId);
+                }
+
+                break;
+
             case BoardOrResponseType.PublicBoard:
             case BoardOrResponseType.MailBoard:
                 if (args.Board is { } board)
                 {
+                    var isPublic = args.Type == BoardOrResponseType.PublicBoard;
+
                     var entries = board.Posts
                                        .Select(p => new MailEntry(
                                            p.PostId,
@@ -4202,7 +4722,13 @@ public sealed class WorldScreen : IScreen
                                            p.IsHighlighted))
                                        .ToList();
 
-                    MailList.ShowMailList(board.BoardId, entries);
+                    // Paginated append: same board, already visible, triggered by "Load More"
+                    if (LoadingMoreBoardPosts && MailList.Visible && (MailList.BoardId == board.BoardId))
+                        MailList.AppendEntries(entries);
+                    else
+                        MailList.ShowMailList(board.BoardId, entries, isPublic);
+
+                    LoadingMoreBoardPosts = false;
                 }
 
                 break;
@@ -4212,6 +4738,7 @@ public sealed class WorldScreen : IScreen
                 if (args.Post is { } post)
                 {
                     MailRead.BoardId = MailList.BoardId;
+                    MailRead.IsPublicBoard = MailList.IsPublicBoard;
 
                     MailRead.ShowMail(
                         post.PostId,
@@ -4286,6 +4813,43 @@ public sealed class WorldScreen : IScreen
         }
     }
 
+    private void HandleEditableProfileRequest()
+    {
+        var name = Game.Connection.AislingName;
+        var portrait = LoadPortraitFile(name);
+        var profileText = LoadProfileText(name);
+
+        Game.Connection.SendEditableProfile(portrait, profileText);
+    }
+
+    private static byte[] LoadPortraitFile(string name)
+    {
+        if (string.IsNullOrEmpty(name))
+            return [];
+
+        var jpgPath = Path.Combine(GlobalSettings.DataPath, $"{name}.jpg");
+
+        if (File.Exists(jpgPath))
+            return File.ReadAllBytes(jpgPath);
+
+        var noExtPath = Path.Combine(GlobalSettings.DataPath, name);
+
+        if (File.Exists(noExtPath))
+            return File.ReadAllBytes(noExtPath);
+
+        return [];
+    }
+
+    private static string LoadProfileText(string name)
+    {
+        if (string.IsNullOrEmpty(name))
+            return string.Empty;
+
+        var profilePath = Path.Combine(GlobalSettings.DataPath, $"{name}.txt");
+
+        return File.Exists(profilePath) ? File.ReadAllText(profilePath) : string.Empty;
+    }
+
     private void HandleSelfProfile(SelfProfileArgs args)
     {
         // Social status display
@@ -4321,8 +4885,9 @@ public sealed class WorldScreen : IScreen
         if (playerEntity?.Appearance is { } appearance)
             StatusBook.SetPaperdoll(Game.AislingRenderer, in appearance);
 
-        // Group open state
+        // Group open state — server is source of truth, sync all UI
         StatusBook.SetGroupOpen(args.GroupOpen);
+        SettingsDialog.SetSettingValue(12, args.GroupOpen);
 
         // Group members — parse GroupString into member names for the group panel
         if (!string.IsNullOrEmpty(args.GroupString))
@@ -4350,10 +4915,25 @@ public sealed class WorldScreen : IScreen
     }
 
     private void HandleOtherProfile(OtherProfileArgs args)
-        =>
+    {
+        var marks = args.LegendMarks
+                        .Select(m => new LegendMarkEntry(
+                            m.Text,
+                            MapMarkColor(m.Color),
+                            (byte)m.Icon,
+                            m.Key))
+                        .ToList();
 
-            // For now, show other player info as an orange bar message
-            WorldHud.ShowOrangeBarMessage($"Viewing profile of {args.Name}");
+        OtherProfile.Show(
+            args.Name,
+            args.DisplayClass,
+            args.GuildName,
+            args.GuildRank,
+            args.Title,
+            args.GroupOpen,
+            marks,
+            args.ProfileText);
+    }
 
     private void HandleBodyAnimation(BodyAnimationArgs args)
     {
@@ -4565,7 +5145,7 @@ public sealed class WorldScreen : IScreen
     {
         MapPreloaded = false;
         QueuedWalkDirection = null;
-        ClearPathfinding();
+        Pathfinding.Clear();
 
         Game.SoundManager.StopMusic();
         WorldMap.HideMap();
@@ -4573,8 +5153,17 @@ public sealed class WorldScreen : IScreen
 
     private void HandleExitResponse(ExitResponseArgs args)
     {
+        // Server confirmed exit — send the actual logout (isRequest=false triggers server-side redirect to login)
         if (args.ExitConfirmed)
-            Game.Exit();
+            Game.Connection.RequestExit(false);
+    }
+
+    private void HandleStateChanged(ConnectionState oldState, ConnectionState newState)
+    {
+        // Server redirected us back to login (e.g., after logout)
+        // State transitions go World → Connecting → Login, so just check for Login arrival
+        if (newState == ConnectionState.Login)
+            PendingLoginSwitch = true;
     }
 
     private void HandleEffect(EffectArgs args) => WorldHud.EffectBar.SetEffect(args.EffectIcon, args.EffectColor);
@@ -4590,13 +5179,16 @@ public sealed class WorldScreen : IScreen
             Game.SoundManager.PlaySound(args.Sound.Value);
     }
 
-    private void HandleLightLevel(LightLevelArgs args)
-    {
-        // TODO: apply darkness overlay based on light level
-    }
+    private void HandleLightLevel(LightLevelArgs args) => DarknessRenderer.OnLightLevel(args);
 
-    private void HandleDisplayReadonlyNotepad(DisplayReadonlyNotepadArgs args) => TextPopup.Show(args.Message);
+    private void HandleDisplayReadonlyNotepad(DisplayReadonlyNotepadArgs args)
+        => Notepad.ShowReadonly(args.Width, args.Height, args.Message);
 
-    private void HandleDisplayEditableNotepad(DisplayEditableNotepadArgs args) => TextPopup.Show(args.Message);
+    private void HandleDisplayEditableNotepad(DisplayEditableNotepadArgs args)
+        => Notepad.ShowEditable(
+            args.Slot,
+            args.Width,
+            args.Height,
+            args.Message);
     #endregion
 }

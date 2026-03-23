@@ -32,7 +32,21 @@ public abstract class UIElement : IDisposable
     ///     Draw order within the parent panel. Higher values draw on top. Default 0. Elements with the same ZIndex draw in the
     ///     order they were added.
     /// </summary>
-    public int ZIndex { get; set; }
+    public int ZIndex
+    {
+        get => field;
+
+        set
+        {
+            if (field == value)
+                return;
+
+            field = value;
+
+            if (Parent is not null)
+                Parent.ChildOrderDirty = true;
+        }
+    }
 
     // ReSharper disable once FunctionRecursiveOnAllPaths
     public int ScreenX => (Parent?.ScreenX ?? 0) + X;

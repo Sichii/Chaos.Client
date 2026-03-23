@@ -73,4 +73,26 @@ public sealed class CachedText : IDisposable
         RenderedContent = text;
         RenderedColor = color;
     }
+
+    /// <summary>
+    ///     Updates the cached texture with a dual diagonal drop shadow, re-rendering only when content or color changes.
+    /// </summary>
+    public void UpdateShadowed(string text, Color color, Color shadowColor)
+    {
+        if ((text == RenderedContent) && (color == RenderedColor))
+            return;
+
+        Texture?.Dispose();
+
+        Texture = string.IsNullOrEmpty(text)
+            ? null
+            : TextRenderer.RenderShadowedText(
+                Device,
+                text,
+                color,
+                shadowColor);
+
+        RenderedContent = text;
+        RenderedColor = color;
+    }
 }

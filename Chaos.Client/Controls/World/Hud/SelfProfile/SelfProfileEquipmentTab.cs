@@ -65,7 +65,8 @@ public sealed class SelfProfileEquipmentTab : PrefabPanel
 
     private readonly UILabel? EmoticonLabel;
     private readonly UIButton? GroupBtn;
-    private readonly UIElement? GroupBtnDisabled;
+    private readonly Texture2D? GroupClosedTexture;
+    private readonly Texture2D? GroupOpenTexture;
     private readonly Rectangle HumanIconRect;
     private readonly UILabel? IntLabel;
 
@@ -127,27 +128,43 @@ public sealed class SelfProfileEquipmentTab : PrefabPanel
         }
 
         // Stat labels — right-aligned numeric values
-        StrLabel = FindOrCreateLabel(elements, "N_STR", TextAlignment.Right);
-        IntLabel = FindOrCreateLabel(elements, "N_INT", TextAlignment.Right);
-        WisLabel = FindOrCreateLabel(elements, "N_WIS", TextAlignment.Right);
-        ConLabel = FindOrCreateLabel(elements, "N_CON", TextAlignment.Right);
-        DexLabel = FindOrCreateLabel(elements, "N_DEX", TextAlignment.Right);
-        AcLabel = FindOrCreateLabel(elements, "N_AC", TextAlignment.Right);
+        StrLabel = CreateLabel("N_STR", TextAlignment.Right);
+        IntLabel = CreateLabel("N_INT", TextAlignment.Right);
+        WisLabel = CreateLabel("N_WIS", TextAlignment.Right);
+        ConLabel = CreateLabel("N_CON", TextAlignment.Right);
+        DexLabel = CreateLabel("N_DEX", TextAlignment.Right);
+        AcLabel = CreateLabel("N_AC", TextAlignment.Right);
 
         // Player info labels — left-aligned text
-        NameLabel = FindOrCreateLabel(elements, "NAME");
-        ClassLabel = FindOrCreateLabel(elements, "CLASSTEXT");
-        ClanLabel = FindOrCreateLabel(elements, "CLANTEXT");
-        ClanTitleLabel = FindOrCreateLabel(elements, "CLANTITLETEXT");
-        TitleLabel = FindOrCreateLabel(elements, "TITLETEXT");
+        NameLabel = CreateLabel("NAME");
+        ClassLabel = CreateLabel("CLASSTEXT");
+        ClanLabel = CreateLabel("CLANTEXT");
+        ClanTitleLabel = CreateLabel("CLANTITLETEXT");
+        TitleLabel = CreateLabel("TITLETEXT");
 
-        // Group button — toggle between enabled/disabled based on GroupOpen
+        // Group button — single button that swaps textures based on GroupOpen state.
+        // GroupBtn prefab has the "open/recruiting" images, GroupBtn_Disabled has the "closed" images.
         GroupBtn = elements.GetValueOrDefault("GroupBtn") as UIButton;
 
-        if (elements.TryGetValue("GroupBtn_Disabled", out var disabledGroupBtn))
+        if (GroupBtn is not null)
         {
-            GroupBtnDisabled = disabledGroupBtn;
-            disabledGroupBtn.Visible = false;
+            GroupOpenTexture = GroupBtn.NormalTexture;
+            GroupBtn.PressedTexture = null;
+            GroupBtn.OnClick += () => OnGroupToggled?.Invoke();
+        }
+
+        // Extract the closed-state texture from GroupBtn_Disabled, then remove it
+        if (elements.TryGetValue("GroupBtn_Disabled", out var disabledElement))
+        {
+            GroupClosedTexture = disabledElement switch
+            {
+                UIButton btn => btn.NormalTexture,
+                UIImage img  => img.Texture,
+                _            => null
+            };
+
+            Children.Remove(disabledElement);
+            disabledElement.Dispose();
         }
 
         // Nation icon area
@@ -300,22 +317,7 @@ public sealed class SelfProfileEquipmentTab : PrefabPanel
                 Color.White);
     }
 
-    /// <summary>
-    ///     Finds an existing UILabel from AutoPopulate results, or creates one from the prefab if it was created as a UIImage
-    ///     (DoesNotReturnValue type with no images = no-op). For stat/text areas that need label behavior.
-    /// </summary>
-    private UILabel? FindOrCreateLabel(Dictionary<string, UIElement> elements, string name, TextAlignment alignment = TextAlignment.Left)
-    {
-        if (elements.TryGetValue(name, out var element) && element is UILabel existingLabel)
-        {
-            existingLabel.Alignment = alignment;
-
-            return existingLabel;
-        }
-
-        return CreateLabel(name, alignment);
-    }
-
+    public event Action? OnGroupToggled;
     public event Action<EquipmentSlot>? OnUnequip;
 
     /// <summary>
@@ -333,13 +335,14 @@ public sealed class SelfProfileEquipmentTab : PrefabPanel
     }
 
     /// <summary>
-    ///     Toggles the group button between enabled (accepting invites) and disabled (closed) states.
+    ///     Swaps the group button texture between recruiting (open) and closed states.
     /// </summary>
     public void SetGroupOpen(bool groupOpen)
     {
-        GroupBtn?.Visible = groupOpen;
+        if (GroupBtn is null)
+            return;
 
-        GroupBtnDisabled?.Visible = !groupOpen;
+        GroupBtn.NormalTexture = groupOpen ? GroupOpenTexture : GroupClosedTexture;
     }
 
     /// <summary>

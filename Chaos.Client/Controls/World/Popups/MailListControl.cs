@@ -15,6 +15,12 @@ namespace Chaos.Client.Controls.World.Popups;
 /// </summary>
 public sealed class MailListControl : PrefabPanel
 {
+    // lback.txt BulletinRect — mail/board panels are bottom-aligned to this region
+    private const int BULLETIN_RECT_LEFT = 8;
+    private const int BULLETIN_RECT_BOTTOM = 304;
+
+    // Server caps board responses at sbyte.MaxValue posts per page
+    private const int MAX_POSTS_PER_PAGE = 127;
     private const int ROW_HEIGHT = 16;
     private const int DATE_WIDTH = 40;
     private const int AUTHOR_WIDTH = 100;
@@ -30,12 +36,14 @@ public sealed class MailListControl : PrefabPanel
     private int DataVersion;
 
     private List<MailEntry> Entries = [];
+    private bool HasMorePosts;
 
     private int RenderedVersion = -1;
     private int ScrollOffset;
     private int SelectedIndex = -1;
 
     public ushort BoardId { get; private set; }
+    public bool IsPublicBoard { get; private set; }
     public UIButton? DeleteButton { get; }
     public UIButton? NewButton { get; }
 
@@ -46,9 +54,11 @@ public sealed class MailListControl : PrefabPanel
     public UIButton? ViewButton { get; }
 
     public MailListControl(GraphicsDevice device)
-        : base(device, "_nmaill")
+        : base(device, "_nmaill", false)
     {
         Name = "MailList";
+        X = BULLETIN_RECT_LEFT;
+        Y = BULLETIN_RECT_BOTTOM - Height;
         Visible = false;
 
         var elements = AutoPopulate();
@@ -124,6 +134,18 @@ public sealed class MailListControl : PrefabPanel
         }
     }
 
+    /// <summary>
+    ///     Appends additional entries from a subsequent page to the existing list.
+    /// </summary>
+    public void AppendEntries(List<MailEntry> entries)
+    {
+        Entries.AddRange(entries);
+        HasMorePosts = entries.Count >= MAX_POSTS_PER_PAGE;
+        DataVersion++;
+
+        UpdateScrollBar();
+    }
+
     public override void Dispose()
     {
         foreach (var c in DateCaches)
@@ -153,14 +175,25 @@ public sealed class MailListControl : PrefabPanel
         var listX = ScreenX + MailListRect.X;
         var listY = ScreenY + MailListRect.Y;
 
+        var totalRows = Entries.Count + (HasMorePosts ? 1 : 0);
+
         for (var i = 0; i < MaxVisibleRows; i++)
         {
             var entryIndex = ScrollOffset + i;
 
-            if (entryIndex >= Entries.Count)
+            if (entryIndex >= totalRows)
                 break;
 
             var rowY = listY + i * ROW_HEIGHT;
+
+            // "Load More" virtual row at the end
+            if (HasMorePosts && (entryIndex == Entries.Count))
+            {
+                SubjectCaches[i]
+                    .Draw(spriteBatch, new Vector2(listX + 2, rowY + 2));
+
+                continue;
+            }
 
             // Selection highlight
             if (entryIndex == SelectedIndex)
@@ -194,6 +227,13 @@ public sealed class MailListControl : PrefabPanel
 
     public event Action? OnClose;
     public event Action<short>? OnDeletePost;
+
+    /// <summary>
+    ///     Fired when the user clicks the "Load More" row at the bottom of a full page. The short is the last visible PostId
+    ///     to use as the startPostId for the next page request.
+    /// </summary>
+    public event Action<short>? OnLoadMorePosts;
+
     public event Action? OnNewMail;
     public event Action<short>? OnReplyPost;
     public event Action<short>? OnViewPost;
@@ -209,7 +249,18 @@ public sealed class MailListControl : PrefabPanel
         {
             var entryIndex = ScrollOffset + i;
 
-            if (entryIndex < Entries.Count)
+            // "Load More" virtual row
+            if (HasMorePosts && (entryIndex == Entries.Count))
+            {
+                DateCaches[i]
+                    .Update(string.Empty, Color.White);
+
+                AuthorCaches[i]
+                    .Update(string.Empty, Color.White);
+
+                SubjectCaches[i]
+                    .Update("-- Load More --", Color.LightGray);
+            } else if (entryIndex < Entries.Count)
             {
                 var entry = Entries[entryIndex];
                 var textColor = entry.IsHighlighted ? Color.Yellow : Color.White;
@@ -237,20 +288,23 @@ public sealed class MailListControl : PrefabPanel
     }
 
     /// <summary>
-    ///     Populates the mail list from server data.
+    ///     Populates the mail list from server data (first page).
     /// </summary>
-    public void ShowMailList(ushort boardId, List<MailEntry> entries)
+    public void ShowMailList(ushort boardId, List<MailEntry> entries, bool isPublicBoard)
     {
         BoardId = boardId;
+        IsPublicBoard = isPublicBoard;
         Entries = entries;
+        HasMorePosts = entries.Count >= MAX_POSTS_PER_PAGE;
         SelectedIndex = -1;
         ScrollOffset = 0;
         DataVersion++;
 
-        ScrollBar.TotalItems = entries.Count;
-        ScrollBar.VisibleItems = MaxVisibleRows;
-        ScrollBar.MaxValue = Math.Max(0, entries.Count - MaxVisibleRows);
-        ScrollBar.Value = 0;
+        UpdateScrollBar();
+
+        // Public boards don't support reply (no recipient)
+        if (ReplyButton is not null)
+            ReplyButton.Visible = !isPublicBoard;
 
         Show();
     }
@@ -270,7 +324,9 @@ public sealed class MailListControl : PrefabPanel
 
         base.Update(gameTime, input);
 
-        // Click to select row
+        var totalRows = Entries.Count + (HasMorePosts ? 1 : 0);
+
+        // Click to select row or trigger "Load More"
         if (input.WasLeftButtonPressed)
         {
             var mx = input.MouseX - ScreenX - MailListRect.X;
@@ -281,7 +337,12 @@ public sealed class MailListControl : PrefabPanel
                 var row = my / ROW_HEIGHT;
                 var entryIndex = ScrollOffset + row;
 
-                if (entryIndex < Entries.Count)
+                // Clicked the "Load More" virtual row
+                if (HasMorePosts && (entryIndex == Entries.Count) && (Entries.Count > 0))
+                {
+                    var lastPostId = Entries[^1].PostId;
+                    OnLoadMorePosts?.Invoke(lastPostId);
+                } else if (entryIndex < Entries.Count)
                 {
                     SelectedIndex = entryIndex;
                     DataVersion++;
@@ -290,11 +351,21 @@ public sealed class MailListControl : PrefabPanel
         }
 
         // Scroll wheel
-        if ((input.ScrollDelta != 0) && (Entries.Count > MaxVisibleRows))
+        if ((input.ScrollDelta != 0) && (totalRows > MaxVisibleRows))
         {
-            ScrollOffset = Math.Clamp(ScrollOffset - input.ScrollDelta, 0, Entries.Count - MaxVisibleRows);
+            ScrollOffset = Math.Clamp(ScrollOffset - input.ScrollDelta, 0, totalRows - MaxVisibleRows);
             ScrollBar.Value = ScrollOffset;
             DataVersion++;
         }
+    }
+
+    private void UpdateScrollBar()
+    {
+        // Add 1 virtual row for the "Load More" indicator when more posts exist
+        var totalRows = Entries.Count + (HasMorePosts ? 1 : 0);
+
+        ScrollBar.TotalItems = totalRows;
+        ScrollBar.VisibleItems = MaxVisibleRows;
+        ScrollBar.MaxValue = Math.Max(0, totalRows - MaxVisibleRows);
     }
 }

@@ -1,4 +1,5 @@
 #region
+using System.Collections.Frozen;
 using System.Text;
 using Chaos.Client.Data.Abstractions;
 using Chaos.Client.Data.Models;
@@ -6,6 +7,7 @@ using Chaos.Extensions.Common;
 using DALib.Data;
 using DALib.Definitions;
 using DALib.Drawing;
+using DALib.Drawing.Virtualized;
 using DALib.Extensions;
 using Microsoft.Extensions.Caching.Memory;
 using SkiaSharp;
@@ -15,7 +17,8 @@ namespace Chaos.Client.Data.Repositories;
 
 public sealed class UiComponentRepository : RepositoryBase
 {
-    private readonly Dictionary<int, Palette> GuiPalettes = Palette.FromArchive("gui", DatArchives.Setoa);
+    private readonly IDictionary<int, Palette> GuiPalettes = Palette.FromArchive("gui", DatArchives.Setoa)
+                                                                    .ToFrozenDictionary();
 
     public UiComponentRepository()
     {
@@ -45,7 +48,7 @@ public sealed class UiComponentRepository : RepositoryBase
         if (!DatArchives.Setoa.TryGetValue(fileName, out var entry))
             return null;
 
-        var epf = GetOrCreate($"EPF_{fileName}", () => EpfFile.FromEntry(entry));
+        var epf = GetOrCreate($"EPF_{fileName}", () => EpfView.FromEntry(entry));
 
         if ((frameIndex < 0) || (frameIndex >= epf.Count))
             return null;
@@ -62,7 +65,7 @@ public sealed class UiComponentRepository : RepositoryBase
         if (!DatArchives.Setoa.TryGetValue(fileName, out var entry))
             return [];
 
-        var epf = GetOrCreate($"EPF_{fileName}", () => EpfFile.FromEntry(entry));
+        var epf = GetOrCreate($"EPF_{fileName}", () => EpfView.FromEntry(entry));
         var paletteNum = GetGuiPaletteNumber(fileName);
 
         if (!GuiPalettes.TryGetValue(paletteNum, out var palette))
@@ -88,7 +91,7 @@ public sealed class UiComponentRepository : RepositoryBase
         if (!DatArchives.Setoa.TryGetValue($"{fieldName}.pal", out var palEntry))
             return null;
 
-        var epf = EpfFile.FromEntry(epfEntry);
+        var epf = EpfView.FromEntry(epfEntry);
         var palette = Palette.FromEntry(palEntry);
 
         if (epf.Count == 0)
@@ -252,12 +255,12 @@ public sealed class UiComponentRepository : RepositoryBase
         return images;
     }
 
-    private static SpfFile? LoadNationalSpfFile(string fileName)
+    private static SpfView? LoadNationalSpfFile(string fileName)
     {
         if (!DatArchives.National.TryGetValue(fileName, out var entry))
             return null;
 
-        return SpfFile.FromEntry(entry);
+        return SpfView.FromEntry(entry);
     }
 
     private ControlPrefabSet? LoadPrefabSet(string key)
@@ -272,12 +275,12 @@ public sealed class UiComponentRepository : RepositoryBase
         return ResolvePrefabSet(key, controlFile);
     }
 
-    private static SpfFile? LoadSpfFile(string fileName)
+    private static SpfView? LoadSpfFile(string fileName)
     {
         if (!DatArchives.Setoa.TryGetValue(fileName, out var entry))
             return null;
 
-        return SpfFile.FromEntry(entry);
+        return SpfView.FromEntry(entry);
     }
 
     private void PreloadFromArchive(DataArchive archive)
@@ -295,7 +298,7 @@ public sealed class UiComponentRepository : RepositoryBase
         if (!GuiPalettes.TryGetValue(palNum, out var palette))
             return null;
 
-        var epf = EpfFile.FromEntry(entry);
+        var epf = EpfView.FromEntry(entry);
 
         if ((frameIndex < 0) || (frameIndex >= epf.Count))
             return null;
@@ -321,7 +324,7 @@ public sealed class UiComponentRepository : RepositoryBase
 
     private static SKImage? RenderSpfFrame(DataArchiveEntry entry, int frameIndex)
     {
-        var spf = SpfFile.FromEntry(entry);
+        var spf = SpfView.FromEntry(entry);
 
         if ((frameIndex < 0) || (frameIndex >= spf.Count))
             return null;

@@ -3,6 +3,7 @@ using System.Collections.Frozen;
 using Chaos.DarkAges.Definitions;
 using DALib.Data;
 using DALib.Drawing;
+using DALib.Drawing.Virtualized;
 using SkiaSharp;
 using CONSTANTS = DALib.Definitions.CONSTANTS;
 #endregion
@@ -16,7 +17,7 @@ namespace Chaos.Client.Data.Repositories;
 /// </summary>
 public sealed class AislingDataRepository
 {
-    private readonly Dictionary<string, EpfFile?> EpfCache = new();
+    private readonly Dictionary<string, EpfView?> EpfCache = new();
 
     public IDictionary<int, Palette> BodyPalettes { get; } = Palette.FromArchive("palm", DatArchives.Khanpal)
                                                                     .ToFrozenDictionary();
@@ -116,7 +117,7 @@ public sealed class AislingDataRepository
     /// <param name="fileName">
     ///     EPF file name without extension (e.g. "ma00101")
     /// </param>
-    public EpfFile? GetEquipmentEpf(char typeLetter, bool isMale, string fileName)
+    public EpfView? GetEquipmentEpf(char typeLetter, bool isMale, string fileName)
     {
         if (EpfCache.TryGetValue(fileName, out var cached))
             return cached;
@@ -130,7 +131,7 @@ public sealed class AislingDataRepository
             return null;
         }
 
-        var epf = EpfFile.FromEntry(entry);
+        var epf = EpfView.FromEntry(entry);
         EpfCache[fileName] = epf;
 
         return epf;

@@ -1,7 +1,6 @@
 #region
 using System.Diagnostics;
 using System.Runtime;
-using Chaos.Client.Rendering;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 #endregion
@@ -11,49 +10,82 @@ namespace Chaos.Client.Controls.Components;
 /// <summary>
 ///     Debug overlay that draws colored outlines and centered names for all visible UI elements. Toggle with F12.
 ///     Also displays performance stats: frame time, GC collection counts, heap size, and Gen2 hitch detection.
+///     Uses deferred batching and text caching to minimize draw calls and texture allocations.
 /// </summary>
 public static class DebugOverlay
 {
-    private const int FRAME_TIME_HISTORY = 120;
-    private const float GRAPH_WIDTH = 160;
-    private const float GRAPH_HEIGHT = 50;
+    private const int FRAME_TIME_HISTORY = 180;
+    private const float GRAPH_WIDTH = 180;
+    private const float GRAPH_HEIGHT = 36;
     private const float GRAPH_X = 4;
     private const float GRAPH_Y = 4;
     private const float STATS_X = 4;
     private const float STATS_Y = GRAPH_Y + GRAPH_HEIGHT + 4;
     private const float GEN2_FLASH_DURATION_MS = 1000;
+    private const int STATS_LINE_COUNT = 6;
 
     private static readonly float[] FrameTimeHistory = new float[FRAME_TIME_HISTORY];
     private static readonly Stopwatch FrameStopwatch = Stopwatch.StartNew();
+    private static readonly Dictionary<UIElement, CachedText> ElementLabelCache = new();
+    private static readonly List<(CachedText Text, Vector2 Position)> PendingLabels = [];
+    private static CachedText[]? StatsTextCache;
     private static int FrameTimeIndex;
     private static int LastGen0Count;
     private static int LastGen1Count;
     private static int LastGen2Count;
-    private static int Gen0Delta;
-    private static int Gen1Delta;
     private static int Gen2Delta;
     private static float Gen2FlashTimer;
     private static float LastFrameTimeMs;
     private static long SnappedDrawCount;
+    private static long DebugDrawCount;
 
     public static bool IsActive { get; set; }
+
+    private static void ClearCaches()
+    {
+        foreach (var cached in ElementLabelCache.Values)
+            cached.Dispose();
+
+        ElementLabelCache.Clear();
+        PendingLabels.Clear();
+
+        if (StatsTextCache is not null)
+        {
+            foreach (var cached in StatsTextCache)
+                cached?.Dispose();
+
+            StatsTextCache = null;
+        }
+    }
 
     public static void Draw(SpriteBatch spriteBatch, GraphicsDevice device, UIPanel root)
     {
         if (!IsActive)
             return;
 
-        spriteBatch.Begin(SpriteSortMode.Immediate, samplerState: GlobalSettings.Sampler);
+        PendingLabels.Clear();
 
+        spriteBatch.Begin(samplerState: GlobalSettings.Sampler);
+
+        // Phase 1: all pixel-texture draws (borders, rects, graph bars) — batches into minimal GPU calls
         foreach (var child in root.Children)
-            DrawElement(spriteBatch, device, child);
+            DrawElementGeometry(spriteBatch, device, child);
 
-        DrawPerformanceStats(spriteBatch, device);
+        DrawPerformanceStatsGeometry(spriteBatch, device);
+
+        // Phase 2: all text draws — each unique texture breaks the batch, but no pixel interruptions
+        foreach ((var text, var pos) in PendingLabels)
+            text.Draw(spriteBatch, pos);
+
+        DrawPerformanceStatsText(spriteBatch, device);
 
         spriteBatch.End();
+
+        // Capture how many draws the debug overlay itself added
+        DebugDrawCount = device.Metrics.DrawCount - SnappedDrawCount;
     }
 
-    private static void DrawElement(SpriteBatch spriteBatch, GraphicsDevice device, UIElement element)
+    private static void DrawElementGeometry(SpriteBatch spriteBatch, GraphicsDevice device, UIElement element)
     {
         if (!element.Visible)
             return;
@@ -94,35 +126,44 @@ public static class DebugOverlay
                     h),
                 borderColor);
 
-            // Name label centered in bounds with dark background
+            // Prepare cached label and accumulate for deferred text draw
             var name = element.Name.Length > 0
                 ? element.Name
                 : element.GetType()
                          .Name;
 
-            var nameTexture = TextRenderer.RenderText(device, name, color);
+            if (!ElementLabelCache.TryGetValue(element, out var cachedLabel))
+            {
+                cachedLabel = new CachedText(device);
+                ElementLabelCache[element] = cachedLabel;
+            }
 
-            var tw = nameTexture.Width;
-            var th = nameTexture.Height;
-            var tx = sx + (w - tw) / 2;
-            var ty = sy + (h - th) / 2;
+            cachedLabel.Update(name, color);
 
-            UIElement.DrawRect(
-                spriteBatch,
-                device,
-                new Rectangle(
-                    tx - 1,
-                    ty - 1,
-                    tw + 2,
-                    th + 2),
-                Color.Black * 0.7f);
-            spriteBatch.Draw(nameTexture, new Vector2(tx, ty), Color.White);
-            nameTexture.Dispose();
+            if (cachedLabel.Texture is not null)
+            {
+                var tw = cachedLabel.Texture.Width;
+                var th = cachedLabel.Texture.Height;
+                var tx = sx + (w - tw) / 2;
+                var ty = sy + (h - th) / 2;
+
+                UIElement.DrawRect(
+                    spriteBatch,
+                    device,
+                    new Rectangle(
+                        tx - 1,
+                        ty - 1,
+                        tw + 2,
+                        th + 2),
+                    Color.Black * 0.66f);
+
+                PendingLabels.Add((cachedLabel, new Vector2(tx, ty)));
+            }
         }
 
         if (element is UIPanel panel)
             foreach (var child in panel.Children)
-                DrawElement(spriteBatch, device, child);
+                DrawElementGeometry(spriteBatch, device, child);
     }
 
     private static void DrawFrameTimeGraph(SpriteBatch spriteBatch, GraphicsDevice device)
@@ -195,10 +236,10 @@ public static class DebugOverlay
         }
     }
 
-    private static void DrawPerformanceStats(SpriteBatch spriteBatch, GraphicsDevice device)
+    private static void DrawPerformanceStatsGeometry(SpriteBatch spriteBatch, GraphicsDevice device)
     {
         // Background for stats area
-        var statsHeight = 92;
+        var statsHeight = 82;
 
         UIElement.DrawRect(
             spriteBatch,
@@ -208,32 +249,10 @@ public static class DebugOverlay
                 (int)GRAPH_Y - 2,
                 (int)GRAPH_WIDTH + 4,
                 (int)GRAPH_HEIGHT + statsHeight + 8),
-            Color.Black * 0.75f);
+            Color.Black * 0.33f);
 
         // Frame time graph
         DrawFrameTimeGraph(spriteBatch, device);
-
-        // Text stats
-        var heapMb = GC.GetTotalMemory(false) / (1024.0 * 1024.0);
-        var fps = LastFrameTimeMs > 0 ? 1000f / LastFrameTimeMs : 0;
-        var gcMode = GCSettings.IsServerGC ? "Server" : "Workstation";
-        var latencyMode = GCSettings.LatencyMode;
-
-        var drawCount = SnappedDrawCount;
-
-        var lines = new (string Text, Color Color)[]
-        {
-            ($"{fps:F0} FPS  {LastFrameTimeMs:F1}ms", LastFrameTimeMs > 20
-                ? Color.Red
-                : LastFrameTimeMs > 17
-                    ? Color.Yellow
-                    : Color.Lime),
-            ($"Draws: {drawCount}", drawCount > 3000 ? Color.Yellow : Color.White),
-            ($"Heap: {heapMb:F1} MB  ({gcMode})", Color.White),
-            ($"GC: G0={LastGen0Count} G1={LastGen1Count} G2={LastGen2Count}", Color.White),
-            ($"  \u0394 G0={Gen0Delta} G1={Gen1Delta} G2={Gen2Delta}", Gen2Delta > 0 ? Color.Red : Color.Gray),
-            ($"Latency: {latencyMode}", Color.Gray)
-        };
 
         // Flash the whole stats area red-tinted when a Gen2 collection just happened
         if (Gen2FlashTimer > 0)
@@ -250,15 +269,49 @@ public static class DebugOverlay
                     (int)GRAPH_HEIGHT + statsHeight + 8),
                 Color.Red * flashAlpha);
         }
+    }
+
+    private static void DrawPerformanceStatsText(SpriteBatch spriteBatch, GraphicsDevice device)
+    {
+        // Text stats
+        var heapMb = GC.GetTotalMemory(false) / (1024.0 * 1024.0);
+        var fps = LastFrameTimeMs > 0 ? 1000f / LastFrameTimeMs : 0;
+        var gcMode = GCSettings.IsServerGC ? "Server" : "Workstation";
+        var latencyMode = GCSettings.LatencyMode;
+
+        var drawCount = SnappedDrawCount;
+
+        var lines = new (string Text, Color Color)[]
+        {
+            ($"{fps:F0} FPS  {LastFrameTimeMs:F1}ms", LastFrameTimeMs > 20
+                ? Color.Red
+                : LastFrameTimeMs > 17
+                    ? Color.Yellow
+                    : Color.Lime),
+            ($"Draws: {drawCount} (excl. debug)", drawCount > 3000 ? Color.Yellow : Color.White),
+            ($"Debug draws: {DebugDrawCount}", Color.Gray),
+            ($"Heap: {heapMb:F1} MB  ({gcMode})", Color.White),
+            ($"GC: G0={LastGen0Count} G1={LastGen1Count} G2={LastGen2Count}", Gen2Delta > 0 ? Color.Red : Color.White),
+            ($"Latency: {latencyMode}", Color.Gray)
+        };
+
+        StatsTextCache ??= new CachedText[STATS_LINE_COUNT];
 
         var y = STATS_Y;
 
-        foreach ((var text, var color) in lines)
+        for (var i = 0; i < lines.Length; i++)
         {
-            var texture = TextRenderer.RenderText(device, text, color);
-            spriteBatch.Draw(texture, new Vector2(STATS_X, y), Color.White);
-            y += texture.Height + 1;
-            texture.Dispose();
+            StatsTextCache[i] ??= new CachedText(device);
+
+            StatsTextCache[i]
+                .Update(lines[i].Text, lines[i].Color);
+
+            if (StatsTextCache[i].Texture is not null)
+            {
+                StatsTextCache[i]
+                    .Draw(spriteBatch, new Vector2(STATS_X, y));
+                y += StatsTextCache[i].Texture!.Height + 1;
+            }
         }
     }
 
@@ -268,7 +321,13 @@ public static class DebugOverlay
     /// </summary>
     public static void SnapshotDrawCount(GraphicsDevice device) => SnappedDrawCount = device.Metrics.DrawCount;
 
-    public static void Toggle() => IsActive = !IsActive;
+    public static void Toggle()
+    {
+        IsActive = !IsActive;
+
+        if (!IsActive)
+            ClearCaches();
+    }
 
     /// <summary>
     ///     Call once per frame from Update() to sample frame time and GC counters.
@@ -290,8 +349,6 @@ public static class DebugOverlay
         var g1 = GC.CollectionCount(1);
         var g2 = GC.CollectionCount(2);
 
-        Gen0Delta = g0 - LastGen0Count;
-        Gen1Delta = g1 - LastGen1Count;
         Gen2Delta = g2 - LastGen2Count;
 
         if (Gen2Delta > 0)

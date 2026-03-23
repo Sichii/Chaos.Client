@@ -1,6 +1,7 @@
 #region
 using Chaos.Client.Collections;
 using Chaos.Client.Controls.Components;
+using Chaos.Client.Data;
 using Chaos.Client.Networking;
 using Chaos.Client.Rendering;
 using Chaos.Client.Screens;
@@ -65,6 +66,11 @@ public sealed class ChaosGame : Game
     public ItemRenderer ItemRenderer { get; } = new();
 
     /// <summary>
+    ///     Manages metadata file synchronization with the server.
+    /// </summary>
+    public MetaDataManager MetaData { get; }
+
+    /// <summary>
     ///     Client settings loaded from the DarkAges config file.
     /// </summary>
     public ClientSettings Settings { get; } = ClientSettings.Load();
@@ -90,6 +96,15 @@ public sealed class ChaosGame : Game
         };
 
         Connection = new ConnectionManager();
+        MetaData = new MetaDataManager(Connection, GlobalSettings.DataPath);
+        Connection.OnMetaData += MetaData.HandleMetaData;
+        Connection.OnWorldEntryComplete += MetaData.RequestSync;
+
+        MetaData.OnMetaDataUpdated += updatedFiles =>
+        {
+            foreach (var name in updatedFiles)
+                DataContext.MetaFiles.Invalidate(name);
+        };
 
         // Wire entity events to WorldState at startup so entities are tracked
         // even during world entry (before WorldScreen is created)

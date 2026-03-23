@@ -42,6 +42,7 @@ public sealed class WorldEntity
     public int EmoteFrameCount { get; set; }
     public float EmoteRemainingMs { get; set; }
     public int EmoteStartFrame { get; set; }
+    public string? GroupBoxText { get; set; }
     public uint Id { get; init; }
     public float IdleAnimElapsedMs { get; set; }
 
@@ -49,7 +50,13 @@ public sealed class WorldEntity
     // IdleAnimTick increments independently of AnimState so idle cycling survives body animations.
     public int IdleAnimFrameCount { get; set; }
     public int IdleAnimTick { get; set; }
+    public bool IsDead { get; set; }
+    public bool IsTransparent { get; set; }
+    public byte ItemColor { get; set; }
+    public LanternSize LanternSize { get; set; }
     public string Name { get; set; } = string.Empty;
+    public NameTagStyle NameTagStyle { get; set; }
+    public RestPosition RestPosition { get; set; }
     public ushort SpriteId { get; set; }
 
     // Position

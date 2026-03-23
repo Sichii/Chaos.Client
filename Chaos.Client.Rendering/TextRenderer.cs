@@ -1,7 +1,6 @@
 #region
 using System.Buffers;
 using System.Text;
-using System.Text.RegularExpressions;
 using Chaos.Client.Data;
 using DALib.Drawing;
 using Microsoft.Xna.Framework;
@@ -17,9 +16,12 @@ namespace Chaos.Client.Rendering;
 /// </summary>
 public static class TextRenderer
 {
+    public const int CHAR_WIDTH = 6;
+    public const int CHAR_HEIGHT = 12;
+
     private const int ENGLISH_GLYPH_WIDTH = 8;
     private const int KOREAN_GLYPH_WIDTH = 16;
-    private const int GLYPH_HEIGHT = 12;
+    private const int GLYPH_HEIGHT = CHAR_HEIGHT;
     private const int ENGLISH_ADVANCE = ENGLISH_GLYPH_WIDTH - 2;
     private const int KOREAN_ADVANCE = KOREAN_GLYPH_WIDTH - 2;
 
@@ -36,9 +38,21 @@ public static class TextRenderer
         SKColor color)
     {
         var cursorX = startX;
+        var activeColor = color;
 
-        foreach (var c in text)
+        for (var i = 0; i < text.Length; i++)
         {
+            // Check for color code sequence: {=x (3 chars, no closing brace)
+            if (IsColorCode(text, i))
+            {
+                activeColor = GetColorCode(text[i + 2])!.Value;
+                i += 2; // skip past =x, loop increment handles {
+
+                continue;
+            }
+
+            var c = text[i];
+
             if (c is >= (char)33 and <= (char)126)
             {
                 Graphics.DrawGlyph(
@@ -48,7 +62,7 @@ public static class TextRenderer
                     c - 33,
                     cursorX,
                     startY,
-                    color);
+                    activeColor);
                 cursorX += ENGLISH_ADVANCE;
 
                 continue;
@@ -66,7 +80,7 @@ public static class TextRenderer
                         koreanIndex,
                         cursorX,
                         startY,
-                        color);
+                        activeColor);
 
                 cursorX += KOREAN_ADVANCE;
 
@@ -90,7 +104,7 @@ public static class TextRenderer
 
     /// <summary>
     ///     Finds the character index at which to break a line to fit within maxWidth pixels. Prefers breaking at the last
-    ///     space; falls back to force-breaking mid-word.
+    ///     space; falls back to force-breaking mid-word. Skips {=x} color codes for width measurement.
     /// </summary>
     public static int FindLineBreak(string text, int maxWidth)
     {
@@ -99,6 +113,14 @@ public static class TextRenderer
 
         for (var i = 0; i < text.Length; i++)
         {
+            // Skip color codes — they have zero visual width
+            if (IsColorCode(text, i))
+            {
+                i += 2; // skip past =x, loop increment handles {
+
+                continue;
+            }
+
             if (text[i] == ' ')
                 lastSpace = i;
 
@@ -110,6 +132,36 @@ public static class TextRenderer
 
         return text.Length;
     }
+
+    /// <summary>
+    ///     Maps a color code character (the letter after {=) to its SKColor.
+    /// </summary>
+    private static SKColor? GetColorCode(char code)
+        => code switch
+        {
+            'a' => new SKColor(128, 128, 128),
+            'b' => new SKColor(255, 0, 0),
+            'c' => new SKColor(255, 255, 0),
+            'd' => new SKColor(0, 128, 0),
+            'e' => new SKColor(192, 192, 192),
+            'f' => new SKColor(0, 0, 255),
+            'g' => new SKColor(220, 220, 220),
+            'h' => new SKColor(128, 128, 128),
+            'i' => new SKColor(152, 152, 152),
+            'j' => new SKColor(128, 128, 128),
+            'k' => new SKColor(112, 128, 144),
+            'l' => new SKColor(54, 69, 79),
+            'm' => new SKColor(28, 28, 28),
+            'n' => new SKColor(0, 0, 0),
+            'o' => new SKColor(255, 105, 180),
+            'p' => new SKColor(128, 0, 128),
+            'q' => new SKColor(57, 255, 20),
+            's' => new SKColor(255, 165, 0),
+            't' => new SKColor(139, 69, 19),
+            'u' => new SKColor(255, 255, 255),
+            'x' => SKColor.Empty,
+            _   => null
+        };
 
     /// <summary>
     ///     Maps a Unicode character to its Korean font glyph index via codepage 949 (EUC-KR).
@@ -138,6 +190,12 @@ public static class TextRenderer
         return -1;
     }
 
+    /// <summary>
+    ///     Returns true if the text at position i starts a {=x color code sequence.
+    /// </summary>
+    private static bool IsColorCode(string text, int i)
+        => ((i + 2) < text.Length) && (text[i] == '{') && (text[i + 1] == '=') && GetColorCode(text[i + 2]) is not null;
+
     private static bool IsKorean(char c) => c > 127;
 
     /// <summary>
@@ -146,7 +204,7 @@ public static class TextRenderer
     public static int MeasureCharWidth(char c) => IsKorean(c) ? KOREAN_ADVANCE : ENGLISH_ADVANCE;
 
     /// <summary>
-    ///     Measures the pixel width of a text string.
+    ///     Measures the pixel width of a text string. Skips {=x} color codes.
     /// </summary>
     public static int MeasureWidth(string text)
     {
@@ -157,10 +215,102 @@ public static class TextRenderer
 
         var width = 0;
 
-        foreach (var c in text)
-            width += IsKorean(c) ? KOREAN_ADVANCE : ENGLISH_ADVANCE;
+        for (var i = 0; i < text.Length; i++)
+        {
+            // Skip color codes — they have zero visual width
+            if (IsColorCode(text, i))
+            {
+                i += 2;
+
+                continue;
+            }
+
+            width += IsKorean(text[i]) ? KOREAN_ADVANCE : ENGLISH_ADVANCE;
+        }
 
         return width;
+    }
+
+    /// <summary>
+    ///     Renders a single line of text with a dual diagonal drop shadow. The shadow is drawn at (-1,+1) and (+1,+1) relative
+    ///     to the main text, producing visible shadow on the left, right, and bottom edges. Matches the original Dark Ages
+    ///     client name tag rendering.
+    /// </summary>
+    public static Texture2D RenderShadowedText(
+        GraphicsDevice device,
+        string text,
+        Color textColor,
+        Color shadowColor)
+    {
+        if (string.IsNullOrEmpty(text))
+            text = " ";
+
+        EnsureFontsLoaded();
+
+        var skTextColor = new SKColor(
+            textColor.R,
+            textColor.G,
+            textColor.B,
+            textColor.A);
+
+        var skShadowColor = new SKColor(
+            shadowColor.R,
+            shadowColor.G,
+            shadowColor.B,
+            shadowColor.A);
+
+        var textWidth = Math.Max(1, MeasureWidth(text));
+
+        // +2 width for 1px shadow margin on each side, +1 height for shadow below
+        var surfaceWidth = textWidth + 2;
+        var surfaceHeight = GLYPH_HEIGHT + 1;
+
+        var byteCount = surfaceWidth * surfaceHeight * 4;
+        var pixelBuffer = ArrayPool<byte>.Shared.Rent(byteCount);
+
+        try
+        {
+            Array.Clear(pixelBuffer, 0, byteCount);
+
+            // Shadow draws: down-right (+1,+1) and down-left (-1,+1) relative to main text at (1,0)
+            DrawTextLine(
+                pixelBuffer,
+                surfaceWidth,
+                text,
+                2,
+                1,
+                skShadowColor);
+
+            DrawTextLine(
+                pixelBuffer,
+                surfaceWidth,
+                text,
+                0,
+                1,
+                skShadowColor);
+
+            // Main text: centered at (1,0)
+            DrawTextLine(
+                pixelBuffer,
+                surfaceWidth,
+                text,
+                1,
+                0,
+                skTextColor);
+
+            var texture = new Texture2D(
+                device,
+                surfaceWidth,
+                surfaceHeight,
+                false,
+                SurfaceFormat.Color);
+            texture.SetData(pixelBuffer, 0, byteCount);
+
+            return texture;
+        } finally
+        {
+            ArrayPool<byte>.Shared.Return(pixelBuffer);
+        }
     }
 
     /// <summary>
@@ -320,8 +470,7 @@ public static class TextRenderer
         text = text.Replace("\\n", "\n")
                    .Replace("\\r", "\r");
 
-        // Strip color codes ({=a, {=b, etc.) — rendering colors TBD
-        text = Regex.Replace(text, @"\{=[a-zA-Z]", string.Empty);
+        // Color codes ({=a, {=b, etc.) are preserved — DrawTextLine renders them
 
         // Collapse consecutive tabs into a single newline
         while (text.Contains("\t\t"))

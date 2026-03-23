@@ -114,7 +114,7 @@ public sealed class SocialStatusControl : PrefabPanel
 
     public event Action<SocialStatus>? OnStatusSelected;
 
-    public void Show()
+    public new void Show()
     {
         UpdateSelectedState();
         DescriptionLabel?.SetText(StatusNames[(int)CurrentStatus]);

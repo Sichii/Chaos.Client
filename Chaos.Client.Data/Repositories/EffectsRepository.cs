@@ -1,6 +1,7 @@
 #region
 using Chaos.Client.Data.Abstractions;
 using DALib.Drawing;
+using DALib.Drawing.Virtualized;
 using DALib.Utility;
 #endregion
 
@@ -24,7 +25,7 @@ public sealed class EffectsRepository : RepositoryBase
     /// <summary>
     ///     Returns an EFA effect file by ID, or null if not found.
     /// </summary>
-    public EfaFile? GetEfaEffect(int effectId)
+    public EfaView? GetEfaEffect(int effectId)
     {
         if (effectId == 0)
             return null;
@@ -34,7 +35,7 @@ public sealed class EffectsRepository : RepositoryBase
         if (!DatArchives.Roh.TryGetValue(entryName, out var entry))
             return null;
 
-        return GetOrCreate($"efa_{effectId}", () => EfaFile.FromEntry(entry));
+        return GetOrCreate($"efa_{effectId}", () => EfaView.FromEntry(entry));
     }
 
     /// <summary>
@@ -93,7 +94,7 @@ public sealed class EffectsRepository : RepositoryBase
     /// <summary>
     ///     Returns an EPF effect file with palette by ID, or null if not found.
     /// </summary>
-    public Palettized<EpfFile>? GetEpfEffect(int effectId)
+    public Palettized<EpfView>? GetEpfEffect(int effectId)
     {
         if (effectId == 0)
             return null;
@@ -105,9 +106,9 @@ public sealed class EffectsRepository : RepositoryBase
 
         return GetOrCreate(
             $"epf_{effectId}",
-            () => new Palettized<EpfFile>
+            () => new Palettized<EpfView>
             {
-                Entity = EpfFile.FromEntry(entry),
+                Entity = EpfView.FromEntry(entry),
                 Palette = EffectPalettes.GetPaletteForId(effectId)
             });
     }

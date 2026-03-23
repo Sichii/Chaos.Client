@@ -7,12 +7,12 @@ using NAudio.Wave;
 namespace Chaos.Client.Systems.Sound;
 
 /// <summary>
-///     Manages sound effect playback. Decodes MP3 streams from the game archives via NAudio and caches the resulting
-///     MonoGame SoundEffect instances.
+///     Manages sound effect playback. Decodes MP3 streams from the game archives via NAudio, caches a bounded number of
+///     SoundEffect instances. Reads directly from memory-mapped archives — no intermediate stream caching.
 /// </summary>
 public sealed class SoundManager : IDisposable
 {
-    private const int MAX_CACHED_SOUNDS = 128;
+    private const int MAX_CACHED_SOUNDS = 64;
     private const int VOLUME_STEPS = 10;
     private readonly Dictionary<int, SoundEffect?> SoundCache = new();
     private int CurrentMusicId = -1;
@@ -34,7 +34,6 @@ public sealed class SoundManager : IDisposable
 
     private void EvictOldest()
     {
-        // Simple eviction: remove first entries until under limit
         var toRemove = SoundCache.Count - MAX_CACHED_SOUNDS;
 
         foreach (var key in SoundCache.Keys
@@ -47,16 +46,15 @@ public sealed class SoundManager : IDisposable
         }
     }
 
-    private SoundEffect? LoadSound(int soundId)
+    private static SoundEffect? LoadSound(int soundId)
     {
+        if (!DatArchives.Legend.TryGetValue($"{soundId}.mp3", out var entry))
+            return null;
+
         try
         {
-            using var mp3Stream = DataContext.Sounds.GetEffectSound(soundId);
-
-            if (mp3Stream is null)
-                return null;
-
-            using var mp3Reader = new Mp3FileReader(mp3Stream);
+            using var archiveStream = entry.ToStreamSegment();
+            using var mp3Reader = new Mp3FileReader(archiveStream);
             using var pcmStream = WaveFormatConversionStream.CreatePcmStream(mp3Reader);
 
             using var ms = new MemoryStream();
@@ -92,11 +90,12 @@ public sealed class SoundManager : IDisposable
 
         try
         {
-            using var musStream = DataContext.Sounds.GetMusic(musicId);
+            var path = Path.Combine(DataContext.DataPath, "music", $"{musicId}.mus");
 
-            if (musStream is null)
+            if (!File.Exists(path))
                 return;
 
+            using var musStream = File.OpenRead(path);
             using var mp3Reader = new Mp3FileReader(musStream);
             using var pcmStream = WaveFormatConversionStream.CreatePcmStream(mp3Reader);
 

@@ -4,6 +4,7 @@ using Chaos.Client.Data.Repositories;
 using Chaos.DarkAges.Definitions;
 using DALib.Definitions;
 using DALib.Drawing;
+using DALib.Drawing.Virtualized;
 using Microsoft.Xna.Framework.Graphics;
 using SkiaSharp;
 #endregion
@@ -191,7 +192,7 @@ public sealed class AislingRenderer : IDisposable
     ];
 
     private readonly AislingDataRepository Data = DataContext.AislingData;
-    private readonly EpfFile? EmotionsEpf = LoadEmotionsEpf();
+    private readonly EpfView? EmotionsEpf = LoadEmotionsEpf();
     private readonly Dictionary<LayerCacheKey, AislingLayerTexture> LayerTextureCache = new();
     private readonly LayerInfo?[] RenderLayers = new LayerInfo?[(int)LayerSlot.Count];
     private readonly Dictionary<Texture2D, Texture2D> TintedTextureCache = new();
@@ -263,12 +264,12 @@ public sealed class AislingRenderer : IDisposable
             _    => frameIndex >= 5
         };
 
-    private static EpfFile? LoadEmotionsEpf()
+    private static EpfView? LoadEmotionsEpf()
     {
         if (!DatArchives.Legend.TryGetValue("emot01.epf", out var entry))
             return null;
 
-        return EpfFile.FromEntry(entry);
+        return EpfView.FromEntry(entry);
     }
 
     #region Palette Resolution
@@ -1223,7 +1224,7 @@ public sealed class AislingRenderer : IDisposable
     /// <summary>
     ///     Loads the EPF for a layer, handling "04" idle wrapping and "01" fallback.
     /// </summary>
-    private (EpfFile? Epf, int FrameIndex) ResolveLayerEpf(
+    private (EpfView? Epf, int FrameIndex) ResolveLayerEpf(
         char typeLetter,
         int spriteId,
         in AislingAppearance appearance,
@@ -1252,7 +1253,7 @@ public sealed class AislingRenderer : IDisposable
         return (epf, frameIndex);
     }
 
-    private EpfFile? TryLoadEpf(char typeLetter, bool isMale, string fileName) => Data.GetEquipmentEpf(typeLetter, isMale, fileName);
+    private EpfView? TryLoadEpf(char typeLetter, bool isMale, string fileName) => Data.GetEquipmentEpf(typeLetter, isMale, fileName);
 
     /// <summary>
     ///     Scans all equipped layers for "04" idle animation EPFs and returns the max frames per direction found.

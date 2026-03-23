@@ -38,7 +38,6 @@ public static class DataContext
     public static PanelIconRepository PanelIcons { get; private set; } = null!;
     public static PanelItemRepository PanelItems { get; private set; } = null!;
     public static PlayerDataRepository PlayerData { get; private set; } = null!;
-    public static SoundRepository Sounds { get; private set; } = null!;
     public static TileRepository Tiles { get; private set; } = null!;
     public static UiComponentRepository UserControls { get; private set; } = null!;
 
@@ -62,7 +61,6 @@ public static class DataContext
         PanelIcons = new PanelIconRepository();
         PanelItems = new PanelItemRepository();
         PlayerData = new PlayerDataRepository();
-        Sounds = new SoundRepository();
         Tiles = new TileRepository();
         UserControls = new UiComponentRepository();
     }

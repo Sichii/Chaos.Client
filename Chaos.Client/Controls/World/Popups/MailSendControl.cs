@@ -14,6 +14,8 @@ namespace Chaos.Client.Controls.World.Popups;
 /// </summary>
 public sealed class MailSendControl : PrefabPanel
 {
+    private const int BULLETIN_RECT_LEFT = 8;
+    private const int BULLETIN_RECT_BOTTOM = 304;
     private const int LINE_HEIGHT = 12;
 
     // Content area — multi-line body
@@ -34,14 +36,17 @@ public sealed class MailSendControl : PrefabPanel
     private int ScrollOffset;
 
     public ushort BoardId { get; set; }
+    public bool IsPublicBoard { get; set; }
     public UIButton? CancelButton { get; }
 
     public UIButton? SendButton { get; }
 
     public MailSendControl(GraphicsDevice device)
-        : base(device, "_nmails")
+        : base(device, "_nmails", false)
     {
         Name = "MailSend";
+        X = BULLETIN_RECT_LEFT;
+        Y = BULLETIN_RECT_BOTTOM - Height;
         Visible = false;
 
         var elements = AutoPopulate();
@@ -167,7 +172,8 @@ public sealed class MailSendControl : PrefabPanel
         var recipient = ReceiverEditBox?.Text ?? string.Empty;
         var subject = TitleBox?.Text ?? string.Empty;
 
-        if (string.IsNullOrWhiteSpace(recipient))
+        // Public boards don't require a recipient
+        if (!IsPublicBoard && string.IsNullOrWhiteSpace(recipient))
             return;
 
         OnSend?.Invoke(recipient, subject, BodyText);
@@ -198,13 +204,16 @@ public sealed class MailSendControl : PrefabPanel
     /// </summary>
     public void ShowCompose(string? recipient = null)
     {
+        // Public boards hide the receiver field entirely
         if (ReceiverEditBox is not null)
         {
+            ReceiverEditBox.Visible = !IsPublicBoard;
             ReceiverEditBox.Text = recipient ?? string.Empty;
-            ReceiverEditBox.IsFocused = recipient is null;
+            ReceiverEditBox.IsFocused = !IsPublicBoard && recipient is null;
         }
 
-        ReceiverDisplayLabel?.SetText(recipient ?? string.Empty);
+        if (ReceiverDisplayLabel is not null)
+            ReceiverDisplayLabel.Visible = !IsPublicBoard;
 
         TitleBox?.Text = string.Empty;
 
@@ -215,8 +224,11 @@ public sealed class MailSendControl : PrefabPanel
 
         Show();
 
-        // Focus recipient if empty, otherwise focus title
-        if (ReceiverEditBox is not null && string.IsNullOrEmpty(recipient))
+        // Public boards skip receiver, focus title directly
+        if (IsPublicBoard)
+        {
+            TitleBox?.IsFocused = true;
+        } else if (ReceiverEditBox is not null && string.IsNullOrEmpty(recipient))
             ReceiverEditBox.IsFocused = true;
         else
             TitleBox?.IsFocused = true;
@@ -238,7 +250,7 @@ public sealed class MailSendControl : PrefabPanel
         // Tab navigation between fields
         if (input.WasKeyPressed(Keys.Tab))
         {
-            if (ReceiverEditBox?.IsFocused == true)
+            if (!IsPublicBoard && (ReceiverEditBox?.IsFocused == true))
             {
                 ReceiverEditBox.IsFocused = false;
 
@@ -249,8 +261,8 @@ public sealed class MailSendControl : PrefabPanel
             // Body would get focus here — for now body is simplified
         }
 
-        // Enter in receiver → focus title
-        if ((ReceiverEditBox?.IsFocused == true) && input.WasKeyPressed(Keys.Enter))
+        // Enter in receiver → focus title (mail only)
+        if (!IsPublicBoard && (ReceiverEditBox?.IsFocused == true) && input.WasKeyPressed(Keys.Enter))
         {
             ReceiverEditBox.IsFocused = false;
 

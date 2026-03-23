@@ -9,7 +9,7 @@ namespace Chaos.Client.Controls.Components;
 public class UIPanel : UIElement
 {
     private static readonly Comparison<UIElement> ZIndexComparison = (a, b) => a.ZIndex.CompareTo(b.ZIndex);
-    private bool ChildOrderDirty;
+    internal bool ChildOrderDirty;
 
     public Texture2D? Background { get; set; }
     public List<UIElement> Children { get; } = [];

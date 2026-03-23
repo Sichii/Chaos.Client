@@ -64,6 +64,12 @@ public sealed class WorldState
         entity.TileY = args.Y;
         entity.Direction = args.Direction;
         entity.Name = args.Name;
+        entity.IsTransparent = args.IsTransparent;
+        entity.IsDead = args.IsDead;
+        entity.LanternSize = args.LanternSize;
+        entity.NameTagStyle = args.NameTagStyle;
+        entity.RestPosition = args.RestPosition;
+        entity.GroupBoxText = args.GroupBoxText;
 
         // Check for morph mode (creature form)
         if (args.Sprite.HasValue)
@@ -131,8 +137,9 @@ public sealed class WorldState
 
                     break;
 
-                case GroundItemInfo:
+                case GroundItemInfo groundItem:
                     entity.Type = ClientEntityType.GroundItem;
+                    entity.ItemColor = (byte)groundItem.Color;
 
                     break;
             }

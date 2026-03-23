@@ -20,7 +20,7 @@ namespace Chaos.Client.Networking;
 public sealed class ConnectionManager : IDisposable
 {
     private readonly Dictionary<EquipmentSlot, EquipmentInfo> EquipmentState = new();
-    private readonly Dictionary<byte, (ushort Sprite, string Name)> InventoryState = new();
+    private readonly Dictionary<byte, InventorySlotInfo> InventoryState = new();
     private readonly Action<ServerPacket>?[] PacketHandlers = new Action<ServerPacket>?[byte.MaxValue + 1];
     private readonly Dictionary<byte, (ushort Sprite, string Name)> SkillState = new();
     private readonly Dictionary<byte, SpellInfo> SpellState = new();
@@ -31,6 +31,11 @@ public sealed class ConnectionManager : IDisposable
     ///     The aisling's ID, assigned by the server after world entry.
     /// </summary>
     public uint AislingId { get; private set; }
+
+    /// <summary>
+    ///     The character name, set during login.
+    /// </summary>
+    public string AislingName { get; private set; } = string.Empty;
 
     /// <summary>
     ///     The most recently received attributes.
@@ -85,7 +90,7 @@ public sealed class ConnectionManager : IDisposable
     /// <summary>
     ///     Buffered inventory sprites (slot → sprite), populated during world entry.
     /// </summary>
-    public IReadOnlyDictionary<byte, (ushort Sprite, string Name)> InventorySlots => InventoryState;
+    public IReadOnlyDictionary<byte, InventorySlotInfo> InventorySlots => InventoryState;
 
     /// <summary>
     ///     Buffered skill data (slot → sprite + name), populated during world entry.
@@ -384,6 +389,8 @@ public sealed class ConnectionManager : IDisposable
     {
         if (State != ConnectionState.Login)
             return;
+
+        AislingName = name;
 
         Client.Send(
             new LoginArgs
@@ -832,6 +839,22 @@ public sealed class ConnectionManager : IDisposable
     }
 
     /// <summary>
+    ///     Adds a player to the ignore list.
+    /// </summary>
+    public void SendAddIgnore(string targetName)
+    {
+        if (State != ConnectionState.World)
+            return;
+
+        Client.Send(
+            new IgnoreArgs
+            {
+                IgnoreType = IgnoreType.AddUser,
+                TargetName = targetName
+            });
+    }
+
+    /// <summary>
     ///     Sends a begin chant packet with the number of cast lines.
     /// </summary>
     public void SendBeginChant(byte castLineCount)
@@ -854,6 +877,7 @@ public sealed class ConnectionManager : IDisposable
         ushort boardId = 0,
         short postId = 0,
         short startPostId = 0,
+        BoardControls? controls = null,
         string? to = null,
         string? subject = null,
         string? message = null)
@@ -868,6 +892,7 @@ public sealed class ConnectionManager : IDisposable
                 BoardId = boardId,
                 PostId = postId,
                 StartPostId = startPostId,
+                Controls = controls,
                 To = to,
                 Subject = subject,
                 Message = message
@@ -914,6 +939,22 @@ public sealed class ConnectionManager : IDisposable
                 DialogArgsType = argsType,
                 Option = option,
                 Args = args
+            });
+    }
+
+    /// <summary>
+    ///     Sends the player's portrait and profile text to the server.
+    /// </summary>
+    public void SendEditableProfile(byte[] portraitData, string profileMessage)
+    {
+        if (State != ConnectionState.World)
+            return;
+
+        Client.Send(
+            new EditableProfileArgs
+            {
+                PortraitData = portraitData,
+                ProfileMessage = profileMessage
             });
     }
 
@@ -973,6 +1014,21 @@ public sealed class ConnectionManager : IDisposable
     }
 
     /// <summary>
+    ///     Requests the current ignore list from the server.
+    /// </summary>
+    public void SendIgnoreRequest()
+    {
+        if (State != ConnectionState.World)
+            return;
+
+        Client.Send(
+            new IgnoreArgs
+            {
+                IgnoreType = IgnoreType.Request
+            });
+    }
+
+    /// <summary>
     ///     Sends a menu interaction response (pursuit selection).
     /// </summary>
     public void SendMenuResponse(
@@ -995,6 +1051,17 @@ public sealed class ConnectionManager : IDisposable
                 Args = args
             });
     }
+
+    /// <summary>
+    ///     Sends a metadata request to the server (checksums or specific file data).
+    /// </summary>
+    public void SendMetaDataRequest(MetaDataRequestType requestType, string? name = null)
+        => Client.Send(
+            new MetaDataRequestArgs
+            {
+                MetaDataRequestType = requestType,
+                Name = name
+            });
 
     /// <summary>
     ///     Sends a spacebar (assail) request.
@@ -1024,6 +1091,38 @@ public sealed class ConnectionManager : IDisposable
             {
                 Message = message,
                 PublicMessageType = PublicMessageType.Normal
+            });
+    }
+
+    /// <summary>
+    ///     Removes a player from the ignore list.
+    /// </summary>
+    public void SendRemoveIgnore(string targetName)
+    {
+        if (State != ConnectionState.World)
+            return;
+
+        Client.Send(
+            new IgnoreArgs
+            {
+                IgnoreType = IgnoreType.RemoveUser,
+                TargetName = targetName
+            });
+    }
+
+    /// <summary>
+    ///     Sends notepad text for an editable notepad slot.
+    /// </summary>
+    public void SendSetNotepad(byte slot, string message)
+    {
+        if (State != ConnectionState.World)
+            return;
+
+        Client.Send(
+            new SetNotepadArgs
+            {
+                Slot = slot,
+                Message = message
             });
     }
 
@@ -1102,6 +1201,14 @@ public sealed class ConnectionManager : IDisposable
                 Slot1 = slot1,
                 Slot2 = slot2
             });
+    }
+
+    public void ToggleGroup()
+    {
+        if (State != ConnectionState.World)
+            return;
+
+        Client.Send(new ToggleGroupArgs());
     }
 
     /// <summary>
@@ -1294,6 +1401,7 @@ public sealed class ConnectionManager : IDisposable
         PacketHandlers[(byte)ServerOpCode.DisplayGroupInvite] = HandleDisplayGroupInvite;
 
         // Profiles / lists
+        PacketHandlers[(byte)ServerOpCode.EditableProfileRequest] = HandleEditableProfileRequest;
         PacketHandlers[(byte)ServerOpCode.SelfProfile] = HandleSelfProfile;
         PacketHandlers[(byte)ServerOpCode.OtherProfile] = HandleOtherProfile;
         PacketHandlers[(byte)ServerOpCode.WorldList] = HandleWorldList;
@@ -1433,6 +1541,14 @@ public sealed class ConnectionManager : IDisposable
 
     private void HandleMapChangeComplete(ServerPacket _)
     {
+        // Map tile data is fully loaded — ideal time for a full collection while the loading screen is still up
+        GC.Collect(
+            2,
+            GCCollectionMode.Aggressive,
+            true,
+            true);
+        GC.WaitForPendingFinalizers();
+
         EntryState |= WorldEntryState.MapChangeComplete;
         CheckWorldEntryComplete();
     }
@@ -1608,7 +1724,12 @@ public sealed class ConnectionManager : IDisposable
     {
         var args = Client.Deserialize<AddItemToPaneArgs>(in pkt);
         var displayName = args.Item is { Stackable: true, Count: > 0 } ? $"{args.Item.Name}[ {args.Item.Count} ]" : args.Item.Name;
-        InventoryState[args.Item.Slot] = (args.Item.Sprite, displayName);
+
+        InventoryState[args.Item.Slot] = new InventorySlotInfo(
+            args.Item.Sprite,
+            displayName,
+            args.Item.Stackable,
+            args.Item.Count ?? 0);
         OnAddItemToPane?.Invoke(args);
     }
 
@@ -1761,6 +1882,13 @@ public sealed class ConnectionManager : IDisposable
     }
 
     // --- Profiles / Lists ---
+
+    private void HandleEditableProfileRequest(ServerPacket _) => OnEditableProfileRequest?.Invoke();
+
+    /// <summary>
+    ///     Fired when the server requests the player's portrait and profile text.
+    /// </summary>
+    public event Action? OnEditableProfileRequest;
 
     private void HandleSelfProfile(ServerPacket pkt)
     {
