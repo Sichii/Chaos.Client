@@ -22,7 +22,7 @@ public static class DebugOverlay
     private const int STATS_LINE_COUNT = 6;
 
     private static readonly float[] FrameTimeHistory = new float[FRAME_TIME_HISTORY];
-    private static readonly Stopwatch FrameStopwatch = Stopwatch.StartNew();
+    private static readonly Stopwatch FrameStopwatch = new();
     private static readonly Dictionary<UIElement, CachedText> ElementLabelCache = new();
     private static readonly List<(CachedText Text, Vector2 Position)> PendingLabels = [];
     private static CachedText[]? StatsTextCache;
@@ -32,7 +32,10 @@ public static class DebugOverlay
     private static int LastGen2Count;
     private static int Gen2Delta;
     private static float Gen2FlashTimer;
-    private static float LastFrameTimeMs;
+    private static float LastFrameWorkMs;
+    private static int FpsCounter;
+    private static int DisplayFps;
+    private static float FpsElapsed;
     private static long SnappedDrawCount;
     private static long DebugDrawCount;
 
@@ -52,6 +55,15 @@ public static class DebugOverlay
     private static float GraphY => Y;
     private static float StatsX => X;
     private static float StatsY => Y + GRAPH_HEIGHT + 4;
+
+    /// <summary>
+    ///     Call at the start of Update to capture the previous frame's work time and begin timing the new frame.
+    /// </summary>
+    public static void BeginFrame()
+    {
+        LastFrameWorkMs = (float)FrameStopwatch.Elapsed.TotalMilliseconds;
+        FrameStopwatch.Restart();
+    }
 
     private static void ClearCaches()
     {
@@ -282,7 +294,6 @@ public static class DebugOverlay
     {
         // Text stats
         var heapMb = GC.GetTotalMemory(false) / (1024.0 * 1024.0);
-        var fps = LastFrameTimeMs > 0 ? 1000f / LastFrameTimeMs : 0;
         var gcMode = GCSettings.IsServerGC ? "Server" : "Workstation";
         var latencyMode = GCSettings.LatencyMode;
 
@@ -290,9 +301,9 @@ public static class DebugOverlay
 
         var lines = new (string Text, Color Color)[]
         {
-            ($"{fps:F0} FPS  {LastFrameTimeMs:F1}ms", LastFrameTimeMs > 20
+            ($"{DisplayFps} FPS  {LastFrameWorkMs:F1}ms", LastFrameWorkMs > 20
                 ? Color.Red
-                : LastFrameTimeMs > 17
+                : LastFrameWorkMs > 17
                     ? Color.Yellow
                     : Color.Lime),
             ($"Draws: {drawCount} (excl. debug)", drawCount > 3000 ? Color.Yellow : Color.White),
@@ -324,6 +335,11 @@ public static class DebugOverlay
     }
 
     /// <summary>
+    ///     Call at the end of Draw to stop timing the current frame's Update+Draw work.
+    /// </summary>
+    public static void EndFrame() => FrameStopwatch.Stop();
+
+    /// <summary>
     ///     Captures the GPU draw count before the debug overlay renders its own draws. Call immediately before Draw() so the
     ///     reported count excludes debug overlay draws.
     /// </summary>
@@ -345,12 +361,19 @@ public static class DebugOverlay
         if (!IsActive)
             return;
 
-        // Frame time from stopwatch (measures real wall time between Update calls)
-        LastFrameTimeMs = (float)FrameStopwatch.Elapsed.TotalMilliseconds;
-        FrameStopwatch.Restart();
-
-        FrameTimeHistory[FrameTimeIndex % FRAME_TIME_HISTORY] = LastFrameTimeMs;
+        FrameTimeHistory[FrameTimeIndex % FRAME_TIME_HISTORY] = LastFrameWorkMs;
         FrameTimeIndex++;
+
+        // FPS counter — count actual frames per second
+        FpsCounter++;
+        FpsElapsed += (float)gameTime.ElapsedGameTime.TotalMilliseconds;
+
+        if (FpsElapsed >= 1000f)
+        {
+            DisplayFps = FpsCounter;
+            FpsCounter = 0;
+            FpsElapsed -= 1000f;
+        }
 
         // GC collection tracking
         var g0 = GC.CollectionCount(0);

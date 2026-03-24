@@ -1,6 +1,7 @@
 #region
 using Chaos.Client.Controls.Components;
 using Chaos.Client.Controls.Generic;
+using Chaos.Client.Utilities;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using Microsoft.Xna.Framework.Input;
@@ -16,23 +17,18 @@ public sealed class BoardListControl : PrefabPanel
 {
     private const float DOUBLE_CLICK_MS = 400f;
     private const int ROW_HEIGHT = 18;
-    private const float SLIDE_DURATION_MS = 250f;
 
     private readonly Rectangle BoardListRect;
     private readonly int MaxVisibleRows;
-    private readonly CachedText[] NameCaches;
+    private readonly UILabel[] RowLabels;
     private readonly ScrollBarControl ScrollBar;
     private List<(ushort BoardId, string Name)> Boards = [];
     private int DataVersion;
     private float LastClickTime;
-    private int OffScreenX;
     private int RenderedVersion = -1;
     private int ScrollOffset;
     private int SelectedIndex = -1;
-    private float SlideTimer;
-    private bool Sliding;
-    private bool SlidingOut;
-    private int TargetX;
+    private SlideAnimator Slide;
 
     public UIButton? QuitButton { get; }
     public UIButton? ViewButton { get; }
@@ -47,7 +43,7 @@ public sealed class BoardListControl : PrefabPanel
         QuitButton = CreateButton("Quit");
 
         if (QuitButton is not null)
-            QuitButton.OnClick += SlideOut;
+            QuitButton.OnClick += () => Slide.SlideOut();
 
         if (ViewButton is not null)
             ViewButton.OnClick += () =>
@@ -59,10 +55,22 @@ public sealed class BoardListControl : PrefabPanel
         BoardListRect = GetRect("BoardList");
         MaxVisibleRows = BoardListRect.Height > 0 ? BoardListRect.Height / ROW_HEIGHT : 0;
 
-        NameCaches = new CachedText[MaxVisibleRows];
+        RowLabels = new UILabel[MaxVisibleRows];
 
         for (var i = 0; i < MaxVisibleRows; i++)
-            NameCaches[i] = new CachedText();
+        {
+            RowLabels[i] = new UILabel
+            {
+                X = BoardListRect.X,
+                Y = BoardListRect.Y + i * ROW_HEIGHT,
+                Width = BoardListRect.Width - ScrollBarControl.DEFAULT_WIDTH,
+                Height = ROW_HEIGHT,
+                PaddingLeft = 0,
+                PaddingTop = 0
+            };
+
+            AddChild(RowLabels[i]);
+        }
 
         ScrollBar = new ScrollBarControl
         {
@@ -74,50 +82,21 @@ public sealed class BoardListControl : PrefabPanel
         AddChild(ScrollBar);
     }
 
-    public override void Dispose()
-    {
-        foreach (var c in NameCaches)
-            c.Dispose();
-
-        base.Dispose();
-    }
-
     public override void Draw(SpriteBatch spriteBatch)
     {
         if (!Visible)
             return;
 
-        RefreshCaches();
+        RefreshLabels();
         base.Draw(spriteBatch);
-
-        var sx = ScreenX + BoardListRect.X;
-        var sy = ScreenY + BoardListRect.Y;
-
-        for (var i = 0; i < MaxVisibleRows; i++)
-        {
-            var boardIndex = ScrollOffset + i;
-
-            if (boardIndex >= Boards.Count)
-                break;
-
-            var rowY = sy + i * ROW_HEIGHT;
-
-            NameCaches[i]
-                .Draw(spriteBatch, new Vector2(sx + 4, rowY + 2));
-        }
     }
 
-    public override void Hide()
-    {
-        Visible = false;
-        Sliding = false;
-        X = OffScreenX;
-    }
+    public override void Hide() => Slide.Hide(this);
 
     public event Action? OnClose;
     public event Action<ushort>? OnViewBoard;
 
-    private void RefreshCaches()
+    private void RefreshLabels()
     {
         if (RenderedVersion == DataVersion)
             return;
@@ -132,28 +111,27 @@ public sealed class BoardListControl : PrefabPanel
             {
                 var textColor = boardIndex == SelectedIndex ? new Color(100, 149, 237) : Color.White;
 
-                NameCaches[i]
-                    .Update(Boards[boardIndex].Name, textColor);
+                RowLabels[i]
+                    .SetText(Boards[boardIndex].Name, textColor);
             } else
-                NameCaches[i]
-                    .Update(string.Empty, Color.White);
+                RowLabels[i]
+                    .SetText(string.Empty);
         }
     }
 
     public void SetViewportBounds(Rectangle viewport)
     {
-        TargetX = viewport.X + viewport.Width - Width;
-        OffScreenX = viewport.X + viewport.Width;
+        Slide.SetViewportBounds(viewport, Width);
         Y = viewport.Y;
     }
 
     public override void Show()
     {
         if (!Visible)
-            SlideIn();
+            Slide.SlideIn(this);
     }
 
-    public void ShowBoards(List<(ushort BoardId, string Name)> boards)
+    public void ShowBoards(List<(ushort BoardId, string Name)> boards, bool slide = true)
     {
         Boards = boards;
         SelectedIndex = boards.Count > 0 ? 0 : -1;
@@ -162,23 +140,11 @@ public sealed class BoardListControl : PrefabPanel
         ScrollBar.Value = 0;
         ScrollBar.MaxValue = Math.Max(0, boards.Count - MaxVisibleRows);
         UpdateButtonStates();
-        Show();
-    }
 
-    private void SlideIn()
-    {
-        X = OffScreenX;
-        Visible = true;
-        Sliding = true;
-        SlidingOut = false;
-        SlideTimer = 0;
-    }
-
-    private void SlideOut()
-    {
-        Sliding = true;
-        SlidingOut = true;
-        SlideTimer = 0;
+        if (slide)
+            Show();
+        else
+            Slide.ShowInPlace(this);
     }
 
     public override void Update(GameTime gameTime, InputBuffer input)
@@ -186,38 +152,16 @@ public sealed class BoardListControl : PrefabPanel
         if (!Visible || !Enabled)
             return;
 
-        if (Sliding)
+        if (Slide.Update(gameTime, this))
         {
-            SlideTimer += (float)gameTime.ElapsedGameTime.TotalMilliseconds;
-            var t = Math.Clamp(SlideTimer / SLIDE_DURATION_MS, 0f, 1f);
-            var eased = 1f - (1f - t) * (1f - t);
+            OnClose?.Invoke();
 
-            if (SlidingOut)
-            {
-                X = (int)MathHelper.Lerp(TargetX, OffScreenX, eased);
-
-                if (t >= 1f)
-                {
-                    Hide();
-                    OnClose?.Invoke();
-
-                    return;
-                }
-            } else
-            {
-                X = (int)MathHelper.Lerp(OffScreenX, TargetX, eased);
-
-                if (t >= 1f)
-                {
-                    X = TargetX;
-                    Sliding = false;
-                }
-            }
+            return;
         }
 
         if (input.WasKeyPressed(Keys.Escape))
         {
-            SlideOut();
+            Slide.SlideOut();
 
             return;
         }
@@ -225,7 +169,7 @@ public sealed class BoardListControl : PrefabPanel
         LastClickTime += (float)gameTime.ElapsedGameTime.TotalMilliseconds;
 
         // Row click selection + double-click to open
-        if (input.WasLeftButtonPressed && !Sliding)
+        if (input.WasLeftButtonPressed && !Slide.Sliding)
         {
             var relX = input.MouseX - ScreenX - BoardListRect.X;
             var relY = input.MouseY - ScreenY - BoardListRect.Y;

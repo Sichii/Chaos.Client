@@ -3,6 +3,7 @@ using Chaos.Client.Controls.Components;
 using Chaos.Client.Controls.Generic;
 using Chaos.Client.Models;
 using Chaos.Client.Rendering;
+using Chaos.Client.Utilities;
 using Chaos.Client.ViewModel;
 using Chaos.DarkAges.Definitions;
 using Chaos.Extensions.Common;
@@ -20,7 +21,6 @@ namespace Chaos.Client.Controls.World.Hud;
 /// </summary>
 public sealed class WorldListControl : PrefabPanel
 {
-    private const float SLIDE_DURATION_MS = 250f;
     private const int ROW_HEIGHT = 12;
     private const int TAB_COUNT = 9;
 
@@ -45,15 +45,11 @@ public sealed class WorldListControl : PrefabPanel
     // Player data
     private IReadOnlyList<WorldListEntry> AllEntries = [];
     private IReadOnlyList<WorldListEntry> FilteredEntries = [];
-    private int OffScreenX;
     private bool RowsDirty;
     private int ScrollOffset;
-    private float SlideTimer;
-    private bool Sliding;
-    private bool SlidingOut;
 
     // Slide animation
-    private int TargetX;
+    private SlideAnimator Slide;
     private ushort TotalOnline;
 
     public string PlayerName { get; set; } = string.Empty;
@@ -65,9 +61,14 @@ public sealed class WorldListControl : PrefabPanel
         Visible = false;
 
         // Position: right-aligned, starts off-screen
-        TargetX = 640 - Width;
-        OffScreenX = 640;
-        X = OffScreenX;
+        Slide.SetViewportBounds(
+            new Rectangle(
+                0,
+                0,
+                640,
+                480),
+            Width);
+        X = Slide.OffScreenX;
 
         // UsersList rect
         UsersListRect = GetRect("UsersList");
@@ -185,7 +186,7 @@ public sealed class WorldListControl : PrefabPanel
         var closeButton = CreateButton("Close");
 
         if (closeButton is not null)
-            closeButton.OnClick += SlideOut;
+            closeButton.OnClick += () => Slide.SlideOut();
 
         WorldListState = worldList;
         WorldListState.Changed += OnWorldListChanged;
@@ -265,12 +266,7 @@ public sealed class WorldListControl : PrefabPanel
         base.Draw(spriteBatch);
     }
 
-    public override void Hide()
-    {
-        Visible = false;
-        Sliding = false;
-        X = OffScreenX;
-    }
+    public override void Hide() => Slide.Hide(this);
 
     private void LoadStatusIcons()
     {
@@ -341,8 +337,7 @@ public sealed class WorldListControl : PrefabPanel
 
     public void SetViewportBounds(Rectangle viewport)
     {
-        TargetX = viewport.X + viewport.Width - Width;
-        OffScreenX = viewport.X + viewport.Width;
+        Slide.SetViewportBounds(viewport, Width);
         Y = viewport.Y;
     }
 
@@ -360,23 +355,7 @@ public sealed class WorldListControl : PrefabPanel
         RowsDirty = true;
 
         if (!Visible)
-            SlideIn();
-    }
-
-    private void SlideIn()
-    {
-        X = OffScreenX;
-        Visible = true;
-        Sliding = true;
-        SlidingOut = false;
-        SlideTimer = 0;
-    }
-
-    private void SlideOut()
-    {
-        Sliding = true;
-        SlidingOut = true;
-        SlideTimer = 0;
+            Slide.SlideIn(this);
     }
 
     public override void Update(GameTime gameTime, InputBuffer input)
@@ -384,38 +363,16 @@ public sealed class WorldListControl : PrefabPanel
         if (!Visible || !Enabled)
             return;
 
-        if (Sliding)
+        if (Slide.Update(gameTime, this))
         {
-            SlideTimer += (float)gameTime.ElapsedGameTime.TotalMilliseconds;
-            var t = Math.Clamp(SlideTimer / SLIDE_DURATION_MS, 0f, 1f);
-            var eased = 1f - (1f - t) * (1f - t);
+            OnClose?.Invoke();
 
-            if (SlidingOut)
-            {
-                X = (int)MathHelper.Lerp(TargetX, OffScreenX, eased);
-
-                if (t >= 1f)
-                {
-                    Hide();
-                    OnClose?.Invoke();
-
-                    return;
-                }
-            } else
-            {
-                X = (int)MathHelper.Lerp(OffScreenX, TargetX, eased);
-
-                if (t >= 1f)
-                {
-                    X = TargetX;
-                    Sliding = false;
-                }
-            }
+            return;
         }
 
         if (input.WasKeyPressed(Keys.Escape))
         {
-            SlideOut();
+            Slide.SlideOut();
 
             return;
         }

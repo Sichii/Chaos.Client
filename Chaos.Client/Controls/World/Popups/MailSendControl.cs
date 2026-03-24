@@ -1,8 +1,6 @@
 #region
 using Chaos.Client.Controls.Components;
-using Chaos.Client.Rendering;
 using Microsoft.Xna.Framework;
-using Microsoft.Xna.Framework.Graphics;
 using Microsoft.Xna.Framework.Input;
 #endregion
 
@@ -14,13 +12,8 @@ namespace Chaos.Client.Controls.World.Popups;
 /// </summary>
 public sealed class MailSendControl : PrefabPanel
 {
-    private const int LINE_HEIGHT = 12;
-    private const float SLIDE_DURATION_MS = 250f;
-
     // Content area — multi-line body
-    private readonly Rectangle ContentRect;
-    private readonly CachedText[] LineCaches;
-    private readonly int MaxVisibleLines;
+    private readonly UILabel BodyLabel;
 
     // Receiver — display label + editable overlay
     private readonly UILabel? ReceiverDisplayLabel;
@@ -28,14 +21,8 @@ public sealed class MailSendControl : PrefabPanel
 
     // Subject
     private readonly UITextBox? TitleBox;
-    private List<string> BodyLines = [];
+    private readonly int VisibleHeight;
     private string BodyText = string.Empty;
-    private int DataVersion;
-    private int OffScreenX;
-    private int RenderedVersion = -1;
-    private int ScrollOffset;
-    private float SlideTimer;
-    private bool Sliding;
     private int TargetX;
 
     public ushort BoardId { get; set; }
@@ -73,48 +60,20 @@ public sealed class MailSendControl : PrefabPanel
         TitleBox = CreateTextBox("Title", 60);
 
         // Content rect for body text display
-        ContentRect = GetRect("Content");
-        MaxVisibleLines = ContentRect.Height > 0 ? ContentRect.Height / LINE_HEIGHT : 0;
+        var contentRect = GetRect("Content");
+        VisibleHeight = contentRect.Height;
 
-        LineCaches = new CachedText[MaxVisibleLines];
-
-        for (var i = 0; i < MaxVisibleLines; i++)
-            LineCaches[i] = new CachedText();
-    }
-
-    public override void Dispose()
-    {
-        foreach (var c in LineCaches)
-            c.Dispose();
-
-        base.Dispose();
-    }
-
-    public override void Draw(SpriteBatch spriteBatch)
-    {
-        if (!Visible)
-            return;
-
-        base.Draw(spriteBatch);
-
-        if (MaxVisibleLines == 0)
-            return;
-
-        RefreshLineCaches();
-
-        var contentX = ScreenX + ContentRect.X;
-        var contentY = ScreenY + ContentRect.Y;
-
-        for (var i = 0; i < MaxVisibleLines; i++)
+        BodyLabel = new UILabel
         {
-            var lineIndex = ScrollOffset + i;
+            X = contentRect.X,
+            Y = contentRect.Y,
+            Width = contentRect.Width,
+            Height = contentRect.Height,
+            PaddingLeft = 0,
+            PaddingTop = 0
+        };
 
-            if (lineIndex >= BodyLines.Count)
-                break;
-
-            LineCaches[i]
-                .Draw(spriteBatch, new Vector2(contentX, contentY + i * LINE_HEIGHT));
-        }
+        AddChild(BodyLabel);
     }
 
     private void HandleBodyInput(InputBuffer input)
@@ -152,14 +111,11 @@ public sealed class MailSendControl : PrefabPanel
         if (!changed)
             return;
 
-        // Re-wrap body text
-        BodyLines = TextRenderer.WrapLines(BodyText, ContentRect.Width);
+        BodyLabel.SetWrappedText(BodyText, Color.White);
 
         // Auto-scroll to bottom
-        if (BodyLines.Count > MaxVisibleLines)
-            ScrollOffset = BodyLines.Count - MaxVisibleLines;
-
-        DataVersion++;
+        var maxScroll = Math.Max(0, BodyLabel.ContentHeight - VisibleHeight);
+        BodyLabel.ScrollOffset = maxScroll;
     }
 
     private void HandleSend()
@@ -174,44 +130,22 @@ public sealed class MailSendControl : PrefabPanel
         OnSend?.Invoke(recipient, subject, BodyText);
     }
 
-    public override void Hide()
-    {
-        Visible = false;
-        Sliding = false;
-        X = OffScreenX;
-    }
+    public override void Hide() => Visible = false;
 
     public event Action? OnCancel;
 
     public event Action<string, string, string>? OnSend; // recipient, subject, body
 
-    private void RefreshLineCaches()
-    {
-        if (RenderedVersion == DataVersion)
-            return;
-
-        RenderedVersion = DataVersion;
-
-        for (var i = 0; i < MaxVisibleLines; i++)
-        {
-            var lineIndex = ScrollOffset + i;
-
-            LineCaches[i]
-                .Update(lineIndex < BodyLines.Count ? BodyLines[lineIndex] : string.Empty, Color.White);
-        }
-    }
-
     public void SetViewportBounds(Rectangle viewport)
     {
         TargetX = viewport.X + viewport.Width - Width;
-        OffScreenX = viewport.X + viewport.Width;
         Y = viewport.Y;
     }
 
     public override void Show()
     {
-        if (!Visible)
-            SlideIn();
+        X = TargetX;
+        Visible = true;
     }
 
     /// <summary>
@@ -233,9 +167,8 @@ public sealed class MailSendControl : PrefabPanel
         TitleBox?.Text = string.Empty;
 
         BodyText = string.Empty;
-        BodyLines.Clear();
-        ScrollOffset = 0;
-        DataVersion++;
+        BodyLabel.ScrollOffset = 0;
+        BodyLabel.SetWrappedText(string.Empty);
 
         Show();
 
@@ -249,32 +182,10 @@ public sealed class MailSendControl : PrefabPanel
             TitleBox?.IsFocused = true;
     }
 
-    private void SlideIn()
-    {
-        X = OffScreenX;
-        Visible = true;
-        Sliding = true;
-        SlideTimer = 0;
-    }
-
     public override void Update(GameTime gameTime, InputBuffer input)
     {
         if (!Visible || !Enabled)
             return;
-
-        if (Sliding)
-        {
-            SlideTimer += (float)gameTime.ElapsedGameTime.TotalMilliseconds;
-            var t = Math.Clamp(SlideTimer / SLIDE_DURATION_MS, 0f, 1f);
-            var eased = 1f - (1f - t) * (1f - t);
-            X = (int)MathHelper.Lerp(OffScreenX, TargetX, eased);
-
-            if (t >= 1f)
-            {
-                X = TargetX;
-                Sliding = false;
-            }
-        }
 
         if (input.WasKeyPressed(Keys.Escape))
         {

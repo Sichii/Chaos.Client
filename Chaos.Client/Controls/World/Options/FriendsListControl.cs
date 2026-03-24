@@ -1,6 +1,7 @@
 #region
 using Chaos.Client.Controls.Components;
 using Chaos.Client.Models;
+using Chaos.Client.Utilities;
 using Chaos.Extensions.Common;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
@@ -17,7 +18,6 @@ public sealed class FriendsListControl : PrefabPanel
 {
     private const int ROW_HEIGHT = 16;
     private const int MAX_VISIBLE_ROWS = 12;
-    private const float SLIDE_DURATION_MS = 250f;
 
     private readonly Rectangle LeftColumnRect;
 
@@ -28,16 +28,10 @@ public sealed class FriendsListControl : PrefabPanel
     private int DataVersion;
 
     private List<FriendEntry> Friends = [];
-    private int OffScreenX;
     private int RenderedVersion = -1;
+    private SlideAnimator Slide;
     private int SlideAnchorY;
     private bool SlideMode;
-    private float SlideTimer;
-    private bool Sliding;
-    private bool SlidingOut;
-
-    // Slide animation
-    private int TargetX;
 
     public UIButton? CancelButton { get; }
 
@@ -89,7 +83,7 @@ public sealed class FriendsListControl : PrefabPanel
         ClosedWithOk = false;
 
         if (SlideMode)
-            SlideOut();
+            Slide.SlideOut();
         else
         {
             Hide();
@@ -102,7 +96,7 @@ public sealed class FriendsListControl : PrefabPanel
         ClosedWithOk = true;
 
         if (SlideMode)
-            SlideOut();
+            Slide.SlideOut();
         else
         {
             OnOk?.Invoke();
@@ -160,11 +154,10 @@ public sealed class FriendsListControl : PrefabPanel
 
     public override void Hide()
     {
-        Visible = false;
-        Sliding = false;
-
         if (SlideMode)
-            X = OffScreenX;
+            Slide.Hide(this);
+        else
+            Visible = false;
     }
 
     public event Action? OnClose;
@@ -212,8 +205,7 @@ public sealed class FriendsListControl : PrefabPanel
 
     public void SetSlideAnchor(int anchorX, int anchorY)
     {
-        OffScreenX = anchorX;
-        TargetX = anchorX - Width;
+        Slide.SetSlideAnchor(anchorX, Width);
         SlideAnchorY = anchorY;
     }
 
@@ -225,7 +217,6 @@ public sealed class FriendsListControl : PrefabPanel
         X = (640 - Width) / 2;
         Y = 0;
         Visible = true;
-        Sliding = false;
         SlideMode = false;
     }
 
@@ -237,20 +228,9 @@ public sealed class FriendsListControl : PrefabPanel
         if (Visible)
             return;
 
-        X = OffScreenX;
         Y = SlideAnchorY;
-        Visible = true;
-        Sliding = true;
-        SlidingOut = false;
+        Slide.SlideIn(this);
         SlideMode = true;
-        SlideTimer = 0;
-    }
-
-    private void SlideOut()
-    {
-        Sliding = true;
-        SlidingOut = true;
-        SlideTimer = 0;
     }
 
     public override void Update(GameTime gameTime, InputBuffer input)
@@ -258,37 +238,14 @@ public sealed class FriendsListControl : PrefabPanel
         if (!Visible || !Enabled)
             return;
 
-        if (Sliding)
+        if (Slide.Update(gameTime, this))
         {
-            SlideTimer += (float)gameTime.ElapsedGameTime.TotalMilliseconds;
-            var t = Math.Clamp(SlideTimer / SLIDE_DURATION_MS, 0f, 1f);
-            var eased = 1f - (1f - t) * (1f - t);
+            if (ClosedWithOk)
+                OnOk?.Invoke();
 
-            if (SlidingOut)
-            {
-                X = (int)MathHelper.Lerp(TargetX, OffScreenX, eased);
+            OnClose?.Invoke();
 
-                if (t >= 1f)
-                {
-                    Hide();
-
-                    if (ClosedWithOk)
-                        OnOk?.Invoke();
-
-                    OnClose?.Invoke();
-
-                    return;
-                }
-            } else
-            {
-                X = (int)MathHelper.Lerp(OffScreenX, TargetX, eased);
-
-                if (t >= 1f)
-                {
-                    X = TargetX;
-                    Sliding = false;
-                }
-            }
+            return;
         }
 
         if (input.WasKeyPressed(Keys.Escape))

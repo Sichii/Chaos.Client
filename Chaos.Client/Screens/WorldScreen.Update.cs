@@ -284,9 +284,16 @@ public sealed partial class WorldScreen
             return;
         }
 
-        if (MailRead.Visible)
+        if (DeleteConfirm.Visible)
         {
-            MailRead.Update(gameTime, input);
+            DeleteConfirm.Update(gameTime, input);
+
+            return;
+        }
+
+        if (ArticleSend.Visible)
+        {
+            ArticleSend.Update(gameTime, input);
 
             return;
         }
@@ -298,9 +305,37 @@ public sealed partial class WorldScreen
             return;
         }
 
+        if (ArticleRead.Visible)
+        {
+            ArticleRead.Update(gameTime, input);
+
+            return;
+        }
+
+        if (MailRead.Visible)
+        {
+            MailRead.Update(gameTime, input);
+
+            return;
+        }
+
+        if (ArticleList.Visible)
+        {
+            ArticleList.Update(gameTime, input);
+
+            return;
+        }
+
         if (MailList.Visible)
         {
             MailList.Update(gameTime, input);
+
+            return;
+        }
+
+        if (BoardList.Visible)
+        {
+            BoardList.Update(gameTime, input);
 
             return;
         }
@@ -345,6 +380,13 @@ public sealed partial class WorldScreen
         if (SocialStatusPicker.Visible)
         {
             SocialStatusPicker.Update(gameTime, input);
+
+            return;
+        }
+
+        if (AislingPopup.Visible)
+        {
+            AislingPopup.Update(gameTime, input);
 
             return;
         }
@@ -512,9 +554,9 @@ public sealed partial class WorldScreen
             if (input.WasKeyPressed(Keys.F5))
                 Game.Connection.RequestRefresh();
 
-            // F7 — mail
+            // F7 — board list
             if (input.WasKeyPressed(Keys.F7))
-                Game.Connection.SendBoardInteraction(BoardRequestType.ViewBoard);
+                Game.Connection.SendBoardInteraction(BoardRequestType.BoardList);
 
             // F8 — group panel
             if (input.WasKeyPressed(Keys.F8))

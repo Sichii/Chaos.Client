@@ -85,4 +85,21 @@ public sealed class CachedText : IDisposable
         RenderedContent = text;
         RenderedColor = color;
     }
+
+    /// <summary>
+    ///     Updates the cached texture with word-wrapped text sized to fit all lines. Re-renders only when content or color
+    ///     changes.
+    /// </summary>
+    public void UpdateWrapped(string text, int maxWidth, Color color)
+    {
+        if ((text == RenderedContent) && (color == RenderedColor))
+            return;
+
+        Texture?.Dispose();
+
+        Texture = string.IsNullOrEmpty(text) ? null : TextRenderer.RenderWrappedText(text, maxWidth, color);
+
+        RenderedContent = text;
+        RenderedColor = color;
+    }
 }

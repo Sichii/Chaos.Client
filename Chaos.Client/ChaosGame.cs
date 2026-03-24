@@ -176,6 +176,8 @@ public sealed class ChaosGame : Game
         SpriteBatch.End();
 
         base.Draw(gameTime);
+
+        DebugOverlay.EndFrame();
     }
 
     protected override void Initialize()
@@ -303,6 +305,8 @@ public sealed class ChaosGame : Game
 
     protected override void Update(GameTime gameTime)
     {
+        DebugOverlay.BeginFrame();
+
         // Compute scale for mouse coordinate transform (window is always 4:3, so uniform scale)
         var scale = (float)GraphicsDevice.PresentationParameters.BackBufferWidth / VIRTUAL_WIDTH;
         Input.SetVirtualScale(scale);

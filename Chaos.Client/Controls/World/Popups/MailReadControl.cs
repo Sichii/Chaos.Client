@@ -2,7 +2,6 @@
 using Chaos.Client.Controls.Components;
 using Chaos.Client.Rendering;
 using Microsoft.Xna.Framework;
-using Microsoft.Xna.Framework.Graphics;
 using Microsoft.Xna.Framework.Input;
 #endregion
 
@@ -14,24 +13,13 @@ namespace Chaos.Client.Controls.World.Popups;
 /// </summary>
 public sealed class MailReadControl : PrefabPanel
 {
-    private const int LINE_HEIGHT = 12;
-    private const float SLIDE_DURATION_MS = 250f;
-
     private readonly UILabel? AuthorLabel;
-    private readonly Rectangle ContentRect;
+    private readonly UILabel BodyLabel;
     private readonly UILabel? DateLabel;
-    private readonly CachedText[] LineCaches;
-
-    private readonly int MaxVisibleLines;
     private readonly UILabel? TitleLabel;
-    private int DataVersion;
-    private int OffScreenX;
-    private int RenderedVersion = -1;
-    private int ScrollOffset;
-    private float SlideTimer;
-    private bool Sliding;
+    private readonly int VisibleHeight;
     private int TargetX;
-    private List<string> WrappedLines = [];
+
     public ushort BoardId { get; set; }
     public string CurrentAuthor { get; private set; } = string.Empty;
 
@@ -86,57 +74,24 @@ public sealed class MailReadControl : PrefabPanel
         TitleLabel = CreateLabel("Title");
         DateLabel = CreateLabel("Mmdd");
 
-        // Content rect
-        ContentRect = GetRect("Content");
-        MaxVisibleLines = ContentRect.Height > 0 ? ContentRect.Height / LINE_HEIGHT : 0;
+        // Body content area
+        var contentRect = GetRect("Content");
+        VisibleHeight = contentRect.Height;
 
-        LineCaches = new CachedText[MaxVisibleLines];
-
-        for (var i = 0; i < MaxVisibleLines; i++)
-            LineCaches[i] = new CachedText();
-    }
-
-    public override void Dispose()
-    {
-        foreach (var c in LineCaches)
-            c.Dispose();
-
-        base.Dispose();
-    }
-
-    public override void Draw(SpriteBatch spriteBatch)
-    {
-        if (!Visible)
-            return;
-
-        base.Draw(spriteBatch);
-
-        if ((MaxVisibleLines == 0) || (WrappedLines.Count == 0))
-            return;
-
-        RefreshLineCaches();
-
-        var contentX = ScreenX + ContentRect.X;
-        var contentY = ScreenY + ContentRect.Y;
-
-        for (var i = 0; i < MaxVisibleLines; i++)
+        BodyLabel = new UILabel
         {
-            var lineIndex = ScrollOffset + i;
+            X = contentRect.X,
+            Y = contentRect.Y,
+            Width = contentRect.Width,
+            Height = contentRect.Height,
+            PaddingLeft = 0,
+            PaddingTop = 0
+        };
 
-            if (lineIndex >= WrappedLines.Count)
-                break;
-
-            LineCaches[i]
-                .Draw(spriteBatch, new Vector2(contentX, contentY + i * LINE_HEIGHT));
-        }
+        AddChild(BodyLabel);
     }
 
-    public override void Hide()
-    {
-        Visible = false;
-        Sliding = false;
-        X = OffScreenX;
-    }
+    public override void Hide() => Visible = false;
 
     public event Action<short>? OnDeletePost;
     public event Action? OnNewMail;
@@ -146,33 +101,16 @@ public sealed class MailReadControl : PrefabPanel
     public event Action<short>? OnReplyPost;
     public event Action? OnUp;
 
-    private void RefreshLineCaches()
-    {
-        if (RenderedVersion == DataVersion)
-            return;
-
-        RenderedVersion = DataVersion;
-
-        for (var i = 0; i < MaxVisibleLines; i++)
-        {
-            var lineIndex = ScrollOffset + i;
-
-            LineCaches[i]
-                .Update(lineIndex < WrappedLines.Count ? WrappedLines[lineIndex] : string.Empty, Color.White);
-        }
-    }
-
     public void SetViewportBounds(Rectangle viewport)
     {
         TargetX = viewport.X + viewport.Width - Width;
-        OffScreenX = viewport.X + viewport.Width;
         Y = viewport.Y;
     }
 
     public override void Show()
     {
-        if (!Visible)
-            SlideIn();
+        X = TargetX;
+        Visible = true;
     }
 
     /// <summary>
@@ -189,8 +127,6 @@ public sealed class MailReadControl : PrefabPanel
     {
         CurrentPostId = postId;
         CurrentAuthor = author;
-        ScrollOffset = 0;
-        DataVersion++;
 
         AuthorLabel?.SetText(author);
         TitleLabel?.SetText(subject);
@@ -202,38 +138,16 @@ public sealed class MailReadControl : PrefabPanel
         if (ReplyButton is not null)
             ReplyButton.Visible = !IsPublicBoard;
 
-        // Word-wrap message into lines
-        WrappedLines = TextRenderer.WrapLines(message, ContentRect.Width);
+        BodyLabel.ScrollOffset = 0;
+        BodyLabel.SetWrappedText(message, Color.White);
 
         Show();
-    }
-
-    private void SlideIn()
-    {
-        X = OffScreenX;
-        Visible = true;
-        Sliding = true;
-        SlideTimer = 0;
     }
 
     public override void Update(GameTime gameTime, InputBuffer input)
     {
         if (!Visible || !Enabled)
             return;
-
-        if (Sliding)
-        {
-            SlideTimer += (float)gameTime.ElapsedGameTime.TotalMilliseconds;
-            var t = Math.Clamp(SlideTimer / SLIDE_DURATION_MS, 0f, 1f);
-            var eased = 1f - (1f - t) * (1f - t);
-            X = (int)MathHelper.Lerp(OffScreenX, TargetX, eased);
-
-            if (t >= 1f)
-            {
-                X = TargetX;
-                Sliding = false;
-            }
-        }
 
         if (input.WasKeyPressed(Keys.Escape))
         {
@@ -245,11 +159,10 @@ public sealed class MailReadControl : PrefabPanel
         base.Update(gameTime, input);
 
         // Scroll wheel
-        if ((input.ScrollDelta != 0) && (WrappedLines.Count > MaxVisibleLines))
+        if (input.ScrollDelta != 0)
         {
-            ScrollOffset = Math.Clamp(ScrollOffset - input.ScrollDelta, 0, WrappedLines.Count - MaxVisibleLines);
-
-            DataVersion++;
+            var maxScroll = Math.Max(0, BodyLabel.ContentHeight - VisibleHeight);
+            BodyLabel.ScrollOffset = Math.Clamp(BodyLabel.ScrollOffset - input.ScrollDelta * TextRenderer.CHAR_HEIGHT, 0, maxScroll);
         }
     }
 }

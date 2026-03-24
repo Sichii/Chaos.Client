@@ -1,5 +1,6 @@
 #region
 using Chaos.Client.Controls.Components;
+using Chaos.Client.Utilities;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using Microsoft.Xna.Framework.Input;
@@ -18,7 +19,6 @@ public sealed class MainOptionsControl : PrefabPanel
     private const int VOLUME_MAX = 10;
     private const int THUMB_WIDTH = 12;
     private const int THUMB_HEIGHT = 12;
-    private const float SLIDE_DURATION_MS = 250f;
     private readonly Rectangle MusicTrackRect;
 
     // Slider state
@@ -27,14 +27,10 @@ public sealed class MainOptionsControl : PrefabPanel
     private bool DraggingMusic;
     private bool DraggingSound;
     private int MusicVolume = 10;
-    private int OffScreenX;
-    private float SlideTimer;
-    private bool Sliding;
-    private bool SlidingOut;
-    private int SoundVolume = 10;
 
     // Slide animation
-    private int TargetX;
+    private SlideAnimator Slide;
+    private int SoundVolume = 10;
 
     public UIButton? CloseButton { get; }
     public UIButton? ExitButton { get; }
@@ -49,9 +45,14 @@ public sealed class MainOptionsControl : PrefabPanel
         Visible = false;
 
         // Right-aligned, slides in from right edge
-        TargetX = 640 - Width;
-        OffScreenX = 640;
-        X = OffScreenX;
+        Slide.SetViewportBounds(
+            new Rectangle(
+                0,
+                0,
+                640,
+                480),
+            Width);
+        X = Slide.OffScreenX;
 
         // Slider track rects
         SoundTrackRect = GetRect("SoundRect");
@@ -83,7 +84,7 @@ public sealed class MainOptionsControl : PrefabPanel
             ExitButton.OnClick += () => OnExit?.Invoke();
 
         if (CloseButton is not null)
-            CloseButton.OnClick += SlideOut;
+            CloseButton.OnClick += () => Slide.SlideOut();
     }
 
     public override void Draw(SpriteBatch spriteBatch)
@@ -173,12 +174,7 @@ public sealed class MainOptionsControl : PrefabPanel
         }
     }
 
-    public override void Hide()
-    {
-        Visible = false;
-        Sliding = false;
-        X = OffScreenX;
-    }
+    public override void Hide() => Slide.Hide(this);
 
     public event Action? OnClose;
     public event Action? OnExit;
@@ -193,31 +189,14 @@ public sealed class MainOptionsControl : PrefabPanel
 
     public void SetViewportBounds(Rectangle viewport)
     {
-        TargetX = viewport.X + viewport.Width - Width;
-        OffScreenX = viewport.X + viewport.Width;
+        Slide.SetViewportBounds(viewport, Width);
         Y = viewport.Y;
     }
 
     public override void Show()
     {
         if (!Visible)
-            SlideIn();
-    }
-
-    private void SlideIn()
-    {
-        X = OffScreenX;
-        Visible = true;
-        Sliding = true;
-        SlidingOut = false;
-        SlideTimer = 0;
-    }
-
-    private void SlideOut()
-    {
-        Sliding = true;
-        SlidingOut = true;
-        SlideTimer = 0;
+            Slide.SlideIn(this);
     }
 
     public override void Update(GameTime gameTime, InputBuffer input)
@@ -225,38 +204,16 @@ public sealed class MainOptionsControl : PrefabPanel
         if (!Visible || !Enabled)
             return;
 
-        if (Sliding)
+        if (Slide.Update(gameTime, this))
         {
-            SlideTimer += (float)gameTime.ElapsedGameTime.TotalMilliseconds;
-            var t = Math.Clamp(SlideTimer / SLIDE_DURATION_MS, 0f, 1f);
-            var eased = 1f - (1f - t) * (1f - t);
+            OnClose?.Invoke();
 
-            if (SlidingOut)
-            {
-                X = (int)MathHelper.Lerp(TargetX, OffScreenX, eased);
-
-                if (t >= 1f)
-                {
-                    Hide();
-                    OnClose?.Invoke();
-
-                    return;
-                }
-            } else
-            {
-                X = (int)MathHelper.Lerp(OffScreenX, TargetX, eased);
-
-                if (t >= 1f)
-                {
-                    X = TargetX;
-                    Sliding = false;
-                }
-            }
+            return;
         }
 
         if (input.WasKeyPressed(Keys.Escape))
         {
-            SlideOut();
+            Slide.SlideOut();
 
             return;
         }

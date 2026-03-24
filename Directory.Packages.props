@@ -1,10 +1,10 @@
 <Project>
   <ItemGroup>
-      <PackageVersion Include="Chaos.Common" Version="1.10.0-preview-0073-gaeff0a59cb"/>
-      <PackageVersion Include="Chaos.DarkAges" Version="1.10.0-preview-0073-gaeff0a59cb"/>
-      <PackageVersion Include="Chaos.Geometry" Version="1.10.0-preview-0073-gaeff0a59cb"/>
-      <PackageVersion Include="Chaos.Networking" Version="1.10.0-preview-0073-gaeff0a59cb"/>
-      <PackageVersion Include="Chaos.Pathfinding" Version="1.10.0-preview-0073-gaeff0a59cb"/>
+      <PackageVersion Include="Chaos.Common" Version="1.10.0-preview-0074-g8b030d4fe6"/>
+      <PackageVersion Include="Chaos.DarkAges" Version="1.10.0-preview-0074-g8b030d4fe6"/>
+      <PackageVersion Include="Chaos.Geometry" Version="1.10.0-preview-0074-g8b030d4fe6"/>
+      <PackageVersion Include="Chaos.Networking" Version="1.10.0-preview-0074-g8b030d4fe6"/>
+      <PackageVersion Include="Chaos.Pathfinding" Version="1.10.0-preview-0074-g8b030d4fe6"/>
       <PackageVersion Include="Microsoft.Extensions.Caching.Memory" Version="10.0.5"/>
       <PackageVersion Include="NAudio" Version="2.3.0"/>
       <PackageVersion Include="MonoGame.Framework.DesktopGL" Version="3.8.4.1"/>

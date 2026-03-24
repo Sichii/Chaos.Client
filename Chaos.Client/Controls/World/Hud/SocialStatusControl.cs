@@ -112,6 +112,7 @@ public sealed class SocialStatusControl : PrefabPanel
         }
     }
 
+    public event Action? OnClosed;
     public event Action<SocialStatus>? OnStatusSelected;
 
     public new void Show()
@@ -129,6 +130,7 @@ public sealed class SocialStatusControl : PrefabPanel
         if (input.WasKeyPressed(Keys.Escape))
         {
             Visible = false;
+            OnClosed?.Invoke();
 
             return;
         }
@@ -151,7 +153,10 @@ public sealed class SocialStatusControl : PrefabPanel
             DescriptionLabel?.SetText(HoveredIndex >= 0 ? StatusNames[HoveredIndex] : StatusNames[(int)CurrentStatus]);
 
         if (input.WasLeftButtonPressed && !ContainsPoint(input.MouseX, input.MouseY))
+        {
             Visible = false;
+            OnClosed?.Invoke();
+        }
     }
 
     private void UpdateSelectedState()
@@ -168,5 +173,6 @@ public sealed class SocialStatusControl : PrefabPanel
             UpdateSelectedState();
             OnStatusSelected?.Invoke(CurrentStatus);
             Visible = false;
+            OnClosed?.Invoke();
         };
 }

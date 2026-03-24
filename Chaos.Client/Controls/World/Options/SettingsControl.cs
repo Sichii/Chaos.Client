@@ -1,6 +1,7 @@
 #region
 using Chaos.Client.Controls.Components;
 using Chaos.Client.Rendering;
+using Chaos.Client.Utilities;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Input;
 #endregion
@@ -23,7 +24,6 @@ public sealed class SettingsControl : PrefabPanel
     private const int LABEL_X = 40;
     private const int LABEL_Y = 42;
     private const int COLUMN_OFFSET = 211;
-    private const float SLIDE_DURATION_MS = 250f;
 
     private const int LABEL_WIDTH = 170;
 
@@ -50,15 +50,9 @@ public sealed class SettingsControl : PrefabPanel
 
     private readonly UILabel[] SettingLabels = new UILabel[SETTING_COUNT];
     private readonly bool[] SettingValues = new bool[SETTING_COUNT];
-    private int OffScreenX;
+    private SlideAnimator Slide;
     private int SlideAnchorY;
     private bool SlideMode;
-    private float SlideTimer;
-    private bool Sliding;
-    private bool SlidingOut;
-
-    // Slide animation
-    private int TargetX;
 
     public UIButton? CancelButton { get; }
 
@@ -134,7 +128,7 @@ public sealed class SettingsControl : PrefabPanel
     private void Close()
     {
         if (SlideMode)
-            SlideOut();
+            Slide.SlideOut();
         else
         {
             Hide();
@@ -149,11 +143,10 @@ public sealed class SettingsControl : PrefabPanel
 
     public override void Hide()
     {
-        Visible = false;
-        Sliding = false;
-
         if (SlideMode)
-            X = OffScreenX;
+            Slide.Hide(this);
+        else
+            Visible = false;
     }
 
     public event Action? OnClose;
@@ -206,8 +199,7 @@ public sealed class SettingsControl : PrefabPanel
 
     public void SetSlideAnchor(int anchorX, int anchorY)
     {
-        OffScreenX = anchorX;
-        TargetX = anchorX - Width;
+        Slide.SetSlideAnchor(anchorX, Width);
         SlideAnchorY = anchorY;
     }
 
@@ -219,7 +211,6 @@ public sealed class SettingsControl : PrefabPanel
         X = (640 - Width) / 2;
         Y = 0;
         Visible = true;
-        Sliding = false;
         SlideMode = false;
     }
 
@@ -231,20 +222,9 @@ public sealed class SettingsControl : PrefabPanel
         if (Visible)
             return;
 
-        X = OffScreenX;
         Y = SlideAnchorY;
-        Visible = true;
-        Sliding = true;
-        SlidingOut = false;
+        Slide.SlideIn(this);
         SlideMode = true;
-        SlideTimer = 0;
-    }
-
-    private void SlideOut()
-    {
-        Sliding = true;
-        SlidingOut = true;
-        SlideTimer = 0;
     }
 
     private void ToggleSetting(int index)
@@ -266,33 +246,11 @@ public sealed class SettingsControl : PrefabPanel
         if (!Visible || !Enabled)
             return;
 
-        if (Sliding)
+        if (Slide.Update(gameTime, this))
         {
-            SlideTimer += (float)gameTime.ElapsedGameTime.TotalMilliseconds;
-            var t = Math.Clamp(SlideTimer / SLIDE_DURATION_MS, 0f, 1f);
-            var eased = 1f - (1f - t) * (1f - t);
+            OnClose?.Invoke();
 
-            if (SlidingOut)
-            {
-                X = (int)MathHelper.Lerp(TargetX, OffScreenX, eased);
-
-                if (t >= 1f)
-                {
-                    Hide();
-                    OnClose?.Invoke();
-
-                    return;
-                }
-            } else
-            {
-                X = (int)MathHelper.Lerp(OffScreenX, TargetX, eased);
-
-                if (t >= 1f)
-                {
-                    X = TargetX;
-                    Sliding = false;
-                }
-            }
+            return;
         }
 
         if (input.WasKeyPressed(Keys.Escape) || input.WasKeyPressed(Keys.F4))

@@ -638,13 +638,15 @@ public sealed partial class WorldScreen
         if ((entity.Type == ClientEntityType.Aisling) && (entity.Id != Game.Connection.AislingId))
         {
             var name = entity.Name;
+            var id = entity.Id;
 
-            ContextMenu.Show(
+            AislingPopup.Show(
                 mouseX,
                 mouseY,
-                ("Whisper", () => Chat.Focus($"-> {name}: ", new Color(100, 149, 237))),
-                ("Click", () => Game.Connection.ClickEntity(entity.Id)),
-                ("Ignore", () => Game.Connection.SendAddIgnore(name)));
+                name,
+                () => Game.Connection.ClickEntity(id),
+                () => Game.Connection.SendGroupInvite(ClientGroupSwitch.TryInvite, name),
+                () => Chat.Focus($"-> {name}: ", new Color(100, 149, 237)));
         }
     }
 

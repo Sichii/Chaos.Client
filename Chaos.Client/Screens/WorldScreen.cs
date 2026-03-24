@@ -63,6 +63,13 @@ public sealed partial class WorldScreen : IScreen
     private readonly EntityOverlayManager Overlays = new();
     private readonly PathfindingState Pathfinding = new();
 
+    private AislingPopupMenu AislingPopup = null!;
+    private MailListControl ArticleList = null!;
+    private MailReadControl ArticleRead = null!;
+    private MailSendControl ArticleSend = null!;
+
+    // Board/mail controls — 7 instances for 7 prefabs
+    private BoardListControl BoardList = null!;
     private Camera Camera = null!;
     private ChantEditControl ChantEdit = null!;
     private ChatSystem Chat = null!;
@@ -70,10 +77,11 @@ public sealed partial class WorldScreen : IScreen
     private short CurrentMapId;
 
     private DarknessRenderer DarknessRenderer = null!;
+    private OkPopupMessageControl DeleteConfirm = null!;
     private GraphicsDevice Device = null!;
     private ExchangeControl Exchange = null!;
     private byte? ExchangeAmountSlot;
-    private FpsCounter FpsCounter = null!;
+
     private FriendsListControl FriendsList = null!;
 
     private ChaosGame Game = null!;
@@ -104,6 +112,7 @@ public sealed partial class WorldScreen : IScreen
     private NotepadControl Notepad = null!;
     private NpcDialogControl NpcDialog = null!;
     private OtherProfileControl OtherProfile = null!;
+    private Action? PendingDeleteAction;
     private bool PendingLoginSwitch;
     private Direction? QueuedWalkDirection;
     private TileClickTracker RightClickTracker = new();
@@ -267,7 +276,7 @@ public sealed partial class WorldScreen : IScreen
 
         MainOptions = new MainOptionsControl
         {
-            ZIndex = -1
+            ZIndex = -2
         };
         MainOptions.SetViewportBounds(WorldHud.ViewportBounds);
         WireOptionsDialog();
@@ -278,7 +287,7 @@ public sealed partial class WorldScreen : IScreen
 
         SettingsDialog = new SettingsControl
         {
-            ZIndex = -2
+            ZIndex = -3
         };
         SettingsDialog.SetSlideAnchor(optionsAnchorX, optionsAnchorY);
 
@@ -332,7 +341,7 @@ public sealed partial class WorldScreen : IScreen
 
         MacroMenu = new MacroMenuControl
         {
-            ZIndex = -2
+            ZIndex = -3
         };
         MacroMenu.SetSlideAnchor(optionsAnchorX, optionsAnchorY);
         MacroMenu.OnOk += SavePlayerMacros;
@@ -344,13 +353,13 @@ public sealed partial class WorldScreen : IScreen
 
         WorldList = new WorldListControl(Game.World.WorldList)
         {
-            ZIndex = -1
+            ZIndex = -2
         };
         WorldList.SetViewportBounds(WorldHud.ViewportBounds);
 
         FriendsList = new FriendsListControl
         {
-            ZIndex = -2
+            ZIndex = -3
         };
         FriendsList.SetSlideAnchor(optionsAnchorX, optionsAnchorY);
         FriendsList.OnOk += SavePlayerFriendList;
@@ -384,9 +393,51 @@ public sealed partial class WorldScreen : IScreen
                 Game.Connection.DropGold((int)amount, GoldDrop.TargetTileX, GoldDrop.TargetTileY);
         };
 
-        MailList = new MailListControl();
-        MailRead = new MailReadControl();
-        MailSend = new MailSendControl();
+        BoardList = new BoardListControl
+        {
+            ZIndex = -2
+        };
+
+        ArticleList = new MailListControl("_narlist")
+        {
+            ZIndex = -2
+        };
+
+        ArticleRead = new MailReadControl("_narti")
+        {
+            ZIndex = -2
+        };
+
+        ArticleSend = new MailSendControl("_nartin")
+        {
+            ZIndex = -2
+        };
+
+        MailList = new MailListControl
+        {
+            ZIndex = -2
+        };
+
+        MailRead = new MailReadControl
+        {
+            ZIndex = -2
+        };
+
+        MailSend = new MailSendControl
+        {
+            ZIndex = -2
+        };
+        DeleteConfirm = new OkPopupMessageControl(true);
+
+        var boardViewport = WorldHud.ViewportBounds;
+        BoardList.SetViewportBounds(boardViewport);
+        ArticleList.SetViewportBounds(boardViewport);
+        ArticleRead.SetViewportBounds(boardViewport);
+        ArticleSend.SetViewportBounds(boardViewport);
+        MailList.SetViewportBounds(boardViewport);
+        MailRead.SetViewportBounds(boardViewport);
+        MailSend.SetViewportBounds(boardViewport);
+
         WireExchange();
         WireMailControls();
 
@@ -435,6 +486,11 @@ public sealed partial class WorldScreen : IScreen
             ZIndex = 2
         };
 
+        AislingPopup = new AislingPopupMenu
+        {
+            ZIndex = 3
+        };
+
         ContextMenu = new ContextMenu
         {
             ZIndex = 3
@@ -465,9 +521,14 @@ public sealed partial class WorldScreen : IScreen
         Root.AddChild(FriendsList);
         Root.AddChild(Exchange);
         Root.AddChild(GoldDrop);
+        Root.AddChild(BoardList);
+        Root.AddChild(ArticleList);
+        Root.AddChild(ArticleRead);
+        Root.AddChild(ArticleSend);
         Root.AddChild(MailList);
         Root.AddChild(MailRead);
         Root.AddChild(MailSend);
+        Root.AddChild(DeleteConfirm);
         Root.AddChild(StatusBook);
         Root.AddChild(OtherProfile);
         Root.AddChild(TextPopup);
@@ -475,15 +536,8 @@ public sealed partial class WorldScreen : IScreen
         Root.AddChild(ChantEdit);
         Root.AddChild(WorldMap);
         Root.AddChild(SocialStatusPicker);
+        Root.AddChild(AislingPopup);
         Root.AddChild(ContextMenu);
-
-        FpsCounter = new FpsCounter
-        {
-            X = 5,
-            Y = 5,
-            ZIndex = 100
-        };
-        Root.AddChild(FpsCounter);
 
         WireHudPanels(SmallHud);
         WireHudPanels(LargeHud);
@@ -516,6 +570,7 @@ public sealed partial class WorldScreen : IScreen
         Game.World.Board.PostListChanged -= HandleBoardPostListChanged;
         Game.World.Board.PostViewed -= HandleBoardPostViewed;
         Game.World.Board.BoardListReceived -= HandleBoardListReceived;
+        Game.World.Board.SessionClosed -= HideAllBoardControls;
         Game.World.GroupInvite.Received -= HandleGroupInviteReceived;
         Game.Connection.OnEditableProfileRequest -= HandleEditableProfileRequest;
         Game.Connection.OnSelfProfile -= HandleSelfProfile;

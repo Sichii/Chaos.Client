@@ -231,6 +231,64 @@ public static class TextRenderer
         return width;
     }
 
+    private static Texture2D RenderLines(
+        IReadOnlyList<string> lines,
+        int maxWidth,
+        int maxHeight,
+        Color? color = null)
+    {
+        EnsureFontsLoaded();
+
+        var textColor = color ?? Color.White;
+
+        var skColor = new SKColor(
+            textColor.R,
+            textColor.G,
+            textColor.B,
+            textColor.A);
+
+        var surfaceWidth = Math.Max(1, maxWidth);
+        var surfaceHeight = Math.Max(1, maxHeight);
+
+        var byteCount = surfaceWidth * surfaceHeight * 4;
+        var pixelBuffer = ArrayPool<byte>.Shared.Rent(byteCount);
+
+        try
+        {
+            Array.Clear(pixelBuffer, 0, byteCount);
+
+            var y = 0;
+
+            foreach (var line in lines)
+            {
+                if ((y + GLYPH_HEIGHT) > surfaceHeight)
+                    break;
+
+                DrawTextLine(
+                    pixelBuffer,
+                    surfaceWidth,
+                    line,
+                    0,
+                    y,
+                    skColor);
+                y += GLYPH_HEIGHT;
+            }
+
+            var texture = new Texture2D(
+                TextureConverter.Device,
+                surfaceWidth,
+                surfaceHeight,
+                false,
+                SurfaceFormat.Color);
+            texture.SetData(pixelBuffer, 0, byteCount);
+
+            return texture;
+        } finally
+        {
+            ArrayPool<byte>.Shared.Return(pixelBuffer);
+        }
+    }
+
     /// <summary>
     ///     Renders a single line of text with a dual diagonal drop shadow. The shadow is drawn at (-1,+1) and (+1,+1) relative
     ///     to the main text, producing visible shadow on the left, right, and bottom edges. Matches the original Dark Ages
@@ -372,55 +430,31 @@ public static class TextRenderer
 
         EnsureFontsLoaded();
 
-        var textColor = color ?? Color.White;
+        return RenderLines(
+            WrapText(text, maxWidth),
+            maxWidth,
+            maxHeight,
+            color ?? Color.White);
+    }
 
-        var skColor = new SKColor(
-            textColor.R,
-            textColor.G,
-            textColor.B,
-            textColor.A);
+    /// <summary>
+    ///     Renders word-wrapped text to a Texture2D sized to fit all lines (no height cap).
+    /// </summary>
+    public static Texture2D RenderWrappedText(string text, int maxWidth, Color? color = null)
+    {
+        if (string.IsNullOrEmpty(text))
+            text = " ";
+
+        EnsureFontsLoaded();
+
         var lines = WrapText(text, maxWidth);
+        var totalHeight = Math.Max(GLYPH_HEIGHT, lines.Count * GLYPH_HEIGHT);
 
-        var surfaceWidth = Math.Max(1, maxWidth);
-        var surfaceHeight = Math.Max(1, maxHeight);
-
-        var byteCount = surfaceWidth * surfaceHeight * 4;
-        var pixelBuffer = ArrayPool<byte>.Shared.Rent(byteCount);
-
-        try
-        {
-            Array.Clear(pixelBuffer, 0, byteCount);
-
-            var y = 0;
-
-            foreach (var line in lines)
-            {
-                if ((y + GLYPH_HEIGHT) > surfaceHeight)
-                    break;
-
-                DrawTextLine(
-                    pixelBuffer,
-                    surfaceWidth,
-                    line,
-                    0,
-                    y,
-                    skColor);
-                y += GLYPH_HEIGHT;
-            }
-
-            var texture = new Texture2D(
-                TextureConverter.Device,
-                surfaceWidth,
-                surfaceHeight,
-                false,
-                SurfaceFormat.Color);
-            texture.SetData(pixelBuffer, 0, byteCount);
-
-            return texture;
-        } finally
-        {
-            ArrayPool<byte>.Shared.Return(pixelBuffer);
-        }
+        return RenderLines(
+            lines,
+            maxWidth,
+            totalHeight,
+            color ?? Color.White);
     }
 
     /// <summary>

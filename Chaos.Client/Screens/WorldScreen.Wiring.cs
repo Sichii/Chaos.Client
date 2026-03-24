@@ -3,7 +3,7 @@ using Chaos.Client.Controls.Components;
 using Chaos.Client.Controls.World.Hud;
 using Chaos.Client.Controls.World.Hud.Panel;
 using Chaos.Client.Controls.World.Options;
-using Chaos.Client.Models;
+using Chaos.Client.Controls.World.Popups;
 using Chaos.Client.Rendering;
 using Chaos.DarkAges.Definitions;
 #endregion
@@ -22,121 +22,6 @@ public sealed partial class WorldScreen
             Game.Connection.SendExchangeInteraction(ExchangeRequestType.Cancel, Exchange.OtherUserId);
             Game.World.Exchange.Close();
         };
-    }
-    #endregion
-
-    #region Mail Wiring
-    private void WireMailControls()
-    {
-        // Mail list events
-        MailList.OnViewPost += postId =>
-        {
-            Game.Connection.SendBoardInteraction(
-                BoardRequestType.ViewPost,
-                MailList.BoardId,
-                postId,
-                controls: BoardControls.RequestPost);
-        };
-
-        MailList.OnNewMail += () =>
-        {
-            MailList.Hide();
-            MailSend.BoardId = MailList.BoardId;
-            MailSend.IsPublicBoard = MailList.IsPublicBoard;
-            MailSend.ShowCompose();
-        };
-
-        MailList.OnDeletePost += postId => Game.Connection.SendBoardInteraction(BoardRequestType.Delete, MailList.BoardId, postId);
-
-        MailList.OnReplyPost += postId => Game.Connection.SendBoardInteraction(
-            BoardRequestType.ViewPost,
-            MailList.BoardId,
-            postId,
-            controls: BoardControls.RequestPost);
-
-        // Pagination: load next page of posts starting from the last visible post
-        MailList.OnLoadMorePosts += lastPostId =>
-        {
-            LoadingMoreBoardPosts = true;
-            Game.Connection.SendBoardInteraction(BoardRequestType.ViewBoard, MailList.BoardId, startPostId: lastPostId);
-        };
-
-        // Mail read events
-        MailRead.OnQuit += () =>
-        {
-            MailRead.Hide();
-
-            // Re-request the mail list to refresh
-            Game.Connection.SendBoardInteraction(BoardRequestType.ViewBoard, MailRead.BoardId);
-        };
-
-        MailRead.OnReplyPost += _ =>
-        {
-            MailRead.Hide();
-            MailSend.BoardId = MailRead.BoardId;
-            MailSend.IsPublicBoard = MailRead.IsPublicBoard;
-            MailSend.ShowCompose(MailRead.CurrentAuthor);
-        };
-
-        MailRead.OnDeletePost += postId =>
-        {
-            Game.Connection.SendBoardInteraction(BoardRequestType.Delete, MailRead.BoardId, postId);
-            MailRead.Hide();
-        };
-
-        MailRead.OnNewMail += () =>
-        {
-            MailRead.Hide();
-            MailSend.BoardId = MailRead.BoardId;
-            MailSend.IsPublicBoard = MailRead.IsPublicBoard;
-            MailSend.ShowCompose();
-        };
-
-        MailRead.OnPrev += () =>
-        {
-            // Server expects postId+1 for PreviousPage (it decrements internally)
-            var prevId = (short)(MailRead.CurrentPostId + 1);
-
-            Game.Connection.SendBoardInteraction(
-                BoardRequestType.ViewPost,
-                MailRead.BoardId,
-                prevId,
-                controls: BoardControls.PreviousPage);
-        };
-
-        MailRead.OnNext += () =>
-        {
-            // Server expects postId-1 for NextPage (it increments internally)
-            var nextId = (short)(MailRead.CurrentPostId - 1);
-
-            Game.Connection.SendBoardInteraction(
-                BoardRequestType.ViewPost,
-                MailRead.BoardId,
-                nextId,
-                controls: BoardControls.NextPage);
-        };
-
-        // Mail send events
-        MailSend.OnSend += (recipient, subject, body) =>
-        {
-            if (MailSend.IsPublicBoard)
-                Game.Connection.SendBoardInteraction(
-                    BoardRequestType.NewPost,
-                    MailSend.BoardId,
-                    subject: subject,
-                    message: body);
-            else
-                Game.Connection.SendBoardInteraction(
-                    BoardRequestType.SendMail,
-                    MailSend.BoardId,
-                    to: recipient,
-                    subject: subject,
-                    message: body);
-
-            MailSend.Hide();
-        };
-
-        MailSend.OnCancel += () => MailSend.Hide();
     }
     #endregion
 
@@ -274,6 +159,227 @@ public sealed partial class WorldScreen
         int EmotionFrame,
         AislingDrawData? DrawData);
 
+    #region Board/Mail Wiring
+    private void WireMailControls()
+    {
+        WireBoardListControl();
+        WirePostListControl(ArticleList);
+        WirePostListControl(MailList);
+        WirePostReadControl(ArticleRead);
+        WirePostReadControl(MailRead);
+        WireComposeControl(ArticleSend);
+        WireComposeControl(MailSend);
+
+        DeleteConfirm.OnOk += () =>
+        {
+            PendingDeleteAction?.Invoke();
+            PendingDeleteAction = null;
+            DeleteConfirm.Hide();
+        };
+
+        DeleteConfirm.OnCancel += () =>
+        {
+            PendingDeleteAction = null;
+            DeleteConfirm.Hide();
+        };
+
+        Game.World.Board.SessionClosed += HideAllBoardControls;
+    }
+
+    private void HideAllBoardControls()
+    {
+        BoardList.Hide();
+        ArticleList.Hide();
+        ArticleRead.Hide();
+        ArticleSend.Hide();
+        MailList.Hide();
+        MailRead.Hide();
+        MailSend.Hide();
+    }
+
+    private void WireBoardListControl()
+    {
+        BoardList.OnViewBoard += boardId =>
+        {
+            Game.World.Board.OpenSession();
+            Game.World.Board.IsBoardListPending = true;
+            Game.World.Board.WasOpenedFromBoardList = true;
+            Game.Connection.SendBoardInteraction(BoardRequestType.ViewBoard, boardId, startPostId: short.MaxValue);
+        };
+
+        BoardList.OnClose += () => Game.World.Board.CloseSession();
+    }
+
+    private void WirePostListControl(MailListControl list)
+    {
+        list.OnViewPost += postId =>
+        {
+            Game.Connection.SendBoardInteraction(
+                BoardRequestType.ViewPost,
+                list.BoardId,
+                postId,
+                controls: BoardControls.RequestPost);
+        };
+
+        list.OnNewMail += () =>
+        {
+            list.Hide();
+            var compose = list.IsPublicBoard ? ArticleSend : MailSend;
+            compose.BoardId = list.BoardId;
+            compose.IsPublicBoard = list.IsPublicBoard;
+            compose.ShowCompose();
+        };
+
+        list.OnDeletePost += postId =>
+        {
+            PendingDeleteAction = () =>
+            {
+                Game.Connection.SendBoardInteraction(BoardRequestType.Delete, list.BoardId, postId);
+            };
+            DeleteConfirm.Show("Delete this post?");
+        };
+
+        list.OnReplyPost += postId =>
+        {
+            Game.Connection.SendBoardInteraction(
+                BoardRequestType.ViewPost,
+                list.BoardId,
+                postId,
+                controls: BoardControls.RequestPost);
+        };
+
+        list.OnHighlight += postId =>
+        {
+            Game.Connection.SendBoardInteraction(BoardRequestType.Highlight, list.BoardId, postId);
+        };
+
+        list.OnLoadMorePosts += lastPostId =>
+        {
+            LoadingMoreBoardPosts = true;
+            Game.Connection.SendBoardInteraction(BoardRequestType.ViewBoard, list.BoardId, startPostId: lastPostId);
+        };
+
+        list.OnUp += () =>
+        {
+            list.Hide();
+
+            if (Game.World.Board.WasOpenedFromBoardList && Game.World.Board.AvailableBoards is { Count: > 0 })
+                BoardList.ShowBoards(
+                    Game.World
+                        .Board
+                        .AvailableBoards
+                        .Select(b => (b.BoardId, b.Name))
+                        .ToList(),
+                    false);
+            else
+                Game.World.Board.CloseSession();
+        };
+
+        list.OnClose += () => Game.World.Board.CloseSession();
+    }
+
+    private void WirePostReadControl(MailReadControl read)
+    {
+        read.OnUp += () =>
+        {
+            read.Hide();
+
+            // Re-show the cached post list (no network request)
+            var list = read.IsPublicBoard ? ArticleList : MailList;
+            list.Show();
+        };
+
+        read.OnQuit += () => Game.World.Board.CloseSession();
+
+        read.OnPrev += () =>
+        {
+            var prevId = (short)Math.Min(read.CurrentPostId + 1, short.MaxValue);
+
+            Game.Connection.SendBoardInteraction(
+                BoardRequestType.ViewPost,
+                read.BoardId,
+                prevId,
+                controls: BoardControls.PreviousPage);
+        };
+
+        read.OnNext += () =>
+        {
+            var nextId = (short)Math.Max(read.CurrentPostId - 1, 1);
+
+            Game.Connection.SendBoardInteraction(
+                BoardRequestType.ViewPost,
+                read.BoardId,
+                nextId,
+                controls: BoardControls.NextPage);
+        };
+
+        read.OnReplyPost += _ =>
+        {
+            read.Hide();
+            var compose = read.IsPublicBoard ? ArticleSend : MailSend;
+            compose.BoardId = read.BoardId;
+            compose.IsPublicBoard = read.IsPublicBoard;
+            compose.ShowCompose(read.CurrentAuthor);
+        };
+
+        read.OnDeletePost += postId =>
+        {
+            PendingDeleteAction = () =>
+            {
+                Game.Connection.SendBoardInteraction(BoardRequestType.Delete, read.BoardId, postId);
+                read.Hide();
+
+                // Return to cached post list
+                var list = read.IsPublicBoard ? ArticleList : MailList;
+                list.Show();
+            };
+            DeleteConfirm.Show("Delete this post?");
+        };
+
+        read.OnNewMail += () =>
+        {
+            read.Hide();
+            var compose = read.IsPublicBoard ? ArticleSend : MailSend;
+            compose.BoardId = read.BoardId;
+            compose.IsPublicBoard = read.IsPublicBoard;
+            compose.ShowCompose();
+        };
+    }
+
+    private void WireComposeControl(MailSendControl send)
+    {
+        send.OnSend += (recipient, subject, body) =>
+        {
+            if (send.IsPublicBoard)
+                Game.Connection.SendBoardInteraction(
+                    BoardRequestType.NewPost,
+                    send.BoardId,
+                    subject: subject,
+                    message: body);
+            else
+                Game.Connection.SendBoardInteraction(
+                    BoardRequestType.SendMail,
+                    send.BoardId,
+                    to: recipient,
+                    subject: subject,
+                    message: body);
+
+            // Re-request post list — compose stays visible until server responds
+            Game.World.Board.IsBoardListPending = true;
+            Game.Connection.SendBoardInteraction(BoardRequestType.ViewBoard, send.BoardId, startPostId: short.MaxValue);
+        };
+
+        send.OnCancel += () =>
+        {
+            send.Hide();
+
+            // Return to cached post list
+            var list = send.IsPublicBoard ? ArticleList : MailList;
+            list.Show();
+        };
+    }
+    #endregion
+
     #region HUD Panel Wiring
     private void WireHudPanels(IWorldHud hud)
     {
@@ -304,7 +410,6 @@ public sealed partial class WorldScreen
                     return;
                 }
 
-                WorldList.Show(new List<WorldListEntry>(), 0);
                 Game.Connection.RequestWorldList();
             };
 
@@ -331,24 +436,31 @@ public sealed partial class WorldScreen
                 if (SocialStatusPicker.Visible)
                 {
                     SocialStatusPicker.Visible = false;
+                    hud.EmoteButton!.IsSelected = false;
 
                     return;
                 }
 
+                var viewport = WorldHud.ViewportBounds;
+
                 SocialStatusPicker.X = hud.EmoteButton!.ScreenX - SocialStatusPicker.Width / 2 + hud.EmoteButton.Width / 2;
-                SocialStatusPicker.Y = hud.EmoteButton.ScreenY - SocialStatusPicker.Height - 2;
+                SocialStatusPicker.Y = hud.EmoteButton.ScreenY - SocialStatusPicker.Height - 2 + 24;
 
-                if (SocialStatusPicker.X < 0)
-                    SocialStatusPicker.X = 0;
+                if (SocialStatusPicker.X < viewport.X)
+                    SocialStatusPicker.X = viewport.X;
 
-                if ((SocialStatusPicker.X + SocialStatusPicker.Width) > 640)
-                    SocialStatusPicker.X = 640 - SocialStatusPicker.Width;
+                if ((SocialStatusPicker.X + SocialStatusPicker.Width) > (viewport.X + viewport.Width))
+                    SocialStatusPicker.X = viewport.X + viewport.Width - SocialStatusPicker.Width;
 
+                hud.EmoteButton.IsSelected = true;
                 SocialStatusPicker.Show();
             };
 
+        if (hud.EmoteButton is not null)
+            SocialStatusPicker.OnClosed += () => hud.EmoteButton.IsSelected = false;
+
         if (hud.MailButton is not null)
-            hud.MailButton.OnClick += () => Game.Connection.SendBoardInteraction(BoardRequestType.ViewBoard);
+            hud.MailButton.OnClick += () => Game.Connection.SendBoardInteraction(BoardRequestType.BoardList);
 
         // Slot events
         hud.Inventory.OnSlotClicked += HandleInventorySlotClicked;
@@ -399,6 +511,13 @@ public sealed partial class WorldScreen
         var viewport = WorldHud.ViewportBounds;
         Camera.Resize(viewport.Width, viewport.Height);
         WorldList.SetViewportBounds(viewport);
+        BoardList.SetViewportBounds(viewport);
+        ArticleList.SetViewportBounds(viewport);
+        ArticleRead.SetViewportBounds(viewport);
+        ArticleSend.SetViewportBounds(viewport);
+        MailList.SetViewportBounds(viewport);
+        MailRead.SetViewportBounds(viewport);
+        MailSend.SetViewportBounds(viewport);
 
         FollowPlayerCamera();
     }

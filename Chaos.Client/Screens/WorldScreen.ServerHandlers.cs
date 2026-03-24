@@ -397,22 +397,30 @@ public sealed partial class WorldScreen
     {
         var boards = Game.World.Board.AvailableBoards;
 
-        if (boards is { Count: > 0 })
-        {
-            var targetBoard = boards.FirstOrDefault(b => b.BoardId > 0) ?? boards.First();
-            Game.Connection.SendBoardInteraction(BoardRequestType.ViewBoard, targetBoard.BoardId);
-        }
+        if (boards is null or { Count: 0 })
+            return;
+
+        BoardList.ShowBoards(
+            boards.Select(b => (b.BoardId, b.Name))
+                  .ToList());
     }
 
     private void HandleBoardPostListChanged()
     {
         var board = Game.World.Board;
+        var list = board.IsPublicBoard ? ArticleList : MailList;
 
         // Paginated append: same board, already visible, triggered by "Load More"
-        if (LoadingMoreBoardPosts && MailList.Visible && (MailList.BoardId == board.BoardId))
-            MailList.AppendEntries(board.Posts.ToList());
+        if (LoadingMoreBoardPosts && list.Visible && (list.BoardId == board.BoardId))
+            list.AppendEntries(board.Posts.ToList());
         else
-            MailList.ShowMailList(board.BoardId, board.Posts.ToList(), board.IsPublicBoard);
+        {
+            // Hide whatever was visible, then show the new list (same frame — no flash)
+            HideAllBoardControls();
+
+            list.ShowMailList(board.BoardId, board.Posts.ToList(), board.IsPublicBoard);
+            list.SetHighlightEnabled(board.IsPublicBoard && IsGameMaster);
+        }
 
         LoadingMoreBoardPosts = false;
     }
@@ -424,17 +432,23 @@ public sealed partial class WorldScreen
         if (post is not { } p)
             return;
 
-        MailRead.BoardId = Game.World.Board.BoardId;
-        MailRead.IsPublicBoard = Game.World.Board.IsPublicBoard;
+        var board = Game.World.Board;
+        var read = board.IsPublicBoard ? ArticleRead : MailRead;
 
-        MailRead.ShowMail(
+        // Hide whatever was visible, then show the read panel (same frame — no flash)
+        HideAllBoardControls();
+
+        read.BoardId = board.BoardId;
+        read.IsPublicBoard = board.IsPublicBoard;
+
+        read.ShowMail(
             p.PostId,
             p.Author,
             p.MonthOfYear,
             p.DayOfMonth,
             p.Subject,
             p.Message,
-            Game.World.Board.EnablePrevButton);
+            board.EnablePrevButton);
     }
 
     // --- Group ---
