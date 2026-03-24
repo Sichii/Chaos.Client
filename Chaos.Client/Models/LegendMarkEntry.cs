@@ -7,7 +7,7 @@ namespace Chaos.Client.Models;
 /// <summary>
 ///     A single legend mark entry for the Legend tab page.
 /// </summary>
-public record LegendMarkEntry(
+public sealed record LegendMarkEntry(
     string Text,
     Color Color,
     byte Icon = 0,

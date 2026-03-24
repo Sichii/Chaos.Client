@@ -10,7 +10,9 @@ namespace Chaos.Client.Rendering;
 
 public static class TextureConverter
 {
-    internal static T ConvertImage<T>(GraphicsDevice device, SKImage image, Func<GraphicsDevice, int, int, T> factory) where T: Texture2D
+    public static GraphicsDevice Device { get; set; } = null!;
+
+    internal static T ConvertImage<T>(SKImage image, Func<GraphicsDevice, int, int, T> factory) where T: Texture2D
     {
         var width = image.Width;
         var height = image.Height;
@@ -35,7 +37,7 @@ public static class TextureConverter
                 handle.Free();
             }
 
-            var texture = factory(device, width, height);
+            var texture = factory(Device, width, height);
             texture.SetData(pixels, 0, byteCount);
 
             return texture;
@@ -48,7 +50,7 @@ public static class TextureConverter
     /// <summary>
     ///     Creates a tinted (blue-shifted) copy of a texture. Used for entity hover highlights.
     /// </summary>
-    public static Texture2D CreateTintedTexture(GraphicsDevice device, Texture2D source)
+    public static Texture2D CreateTintedTexture(Texture2D source)
     {
         var count = source.Width * source.Height;
         var pixels = ArrayPool<Color>.Shared.Rent(count);
@@ -58,7 +60,7 @@ public static class TextureConverter
             source.GetData(pixels, 0, count);
             TintPixels(pixels, count);
 
-            var tinted = new Texture2D(device, source.Width, source.Height);
+            var tinted = new Texture2D(Device, source.Width, source.Height);
             tinted.SetData(pixels, 0, count);
 
             return tinted;
@@ -93,9 +95,8 @@ public static class TextureConverter
         }
     }
 
-    public static Texture2D ToTexture2D(GraphicsDevice device, SKImage image)
+    public static Texture2D ToTexture2D(SKImage image)
         => ConvertImage(
-            device,
             image,
             static (d, w, h) => new Texture2D(
                 d,

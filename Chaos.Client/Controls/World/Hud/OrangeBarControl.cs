@@ -2,6 +2,7 @@
 using Chaos.Client.Controls.Components;
 using Chaos.Client.Data.Models;
 using Chaos.Client.Rendering;
+using Chaos.Client.ViewModel;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 #endregion
@@ -14,11 +15,9 @@ namespace Chaos.Client.Controls.World.Hud;
 /// </summary>
 public sealed class OrangeBarControl : UIElement
 {
-    private const int MAX_HISTORY = 100;
     private const int MAX_EXPAND_LINES = 10;
     private const int GLYPH_HEIGHT = 12;
-    private readonly GraphicsDevice Device;
-    private readonly List<string> History = [];
+    private readonly Chat ChatState;
     private readonly CachedText[] HistoryTextures;
     private readonly Texture2D? PaneBg;
 
@@ -29,9 +28,9 @@ public sealed class OrangeBarControl : UIElement
 
     public bool IsDragging { get; private set; }
 
-    public OrangeBarControl(GraphicsDevice device, ControlPrefabSet hudPrefabSet)
+    public OrangeBarControl(ControlPrefabSet hudPrefabSet, Chat chat)
     {
-        Device = device;
+        ChatState = chat;
         Name = "OrangeBar";
 
         TextBounds = PrefabPanel.GetRect(hudPrefabSet, "SystemMessage");
@@ -43,7 +42,7 @@ public sealed class OrangeBarControl : UIElement
         HistoryTextures = new CachedText[MAX_EXPAND_LINES];
 
         for (var i = 0; i < MAX_EXPAND_LINES; i++)
-            HistoryTextures[i] = new CachedText(device);
+            HistoryTextures[i] = new CachedText();
     }
 
     public override void Dispose()
@@ -74,7 +73,6 @@ public sealed class OrangeBarControl : UIElement
         // Solid opaque fill
         DrawRect(
             spriteBatch,
-            Device,
             new Rectangle(
                 paneX,
                 topY,
@@ -111,40 +109,26 @@ public sealed class OrangeBarControl : UIElement
             Color.White);
 
         // History text — newest at bottom, older above
-        if (History.Count > 0)
+        var history = ChatState.GetOrangeBarHistory();
+
+        if (history.Count > 0)
         {
             var textX = sx + TextBounds.X;
             var bottomY = sy + TextBounds.Y + ExpandedLines * GLYPH_HEIGHT;
             var slot = 0;
 
-            for (var i = History.Count - 1; (i >= 0) && (slot <= ExpandedLines); i--)
+            for (var i = history.Count - 1; (i >= 0) && (slot <= ExpandedLines); i--)
             {
                 var textY = bottomY - slot * GLYPH_HEIGHT;
 
                 HistoryTextures[slot]
-                    .Update(History[i], Color.Orange);
+                    .Update(history[i], Color.Orange);
 
                 HistoryTextures[slot]
                     .Draw(spriteBatch, new Vector2(textX, textY));
                 slot++;
             }
         }
-    }
-
-    /// <summary>
-    ///     Returns the message history for external display (e.g. Shift+F popup).
-    /// </summary>
-    public IReadOnlyList<string> GetHistory() => History;
-
-    public void ShowMessage(string text)
-    {
-        if (string.IsNullOrEmpty(text))
-            return;
-
-        History.Add(text);
-
-        while (History.Count > MAX_HISTORY)
-            History.RemoveAt(0);
     }
 
     public override void Update(GameTime gameTime, InputBuffer input)

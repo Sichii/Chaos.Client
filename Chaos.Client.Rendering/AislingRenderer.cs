@@ -241,12 +241,12 @@ public sealed class AislingRenderer : IDisposable
     /// <summary>
     ///     Returns a tinted (blue-shifted) copy of a layer texture, caching it for reuse.
     /// </summary>
-    public Texture2D GetOrCreateTintedTexture(GraphicsDevice device, Texture2D source)
+    public Texture2D GetOrCreateTintedTexture(Texture2D source)
     {
         if (TintedTextureCache.TryGetValue(source, out var tinted))
             return tinted;
 
-        tinted = TextureConverter.CreateTintedTexture(device, source);
+        tinted = TextureConverter.CreateTintedTexture(source);
         TintedTextureCache[source] = tinted;
 
         return tinted;
@@ -309,7 +309,6 @@ public sealed class AislingRenderer : IDisposable
     ///     multiple SpriteBatch.Draw() calls — no SkiaSharp compositing needed.
     /// </summary>
     public AislingDrawData GetLayerFrames(
-        GraphicsDevice device,
         in AislingAppearance appearance,
         int frameIndex,
         string animSuffix = WALK_ANIM,
@@ -327,7 +326,6 @@ public sealed class AislingRenderer : IDisposable
         var idleFallbackFrame = animSuffix == IDLE_ANIM ? isFront ? RIGHT_IDLE_FRAME : UP_IDLE_FRAME : -1;
 
         ResolveAllLayers(
-            device,
             drawData.Layers,
             in appearance,
             frameIndex,
@@ -352,7 +350,6 @@ public sealed class AislingRenderer : IDisposable
                     "em");
 
                 drawData.Layers[(int)LayerSlot.Emotion] = GetOrCreateLayerTexture(
-                    device,
                     cacheKey,
                     frame,
                     palette,
@@ -364,7 +361,6 @@ public sealed class AislingRenderer : IDisposable
     }
 
     private void ResolveAllLayers(
-        GraphicsDevice device,
         AislingLayerTexture?[] layers,
         in AislingAppearance appearance,
         int frameIndex,
@@ -373,7 +369,6 @@ public sealed class AislingRenderer : IDisposable
     {
         // Beast body (type b, always id 1) — behind all other layers
         layers[(int)LayerSlot.BodyB] = ResolveEquipLayerTexture(
-            device,
             'b',
             BODY_ID,
             DisplayColor.Default,
@@ -384,7 +379,6 @@ public sealed class AislingRenderer : IDisposable
 
         // Body (type m, always id 1)
         layers[(int)LayerSlot.Body] = ResolveBodyPaletteLayerTexture(
-            device,
             'm',
             BODY_ID,
             in appearance,
@@ -395,7 +389,6 @@ public sealed class AislingRenderer : IDisposable
         // Pants (type n, always id 1) — only if server sent a pants color
         if (appearance.PantsColor.HasValue)
             layers[(int)LayerSlot.Pants] = ResolveEquipLayerTexture(
-                device,
                 'n',
                 PANTS_ID,
                 appearance.PantsColor.Value,
@@ -407,7 +400,6 @@ public sealed class AislingRenderer : IDisposable
         // Face (type o, uses body palette)
         if (appearance.FaceSprite > 0)
             layers[(int)LayerSlot.Face] = ResolveBodyPaletteLayerTexture(
-                device,
                 'o',
                 appearance.FaceSprite,
                 in appearance,
@@ -418,7 +410,6 @@ public sealed class AislingRenderer : IDisposable
         // Boots
         if (appearance.BootsSprite > 0)
             layers[(int)LayerSlot.Boots] = ResolveEquipLayerTexture(
-                device,
                 'l',
                 appearance.BootsSprite,
                 appearance.BootsColor,
@@ -431,7 +422,6 @@ public sealed class AislingRenderer : IDisposable
         if (appearance.HeadSprite > 0)
         {
             layers[(int)LayerSlot.HeadH] = ResolveEquipLayerTexture(
-                device,
                 'h',
                 appearance.HeadSprite,
                 appearance.HeadColor,
@@ -441,7 +431,6 @@ public sealed class AislingRenderer : IDisposable
                 idleFallbackFrame);
 
             layers[(int)LayerSlot.HeadE] = ResolveEquipLayerTexture(
-                device,
                 'e',
                 appearance.HeadSprite,
                 appearance.HeadColor,
@@ -451,7 +440,6 @@ public sealed class AislingRenderer : IDisposable
                 idleFallbackFrame);
 
             layers[(int)LayerSlot.HeadF] = ResolveEquipLayerTexture(
-                device,
                 'f',
                 appearance.HeadSprite,
                 appearance.HeadColor,
@@ -464,7 +452,6 @@ public sealed class AislingRenderer : IDisposable
         // Armor/Overcoat
         if (appearance.OvercoatSprite > 0)
             ResolveArmorLayers(
-                device,
                 layers,
                 appearance.OvercoatSprite,
                 appearance.OvercoatColor,
@@ -474,7 +461,6 @@ public sealed class AislingRenderer : IDisposable
                 idleFallbackFrame);
         else if (appearance.ArmorSprite > 0)
             ResolveArmorLayers(
-                device,
                 layers,
                 appearance.ArmorSprite,
                 appearance.ArmorColor,
@@ -487,7 +473,6 @@ public sealed class AislingRenderer : IDisposable
         if (appearance.WeaponSprite > 0)
         {
             layers[(int)LayerSlot.WeaponW] = ResolveEquipLayerTexture(
-                device,
                 'w',
                 appearance.WeaponSprite,
                 DisplayColor.Default,
@@ -497,7 +482,6 @@ public sealed class AislingRenderer : IDisposable
                 idleFallbackFrame);
 
             layers[(int)LayerSlot.WeaponP] = ResolveEquipLayerTexture(
-                device,
                 'p',
                 appearance.WeaponSprite,
                 DisplayColor.Default,
@@ -510,7 +494,6 @@ public sealed class AislingRenderer : IDisposable
         // Shield
         if (appearance.ShieldSprite > 0)
             layers[(int)LayerSlot.Shield] = ResolveEquipLayerTexture(
-                device,
                 's',
                 appearance.ShieldSprite,
                 DisplayColor.Default,
@@ -523,7 +506,6 @@ public sealed class AislingRenderer : IDisposable
         if (appearance.Accessory1Sprite > 0)
         {
             layers[(int)LayerSlot.Acc1C] = ResolveEquipLayerTexture(
-                device,
                 'c',
                 appearance.Accessory1Sprite,
                 appearance.Accessory1Color,
@@ -533,7 +515,6 @@ public sealed class AislingRenderer : IDisposable
                 idleFallbackFrame);
 
             layers[(int)LayerSlot.Acc1G] = ResolveEquipLayerTexture(
-                device,
                 'g',
                 appearance.Accessory1Sprite,
                 appearance.Accessory1Color,
@@ -546,7 +527,6 @@ public sealed class AislingRenderer : IDisposable
         if (appearance.Accessory2Sprite > 0)
         {
             layers[(int)LayerSlot.Acc2C] = ResolveEquipLayerTexture(
-                device,
                 'c',
                 appearance.Accessory2Sprite,
                 appearance.Accessory2Color,
@@ -556,7 +536,6 @@ public sealed class AislingRenderer : IDisposable
                 idleFallbackFrame);
 
             layers[(int)LayerSlot.Acc2G] = ResolveEquipLayerTexture(
-                device,
                 'g',
                 appearance.Accessory2Sprite,
                 appearance.Accessory2Color,
@@ -569,7 +548,6 @@ public sealed class AislingRenderer : IDisposable
         if (appearance.Accessory3Sprite > 0)
         {
             layers[(int)LayerSlot.Acc3C] = ResolveEquipLayerTexture(
-                device,
                 'c',
                 appearance.Accessory3Sprite,
                 appearance.Accessory3Color,
@@ -579,7 +557,6 @@ public sealed class AislingRenderer : IDisposable
                 idleFallbackFrame);
 
             layers[(int)LayerSlot.Acc3G] = ResolveEquipLayerTexture(
-                device,
                 'g',
                 appearance.Accessory3Sprite,
                 appearance.Accessory3Color,
@@ -591,7 +568,6 @@ public sealed class AislingRenderer : IDisposable
     }
 
     private void ResolveArmorLayers(
-        GraphicsDevice device,
         AislingLayerTexture?[] layers,
         int spriteId,
         DisplayColor color,
@@ -606,7 +582,6 @@ public sealed class AislingRenderer : IDisposable
         var armsLetter = isOverType ? 'j' : 'a';
 
         layers[(int)LayerSlot.Armor] = ResolveEquipLayerTexture(
-            device,
             bodyLetter,
             adjustedId,
             color,
@@ -616,7 +591,6 @@ public sealed class AislingRenderer : IDisposable
             idleFallbackFrame);
 
         layers[(int)LayerSlot.Arms] = ResolveEquipLayerTexture(
-            device,
             armsLetter,
             adjustedId,
             color,
@@ -627,7 +601,6 @@ public sealed class AislingRenderer : IDisposable
     }
 
     private AislingLayerTexture? ResolveBodyPaletteLayerTexture(
-        GraphicsDevice device,
         char typeLetter,
         int spriteId,
         in AislingAppearance appearance,
@@ -665,7 +638,6 @@ public sealed class AislingRenderer : IDisposable
             anim);
 
         return GetOrCreateLayerTexture(
-            device,
             cacheKey,
             frame,
             palette,
@@ -673,7 +645,6 @@ public sealed class AislingRenderer : IDisposable
     }
 
     private AislingLayerTexture? ResolveEquipLayerTexture(
-        GraphicsDevice device,
         char typeLetter,
         int spriteId,
         DisplayColor dyeColor,
@@ -724,7 +695,6 @@ public sealed class AislingRenderer : IDisposable
             anim);
 
         return GetOrCreateLayerTexture(
-            device,
             cacheKey,
             frame,
             palette,
@@ -732,7 +702,6 @@ public sealed class AislingRenderer : IDisposable
     }
 
     private AislingLayerTexture? GetOrCreateLayerTexture(
-        GraphicsDevice device,
         LayerCacheKey cacheKey,
         EpfFrame frame,
         Palette palette,
@@ -748,7 +717,7 @@ public sealed class AislingRenderer : IDisposable
 
         try
         {
-            var texture = TextureConverter.ToTexture2D(device, image);
+            var texture = TextureConverter.ToTexture2D(image);
 
             var entry = new AislingLayerTexture(texture, typeLetter);
             LayerTextureCache[cacheKey] = entry;
@@ -801,7 +770,6 @@ public sealed class AislingRenderer : IDisposable
     ///     Used for paperdoll and other non-world rendering. For world rendering, use GetLayerFrames() instead.
     /// </summary>
     public Texture2D? Render(
-        GraphicsDevice device,
         in AislingAppearance appearance,
         int frameIndex,
         string animSuffix = WALK_ANIM,
@@ -850,7 +818,7 @@ public sealed class AislingRenderer : IDisposable
 
             using var composite = Composite(layers, order, flipHorizontal);
 
-            return composite is not null ? TextureConverter.ToTexture2D(device, composite) : null;
+            return composite is not null ? TextureConverter.ToTexture2D(composite) : null;
         } finally
         {
             for (var i = 0; i < layers.Length; i++)
@@ -866,7 +834,6 @@ public sealed class AislingRenderer : IDisposable
     ///     Renders a character creation preview (body + hair layers only).
     /// </summary>
     public Texture2D? RenderPreview(
-        GraphicsDevice device,
         Gender gender,
         byte hairStyle,
         DisplayColor hairColor,
@@ -894,7 +861,6 @@ public sealed class AislingRenderer : IDisposable
         var flip = directionIndex is 2 or 3;
 
         return Render(
-            device,
             in appearance,
             frameIndex,
             WALK_ANIM,

@@ -1,6 +1,5 @@
 #region
 using Chaos.Client.Controls.Components;
-using Microsoft.Xna.Framework.Graphics;
 #endregion
 
 namespace Chaos.Client.Controls.World.ViewPort;
@@ -10,8 +9,8 @@ namespace Chaos.Client.Controls.World.ViewPort;
 /// </summary>
 public class MapLoadingBar : PrefabPanel
 {
-    public MapLoadingBar(GraphicsDevice device)
-        : base(device, "_nloadm")
+    public MapLoadingBar()
+        : base("_nloadm")
     {
         Name = "MapLoading";
         Visible = false;

@@ -1,5 +1,4 @@
 #region
-using Chaos.Client.Definitions;
 using Chaos.Client.Rendering;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
@@ -13,14 +12,11 @@ namespace Chaos.Client.Controls.Components;
 /// </summary>
 public sealed class CachedText : IDisposable
 {
-    private readonly GraphicsDevice Device;
     private Color RenderedColor;
     private string RenderedContent = string.Empty;
     public TextAlignment Alignment { get; set; } = TextAlignment.Left;
 
     public Texture2D? Texture { get; private set; }
-
-    public CachedText(GraphicsDevice device) => Device = device;
 
     /// <inheritdoc />
     public void Dispose()
@@ -68,7 +64,7 @@ public sealed class CachedText : IDisposable
 
         Texture?.Dispose();
 
-        Texture = string.IsNullOrEmpty(text) ? null : TextRenderer.RenderText(Device, text, color);
+        Texture = string.IsNullOrEmpty(text) ? null : TextRenderer.RenderText(text, color);
 
         RenderedContent = text;
         RenderedColor = color;
@@ -84,13 +80,7 @@ public sealed class CachedText : IDisposable
 
         Texture?.Dispose();
 
-        Texture = string.IsNullOrEmpty(text)
-            ? null
-            : TextRenderer.RenderShadowedText(
-                Device,
-                text,
-                color,
-                shadowColor);
+        Texture = string.IsNullOrEmpty(text) ? null : TextRenderer.RenderShadowedText(text, color, shadowColor);
 
         RenderedContent = text;
         RenderedColor = color;

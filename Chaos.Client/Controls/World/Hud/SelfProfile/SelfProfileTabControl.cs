@@ -2,13 +2,11 @@
 using Chaos.Client.Controls.Components;
 using Chaos.Client.Data;
 using Chaos.Client.Data.Models;
-using Chaos.Client.Definitions;
 using Chaos.Client.Models;
-using Chaos.Client.Networking;
 using Chaos.Client.Rendering;
+using Chaos.Client.ViewModel;
 using Chaos.DarkAges.Definitions;
 using Microsoft.Xna.Framework;
-using Microsoft.Xna.Framework.Graphics;
 using Microsoft.Xna.Framework.Input;
 #endregion
 
@@ -34,6 +32,8 @@ public sealed class SelfProfileTabControl : PrefabPanel
     ];
 
     private readonly Rectangle ContentRect;
+
+    private readonly Equipment EquipmentState;
     private readonly UIButton?[] TabButtons = new UIButton?[TAB_COUNT];
     private readonly Dictionary<StatusBookTab, PrefabPanel?> TabPages = new();
 
@@ -41,29 +41,22 @@ public sealed class SelfProfileTabControl : PrefabPanel
 
     public UIButton? CloseButton { get; }
 
-    public SelfProfileTabControl(GraphicsDevice device)
-        : base(device, "_nui", false)
+    public SelfProfileTabControl(Equipment equipment)
+        : base("_nui", false)
     {
         Name = "StatusBook";
         Visible = false;
+        EquipmentState = equipment;
+        EquipmentState.SlotChanged += OnEquipmentSlotChanged;
+        EquipmentState.SlotCleared += OnEquipmentSlotCleared;
         X = 0;
         Y = 0;
-
-        var elements = AutoPopulate();
 
         // CONTENT rect defines where tab page content is positioned
         ContentRect = GetRect("CONTENT");
 
-        // Hide prefab elements that we render manually
-        if (elements.TryGetValue("CONTENT", out var contentElement))
-            contentElement.Visible = false;
-
-        // Hide the TAB_INTRO_E element — it's just a rect template, not a visible control
-        if (elements.TryGetValue("TAB_INTRO_E", out var introEElement))
-            introEElement.Visible = false;
-
         // Close button (TAB_CLOSE)
-        CloseButton = elements.GetValueOrDefault("TAB_CLOSE") as UIButton;
+        CloseButton = CreateButton("TAB_CLOSE");
 
         if (CloseButton is not null)
             CloseButton.OnClick += () =>
@@ -72,7 +65,7 @@ public sealed class SelfProfileTabControl : PrefabPanel
                 OnClose?.Invoke();
             };
 
-        // Configure tab buttons — AutoPopulate created them as UIButtons with the big/selected
+        // Configure tab buttons — CreateButton creates them as UIButtons with the big/selected
         // texture as NormalTexture (the only image in the prefab). We swap that to SelectedTexture
         // and assign the small/normal texture from _nui_tb1.spf.
         var cache = UiRenderer.Instance!;
@@ -81,7 +74,7 @@ public sealed class SelfProfileTabControl : PrefabPanel
         {
             var tab = (StatusBookTab)i;
 
-            if (elements.GetValueOrDefault(TabControlNames[i]) is not UIButton tabBtn)
+            if (CreateButton(TabControlNames[i]) is not { } tabBtn)
                 continue;
 
             TabButtons[i] = tabBtn;
@@ -150,13 +143,13 @@ public sealed class SelfProfileTabControl : PrefabPanel
 
         PrefabPanel page = tab switch
         {
-            StatusBookTab.Equipment => new SelfProfileEquipmentTab(Device, prefabName),
-            StatusBookTab.Skills    => new SelfProfileAbilityMetadataTab(Device, prefabName),
-            StatusBookTab.Legend    => new SelfProfileLegendTab(Device, prefabName),
-            StatusBookTab.Events    => new SelfProfileEventsTab(Device, prefabName),
-            StatusBookTab.Album     => new StatusBookTabPage(Device, prefabName),
-            StatusBookTab.Family    => new SelfProfileFamilyTab(Device, prefabName),
-            _                       => new StatusBookTabPage(Device, prefabName)
+            StatusBookTab.Equipment => new SelfProfileEquipmentTab(prefabName),
+            StatusBookTab.Skills    => new SelfProfileAbilityMetadataTab(prefabName),
+            StatusBookTab.Legend    => new SelfProfileLegendTab(prefabName),
+            StatusBookTab.Events    => new SelfProfileEventsTab(prefabName),
+            StatusBookTab.Album     => new StatusBookTabPage(prefabName),
+            StatusBookTab.Family    => new SelfProfileFamilyTab(prefabName),
+            _                       => new StatusBookTabPage(prefabName)
         };
 
         page.X = ContentRect.X;
@@ -169,6 +162,14 @@ public sealed class SelfProfileTabControl : PrefabPanel
         }
 
         return page;
+    }
+
+    public override void Dispose()
+    {
+        EquipmentState.SlotChanged -= OnEquipmentSlotChanged;
+        EquipmentState.SlotCleared -= OnEquipmentSlotCleared;
+
+        base.Dispose();
     }
 
     private T? GetOrCreatePage<T>(StatusBookTab tab) where T: PrefabPanel
@@ -298,21 +299,19 @@ public sealed class SelfProfileTabControl : PrefabPanel
     #endregion
 
     #region Equipment API
-    /// <summary>
-    ///     Sets the item icon for a specific equipment slot. The icon is rendered from the panel item sprite sheet using
-    ///     PanelItemRepository.
-    /// </summary>
-    public void SetEquipmentSlot(EquipmentSlot slot, ushort sprite)
+    private void OnEquipmentSlotChanged(EquipmentSlot slot)
     {
+        var data = EquipmentState.GetSlot(slot);
+
+        if (data is null)
+            return;
+
         var equipPage = GetOrCreateEquipmentPage();
 
-        equipPage?.SetSlot(slot, sprite);
+        equipPage?.SetSlot(slot, data.Value.Sprite, data.Value.Name);
     }
 
-    /// <summary>
-    ///     Clears the item icon for a specific equipment slot, restoring the placeholder.
-    /// </summary>
-    public void ClearEquipmentSlot(EquipmentSlot slot)
+    private void OnEquipmentSlotCleared(EquipmentSlot slot)
     {
         var equipPage = GetOrCreateEquipmentPage();
 
@@ -320,10 +319,10 @@ public sealed class SelfProfileTabControl : PrefabPanel
     }
 
     /// <summary>
-    ///     Bulk-refreshes all equipment slots from the provided equipment dictionary. Typically called when the status book is
-    ///     first opened or after a map change.
+    ///     Bulk-refreshes all equipment slots from the current equipment state. Typically called when the status book is
+    ///     first opened.
     /// </summary>
-    public void RefreshEquipment(IReadOnlyDictionary<EquipmentSlot, EquipmentInfo> equipment)
+    public void RefreshEquipment()
     {
         var equipPage = GetOrCreateEquipmentPage();
 
@@ -332,7 +331,7 @@ public sealed class SelfProfileTabControl : PrefabPanel
 
         equipPage.ClearAllSlots();
 
-        foreach ((var slot, var info) in equipment)
+        foreach ((var slot, var info) in EquipmentState.GetAll())
             equipPage.SetSlot(slot, info.Sprite, info.Name);
     }
 

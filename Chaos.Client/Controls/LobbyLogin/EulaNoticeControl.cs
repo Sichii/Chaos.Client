@@ -2,7 +2,6 @@
 using Chaos.Client.Controls.Components;
 using Chaos.Client.Rendering;
 using Microsoft.Xna.Framework;
-using Microsoft.Xna.Framework.Graphics;
 using Microsoft.Xna.Framework.Input;
 #endregion
 
@@ -17,17 +16,15 @@ public sealed class EulaNoticeControl : PrefabPanel
 
     public UIButton? OkButton { get; }
 
-    public EulaNoticeControl(GraphicsDevice device)
-        : base(device, "_nagree")
+    public EulaNoticeControl()
+        : base("_nagree")
     {
         Name = "AgreePanel";
         Visible = false;
 
-        var elements = AutoPopulate();
-
         // Buttons — _nagree is one of the few prefabs with actual type 3 controls
-        OkButton = elements.GetValueOrDefault("OK") as UIButton;
-        CancelButton = elements.GetValueOrDefault("CANCEL") as UIButton;
+        OkButton = CreateButton("OK");
+        CancelButton = CreateButton("CANCEL");
 
         if (OkButton is not null)
             OkButton.OnClick += () => OnOk?.Invoke();
@@ -35,7 +32,7 @@ public sealed class EulaNoticeControl : PrefabPanel
         if (CancelButton is not null)
             CancelButton.OnClick += () => OnCancel?.Invoke();
 
-        // Agreement text display region — type 7, 0 images, skipped by AutoPopulate
+        // Agreement text display region — type 7, 0 images
         var textRect = GetRect("AGREEMENTTEXT");
 
         if (textRect != Rectangle.Empty)
@@ -75,7 +72,6 @@ public sealed class EulaNoticeControl : PrefabPanel
             AgreementTextImage.Texture?.Dispose();
 
             AgreementTextImage.Texture = TextRenderer.RenderWrappedText(
-                Device,
                 agreementText,
                 TextAreaWidth,
                 TextAreaHeight,

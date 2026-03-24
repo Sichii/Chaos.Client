@@ -28,17 +28,11 @@ public sealed class SelfProfileLegendTab : PrefabPanel
     private int RenderedVersion = -1;
     private int ScrollOffset;
 
-    public SelfProfileLegendTab(GraphicsDevice device, string prefabName)
-        : base(device, prefabName, false)
+    public SelfProfileLegendTab(string prefabName)
+        : base(prefabName, false)
     {
         Name = prefabName;
         Visible = false;
-
-        var elements = AutoPopulate();
-
-        // Hide the template icon element — we render icons per-row manually
-        if (elements.TryGetValue("LegendIcon", out var iconElement))
-            iconElement.Visible = false;
 
         LegendListRect = GetRect("LegendList");
 
@@ -56,7 +50,7 @@ public sealed class SelfProfileLegendTab : PrefabPanel
 
         for (var i = 0; i < MAX_VISIBLE_ROWS; i++)
         {
-            Rows[i] = new LegendMarkControl(device)
+            Rows[i] = new LegendMarkControl
             {
                 Name = $"LegendRow{i}",
                 X = LegendListRect.X,
@@ -69,7 +63,7 @@ public sealed class SelfProfileLegendTab : PrefabPanel
         }
 
         // Scrollbar on the right side of the legend list
-        ScrollBar = new ScrollBarControl(device)
+        ScrollBar = new ScrollBarControl
         {
             Name = "LegendScrollBar",
             X = LegendListRect.X + LegendListRect.Width,

@@ -7,7 +7,7 @@ namespace Chaos.Client.Models;
 /// <summary>
 ///     A single entry in the online users world list.
 /// </summary>
-public record WorldListEntry(
+public sealed record WorldListEntry(
     string Name,
     string? Title,
     BaseClass BaseClass,

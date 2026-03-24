@@ -1,8 +1,8 @@
 #region
 using Chaos.Client.Controls.World.Hud.Panel.Slots;
 using Chaos.Client.Data.Models;
-using Chaos.Client.Definitions;
 using Chaos.Client.Rendering;
+using Chaos.Client.ViewModel;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 #endregion
@@ -10,45 +10,32 @@ using Microsoft.Xna.Framework.Graphics;
 namespace Chaos.Client.Controls.World.Hud.Panel;
 
 /// <summary>
-///     Spell book panel (D key, Shift+D for secondary). 89 slots total. Spell icons rendered from Setoa.dat spell EPFs
-///     with gui06 palette. Cooldown: full blue icon for the entire duration.
+///     Spell book panel (D key, Shift+D for secondary). Thin view that subscribes to
+///     <see cref="ViewModel.SpellBook" /> change events and renders spell icons with Swap-style cooldowns.
 /// </summary>
 public sealed class SpellBookPanel : PanelBase
 {
     private const int MAX_SLOTS = 89;
+    private readonly SpellBook SpellBook;
 
-    private readonly float[] CooldownRemaining = new float[MAX_SLOTS];
-    private readonly ushort[] SpriteIds = new ushort[MAX_SLOTS];
-
-    public SpellBookPanel(GraphicsDevice device, ControlPrefabSet hudPrefabSet, bool secondary = false)
+    public SpellBookPanel(
+        ControlPrefabSet hudPrefabSet,
+        SpellBook spellBook,
+        bool secondary = false,
+        Texture2D? background = null,
+        int normalVisibleSlots = DEFAULT_VISIBLE_SLOTS)
         : base(
-            device,
             hudPrefabSet,
             MAX_SLOTS,
             CooldownStyle.Swap,
-            secondary)
-        => Name = secondary ? "SpellBookAlt" : "SpellBook";
-
-    public override void ClearSlot(byte slot)
+            secondary,
+            background: background,
+            normalVisibleSlots: normalVisibleSlots)
     {
-        var index = slot - 1;
-
-        if (index is >= 0 and < MAX_SLOTS)
-        {
-            SpriteIds[index] = 0;
-            CooldownRemaining[index] = 0;
-        }
-
-        var control = FindSlot(slot);
-
-        if (control is not null)
-        {
-            control.CooldownTexture?.Dispose();
-            control.CooldownTexture = null;
-            control.CooldownPercent = 0;
-        }
-
-        base.ClearSlot(slot);
+        Name = secondary ? "SpellBookAlt" : "SpellBook";
+        SpellBook = spellBook;
+        SpellBook.SlotChanged += OnSlotChanged;
+        SpellBook.Cleared += OnCleared;
     }
 
     protected override PanelSlot CreateSlot(byte slotNumber, string name, CooldownStyle cooldownStyle)
@@ -61,6 +48,9 @@ public sealed class SpellBookPanel : PanelBase
 
     public override void Dispose()
     {
+        SpellBook.SlotChanged -= OnSlotChanged;
+        SpellBook.Cleared -= OnCleared;
+
         foreach (var slot in Slots)
         {
             slot.CooldownTexture?.Dispose();
@@ -71,9 +61,62 @@ public sealed class SpellBookPanel : PanelBase
     }
 
     /// <summary>
-    ///     Returns the SpellSlotControl for a 1-based slot number, or null.
+    ///     Returns the SpellSlot for a 1-based slot number, or null.
     /// </summary>
     public SpellSlot? GetSpellSlot(byte slot) => FindSlot(slot) as SpellSlot;
+
+    private void OnCleared()
+    {
+        foreach (var slot in Slots)
+        {
+            slot.NormalTexture?.Dispose();
+            slot.NormalTexture = null;
+            slot.CooldownTexture?.Dispose();
+            slot.CooldownTexture = null;
+            slot.CooldownPercent = 0;
+            slot.SlotName = null;
+        }
+    }
+
+    private void OnSlotChanged(byte slot)
+    {
+        var control = FindSlot(slot);
+
+        if (control is null)
+            return;
+
+        var data = SpellBook.GetSlot(slot);
+
+        // Dispose old textures — sprite may have changed
+        control.CooldownTexture?.Dispose();
+        control.CooldownTexture = null;
+
+        if (data.IsOccupied)
+        {
+            control.NormalTexture?.Dispose();
+            control.NormalTexture = RenderIcon(data.Sprite);
+
+            if (control is SpellSlot spellSlot)
+            {
+                spellSlot.SpellType = data.SpellType;
+                spellSlot.Prompt = data.Prompt ?? string.Empty;
+                spellSlot.CastLines = data.CastLines;
+
+                if (data.Chants is not null)
+                    Array.Copy(data.Chants, spellSlot.Chants, Math.Min(data.Chants.Length, 10));
+            }
+
+            SetSlotName(slot, data.Name);
+        } else
+        {
+            control.NormalTexture?.Dispose();
+            control.NormalTexture = null;
+            control.SlotName = null;
+            control.CooldownPercent = 0;
+            control.CurrentDurability = 0;
+            control.MaxDurability = 0;
+        }
+    }
 
     protected override Texture2D? RenderIcon(ushort spriteId) => UiRenderer.Instance!.GetSpellIcon(spriteId);
 
@@ -84,75 +127,26 @@ public sealed class SpellBookPanel : PanelBase
         return cache.GetTintedTexture($"spell:{spriteId}", cache.GetSpellIcon(spriteId));
     }
 
-    public void SetCooldown(byte slot, uint durationSecs)
-    {
-        var index = slot - 1;
-
-        if ((index < 0) || (index >= MAX_SLOTS))
-            return;
-
-        CooldownRemaining[index] = durationSecs * 1000f;
-
-        var control = FindSlot(slot);
-
-        if (control is null)
-            return;
-
-        if (durationSecs == 0)
-        {
-            control.CooldownPercent = 0;
-
-            return;
-        }
-
-        // Lazy-load blue variant
-        var spriteId = SpriteIds[index];
-
-        if (spriteId > 0)
-            control.CooldownTexture ??= RenderTintedIcon(spriteId);
-
-        control.CooldownPercent = 1f;
-    }
-
-    public override void SetSlot(byte slot, ushort sprite)
-    {
-        var index = slot - 1;
-
-        if (index is >= 0 and < MAX_SLOTS)
-        {
-            SpriteIds[index] = sprite;
-
-            var control = FindSlot(slot);
-
-            if (control is not null)
-            {
-                control.CooldownTexture?.Dispose();
-                control.CooldownTexture = null;
-            }
-        }
-
-        base.SetSlot(slot, sprite);
-    }
-
     public override void Update(GameTime gameTime, InputBuffer input)
     {
         base.Update(gameTime, input);
 
-        var elapsedMs = (float)gameTime.ElapsedGameTime.TotalMilliseconds;
-
-        for (var i = 0; i < MAX_SLOTS; i++)
+        // Read cooldown state each frame — swap style: fully on or off
+        for (var i = 0; (i < VisibleSlotCount) && (i < Slots.Length); i++)
         {
-            if (CooldownRemaining[i] <= 0)
-                continue;
+            var slot = (byte)(i + SlotOffset + 1);
+            var control = Slots[i];
+            var isOnCooldown = SpellBook.IsOnCooldown(slot);
 
-            CooldownRemaining[i] -= elapsedMs;
+            if (isOnCooldown && control.CooldownTexture is null && control.NormalTexture is not null)
+            {
+                var data = SpellBook.GetSlot(slot);
 
-            if (CooldownRemaining[i] < 0)
-                CooldownRemaining[i] = 0;
+                if (data.IsOccupied)
+                    control.CooldownTexture = RenderTintedIcon(data.Sprite);
+            }
 
-            var control = FindSlot((byte)(i + 1));
-
-            control?.CooldownPercent = CooldownRemaining[i] > 0 ? 1f : 0;
+            control.CooldownPercent = isOnCooldown ? 1f : 0;
         }
     }
 }

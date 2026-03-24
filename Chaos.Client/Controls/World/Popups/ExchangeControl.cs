@@ -1,25 +1,27 @@
 #region
 using Chaos.Client.Controls.Components;
+using Chaos.Client.ViewModel;
 using Microsoft.Xna.Framework;
-using Microsoft.Xna.Framework.Graphics;
 using Microsoft.Xna.Framework.Input;
 #endregion
 
 namespace Chaos.Client.Controls.World.Popups;
 
 /// <summary>
-///     Exchange/trade panel using _nexch prefab. Two-sided layout: left side (player items/gold), right side (other player
-///     items/gold). Up to 4 items per side. Server drives all state via DisplayExchangeArgs.
+///     Exchange/trade panel using _nexch prefab. Thin view that subscribes to
+///     <see cref="Exchange" /> state events. Two-sided layout with up to 4 items per side.
 /// </summary>
 public sealed class ExchangeControl : PrefabPanel
 {
     private const int MAX_ITEMS_PER_SIDE = 4;
     private const int ITEM_ROW_HEIGHT = 36;
+    private readonly Exchange ExchangeState;
     private readonly Rectangle MyExchangeRect;
     private readonly UILabel? MyIdLabel;
 
     private readonly ExchangeItemControl[] MyItems = new ExchangeItemControl[MAX_ITEMS_PER_SIDE];
     private readonly UILabel? MyMoneyLabel;
+    private readonly Rectangle ViewportBounds;
 
     private readonly UIImage? YourAckImage;
     private readonly Rectangle YourExchangeRect;
@@ -27,20 +29,26 @@ public sealed class ExchangeControl : PrefabPanel
     private readonly ExchangeItemControl[] YourItems = new ExchangeItemControl[MAX_ITEMS_PER_SIDE];
     private readonly UILabel? YourMoneyLabel;
 
-    public uint OtherUserId { get; private set; }
+    /// <summary>
+    ///     The player's own name, used for the left side label. Set from WorldScreen after DisplayAisling.
+    /// </summary>
+    public string PlayerName { get; set; } = string.Empty;
+
     public UIButton? CancelButton { get; }
     public UIButton? OkButton { get; }
 
-    public ExchangeControl(GraphicsDevice device)
-        : base(device, "_nexch")
+    public uint OtherUserId => ExchangeState.OtherUserId;
+
+    public ExchangeControl(Exchange exchange, Rectangle viewportBounds)
+        : base("_nexch")
     {
         Name = "Exchange";
         Visible = false;
+        ExchangeState = exchange;
+        ViewportBounds = viewportBounds;
 
-        var elements = AutoPopulate();
-
-        OkButton = elements.GetValueOrDefault("OK") as UIButton;
-        CancelButton = elements.GetValueOrDefault("Cancel") as UIButton;
+        OkButton = CreateButton("OK");
+        CancelButton = CreateButton("Cancel");
 
         if (OkButton is not null)
             OkButton.OnClick += () => OnOk?.Invoke();
@@ -56,30 +64,21 @@ public sealed class ExchangeControl : PrefabPanel
         MyExchangeRect = GetRect("MyExchange");
         YourExchangeRect = GetRect("YourExchange");
 
-        YourAckImage = elements.GetValueOrDefault("YourACK") as UIImage;
-        YourAckImage?.Visible = false;
+        YourAckImage = CreateImage("YourACK");
+
+        if (YourAckImage is not null)
+            YourAckImage.Visible = false;
 
         // Create item controls for both sides
-        CreateItemControls(device, MyItems, MyExchangeRect);
-        CreateItemControls(device, YourItems, YourExchangeRect);
-    }
+        CreateItemControls(MyItems, MyExchangeRect);
+        CreateItemControls(YourItems, YourExchangeRect);
 
-    public void AddItem(
-        bool rightSide,
-        byte exchangeIndex,
-        ushort itemSprite,
-        string? itemName)
-    {
-        // Server sends 1-based slot indices
-        var index = exchangeIndex - 1;
-
-        if ((index < 0) || (index >= MAX_ITEMS_PER_SIDE))
-            return;
-
-        var items = rightSide ? YourItems : MyItems;
-
-        items[index]
-            .SetItem(itemSprite, itemName ?? string.Empty);
+        // Subscribe to state events
+        ExchangeState.Started += OnExchangeStarted;
+        ExchangeState.ItemAdded += OnExchangeItemAdded;
+        ExchangeState.GoldSet += OnExchangeGoldSet;
+        ExchangeState.OtherAccepted += OnExchangeOtherAccepted;
+        ExchangeState.Closed += OnExchangeClosed;
     }
 
     private void ClearAllItems()
@@ -91,17 +90,11 @@ public sealed class ExchangeControl : PrefabPanel
             item.ClearItem();
     }
 
-    public void CloseExchange()
-    {
-        ClearAllItems();
-        Hide();
-    }
-
-    private void CreateItemControls(GraphicsDevice device, ExchangeItemControl[] items, Rectangle rect)
+    private void CreateItemControls(ExchangeItemControl[] items, Rectangle rect)
     {
         for (var i = 0; i < MAX_ITEMS_PER_SIDE; i++)
         {
-            var control = new ExchangeItemControl(device)
+            var control = new ExchangeItemControl
             {
                 Name = $"ExchangeItem{i}",
                 X = rect.X,
@@ -114,36 +107,72 @@ public sealed class ExchangeControl : PrefabPanel
         }
     }
 
+    public override void Dispose()
+    {
+        ExchangeState.Started -= OnExchangeStarted;
+        ExchangeState.ItemAdded -= OnExchangeItemAdded;
+        ExchangeState.GoldSet -= OnExchangeGoldSet;
+        ExchangeState.OtherAccepted -= OnExchangeOtherAccepted;
+        ExchangeState.Closed -= OnExchangeClosed;
+
+        base.Dispose();
+    }
+
     /// <summary>
     ///     Returns true if the given screen coordinates are within the MyMoney label area.
     /// </summary>
     public bool IsMyMoneyClicked(int mouseX, int mouseY) => MyMoneyLabel?.ContainsPoint(mouseX, mouseY) ?? false;
 
     public event Action? OnCancel;
-    public event Action? OnOk;
 
-    public void SetGold(bool rightSide, int goldAmount)
+    private void OnExchangeClosed()
     {
-        var label = rightSide ? YourMoneyLabel : MyMoneyLabel;
-        label?.SetText(goldAmount.ToString("N0"));
+        ClearAllItems();
+        Hide();
     }
 
-    public void ShowOtherAccepted() => YourAckImage?.Visible = true;
-
-    public void StartExchange(uint otherUserId, string otherUserName, string myName)
+    private void OnExchangeGoldSet(bool rightSide)
     {
-        OtherUserId = otherUserId;
+        var amount = rightSide ? ExchangeState.OtherGold : ExchangeState.MyGold;
+        var label = rightSide ? YourMoneyLabel : MyMoneyLabel;
+        label?.SetText(amount.ToString("N0"));
+    }
+
+    private void OnExchangeItemAdded(bool rightSide, byte index)
+    {
+        if (index >= MAX_ITEMS_PER_SIDE)
+            return;
+
+        var data = ExchangeState.GetItem(rightSide, index);
+
+        if (data.HasValue)
+        {
+            var items = rightSide ? YourItems : MyItems;
+
+            items[index]
+                .SetItem(data.Value.Sprite, data.Value.Name ?? string.Empty);
+        }
+    }
+
+    private void OnExchangeOtherAccepted() => YourAckImage?.Visible = true;
+
+    private void OnExchangeStarted()
+    {
         ClearAllItems();
 
-        MyIdLabel?.SetText(myName);
-        YourIdLabel?.SetText(otherUserName);
+        MyIdLabel?.SetText(PlayerName);
+        YourIdLabel?.SetText(ExchangeState.OtherUserName);
         MyMoneyLabel?.SetText("0");
         YourMoneyLabel?.SetText("0");
-
         YourAckImage?.Visible = false;
+
+        // Center vertically in viewport
+        Y = ViewportBounds.Y + (ViewportBounds.Height - Height) / 2;
 
         Show();
     }
+
+    public event Action? OnOk;
 
     public override void Update(GameTime gameTime, InputBuffer input)
     {

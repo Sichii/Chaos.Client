@@ -1,6 +1,5 @@
 #region
 using Chaos.Client.Controls.Components;
-using Microsoft.Xna.Framework.Graphics;
 #endregion
 
 namespace Chaos.Client.Controls.World.Hud.SelfProfile;
@@ -10,12 +9,10 @@ namespace Chaos.Client.Controls.World.Hud.SelfProfile;
 /// </summary>
 public sealed class StatusBookTabPage : PrefabPanel
 {
-    public StatusBookTabPage(GraphicsDevice device, string prefabName)
-        : base(device, prefabName, false)
+    public StatusBookTabPage(string prefabName)
+        : base(prefabName, false)
     {
         Name = prefabName;
         Visible = false;
-
-        AutoPopulate();
     }
 }

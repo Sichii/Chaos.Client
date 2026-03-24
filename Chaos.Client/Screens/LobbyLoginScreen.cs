@@ -6,7 +6,6 @@ using Chaos.Client.Controls.Components;
 using Chaos.Client.Controls.Generic;
 using Chaos.Client.Controls.LobbyLogin;
 using Chaos.Client.Data;
-using Chaos.Client.Definitions;
 using Chaos.Client.Networking;
 using Chaos.Client.Rendering;
 using Chaos.Cryptography;
@@ -31,7 +30,6 @@ public sealed class LobbyLoginScreen : IScreen
     // Flow state
     private bool Connecting;
     private bool CreatingCharacter;
-    private GraphicsDevice Device = null!;
     private EulaNoticeControl EulaNoticeControl = null!;
 
     private ChaosGame Game = null!;
@@ -62,7 +60,7 @@ public sealed class LobbyLoginScreen : IScreen
         Root!.Draw(spriteBatch);
         spriteBatch.End();
 
-        DebugOverlay.SnapshotDrawCount(spriteBatch.GraphicsDevice);
+        DebugOverlay.SnapshotDrawCount();
     }
 
     /// <inheritdoc />
@@ -82,14 +80,12 @@ public sealed class LobbyLoginScreen : IScreen
     /// <inheritdoc />
     public void LoadContent(GraphicsDevice graphicsDevice)
     {
-        Device = graphicsDevice;
-
-        StartPanel = new LobbyLoginControl(Device);
-        LoginControl = new LoginControl(Device);
-        ServerSelectControl = new ServerSelectControl(Device);
-        EulaNoticeControl = new EulaNoticeControl(Device);
-        CharCreateControl = new CharacterCreationControl(Device, Game.AislingRenderer);
-        PasswordChangeControl = new PasswordChangeControl(Device);
+        StartPanel = new LobbyLoginControl();
+        LoginControl = new LoginControl();
+        ServerSelectControl = new ServerSelectControl();
+        EulaNoticeControl = new EulaNoticeControl();
+        CharCreateControl = new CharacterCreationControl(Game.AislingRenderer);
+        PasswordChangeControl = new PasswordChangeControl();
 
         // Wire button events
         StartPanel.ContinueButton?.OnClick += OnContinueClicked;
@@ -113,13 +109,13 @@ public sealed class LobbyLoginScreen : IScreen
         PasswordChangeControl.OnOk += OnPasswordChangeOkClicked;
         PasswordChangeControl.OnCancel += OnPasswordChangeCancelClicked;
 
-        PopupMessage = new OkPopupMessageControl(Device)
+        PopupMessage = new OkPopupMessageControl
         {
             ZIndex = 1
         };
         PopupMessage.OnOk += OnPopupMessageOk;
 
-        StatusLabel = new UILabel(Device)
+        StatusLabel = new UILabel
         {
             Name = "StatusText",
             X = 0,

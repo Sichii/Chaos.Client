@@ -2,7 +2,6 @@
 using Chaos.Client.Data;
 using Chaos.Client.Rendering.Models;
 using DALib.Drawing;
-using Microsoft.Xna.Framework.Graphics;
 #endregion
 
 namespace Chaos.Client.Rendering;
@@ -61,7 +60,7 @@ public sealed class CreatureRenderer : IDisposable
     ///     Gets or creates a cached SpriteFrame for the given creature sprite and frame index. Returns null if the sprite or
     ///     frame cannot be loaded.
     /// </summary>
-    public SpriteFrame? GetFrame(GraphicsDevice device, int spriteId, int frameIndex)
+    public SpriteFrame? GetFrame(int spriteId, int frameIndex)
     {
         var key = (spriteId, frameIndex);
 
@@ -85,7 +84,7 @@ public sealed class CreatureRenderer : IDisposable
         if (image is null)
             return null;
 
-        var texture = TextureConverter.ToTexture2D(device, image);
+        var texture = TextureConverter.ToTexture2D(image);
 
         var spriteFrame = new SpriteFrame(
             texture,

@@ -42,8 +42,8 @@ public sealed class MainOptionsControl : PrefabPanel
     public UIButton? MacroButton { get; }
     public UIButton? SettingsButton { get; }
 
-    public MainOptionsControl(GraphicsDevice device)
-        : base(device, "_noptdlg", false)
+    public MainOptionsControl()
+        : base("_noptdlg", false)
     {
         Name = "OptionsDialog";
         Visible = false;
@@ -53,25 +53,22 @@ public sealed class MainOptionsControl : PrefabPanel
         OffScreenX = 640;
         X = OffScreenX;
 
-        var elements = AutoPopulate();
-
         // Slider track rects
         SoundTrackRect = GetRect("SoundRect");
         MusicTrackRect = GetRect("MusicRect");
 
         // Slider thumb from option04.epf (Tick control)
-        if (elements.TryGetValue("Tick", out var tickElement) && tickElement is UIImage tickImage)
-        {
-            ThumbTexture = tickImage.Texture;
-            tickImage.Visible = false;
-        }
+        var tickImage = CreateImage("Tick");
 
-        // Buttons — AutoPopulate now correctly creates UIButtons for type 7 controls with 2+ images
-        MacroButton = elements.GetValueOrDefault("Macro") as UIButton;
-        SettingsButton = elements.GetValueOrDefault("Setting") as UIButton;
-        FriendsButton = elements.GetValueOrDefault("Friends") as UIButton;
-        ExitButton = elements.GetValueOrDefault("ExitGame") as UIButton;
-        CloseButton = elements.GetValueOrDefault("CLOSE") as UIButton;
+        if (tickImage is not null)
+            ThumbTexture = tickImage.Texture;
+
+        // Buttons
+        MacroButton = CreateButton("Macro");
+        SettingsButton = CreateButton("Setting");
+        FriendsButton = CreateButton("Friends");
+        ExitButton = CreateButton("ExitGame");
+        CloseButton = CreateButton("CLOSE");
 
         if (MacroButton is not null)
             MacroButton.OnClick += () => OnMacro?.Invoke();

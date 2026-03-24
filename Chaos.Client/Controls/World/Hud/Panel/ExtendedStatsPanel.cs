@@ -1,11 +1,9 @@
 #region
 using Chaos.Client.Controls.Components;
 using Chaos.Client.Data.Models;
-using Chaos.Client.Definitions;
 using Chaos.Client.Rendering;
 using Chaos.DarkAges.Definitions;
 using Chaos.Networking.Entities.Server;
-using Microsoft.Xna.Framework.Graphics;
 #endregion
 
 namespace Chaos.Client.Controls.World.Hud.Panel;
@@ -25,7 +23,7 @@ public sealed class ExtendedStatsPanel : UIPanel
     private readonly UILabel? HitLabel;
     private readonly UILabel? MagicLabel;
 
-    public ExtendedStatsPanel(GraphicsDevice device, ControlPrefabSet statusPrefabSet)
+    public ExtendedStatsPanel(ControlPrefabSet statusPrefabSet)
     {
         Name = "ExtendedStats";
         Visible = false;
@@ -58,42 +56,36 @@ public sealed class ExtendedStatsPanel : UIPanel
         // The prefab rect coordinates are in anchor space (640x480), so subtract the
         // ExtraStatus origin to get coordinates relative to this panel.
         AttackLabel = CreateOffsetLabel(
-            device,
             statusPrefabSet,
             "e_attack",
             extraLeft,
             extraTop);
 
         DefenseLabel = CreateOffsetLabel(
-            device,
             statusPrefabSet,
             "e_defense",
             extraLeft,
             extraTop);
 
         MagicLabel = CreateOffsetLabel(
-            device,
             statusPrefabSet,
             "e_magic",
             extraLeft,
             extraTop);
 
         AcLabel = CreateOffsetLabel(
-            device,
             statusPrefabSet,
             "e_AC",
             extraLeft,
             extraTop);
 
         DmgLabel = CreateOffsetLabel(
-            device,
             statusPrefabSet,
             "e_DMG",
             extraLeft,
             extraTop);
 
         HitLabel = CreateOffsetLabel(
-            device,
             statusPrefabSet,
             "e_HIT",
             extraLeft,
@@ -101,7 +93,6 @@ public sealed class ExtendedStatsPanel : UIPanel
     }
 
     private UILabel? CreateOffsetLabel(
-        GraphicsDevice device,
         ControlPrefabSet prefabSet,
         string name,
         int xOffset,
@@ -117,7 +108,7 @@ public sealed class ExtendedStatsPanel : UIPanel
 
         var r = rect.Value;
 
-        var label = new UILabel(device)
+        var label = new UILabel
         {
             Name = name,
             X = (int)r.Left - xOffset,

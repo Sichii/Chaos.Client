@@ -75,7 +75,7 @@ public abstract class UIElement : IDisposable
 
         if (BackgroundColor.HasValue || BorderColor.HasValue)
         {
-            var pixel = GetPixel(spriteBatch.GraphicsDevice);
+            var pixel = GetPixel();
 
             var bounds = new Rectangle(
                 ScreenX,
@@ -130,13 +130,9 @@ public abstract class UIElement : IDisposable
     /// <summary>
     ///     Draws a 1px border rectangle (no fill). Utility for ad-hoc drawing outside the element tree.
     /// </summary>
-    public static void DrawBorder(
-        SpriteBatch spriteBatch,
-        GraphicsDevice device,
-        Rectangle bounds,
-        Color color)
+    public static void DrawBorder(SpriteBatch spriteBatch, Rectangle bounds, Color color)
     {
-        var pixel = GetPixel(device);
+        var pixel = GetPixel();
 
         spriteBatch.Draw(
             pixel,
@@ -180,43 +176,29 @@ public abstract class UIElement : IDisposable
     /// </summary>
     public static void DrawBorderedRect(
         SpriteBatch spriteBatch,
-        GraphicsDevice device,
         Rectangle bounds,
         Color fillColor,
         Color borderColor)
     {
-        DrawRect(
-            spriteBatch,
-            device,
-            bounds,
-            fillColor);
+        DrawRect(spriteBatch, bounds, fillColor);
 
-        DrawBorder(
-            spriteBatch,
-            device,
-            bounds,
-            borderColor);
+        DrawBorder(spriteBatch, bounds, borderColor);
     }
 
     /// <summary>
     ///     Draws a filled rectangle with the given color. Utility for ad-hoc drawing outside the element tree.
     /// </summary>
-    public static void DrawRect(
-        SpriteBatch spriteBatch,
-        GraphicsDevice device,
-        Rectangle bounds,
-        Color color)
-        => spriteBatch.Draw(GetPixel(device), bounds, color);
+    public static void DrawRect(SpriteBatch spriteBatch, Rectangle bounds, Color color) => spriteBatch.Draw(GetPixel(), bounds, color);
 
     /// <summary>
     ///     Returns the shared 1x1 white pixel texture, creating it on first use. Shared across all UI elements — do not
     ///     dispose individually.
     /// </summary>
-    public static Texture2D GetPixel(GraphicsDevice device)
+    public static Texture2D GetPixel()
     {
         if (SharedPixel is null || SharedPixel.IsDisposed)
         {
-            SharedPixel = new Texture2D(device, 1, 1);
+            SharedPixel = new Texture2D(ChaosGame.Device, 1, 1);
             SharedPixel.SetData([Color.White]);
         }
 

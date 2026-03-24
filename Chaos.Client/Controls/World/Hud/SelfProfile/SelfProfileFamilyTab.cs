@@ -1,7 +1,6 @@
 #region
 using Chaos.Client.Controls.Components;
 using Chaos.Client.Data.Models;
-using Microsoft.Xna.Framework.Graphics;
 #endregion
 
 namespace Chaos.Client.Controls.World.Hud.SelfProfile;
@@ -15,13 +14,11 @@ public sealed class SelfProfileFamilyTab : PrefabPanel
     private readonly UILabel? SelfLabel;
     private readonly UITextBox?[] TextFields = new UITextBox?[10];
 
-    public SelfProfileFamilyTab(GraphicsDevice device, string prefabName)
-        : base(device, prefabName, false)
+    public SelfProfileFamilyTab(string prefabName)
+        : base(prefabName, false)
     {
         Name = prefabName;
         Visible = false;
-
-        AutoPopulate();
 
         SelfLabel = CreateLabel("Self");
         FamilyLabel = CreateLabel("Family");

@@ -14,14 +14,14 @@ public sealed class ToolsPanel : PanelBase
 {
     private const int TOOL_SLOTS = 36;
 
-    public ToolsPanel(GraphicsDevice device, ControlPrefabSet hudPrefabSet)
-        : base(device, hudPrefabSet, TOOL_SLOTS)
+    public ToolsPanel(ControlPrefabSet hudPrefabSet, Texture2D? background = null, int normalVisibleSlots = DEFAULT_VISIBLE_SLOTS)
+        : base(
+            hudPrefabSet,
+            TOOL_SLOTS,
+            background: background,
+            normalVisibleSlots: normalVisibleSlots)
     {
         Name = "Tools";
-
-        // Override the default InventoryBackground with the tools-specific background
-        Background?.Dispose();
-        Background = UiRenderer.Instance!.GetSpfTexture("_ninvs3.spf");
     }
 
     protected override Texture2D? RenderIcon(ushort spriteId) => UiRenderer.Instance!.GetItemIcon(spriteId);

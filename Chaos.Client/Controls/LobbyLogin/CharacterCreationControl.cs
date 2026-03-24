@@ -78,13 +78,13 @@ public sealed class CharacterCreationControl : PrefabPanel
     // Text fields — type 7 with 0 images, manually created
     public UITextBox? NameField { get; }
 
-    // Buttons — auto-created by AutoPopulate
+    // Buttons
     public UIButton? OkButton { get; }
     public UITextBox? PasswordConfirmField { get; }
     public UITextBox? PasswordField { get; }
 
-    public CharacterCreationControl(GraphicsDevice device, AislingRenderer renderer)
-        : base(device, "_ncreate", false)
+    public CharacterCreationControl(AislingRenderer renderer)
+        : base("_ncreate", false)
     {
         Renderer = renderer;
         Name = "CharacterCreation";
@@ -92,15 +92,13 @@ public sealed class CharacterCreationControl : PrefabPanel
         X = 0;
         Y = 0;
 
-        var elements = AutoPopulate();
-
         // Buttons
-        OkButton = elements.GetValueOrDefault("OK") as UIButton;
-        CancelButton = elements.GetValueOrDefault("Cancel") as UIButton;
-        AngleLeftButton = elements.GetValueOrDefault("AngleLeft") as UIButton;
-        AngleRightButton = elements.GetValueOrDefault("AngleRight") as UIButton;
-        HairLeftButton = elements.GetValueOrDefault("HairLeft") as UIButton;
-        HairRightButton = elements.GetValueOrDefault("HairRight") as UIButton;
+        OkButton = CreateButton("OK");
+        CancelButton = CreateButton("Cancel");
+        AngleLeftButton = CreateButton("AngleLeft");
+        AngleRightButton = CreateButton("AngleRight");
+        HairLeftButton = CreateButton("HairLeft");
+        HairRightButton = CreateButton("HairRight");
 
         if (OkButton is not null)
             OkButton.OnClick += () => OnOk?.Invoke();
@@ -138,10 +136,9 @@ public sealed class CharacterCreationControl : PrefabPanel
             PasswordConfirmField.OnFocused += OnTextBoxFocused;
 
         // Gender toggles — these use hover images, not button press behavior.
-        // AutoPopulate created them as UIButtons (2 images), but we need hover behavior.
-        // Extract their textures and position, then use custom draw logic.
-        MaleToggleArea = elements.GetValueOrDefault("Male");
-        FemaleToggleArea = elements.GetValueOrDefault("Female");
+        // Create as UIButtons to get textures + position, then use custom draw logic.
+        MaleToggleArea = CreateButton("Male");
+        FemaleToggleArea = CreateButton("Female");
 
         if (MaleToggleArea is UIButton maleBtn)
         {
@@ -173,7 +170,7 @@ public sealed class CharacterCreationControl : PrefabPanel
         }
 
         // Hair color swatch (HairColor — type 7, 1 image)
-        SwatchImage = elements.GetValueOrDefault("HairColor") as UIImage;
+        SwatchImage = CreateImage("HairColor");
     }
 
     public override void Dispose()
@@ -333,7 +330,6 @@ public sealed class CharacterCreationControl : PrefabPanel
                 ?.Dispose();
 
             AnimFrameTextures[i] = Renderer.RenderPreview(
-                Device,
                 SelectedGender,
                 SelectedHairStyle,
                 SelectedHairColor,

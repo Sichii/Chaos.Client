@@ -29,13 +29,11 @@ public sealed class SelfProfileEventsTab : PrefabPanel
     private List<EventEntry> Events = [];
     private int RenderedVersion = -1;
 
-    public SelfProfileEventsTab(GraphicsDevice device, string prefabName)
-        : base(device, prefabName, false)
+    public SelfProfileEventsTab(string prefabName)
+        : base(prefabName, false)
     {
         Name = prefabName;
         Visible = false;
-
-        var elements = AutoPopulate();
 
         Ev1Rect = GetRect("EV1");
         Ev2Rect = GetRect("EV2");
@@ -54,8 +52,8 @@ public sealed class SelfProfileEventsTab : PrefabPanel
                 233,
                 239);
 
-        NextButton = elements.GetValueOrDefault("NEXT") as UIButton;
-        PrevButton = elements.GetValueOrDefault("PREV") as UIButton;
+        NextButton = CreateButton("NEXT");
+        PrevButton = CreateButton("PREV");
 
         if (NextButton is not null)
             NextButton.OnClick += () =>
@@ -82,8 +80,8 @@ public sealed class SelfProfileEventsTab : PrefabPanel
 
         for (var i = 0; i < MAX_PER_COLUMN; i++)
         {
-            Ev1Caches[i] = new CachedText(device);
-            Ev2Caches[i] = new CachedText(device);
+            Ev1Caches[i] = new CachedText();
+            Ev2Caches[i] = new CachedText();
         }
     }
 

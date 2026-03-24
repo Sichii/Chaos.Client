@@ -38,7 +38,7 @@ public sealed class HealthBar : UIElement
         if (!Visible)
             return;
 
-        var pixel = GetPixel(spriteBatch.GraphicsDevice);
+        var pixel = GetPixel();
         var innerX = ScreenX + 1;
         var innerY = ScreenY + 1;
         var fillWidth = (int)(INNER_WIDTH * (HealthPercent / 100f));
@@ -46,7 +46,6 @@ public sealed class HealthBar : UIElement
         // Border only — unfilled area is transparent
         DrawBorder(
             spriteBatch,
-            spriteBatch.GraphicsDevice,
             new Rectangle(
                 ScreenX,
                 ScreenY,

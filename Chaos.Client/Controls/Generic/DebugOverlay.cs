@@ -1,11 +1,12 @@
 #region
 using System.Diagnostics;
 using System.Runtime;
+using Chaos.Client.Controls.Components;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 #endregion
 
-namespace Chaos.Client.Controls.Components;
+namespace Chaos.Client.Controls.Generic;
 
 /// <summary>
 ///     Debug overlay that draws colored outlines and centered names for all visible UI elements. Toggle with F12.
@@ -17,10 +18,6 @@ public static class DebugOverlay
     private const int FRAME_TIME_HISTORY = 180;
     private const float GRAPH_WIDTH = 180;
     private const float GRAPH_HEIGHT = 36;
-    private const float GRAPH_X = 4;
-    private const float GRAPH_Y = 4;
-    private const float STATS_X = 4;
-    private const float STATS_Y = GRAPH_Y + GRAPH_HEIGHT + 4;
     private const float GEN2_FLASH_DURATION_MS = 1000;
     private const int STATS_LINE_COUNT = 6;
 
@@ -41,6 +38,21 @@ public static class DebugOverlay
 
     public static bool IsActive { get; set; }
 
+    /// <summary>
+    ///     Screen X position for the debug overlay.
+    /// </summary>
+    public static float X { get; set; } = 4;
+
+    /// <summary>
+    ///     Screen Y position for the debug overlay.
+    /// </summary>
+    public static float Y { get; set; } = 4;
+
+    private static float GraphX => X;
+    private static float GraphY => Y;
+    private static float StatsX => X;
+    private static float StatsY => Y + GRAPH_HEIGHT + 4;
+
     private static void ClearCaches()
     {
         foreach (var cached in ElementLabelCache.Values)
@@ -52,13 +64,15 @@ public static class DebugOverlay
         if (StatsTextCache is not null)
         {
             foreach (var cached in StatsTextCache)
+
+                // ReSharper disable once ConditionalAccessQualifierIsNonNullableAccordingToAPIContract
                 cached?.Dispose();
 
             StatsTextCache = null;
         }
     }
 
-    public static void Draw(SpriteBatch spriteBatch, GraphicsDevice device, UIPanel root)
+    public static void Draw(SpriteBatch spriteBatch, UIPanel root)
     {
         if (!IsActive)
             return;
@@ -69,23 +83,23 @@ public static class DebugOverlay
 
         // Phase 1: all pixel-texture draws (borders, rects, graph bars) — batches into minimal GPU calls
         foreach (var child in root.Children)
-            DrawElementGeometry(spriteBatch, device, child);
+            DrawElementGeometry(spriteBatch, child);
 
-        DrawPerformanceStatsGeometry(spriteBatch, device);
+        DrawPerformanceStatsGeometry(spriteBatch);
 
         // Phase 2: all text draws — each unique texture breaks the batch, but no pixel interruptions
         foreach ((var text, var pos) in PendingLabels)
             text.Draw(spriteBatch, pos);
 
-        DrawPerformanceStatsText(spriteBatch, device);
+        DrawPerformanceStatsText(spriteBatch);
 
         spriteBatch.End();
 
         // Capture how many draws the debug overlay itself added
-        DebugDrawCount = device.Metrics.DrawCount - SnappedDrawCount;
+        DebugDrawCount = ChaosGame.Device.Metrics.DrawCount - SnappedDrawCount;
     }
 
-    private static void DrawElementGeometry(SpriteBatch spriteBatch, GraphicsDevice device, UIElement element)
+    private static void DrawElementGeometry(SpriteBatch spriteBatch, UIElement element)
     {
         if (!element.Visible)
             return;
@@ -118,7 +132,6 @@ public static class DebugOverlay
 
             UIElement.DrawBorder(
                 spriteBatch,
-                device,
                 new Rectangle(
                     sx,
                     sy,
@@ -134,7 +147,7 @@ public static class DebugOverlay
 
             if (!ElementLabelCache.TryGetValue(element, out var cachedLabel))
             {
-                cachedLabel = new CachedText(device);
+                cachedLabel = new CachedText();
                 ElementLabelCache[element] = cachedLabel;
             }
 
@@ -149,7 +162,6 @@ public static class DebugOverlay
 
                 UIElement.DrawRect(
                     spriteBatch,
-                    device,
                     new Rectangle(
                         tx - 1,
                         ty - 1,
@@ -163,10 +175,10 @@ public static class DebugOverlay
 
         if (element is UIPanel panel)
             foreach (var child in panel.Children)
-                DrawElementGeometry(spriteBatch, device, child);
+                DrawElementGeometry(spriteBatch, child);
     }
 
-    private static void DrawFrameTimeGraph(SpriteBatch spriteBatch, GraphicsDevice device)
+    private static void DrawFrameTimeGraph(SpriteBatch spriteBatch)
     {
         var sampleCount = Math.Min(FrameTimeIndex, FRAME_TIME_HISTORY);
 
@@ -176,17 +188,16 @@ public static class DebugOverlay
         var barWidth = GRAPH_WIDTH / FRAME_TIME_HISTORY;
 
         // 33ms target line (30fps — anything above this is a serious hitch)
-        var targetY33 = GRAPH_Y + GRAPH_HEIGHT - GRAPH_HEIGHT * (33f / 50f);
+        var targetY33 = GraphY + GRAPH_HEIGHT - GRAPH_HEIGHT * (33f / 50f);
 
         // 16.67ms target line (60fps)
-        var targetY16 = GRAPH_Y + GRAPH_HEIGHT - GRAPH_HEIGHT * (16.67f / 50f);
+        var targetY16 = GraphY + GRAPH_HEIGHT - GRAPH_HEIGHT * (16.67f / 50f);
 
         // 60fps line
         UIElement.DrawRect(
             spriteBatch,
-            device,
             new Rectangle(
-                (int)GRAPH_X,
+                (int)GraphX,
                 (int)targetY16,
                 (int)GRAPH_WIDTH,
                 1),
@@ -195,9 +206,8 @@ public static class DebugOverlay
         // 30fps line
         UIElement.DrawRect(
             spriteBatch,
-            device,
             new Rectangle(
-                (int)GRAPH_X,
+                (int)GraphX,
                 (int)targetY33,
                 (int)GRAPH_WIDTH,
                 1),
@@ -215,8 +225,8 @@ public static class DebugOverlay
             // Clamp to graph range (0-50ms)
             var normalized = Math.Min(ms / 50f, 1f);
             var barHeight = (int)(GRAPH_HEIGHT * normalized);
-            var barX = (int)(GRAPH_X + i * barWidth);
-            var barY = (int)(GRAPH_Y + GRAPH_HEIGHT - barHeight);
+            var barX = (int)(GraphX + i * barWidth);
+            var barY = (int)(GraphY + GRAPH_HEIGHT - barHeight);
 
             var barColor = ms > 33
                 ? Color.Red
@@ -226,7 +236,6 @@ public static class DebugOverlay
 
             UIElement.DrawRect(
                 spriteBatch,
-                device,
                 new Rectangle(
                     barX,
                     barY,
@@ -236,23 +245,22 @@ public static class DebugOverlay
         }
     }
 
-    private static void DrawPerformanceStatsGeometry(SpriteBatch spriteBatch, GraphicsDevice device)
+    private static void DrawPerformanceStatsGeometry(SpriteBatch spriteBatch)
     {
         // Background for stats area
         var statsHeight = 82;
 
         UIElement.DrawRect(
             spriteBatch,
-            device,
             new Rectangle(
-                (int)GRAPH_X - 2,
-                (int)GRAPH_Y - 2,
+                (int)GraphX - 2,
+                (int)GraphY - 2,
                 (int)GRAPH_WIDTH + 4,
                 (int)GRAPH_HEIGHT + statsHeight + 8),
             Color.Black * 0.33f);
 
         // Frame time graph
-        DrawFrameTimeGraph(spriteBatch, device);
+        DrawFrameTimeGraph(spriteBatch);
 
         // Flash the whole stats area red-tinted when a Gen2 collection just happened
         if (Gen2FlashTimer > 0)
@@ -261,17 +269,16 @@ public static class DebugOverlay
 
             UIElement.DrawRect(
                 spriteBatch,
-                device,
                 new Rectangle(
-                    (int)GRAPH_X - 2,
-                    (int)GRAPH_Y - 2,
+                    (int)GraphX - 2,
+                    (int)GraphY - 2,
                     (int)GRAPH_WIDTH + 4,
                     (int)GRAPH_HEIGHT + statsHeight + 8),
                 Color.Red * flashAlpha);
         }
     }
 
-    private static void DrawPerformanceStatsText(SpriteBatch spriteBatch, GraphicsDevice device)
+    private static void DrawPerformanceStatsText(SpriteBatch spriteBatch)
     {
         // Text stats
         var heapMb = GC.GetTotalMemory(false) / (1024.0 * 1024.0);
@@ -297,11 +304,12 @@ public static class DebugOverlay
 
         StatsTextCache ??= new CachedText[STATS_LINE_COUNT];
 
-        var y = STATS_Y;
+        var y = StatsY;
 
         for (var i = 0; i < lines.Length; i++)
         {
-            StatsTextCache[i] ??= new CachedText(device);
+            // ReSharper disable once NullCoalescingConditionIsAlwaysNotNullAccordingToAPIContract
+            StatsTextCache[i] ??= new CachedText();
 
             StatsTextCache[i]
                 .Update(lines[i].Text, lines[i].Color);
@@ -309,7 +317,7 @@ public static class DebugOverlay
             if (StatsTextCache[i].Texture is not null)
             {
                 StatsTextCache[i]
-                    .Draw(spriteBatch, new Vector2(STATS_X, y));
+                    .Draw(spriteBatch, new Vector2(StatsX, y));
                 y += StatsTextCache[i].Texture!.Height + 1;
             }
         }
@@ -319,7 +327,7 @@ public static class DebugOverlay
     ///     Captures the GPU draw count before the debug overlay renders its own draws. Call immediately before Draw() so the
     ///     reported count excludes debug overlay draws.
     /// </summary>
-    public static void SnapshotDrawCount(GraphicsDevice device) => SnappedDrawCount = device.Metrics.DrawCount;
+    public static void SnapshotDrawCount() => SnappedDrawCount = ChaosGame.Device.Metrics.DrawCount;
 
     public static void Toggle()
     {

@@ -1,6 +1,5 @@
 #region
 using Chaos.Client.Controls.Components;
-using Chaos.Client.Definitions;
 using Chaos.Client.Rendering;
 using Microsoft.Xna.Framework.Graphics;
 #endregion
@@ -18,22 +17,20 @@ public sealed class LobbyLoginControl : PrefabPanel
     public UIButton? SubmitCreateButton { get; }
     public UILabel? VersionLabel { get; }
 
-    public LobbyLoginControl(GraphicsDevice device)
-        : base(device, "_nstart", false)
+    public LobbyLoginControl()
+        : base("_nstart", false)
     {
         Name = "StartScreen";
         X = 0;
         Y = 0;
 
-        var elements = AutoPopulate();
-
-        // Buttons — AutoPopulate creates these as UIButtons (2 images each, type 7)
-        SubmitCreateButton = elements.GetValueOrDefault("Create") as UIButton;
-        ContinueButton = elements.GetValueOrDefault("Continue") as UIButton;
-        PasswordButton = elements.GetValueOrDefault("Password") as UIButton;
-        CreditButton = elements.GetValueOrDefault("Credit") as UIButton;
-        HomepageButton = elements.GetValueOrDefault("Homepage") as UIButton;
-        ExitButton = elements.GetValueOrDefault("Exit") as UIButton;
+        // Buttons
+        SubmitCreateButton = CreateButton("Create");
+        ContinueButton = CreateButton("Continue");
+        PasswordButton = CreateButton("Password");
+        CreditButton = CreateButton("Credit");
+        HomepageButton = CreateButton("Homepage");
+        ExitButton = CreateButton("Exit");
 
         // Start screen buttons use hover effect instead of press
         UIButton?[] allButtons =
@@ -56,9 +53,11 @@ public sealed class LobbyLoginControl : PrefabPanel
             btn.Enabled = false;
         }
 
-        // Animated logo — LOGO control has 20 frames, AutoPopulate created it as UIImage (5+ images).
-        // Replace with UIAnimatedImage using the prefab's frames.
-        if (elements.TryGetValue("LOGO", out var logoElement) && PrefabSet.Contains("LOGO"))
+        // Animated logo — LOGO control has 20 frames. Create as static image first,
+        // then replace with UIAnimatedImage using the prefab's frames.
+        var logoImage = CreateImage("LOGO");
+
+        if (logoImage is not null)
         {
             var logoPrefab = PrefabSet["LOGO"];
             var cache = UiRenderer.Instance!;
@@ -70,10 +69,10 @@ public sealed class LobbyLoginControl : PrefabPanel
             AnimatedLogo = new UIAnimatedImage
             {
                 Name = "AnimatedLogo",
-                X = logoElement.X,
-                Y = logoElement.Y,
-                Width = logoElement.Width,
-                Height = logoElement.Height,
+                X = logoImage.X,
+                Y = logoImage.Y,
+                Width = logoImage.Width,
+                Height = logoImage.Height,
                 Frames = animFrames,
                 FrameIntervalMs = 150,
                 Looping = true,
@@ -81,12 +80,12 @@ public sealed class LobbyLoginControl : PrefabPanel
             };
 
             // Replace the static image with the animated one
-            Children.Remove(logoElement);
-            logoElement.Dispose();
+            Children.Remove(logoImage);
+            logoImage.Dispose();
             AddChild(AnimatedLogo);
         }
 
-        // Version label — type 7, 0 images, skipped by AutoPopulate
+        // Version label — type 7, 0 images
         VersionLabel = CreateLabel("Version", TextAlignment.Right);
         VersionLabel?.SetText("Chaos v0.1.0");
     }

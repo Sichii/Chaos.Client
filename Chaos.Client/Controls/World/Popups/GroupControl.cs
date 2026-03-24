@@ -27,8 +27,8 @@ public sealed class GroupControl : PrefabPanel
     public UIButton? InviteButton { get; }
     public UIButton? OkButton { get; }
 
-    public GroupControl(GraphicsDevice device)
-        : base(device, "_ngcdlg0", false)
+    public GroupControl()
+        : base("_ngcdlg0", false)
     {
         Name = "Group";
         Visible = false;
@@ -37,10 +37,8 @@ public sealed class GroupControl : PrefabPanel
         X = 0;
         Y = 0;
 
-        var elements = AutoPopulate();
-
-        InviteButton = elements.GetValueOrDefault("B_BTN0") as UIButton;
-        OkButton = elements.GetValueOrDefault("BTN_OK") as UIButton;
+        InviteButton = CreateButton("B_BTN0");
+        OkButton = CreateButton("BTN_OK");
 
         if (OkButton is not null)
             OkButton.OnClick += () =>
@@ -52,28 +50,18 @@ public sealed class GroupControl : PrefabPanel
         if (InviteButton is not null)
             InviteButton.OnClick += () => OnInvite?.Invoke();
 
-        // Create member name labels from USER0/USER1 prefab controls (and extras manually)
+        // Create member name labels from USER prefab controls (and extras manually)
         for (var i = 0; i < MAX_MEMBERS; i++)
         {
             var controlName = $"USER{i}";
+            var label = CreateLabel(controlName);
 
-            if (elements.TryGetValue(controlName, out var element))
-            {
-                // Replace the image with a label at the same position
-                MemberLabels[i] = new UILabel(device)
-                {
-                    Name = controlName,
-                    X = element.X,
-                    Y = element.Y,
-                    Width = element.Width,
-                    Height = element.Height
-                };
-
-                AddChild(MemberLabels[i]!);
-            } else if (i < 2)
+            if (label is not null)
+                MemberLabels[i] = label;
+            else if (i < 2)
             {
                 // Create default labels for USER0/USER1 if not found in prefab
-                MemberLabels[i] = new UILabel(device)
+                MemberLabels[i] = new UILabel
                 {
                     Name = controlName,
                     X = NAME_X,

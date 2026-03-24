@@ -39,7 +39,7 @@ public sealed class ScrollBarControl : UIElement
     public int Value { get; set; }
     public int VisibleItems { get; set; }
 
-    public ScrollBarControl(GraphicsDevice device) => Width = BUTTON_SIZE;
+    public ScrollBarControl() => Width = BUTTON_SIZE;
 
     public override void Draw(SpriteBatch spriteBatch)
     {

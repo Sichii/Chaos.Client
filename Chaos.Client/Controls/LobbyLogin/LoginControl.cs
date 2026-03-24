@@ -1,7 +1,6 @@
 #region
 using Chaos.Client.Controls.Components;
 using Microsoft.Xna.Framework;
-using Microsoft.Xna.Framework.Graphics;
 using Microsoft.Xna.Framework.Input;
 #endregion
 
@@ -14,17 +13,15 @@ public sealed class LoginControl : PrefabPanel
     public UITextBox? PasswordField { get; }
     public UITextBox? UsernameField { get; }
 
-    public LoginControl(GraphicsDevice device)
-        : base(device, "_nlogin")
+    public LoginControl()
+        : base("_nlogin")
     {
         Name = "LoginDialog";
         Visible = false;
 
-        var elements = AutoPopulate();
-
-        // Buttons — auto-created by AutoPopulate (type 7 with 2+ images → UIButton)
-        OkButton = elements.GetValueOrDefault("OK") as UIButton;
-        CancelButton = elements.GetValueOrDefault("Cancel") as UIButton;
+        // Buttons
+        OkButton = CreateButton("OK");
+        CancelButton = CreateButton("Cancel");
 
         // Text fields — type 7 with 0 images, must be created manually
         UsernameField = CreateTextBox("Name");

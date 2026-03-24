@@ -1,7 +1,6 @@
 #region
 using Chaos.Client.Controls.Components;
 using Microsoft.Xna.Framework;
-using Microsoft.Xna.Framework.Graphics;
 using Microsoft.Xna.Framework.Input;
 #endregion
 
@@ -11,7 +10,7 @@ namespace Chaos.Client.Controls.World.Popups;
 ///     Gold drop/exchange popup using _nmoney prefab. Stores the pending drop target (entity or tile)
 ///     so the caller only needs to show it and subscribe to OnConfirm.
 /// </summary>
-public class GoldExchangeControl : PrefabPanel
+public sealed class GoldExchangeControl : PrefabPanel
 {
     /// <summary>
     ///     Entity ID to drop gold on, or null for ground drop.
@@ -24,13 +23,11 @@ public class GoldExchangeControl : PrefabPanel
     public UIButton? CancelButton { get; }
     public UIButton? OkButton { get; }
 
-    public GoldExchangeControl(GraphicsDevice device)
-        : base(device, "_nmoney")
+    public GoldExchangeControl()
+        : base("_nmoney")
     {
         Name = "GoldExchange";
         Visible = false;
-
-        AutoPopulate();
 
         OkButton = CreateButton("OK");
         CancelButton = CreateButton("Cancel");

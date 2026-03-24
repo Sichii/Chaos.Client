@@ -92,7 +92,6 @@ public sealed class MapRenderer : IDisposable
     /// </summary>
     public void DrawBackground(SpriteBatch spriteBatch, MapFile mapFile, Camera camera)
     {
-        var device = spriteBatch.GraphicsDevice;
         (var bgMinX, var bgMinY, var bgMaxX, var bgMaxY) = camera.GetVisibleTileBounds(mapFile.Width, mapFile.Height);
 
         for (var y = bgMinY; y <= bgMaxY; y++)
@@ -131,7 +130,7 @@ public sealed class MapRenderer : IDisposable
                 }
 
                 // Fallback to individual texture
-                var bgTexture = GetOrCreateBgTexture(device, bgIndex);
+                var bgTexture = GetOrCreateBgTexture(bgIndex);
 
                 if (bgTexture is not null)
                     spriteBatch.Draw(bgTexture, screenPos, Color.White);
@@ -150,14 +149,13 @@ public sealed class MapRenderer : IDisposable
         int x,
         int y)
     {
-        var device = spriteBatch.GraphicsDevice;
         var tile = mapFile.Tiles[x, y];
         var worldPos = Camera.TileToWorld(x, y, mapFile.Height);
 
         // Left foreground
         if (tile.LeftForeground.IsRenderedTileIndex())
         {
-            var lfgTexture = GetOrCreateFgTexture(device, tile.LeftForeground);
+            var lfgTexture = GetOrCreateFgTexture(tile.LeftForeground);
 
             if (lfgTexture is not null)
             {
@@ -172,7 +170,7 @@ public sealed class MapRenderer : IDisposable
         // Right foreground
         if (tile.RightForeground.IsRenderedTileIndex())
         {
-            var rfgTexture = GetOrCreateFgTexture(device, tile.RightForeground);
+            var rfgTexture = GetOrCreateFgTexture(tile.RightForeground);
 
             if (rfgTexture is not null)
             {
@@ -186,7 +184,7 @@ public sealed class MapRenderer : IDisposable
         }
     }
 
-    private Texture2D? GetOrCreateBgTexture(GraphicsDevice device, int tileId)
+    private Texture2D? GetOrCreateBgTexture(int tileId)
     {
         if (BgTextureCache.TryGetValue(tileId, out var cached))
             return cached;
@@ -197,13 +195,13 @@ public sealed class MapRenderer : IDisposable
             return null;
 
         using var image = Graphics.RenderTile(palettized.Entity, palettized.Palette);
-        var texture = TextureConverter.ToTexture2D(device, image);
+        var texture = TextureConverter.ToTexture2D(image);
         BgTextureCache[tileId] = texture;
 
         return texture;
     }
 
-    private Texture2D? GetOrCreateFgTexture(GraphicsDevice device, int tileId)
+    private Texture2D? GetOrCreateFgTexture(int tileId)
     {
         if (FgTextureCache.TryGetValue(tileId, out var cached))
             return cached;
@@ -214,7 +212,7 @@ public sealed class MapRenderer : IDisposable
             return null;
 
         using var image = Graphics.RenderImage(palettized.Entity, palettized.Palette);
-        var texture = TextureConverter.ToTexture2D(device, image);
+        var texture = TextureConverter.ToTexture2D(image);
         FgTextureCache[tileId] = texture;
 
         return texture;
@@ -244,12 +242,12 @@ public sealed class MapRenderer : IDisposable
                 var bgIndex = tile.Background;
 
                 if (bgIndex > 0)
-                    GetOrCreateBgTexture(device, bgIndex);
+                    GetOrCreateBgTexture(bgIndex);
 
                 // Left foreground
                 if (tile.LeftForeground.IsRenderedTileIndex())
                 {
-                    var lfgTexture = GetOrCreateFgTexture(device, tile.LeftForeground);
+                    var lfgTexture = GetOrCreateFgTexture(tile.LeftForeground);
 
                     if (lfgTexture is not null && (lfgTexture.Height > maxFgHeight))
                         maxFgHeight = lfgTexture.Height;
@@ -258,7 +256,7 @@ public sealed class MapRenderer : IDisposable
                 // Right foreground
                 if (tile.RightForeground.IsRenderedTileIndex())
                 {
-                    var rfgTexture = GetOrCreateFgTexture(device, tile.RightForeground);
+                    var rfgTexture = GetOrCreateFgTexture(tile.RightForeground);
 
                     if (rfgTexture is not null && (rfgTexture.Height > maxFgHeight))
                         maxFgHeight = rfgTexture.Height;

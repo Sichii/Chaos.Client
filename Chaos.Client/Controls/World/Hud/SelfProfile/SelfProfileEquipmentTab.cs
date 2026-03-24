@@ -1,6 +1,5 @@
 #region
 using Chaos.Client.Controls.Components;
-using Chaos.Client.Definitions;
 using Chaos.Client.Rendering;
 using Chaos.DarkAges.Definitions;
 using Microsoft.Xna.Framework;
@@ -97,27 +96,21 @@ public sealed class SelfProfileEquipmentTab : PrefabPanel
     private byte NationId; // retained for future use (e.g. nation-specific UI logic)
     private Texture2D? PaperdollTexture;
 
-    public SelfProfileEquipmentTab(GraphicsDevice device, string prefabName)
-        : base(device, prefabName, false)
+    public SelfProfileEquipmentTab(string prefabName)
+        : base(prefabName, false)
     {
         Name = prefabName;
         Visible = false;
 
-        // Create all non-anchor controls via AutoPopulate, then extract the slot elements
-        var elements = AutoPopulate();
-
-        // Build slot visuals from the prefab-created elements.
-        // AutoPopulate creates UIImage elements for DoesNotReturnValue controls that have images.
+        // Build slot visuals from prefab-created image elements.
+        // CreateImage creates UIImage elements for controls that have images.
         // Each slot image initially shows its _nui_eqi placeholder icon.
         foreach ((var controlName, var slot) in SlotMappings)
         {
-            if (!elements.TryGetValue(controlName, out var element))
+            if (CreateImage(controlName) is not { } slotImage)
                 continue;
 
-            if (element is not UIImage slotImage)
-                continue;
-
-            // The placeholder texture was already set by AutoPopulate from the _nui_eqi frame
+            // The placeholder texture was already set from the _nui_eqi frame
             var visual = new EquipmentSlotVisual
             {
                 Image = slotImage,
@@ -144,7 +137,7 @@ public sealed class SelfProfileEquipmentTab : PrefabPanel
 
         // Group button — single button that swaps textures based on GroupOpen state.
         // GroupBtn prefab has the "open/recruiting" images, GroupBtn_Disabled has the "closed" images.
-        GroupBtn = elements.GetValueOrDefault("GroupBtn") as UIButton;
+        GroupBtn = CreateButton("GroupBtn");
 
         if (GroupBtn is not null)
         {
@@ -153,18 +146,12 @@ public sealed class SelfProfileEquipmentTab : PrefabPanel
             GroupBtn.OnClick += () => OnGroupToggled?.Invoke();
         }
 
-        // Extract the closed-state texture from GroupBtn_Disabled, then remove it
-        if (elements.TryGetValue("GroupBtn_Disabled", out var disabledElement))
+        // Extract the closed-state texture from GroupBtn_Disabled for the closed state icon
+        if (CreateImage("GroupBtn_Disabled") is { } disabledImage)
         {
-            GroupClosedTexture = disabledElement switch
-            {
-                UIButton btn => btn.NormalTexture,
-                UIImage img  => img.Texture,
-                _            => null
-            };
-
-            Children.Remove(disabledElement);
-            disabledElement.Dispose();
+            GroupClosedTexture = disabledImage.Texture;
+            Children.Remove(disabledImage);
+            disabledImage.Dispose();
         }
 
         // Nation icon area
@@ -173,19 +160,8 @@ public sealed class SelfProfileEquipmentTab : PrefabPanel
         // Paperdoll area (HumanImage control rect)
         PaperdollRect = GetRect("HumanImage");
 
-        // Hide the HumanImage element created by AutoPopulate — we render the paperdoll manually
-        if (elements.TryGetValue("HumanImage", out var humanImageElement))
-            humanImageElement.Visible = false;
-
         // Emoticon status areas
         HumanIconRect = GetRect("HumanIcon");
-
-        // Hide auto-populated elements for emoticon — we render these manually
-        if (elements.TryGetValue("HumanIcon", out var humanIconElement))
-            humanIconElement.Visible = false;
-
-        if (elements.TryGetValue("HumanState", out var humanStateElement))
-            humanStateElement.Visible = false;
 
         // Load emoticon icons from _nemots.spf (frames 0-7)
         EmoticonIcons = new Texture2D?[EMOTICON_FRAME_COUNT];
@@ -197,7 +173,7 @@ public sealed class SelfProfileEquipmentTab : PrefabPanel
         EmoticonLabel = CreateLabel("HumanState", TextAlignment.Center);
 
         // Tooltip label — hidden by default, follows cursor when an equipment slot is hovered
-        TooltipLabel = new UILabel(device)
+        TooltipLabel = new UILabel
         {
             Name = "Tooltip",
             Visible = false,
@@ -367,11 +343,7 @@ public sealed class SelfProfileEquipmentTab : PrefabPanel
         PaperdollTexture?.Dispose();
 
         // South-facing (direction=2) = Right idle frame (5) + horizontal flip
-        PaperdollTexture = renderer.Render(
-            Device,
-            in appearance,
-            PAPERDOLL_IDLE_FRAME,
-            flipHorizontal: true);
+        PaperdollTexture = renderer.Render(in appearance, PAPERDOLL_IDLE_FRAME, flipHorizontal: true);
     }
 
     /// <summary>

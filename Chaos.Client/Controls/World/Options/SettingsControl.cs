@@ -1,9 +1,7 @@
 #region
 using Chaos.Client.Controls.Components;
-using Chaos.Client.Definitions;
 using Chaos.Client.Rendering;
 using Microsoft.Xna.Framework;
-using Microsoft.Xna.Framework.Graphics;
 using Microsoft.Xna.Framework.Input;
 #endregion
 
@@ -66,26 +64,20 @@ public sealed class SettingsControl : PrefabPanel
 
     public UIButton? OkButton { get; }
 
-    public SettingsControl(GraphicsDevice device)
-        : base(device, "_nsett", false)
+    public SettingsControl()
+        : base("_nsett", false)
     {
         Name = "Settings";
         Visible = false;
 
-        var elements = AutoPopulate();
-
-        OkButton = elements.GetValueOrDefault("OK") as UIButton;
-        CancelButton = elements.GetValueOrDefault("Cancel") as UIButton;
+        OkButton = CreateButton("OK");
+        CancelButton = CreateButton("Cancel");
 
         if (OkButton is not null)
             OkButton.OnClick += Close;
 
         if (CancelButton is not null)
             CancelButton.OnClick += Close;
-
-        // Hide the template TopButton from AutoPopulate
-        if (elements.TryGetValue("TopButton", out var topButton))
-            topButton.Visible = false;
 
         // Create per-setting number buttons from _nsettb.spf (2 frames per setting: normal, pressed)
         // 2-column layout: settings 0-9 in left column, 10-12 in right column
@@ -114,7 +106,7 @@ public sealed class SettingsControl : PrefabPanel
 
             AddChild(btn);
 
-            var label = new UILabel(device)
+            var label = new UILabel
             {
                 Name = $"SettingLabel{i}",
                 X = LABEL_X + col * COLUMN_OFFSET,

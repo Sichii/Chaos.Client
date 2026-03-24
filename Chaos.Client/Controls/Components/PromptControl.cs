@@ -1,6 +1,5 @@
 #region
 using Microsoft.Xna.Framework;
-using Microsoft.Xna.Framework.Graphics;
 using Microsoft.Xna.Framework.Input;
 #endregion
 
@@ -13,8 +12,7 @@ namespace Chaos.Client.Controls.Components;
 /// </summary>
 public sealed class PromptControl : UITextBox
 {
-    public PromptControl(GraphicsDevice device)
-        : base(device)
+    public PromptControl()
     {
         Visible = false;
         BackgroundColor = Color.White;

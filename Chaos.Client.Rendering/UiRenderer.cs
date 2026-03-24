@@ -102,7 +102,7 @@ public sealed class UiRenderer : IDisposable
     }
 
     private CachedTexture2D Convert(SKImage image)
-        => TextureConverter.ConvertImage(Device, image, static (d, w, h) => new CachedTexture2D(d, w, h));
+        => TextureConverter.ConvertImage(image, static (d, w, h) => new CachedTexture2D(d, w, h));
 
     private CachedTexture2D CreateMissingTexture()
     {

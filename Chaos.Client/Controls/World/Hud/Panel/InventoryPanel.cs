@@ -2,55 +2,44 @@
 using Chaos.Client.Controls.World.Hud.Panel.Slots;
 using Chaos.Client.Data.Models;
 using Chaos.Client.Rendering;
-using Chaos.DarkAges.Definitions;
-using Microsoft.Xna.Framework;
+using Chaos.Client.ViewModel;
 using Microsoft.Xna.Framework.Graphics;
 #endregion
 
 namespace Chaos.Client.Controls.World.Hud.Panel;
 
 /// <summary>
-///     Inventory item grid panel (A key). 59 slots, no secondary page. Items rendered from Legend.dat item EPFs with
-///     itempal palette lookup. The last visible grid cell displays a permanent gold bag icon. Supports expand toggle
-///     (Shift+A) that grows the panel upward from 3 rows to 5 rows, overlaying the game viewport.
+///     Inventory item grid panel (A key). Thin view that subscribes to
+///     <see cref="Inventory" /> change events and renders item icons with dye colors.
+///     Supports expand toggle that grows the panel upward (3->5 rows in small HUD, 1->5 rows in large HUD).
 /// </summary>
 public sealed class InventoryPanel : PanelBase
 {
     private const int MAX_SLOTS = 59;
     private const ushort GOLD_SPRITE = 136;
-    private const int NORMAL_ROWS = 3;
-    private const int EXPANDED_ROWS = 5;
-    private const int NORMAL_SLOTS = NORMAL_ROWS * COLUMNS;
-    private const int EXPANDED_SLOTS = EXPANDED_ROWS * COLUMNS;
+    private const int EXPANDED_SLOTS = 5 * COLUMNS;
 
-    private readonly Texture2D? ExpandedBackground;
-    private readonly int ExpandYOffset;
     private readonly PanelSlot GoldSlot;
-    private readonly Texture2D? NormalBackground;
+    private readonly Inventory InventoryState;
 
-    /// <summary>
-    ///     Whether the inventory is currently in expanded (5-row) mode.
-    /// </summary>
-    public bool IsExpanded { get; private set; }
-
-    public InventoryPanel(GraphicsDevice device, ControlPrefabSet hudPrefabSet)
+    public InventoryPanel(
+        ControlPrefabSet hudPrefabSet,
+        Inventory inventory,
+        Texture2D? background = null,
+        Texture2D? expandedBackground = null,
+        int normalVisibleSlots = DEFAULT_VISIBLE_SLOTS)
         : base(
-            device,
             hudPrefabSet,
             MAX_SLOTS,
             gridOffsetX: 7,
-            gridOffsetY: 5)
+            gridOffsetY: 5,
+            background: background,
+            normalVisibleSlots: normalVisibleSlots)
     {
         Name = "Inventory";
+        InventoryState = inventory;
 
-        // Cache both background textures for toggling
-        NormalBackground = Background;
-        ExpandedBackground = UiRenderer.Instance!.GetSpfTexture("_ninv5.spf");
-
-        // The expanded background is taller — compute the upward offset for the extra rows
-        var normalHeight = NormalBackground?.Height ?? Height;
-        var expandedHeight = ExpandedBackground?.Height ?? normalHeight;
-        ExpandYOffset = expandedHeight - normalHeight;
+        ConfigureExpand(expandedBackground ?? UiRenderer.Instance!.GetSpfTexture("_ninv5.spf"), EXPANDED_SLOTS);
 
         // Gold bag occupies the last visible grid cell, overlaying the slot at that index
         GoldSlot = new PanelSlot
@@ -63,47 +52,26 @@ public sealed class InventoryPanel : PanelBase
             ZIndex = 1
         };
 
-        GoldSlot.SlotName = "Gold( 0 )";
+        GoldSlot.SlotName = $"Gold( {inventory.Gold} )";
         GoldSlot.OnDragStart += OnDragStarted;
         AddChild(GoldSlot);
 
         // Position gold at last visible cell and hide the slot underneath
-        PositionGoldSlot(NORMAL_SLOTS - 1);
+        PositionGoldSlot(normalVisibleSlots - 1);
+
+        // Subscribe to state events
+        InventoryState.SlotChanged += OnSlotChanged;
+        InventoryState.GoldChanged += OnGoldChanged;
+        InventoryState.Cleared += OnCleared;
     }
 
-    public override void Draw(SpriteBatch spriteBatch)
+    public override void Dispose()
     {
-        if (!Visible)
-            return;
+        InventoryState.SlotChanged -= OnSlotChanged;
+        InventoryState.GoldChanged -= OnGoldChanged;
+        InventoryState.Cleared -= OnCleared;
 
-        // When expanded, draw the taller background shifted upward so the bottom stays anchored
-        if (IsExpanded && ExpandedBackground is not null)
-        {
-            AtlasHelper.Draw(
-                spriteBatch,
-                ExpandedBackground,
-                new Vector2(ScreenX, ScreenY - ExpandYOffset),
-                Color.White);
-
-            // Draw children (slots) — base.Draw would draw NormalBackground, so we skip it
-            foreach (var child in Children)
-                if (child.Visible)
-                    child.Draw(spriteBatch);
-
-            // Slot number overlay
-            var slotOverlay = UiRenderer.Instance!.GetSpfTexture("_ninvn.spf");
-
-            if (slotOverlay is not null)
-                AtlasHelper.Draw(
-                    spriteBatch,
-                    slotOverlay,
-                    new Vector2(ScreenX - 17, ScreenY - ExpandYOffset + 3),
-                    Color.White);
-
-            return;
-        }
-
-        base.Draw(spriteBatch);
+        base.Dispose();
     }
 
     protected override PanelSlot? FindHoveredSlot(InputBuffer input)
@@ -112,6 +80,47 @@ public sealed class InventoryPanel : PanelBase
             return GoldSlot;
 
         return base.FindHoveredSlot(input);
+    }
+
+    private void OnCleared()
+    {
+        foreach (var slot in Slots)
+        {
+            slot.NormalTexture?.Dispose();
+            slot.NormalTexture = null;
+            slot.SlotName = null;
+            slot.CurrentDurability = 0;
+            slot.MaxDurability = 0;
+        }
+    }
+
+    private void OnGoldChanged() => GoldSlot.SlotName = $"Gold( {InventoryState.Gold} )";
+
+    private void OnSlotChanged(byte slot)
+    {
+        var control = FindSlot(slot);
+
+        if (control is null)
+            return;
+
+        var data = InventoryState.GetSlot(slot);
+
+        if (data.IsOccupied)
+        {
+            control.NormalTexture?.Dispose();
+            control.NormalTexture = UiRenderer.Instance!.GetItemIcon(data.Sprite, data.Color);
+            control.SlotName = data.Name;
+            control.CurrentDurability = data.CurrentDurability;
+            control.MaxDurability = data.MaxDurability;
+        } else
+        {
+            control.NormalTexture?.Dispose();
+            control.NormalTexture = null;
+            control.SlotName = null;
+            control.CooldownPercent = 0;
+            control.CurrentDurability = 0;
+            control.MaxDurability = 0;
+        }
     }
 
     private void PositionGoldSlot(int gridIndex)
@@ -134,48 +143,10 @@ public sealed class InventoryPanel : PanelBase
 
     protected override Texture2D? RenderIcon(ushort spriteId) => UiRenderer.Instance!.GetItemIcon(spriteId);
 
-    public void SetSlot(byte slot, ushort sprite, DisplayColor color)
+    public override void SetExpanded(bool expanded)
     {
-        var control = FindSlot(slot);
+        base.SetExpanded(expanded);
 
-        if (control is null)
-            return;
-
-        control.NormalTexture?.Dispose();
-        control.NormalTexture = UiRenderer.Instance!.GetItemIcon(sprite, color);
+        PositionGoldSlot(VisibleSlotCount - 1);
     }
-
-    /// <summary>
-    ///     Toggles between normal (3-row) and expanded (5-row) inventory. The extra rows extend upward above the panel,
-    ///     overlaying the game viewport. The bottom edge stays anchored.
-    /// </summary>
-    public void ToggleExpand()
-    {
-        IsExpanded = !IsExpanded;
-
-        var targetSlots = IsExpanded ? EXPANDED_SLOTS : NORMAL_SLOTS;
-        var goldIndex = targetSlots - 1;
-        var yShift = IsExpanded ? -ExpandYOffset : ExpandYOffset;
-
-        // Render above other HUD elements when expanded
-        ZIndex = IsExpanded ? 10 : 0;
-
-        // Shift all slot Y positions so the grid grows upward from the bottom
-        for (var i = 0; i < Slots.Length; i++)
-        {
-            Slots[i].Y += yShift;
-            Slots[i].Visible = (i < targetSlots) && (i != goldIndex);
-        }
-
-        // Update visible slot count
-        VisibleSlotCount = targetSlots;
-
-        // Reposition gold slot to new last visible cell
-        PositionGoldSlot(goldIndex);
-    }
-
-    /// <summary>
-    ///     Updates the gold bag tooltip text to reflect the current gold amount.
-    /// </summary>
-    public void UpdateGold(uint gold) => GoldSlot.SlotName = $"Gold( {gold} )";
 }

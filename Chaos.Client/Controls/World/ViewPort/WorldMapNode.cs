@@ -34,7 +34,6 @@ public sealed class WorldMapNode : UIElement
     public int NodeIndex { get; }
 
     public WorldMapNode(
-        GraphicsDevice device,
         int nodeIndex,
         string text,
         ushort mapId,
@@ -48,10 +47,10 @@ public sealed class WorldMapNode : UIElement
         DestY = destY;
         CheckSum = checkSum;
         Text = text;
-        Label = new CachedText(device);
+        Label = new CachedText();
         Label.Update(text, Color.White);
 
-        EnsureBoxTextures(device);
+        EnsureBoxTextures();
 
         var textWidth = Label.Texture?.Width ?? 0;
         Width = BOX_SIZE + BOX_GAP + textWidth;
@@ -69,7 +68,7 @@ public sealed class WorldMapNode : UIElement
         return (screenX >= boxX) && (screenX < (boxX + BOX_SIZE)) && (screenY >= boxY) && (screenY < (boxY + BOX_SIZE));
     }
 
-    private static Texture2D CreateBorderTexture(GraphicsDevice device, int size)
+    private static Texture2D CreateBorderTexture(int size)
     {
         var pixels = new Color[size * size];
 
@@ -84,7 +83,7 @@ public sealed class WorldMapNode : UIElement
                 pixels[y * size + x] = isOnBorder ? BOX_BORDER_COLOR : Color.Transparent;
             }
 
-        var texture = new Texture2D(device, size, size);
+        var texture = new Texture2D(ChaosGame.Device, size, size);
         texture.SetData(pixels);
 
         return texture;
@@ -120,13 +119,13 @@ public sealed class WorldMapNode : UIElement
         Label.Draw(spriteBatch, new Vector2(ScreenX + BOX_SIZE + BOX_GAP, textY));
     }
 
-    private static void EnsureBoxTextures(GraphicsDevice device)
+    private static void EnsureBoxTextures()
     {
         if (SharedNormalBox is not null)
             return;
 
-        SharedNormalBox = CreateBorderTexture(device, BOX_SIZE);
-        SharedHoveredBox = CreateBorderTexture(device, BOX_SIZE - BOX_SHRINK * 2);
+        SharedNormalBox = CreateBorderTexture(BOX_SIZE);
+        SharedHoveredBox = CreateBorderTexture(BOX_SIZE - BOX_SHRINK * 2);
     }
 
     public void SetHovered(bool hovered)

@@ -60,7 +60,6 @@ public sealed class SilhouetteRenderer : IDisposable
         var emotionFrame = entity.ActiveEmoteFrame;
 
         var drawData = aislingRenderer.GetLayerFrames(
-            Device,
             in appearance,
             frameIndex,
             animSuffix,
@@ -252,7 +251,7 @@ public sealed class SilhouetteRenderer : IDisposable
 
                 var effects = entry.DrawData.FlipHorizontal ? SpriteEffects.FlipHorizontally : SpriteEffects.None;
 
-                var drawTexture = entry.IsHighlighted ? aislingRenderer.GetOrCreateTintedTexture(Device, layer.Texture) : layer.Texture;
+                var drawTexture = entry.IsHighlighted ? aislingRenderer.GetOrCreateTintedTexture(layer.Texture) : layer.Texture;
 
                 Batch.Draw(
                     drawTexture,

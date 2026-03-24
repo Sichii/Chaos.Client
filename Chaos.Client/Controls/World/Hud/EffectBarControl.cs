@@ -19,13 +19,11 @@ public sealed class EffectBarControl : UIPanel
     private const int SLOT_WIDTH = 22;
     private const int ICON_SIZE = 15;
 
-    private readonly GraphicsDevice Device;
     private readonly EffectSlotControl[] Slots = new EffectSlotControl[MAX_EFFECTS];
     private int ActiveCount;
 
-    public EffectBarControl(GraphicsDevice device)
+    public EffectBarControl()
     {
-        Device = device;
         Name = "EffectBar";
         Width = SLOT_WIDTH;
         Height = MAX_EFFECTS * SLOT_SIZE;

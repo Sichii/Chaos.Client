@@ -1,9 +1,7 @@
 #region
 using Chaos.Client.Controls.Components;
-using Chaos.Client.Definitions;
 using Chaos.Networking.Entities.Server;
 using Microsoft.Xna.Framework;
-using Microsoft.Xna.Framework.Graphics;
 #endregion
 
 namespace Chaos.Client.Controls.World.Hud.Panel;
@@ -32,13 +30,12 @@ public sealed class StatsPanel : PrefabPanel
     private readonly UILabel? StrLabel;
     private readonly UILabel? WisLabel;
 
-    public StatsPanel(GraphicsDevice device)
-        : base(device, "_nstatus", false)
+    public StatsPanel(string prefabName = "_nstatus")
+        : base(prefabName, false)
     {
         Name = "Stats";
         Visible = false;
 
-        // Do NOT call AutoPopulate — it would create "ExtraStatus" image too.
         // The _nstatus anchor is 640x480 (fullscreen transparent). Override with Status image dimensions.
         var statusRect = GetRect("Status");
 

@@ -1,6 +1,5 @@
 #region
 using Chaos.Client.Controls.Components;
-using Chaos.Client.Definitions;
 using Chaos.Client.Models;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
@@ -21,11 +20,11 @@ public sealed class WorldListEntryControl : UIPanel
     private readonly UILabel NameLabel;
     private readonly UILabel TitleLabel;
 
-    public WorldListEntryControl(GraphicsDevice device, int rowWidth)
+    public WorldListEntryControl(int rowWidth)
     {
         Height = 12;
 
-        TitleLabel = new UILabel(device)
+        TitleLabel = new UILabel
         {
             Name = "Title",
             X = 0,
@@ -38,7 +37,7 @@ public sealed class WorldListEntryControl : UIPanel
 
         AddChild(TitleLabel);
 
-        NameLabel = new UILabel(device)
+        NameLabel = new UILabel
         {
             Name = "Name",
             X = TITLE_WIDTH,

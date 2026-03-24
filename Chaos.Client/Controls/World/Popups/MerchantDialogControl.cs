@@ -1,6 +1,5 @@
 #region
 using Chaos.Client.Controls.Components;
-using Chaos.Client.Definitions;
 using Chaos.Client.Networking;
 using Chaos.Client.Rendering;
 using Chaos.DarkAges.Definitions;
@@ -49,19 +48,17 @@ public sealed class MerchantDialogControl : PrefabPanel
     public UIButton? TabNextButton { get; }
     public UIButton? TabPrevButton { get; }
 
-    public MerchantDialogControl(GraphicsDevice device)
-        : base(device, "lnpcd3")
+    public MerchantDialogControl()
+        : base("lnpcd3")
     {
         Name = "MerchantDialog";
         Visible = false;
 
-        var elements = AutoPopulate();
-
-        CloseButton = elements.GetValueOrDefault("Btn1") as UIButton;
-        PagePrevButton = elements.GetValueOrDefault("PagePrev") as UIButton;
-        PageNextButton = elements.GetValueOrDefault("PageNext") as UIButton;
-        TabPrevButton = elements.GetValueOrDefault("TabPrev") as UIButton;
-        TabNextButton = elements.GetValueOrDefault("TabNext") as UIButton;
+        CloseButton = CreateButton("Btn1");
+        PagePrevButton = CreateButton("PagePrev");
+        PageNextButton = CreateButton("PageNext");
+        TabPrevButton = CreateButton("TabPrev");
+        TabNextButton = CreateButton("TabNext");
 
         if (CloseButton is not null)
             CloseButton.OnClick += () =>
@@ -144,7 +141,6 @@ public sealed class MerchantDialogControl : PrefabPanel
             if (i == SelectedIndex)
                 DrawRect(
                     spriteBatch,
-                    Device,
                     new Rectangle(
                         sx + ContentRect.X,
                         sy + rowY,
@@ -158,7 +154,6 @@ public sealed class MerchantDialogControl : PrefabPanel
             else if (i == HoveredIndex)
                 DrawRect(
                     spriteBatch,
-                    Device,
                     new Rectangle(
                         sx + ContentRect.X,
                         sy + rowY,
@@ -192,7 +187,7 @@ public sealed class MerchantDialogControl : PrefabPanel
                     ? Color.LightGoldenrodYellow
                     : Color.White;
 
-            entry.CachedText ??= new CachedText(Device);
+            entry.CachedText ??= new CachedText();
             entry.CachedText.Update(entry.Name, textColor);
 
             var textX = sx + ContentRect.X + 4 + ICON_SIZE + ICON_TEXT_GAP;

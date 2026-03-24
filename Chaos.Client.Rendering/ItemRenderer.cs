@@ -31,20 +31,20 @@ public sealed class ItemRenderer : IDisposable
     /// <summary>
     ///     Returns the cached item sprite for the given sprite ID and color, loading and caching on first access.
     /// </summary>
-    public ItemSprite? GetSprite(GraphicsDevice device, int spriteId, byte color = 0)
+    public ItemSprite? GetSprite(int spriteId, byte color = 0)
     {
         var key = (spriteId, color);
 
         if (SpriteCache.TryGetValue(key, out var cached))
             return cached;
 
-        var sprite = LoadSprite(device, spriteId, color);
+        var sprite = LoadSprite(spriteId, color);
         SpriteCache[key] = sprite;
 
         return sprite;
     }
 
-    private static ItemSprite? LoadSprite(GraphicsDevice device, int spriteId, byte color)
+    private static ItemSprite? LoadSprite(int spriteId, byte color)
     {
         var palettized = DataContext.PanelItems.GetPanelItemSprite(spriteId);
 
@@ -62,7 +62,7 @@ public sealed class ItemRenderer : IDisposable
         if (image is null)
             return null;
 
-        var texture = TextureConverter.ToTexture2D(device, image);
+        var texture = TextureConverter.ToTexture2D(image);
 
         return new ItemSprite(texture, palettized.Entity.Left, palettized.Entity.Top);
     }

@@ -1,11 +1,9 @@
 #region
 using Chaos.Client.Controls.Components;
 using Chaos.Client.Data;
-using Chaos.Client.Definitions;
 using Chaos.Client.Rendering;
 using Chaos.DarkAges.Definitions;
 using Microsoft.Xna.Framework;
-using Microsoft.Xna.Framework.Graphics;
 using Microsoft.Xna.Framework.Input;
 #endregion
 
@@ -28,8 +26,8 @@ public sealed class SocialStatusControl : PrefabPanel
 
     public SocialStatus CurrentStatus { get; private set; }
 
-    public SocialStatusControl(GraphicsDevice device)
-        : base(device, "lemot")
+    public SocialStatusControl()
+        : base("lemot")
     {
         Visible = false;
         ZIndex = 2;
@@ -37,20 +35,21 @@ public sealed class SocialStatusControl : PrefabPanel
         // Load status names from msg.tbl
         LoadStatusNames();
 
-        var elements = AutoPopulate();
-
         // Description label from prefab
         DescriptionLabel = CreateLabel("Description", TextAlignment.Center);
 
-        // Wire Emot0 and Emot1 from the prefab — set hover and selected textures from prefab images
+        // Wire Emot buttons from the prefab — set hover and selected textures from prefab images
         var cache = UiRenderer.Instance!;
 
         for (var i = 0; i < STATUS_COUNT; i++)
-            if (elements.TryGetValue($"Emot{i}", out var element) && element is UIButton btn)
+        {
+            var btn = CreateButton($"Emot{i}");
+
+            if (btn is not null)
             {
                 btn.HoverTexture = btn.PressedTexture;
 
-                // Frame[2] = selected texture (not loaded by CreateButtonFromPrefab)
+                // Frame[2] = selected texture (not loaded by CreateButton)
                 var prefab = PrefabSet[$"Emot{i}"];
 
                 if (prefab.Images.Count > 2)
@@ -59,6 +58,7 @@ public sealed class SocialStatusControl : PrefabPanel
                 WireButton(btn, i);
                 StatusButtons[i] = btn;
             }
+        }
 
         // Generate missing buttons (Emot2-Emot7) using the same layout pattern
         if (StatusButtons[0] is { } first && StatusButtons[1] is { } second)

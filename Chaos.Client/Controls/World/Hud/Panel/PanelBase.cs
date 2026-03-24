@@ -2,7 +2,6 @@
 using Chaos.Client.Controls.Components;
 using Chaos.Client.Controls.World.Hud.Panel.Slots;
 using Chaos.Client.Data.Models;
-using Chaos.Client.Definitions;
 using Chaos.Client.Rendering;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
@@ -15,25 +14,32 @@ namespace Chaos.Client.Controls.World.Hud.Panel;
 ///     <see cref="PanelSlot" /> children and manages slot assignment, drag-and-drop, and
 ///     the dragged icon ghost. Subclasses provide icon rendering.
 /// </summary>
-public abstract class PanelBase : UIPanel
+public abstract class PanelBase : ExpandablePanel
 {
     protected const int ICON_SIZE = 32;
     protected const int CELL_WIDTH = 36;
     protected const int CELL_HEIGHT = 33;
     protected const int COLUMNS = 12;
-    protected const int NORMAL_VISIBLE_SLOTS = 36;
+    protected const int DEFAULT_VISIBLE_SLOTS = 36;
 
     private static Texture2D? SlotNumberOverlay;
+
+    // Compact padding (large HUD 1-row backgrounds need extra Y before the grid)
+    private readonly int CompactGridPadding;
 
     protected readonly int GridOffsetX;
     protected readonly int GridOffsetY;
     protected readonly int MaxSlots;
+    protected readonly int NormalVisibleSlots;
     protected readonly int SlotOffset;
     protected readonly PanelSlot[] Slots;
     private int DragMouseX;
 
     // Drag state
     private PanelSlot? DragSource;
+
+    // Expand state (slot-specific)
+    private int ExpandedVisibleSlots;
 
     // Hover tracking
     private PanelSlot? LastHoveredSlot;
@@ -51,7 +57,7 @@ public abstract class PanelBase : UIPanel
     /// <summary>
     ///     The number of currently visible grid slots.
     /// </summary>
-    public int VisibleSlotCount { get; protected set; } = NORMAL_VISIBLE_SLOTS;
+    public int VisibleSlotCount { get; protected set; } = DEFAULT_VISIBLE_SLOTS;
 
     /// <summary>
     ///     The 1-based slot number being dragged, or 0 if not dragging.
@@ -69,20 +75,28 @@ public abstract class PanelBase : UIPanel
     public int DragX => DragMouseX;
 
     protected PanelBase(
-        GraphicsDevice device,
         ControlPrefabSet hudPrefabSet,
         int maxSlots,
         CooldownStyle cooldownStyle = CooldownStyle.None,
         bool secondary = false,
         int gridOffsetX = 8,
-        int gridOffsetY = 6)
+        int gridOffsetY = 6,
+        Texture2D? background = null,
+        int normalVisibleSlots = DEFAULT_VISIBLE_SLOTS)
     {
         MaxSlots = maxSlots;
         GridOffsetX = gridOffsetX;
-        GridOffsetY = gridOffsetY;
-        SlotOffset = secondary ? NORMAL_VISIBLE_SLOTS : 0;
+        NormalVisibleSlots = normalVisibleSlots;
+        VisibleSlotCount = normalVisibleSlots;
+        SlotOffset = secondary ? normalVisibleSlots : 0;
 
-        if (hudPrefabSet.Contains("InventoryBackground"))
+        // Large HUD compact backgrounds (1-row) have extra top padding before the grid
+        CompactGridPadding = normalVisibleSlots < DEFAULT_VISIBLE_SLOTS ? 4 : 0;
+        GridOffsetY = gridOffsetY + CompactGridPadding;
+
+        if (background is not null)
+            Background = background;
+        else if (hudPrefabSet.Contains("InventoryBackground"))
         {
             var prefab = hudPrefabSet["InventoryBackground"];
 
@@ -106,12 +120,13 @@ public abstract class PanelBase : UIPanel
             var col = i % COLUMNS;
             var row = i / COLUMNS;
 
+            // ReSharper disable once VirtualMemberCallInConstructor
             var slot = CreateSlot((byte)(slotIndex + 1), $"Slot{slotIndex}", cooldownStyle);
-            slot.X = gridOffsetX + col * CELL_WIDTH;
-            slot.Y = gridOffsetY + row * CELL_HEIGHT;
+            slot.X = GridOffsetX + col * CELL_WIDTH;
+            slot.Y = GridOffsetY + row * CELL_HEIGHT;
             slot.Width = ICON_SIZE;
             slot.Height = ICON_SIZE;
-            slot.Visible = i < NORMAL_VISIBLE_SLOTS;
+            slot.Visible = i < normalVisibleSlots;
 
             slot.OnDoubleClick += s => OnSlotClicked?.Invoke(s);
             slot.OnDragStart += OnDragStarted;
@@ -136,6 +151,16 @@ public abstract class PanelBase : UIPanel
         control.MaxDurability = 0;
     }
 
+    /// <summary>
+    ///     Configures expand support for this panel with a specific expanded slot count.
+    /// </summary>
+    public void ConfigureExpand(Texture2D? expandedBackground, int expandedVisibleSlots)
+    {
+        ExpandedVisibleSlots = expandedVisibleSlots;
+
+        ConfigureExpand(expandedBackground);
+    }
+
     protected virtual PanelSlot CreateSlot(byte slotNumber, string name, CooldownStyle cooldownStyle)
         => new()
         {
@@ -149,14 +174,20 @@ public abstract class PanelBase : UIPanel
         if (!Visible)
             return;
 
+        // ExpandablePanel.Draw handles expanded background + children, or normal background + children
         base.Draw(spriteBatch);
 
+        // Slot number overlay — positioned at expanded or normal Y
         if (SlotNumberOverlay is not null)
+        {
+            var overlayY = IsExpanded ? ScreenY - ExpandYOffset + 3 : ScreenY + 3 + CompactGridPadding;
+
             AtlasHelper.Draw(
                 spriteBatch,
                 SlotNumberOverlay,
-                new Vector2(ScreenX - 17, ScreenY + 3),
+                new Vector2(ScreenX - 17, overlayY),
                 Color.White);
+        }
     }
 
     protected virtual PanelSlot? FindHoveredSlot(InputBuffer input)
@@ -182,6 +213,19 @@ public abstract class PanelBase : UIPanel
         var gridIndex = index - SlotOffset;
 
         return gridIndex < Slots.Length ? Slots[gridIndex] : null;
+    }
+
+    /// <summary>
+    ///     Forces a hover exit event and clears the tracked hover state. Call when the panel is hidden while a slot is still
+    ///     hovered.
+    /// </summary>
+    public void ForceHoverExit()
+    {
+        if (LastHoveredSlot is null)
+            return;
+
+        LastHoveredSlot = null;
+        OnSlotHoverExit?.Invoke();
     }
 
     /// <summary>
@@ -233,6 +277,29 @@ public abstract class PanelBase : UIPanel
     public event Action<byte, byte>? OnSlotSwapped;
 
     protected abstract Texture2D? RenderIcon(ushort spriteId);
+
+    /// <summary>
+    ///     Sets the expand state. Adjusts slot visibility and Y positions for the expanded grid.
+    /// </summary>
+    public override void SetExpanded(bool expanded)
+    {
+        if ((expanded == IsExpanded) || (ExpandedVisibleSlots == 0))
+            return;
+
+        var yShift = expanded ? -ExpandYOffset - CompactGridPadding : ExpandYOffset + CompactGridPadding;
+
+        base.SetExpanded(expanded);
+
+        var targetSlots = expanded ? ExpandedVisibleSlots : NormalVisibleSlots;
+
+        for (var i = 0; i < Slots.Length; i++)
+        {
+            Slots[i].Y += yShift;
+            Slots[i].Visible = i < targetSlots;
+        }
+
+        VisibleSlotCount = targetSlots;
+    }
 
     public virtual void SetSlot(byte slot, ushort sprite)
     {

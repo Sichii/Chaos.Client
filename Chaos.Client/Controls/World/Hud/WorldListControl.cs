@@ -1,9 +1,9 @@
 #region
 using Chaos.Client.Controls.Components;
 using Chaos.Client.Controls.Generic;
-using Chaos.Client.Definitions;
 using Chaos.Client.Models;
 using Chaos.Client.Rendering;
+using Chaos.Client.ViewModel;
 using Chaos.DarkAges.Definitions;
 using Chaos.Extensions.Common;
 using Microsoft.Xna.Framework;
@@ -38,14 +38,14 @@ public sealed class WorldListControl : PrefabPanel
     private readonly UILabel TotalNumLabel;
 
     private readonly Rectangle UsersListRect;
+
+    private readonly WorldList WorldListState;
     private int ActiveTab;
 
     // Player data
-    private List<WorldListEntry> AllEntries = [];
-    private List<WorldListEntry> FilteredEntries = [];
+    private IReadOnlyList<WorldListEntry> AllEntries = [];
+    private IReadOnlyList<WorldListEntry> FilteredEntries = [];
     private int OffScreenX;
-
-    private string PlayerName = string.Empty;
     private bool RowsDirty;
     private int ScrollOffset;
     private float SlideTimer;
@@ -56,8 +56,10 @@ public sealed class WorldListControl : PrefabPanel
     private int TargetX;
     private ushort TotalOnline;
 
-    public WorldListControl(GraphicsDevice device)
-        : base(device, "_nusers", false)
+    public string PlayerName { get; set; } = string.Empty;
+
+    public WorldListControl(WorldList worldList)
+        : base("_nusers", false)
     {
         Name = "WorldList";
         Visible = false;
@@ -67,30 +69,12 @@ public sealed class WorldListControl : PrefabPanel
         OffScreenX = 640;
         X = OffScreenX;
 
-        var elements = AutoPopulate();
-
-        // Hide auto-populated elements that we replace with custom controls
-        if (elements.GetValueOrDefault("TotalNum") is { } totalNumElement)
-            totalNumElement.Visible = false;
-
-        if (elements.GetValueOrDefault("CountryNum") is { } countryNumElement)
-            countryNumElement.Visible = false;
-
-        if (elements.GetValueOrDefault("CountryBtn") is { } countryBtnElement)
-            countryBtnElement.Visible = false;
-
-        if (elements.GetValueOrDefault("MasterBtn") is { } masterBtnElement)
-            masterBtnElement.Visible = false;
-
-        if (elements.GetValueOrDefault("Emoticon") is { } emoticonElement)
-            emoticonElement.Visible = false;
-
         // UsersList rect
         UsersListRect = GetRect("UsersList");
         MaxVisibleRows = UsersListRect.Height > 0 ? UsersListRect.Height / ROW_HEIGHT : 0;
 
         // Scrollbar
-        ScrollBar = new ScrollBarControl(device)
+        ScrollBar = new ScrollBarControl
         {
             Name = "ScrollBar",
             X = UsersListRect.X + UsersListRect.Width - ScrollBarControl.DEFAULT_WIDTH,
@@ -109,7 +93,7 @@ public sealed class WorldListControl : PrefabPanel
         var totalNumRect = GetRect("TotalNum");
         var countryNumRect = GetRect("CountryNum");
 
-        TotalNumLabel = new UILabel(device)
+        TotalNumLabel = new UILabel
         {
             Name = "TotalNumLabel",
             X = totalNumRect.X,
@@ -130,7 +114,7 @@ public sealed class WorldListControl : PrefabPanel
 
         for (var i = 0; i < MaxVisibleRows; i++)
         {
-            RowEntries[i] = new WorldListEntryControl(device, rowWidth)
+            RowEntries[i] = new WorldListEntryControl(rowWidth)
             {
                 Name = $"Row{i}",
                 X = UsersListRect.X,
@@ -180,7 +164,7 @@ public sealed class WorldListControl : PrefabPanel
             TabButtons[i].OnClick += () => SelectTab(tabIndex);
             AddChild(TabButtons[i]);
 
-            TabCountLabels[i] = new UILabel(device)
+            TabCountLabels[i] = new UILabel
             {
                 Name = $"TabCount{i}",
                 X = countryNumRect.X,
@@ -197,9 +181,14 @@ public sealed class WorldListControl : PrefabPanel
 
         TabButtons[0].IsSelected = true;
 
-        // Close button — AutoPopulate already created it as a UIButton
-        if (elements.GetValueOrDefault("Close") is UIButton closeButton)
+        // Close button
+        var closeButton = CreateButton("Close");
+
+        if (closeButton is not null)
             closeButton.OnClick += SlideOut;
+
+        WorldListState = worldList;
+        WorldListState.Changed += OnWorldListChanged;
     }
 
     private void ApplyFilter()
@@ -260,6 +249,8 @@ public sealed class WorldListControl : PrefabPanel
 
     public override void Dispose()
     {
+        WorldListState.Changed -= OnWorldListChanged;
+
         foreach (var icon in StatusIcons)
             icon?.Dispose();
 
@@ -314,6 +305,8 @@ public sealed class WorldListControl : PrefabPanel
 
     public event Action? OnClose;
 
+    private void OnWorldListChanged() => Show(WorldListState.Entries, WorldListState.TotalOnline, PlayerName);
+
     private void RefreshRowEntries()
     {
         for (var i = 0; i < MaxVisibleRows; i++)
@@ -353,7 +346,7 @@ public sealed class WorldListControl : PrefabPanel
         Y = viewport.Y;
     }
 
-    public void Show(List<WorldListEntry> entries, ushort totalOnline, string playerName = "")
+    public void Show(IReadOnlyList<WorldListEntry> entries, ushort totalOnline, string playerName = "")
     {
         AllEntries = entries;
         TotalOnline = totalOnline;

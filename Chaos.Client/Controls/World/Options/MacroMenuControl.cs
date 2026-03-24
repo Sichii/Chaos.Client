@@ -44,16 +44,14 @@ public sealed class MacroMenuControl : PrefabPanel
 
     public UIButton? OkButton { get; }
 
-    public MacroMenuControl(GraphicsDevice device)
-        : base(device, "_nmacro", false)
+    public MacroMenuControl()
+        : base("_nmacro", false)
     {
         Name = "MacroMenu";
         Visible = false;
 
-        var elements = AutoPopulate();
-
-        OkButton = elements.GetValueOrDefault("OK") as UIButton;
-        CancelButton = elements.GetValueOrDefault("Cancel") as UIButton;
+        OkButton = CreateButton("OK");
+        CancelButton = CreateButton("Cancel");
 
         if (OkButton is not null)
             OkButton.OnClick += CloseWithOk;
@@ -64,8 +62,8 @@ public sealed class MacroMenuControl : PrefabPanel
         // Initialize macro caches
         for (var i = 0; i < MAX_MACROS; i++)
         {
-            MacroNameCaches[i] = new CachedText(device);
-            MacroValueCaches[i] = new CachedText(device);
+            MacroNameCaches[i] = new CachedText();
+            MacroValueCaches[i] = new CachedText();
             MacroNames[i] = $"F{i + 5}";
             MacroValues[i] = string.Empty;
         }

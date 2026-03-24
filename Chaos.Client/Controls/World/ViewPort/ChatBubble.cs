@@ -60,11 +60,7 @@ public sealed class ChatBubble : UIImage
         Height = height;
     }
 
-    public static ChatBubble Create(
-        GraphicsDevice device,
-        uint entityId,
-        string message,
-        bool isShout)
+    public static ChatBubble Create(uint entityId, string message, bool isShout)
     {
         var lines = WordWrap(message);
         var textColor = isShout ? ShoutTextColor : NormalTextColor;
@@ -105,7 +101,6 @@ public sealed class ChatBubble : UIImage
             var textSurfaceHeight = Math.Max(1, lines.Count * LINE_HEIGHT);
 
             using var textTexture = RenderBubbleText(
-                device,
                 lines,
                 textAreaWidth,
                 textSurfaceHeight,
@@ -119,7 +114,7 @@ public sealed class ChatBubble : UIImage
                 LEFT_CAP_WIDTH + INNER_PADDING_LEFT,
                 INNER_PADDING_TOP);
 
-            var texture = new Texture2D(device, totalWidth, totalHeight);
+            var texture = new Texture2D(ChaosGame.Device, totalWidth, totalHeight);
             texture.SetData(pixels, 0, pixelCount);
 
             return new ChatBubble(
@@ -386,7 +381,6 @@ public sealed class ChatBubble : UIImage
     }
 
     private static Texture2D RenderBubbleText(
-        GraphicsDevice device,
         List<string> lines,
         int width,
         int height,
@@ -395,7 +389,7 @@ public sealed class ChatBubble : UIImage
         var surfaceWidth = Math.Max(1, width);
         var surfaceHeight = Math.Max(1, height);
 
-        var result = new Texture2D(device, surfaceWidth, surfaceHeight);
+        var result = new Texture2D(ChaosGame.Device, surfaceWidth, surfaceHeight);
         var resultCount = surfaceWidth * surfaceHeight;
         var resultPixels = ArrayPool<Color>.Shared.Rent(resultCount);
 
@@ -411,7 +405,7 @@ public sealed class ChatBubble : UIImage
             {
                 foreach (var line in lines)
                 {
-                    using var lineTexture = TextRenderer.RenderText(device, line, color);
+                    using var lineTexture = TextRenderer.RenderText(line, color);
 
                     var srcCount = lineTexture.Width * lineTexture.Height;
 

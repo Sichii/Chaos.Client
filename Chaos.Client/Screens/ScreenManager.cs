@@ -11,8 +11,8 @@ namespace Chaos.Client.Screens;
 /// </summary>
 public sealed class ScreenManager : IDisposable
 {
-    private readonly Stack<IScreen> Screens = new();
     private readonly ChaosGame Game;
+    private readonly Stack<IScreen> Screens = new();
 
     /// <summary>
     ///     The currently active screen (top of the stack), or null if the stack is empty.

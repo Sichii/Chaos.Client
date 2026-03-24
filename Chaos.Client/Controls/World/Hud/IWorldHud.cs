@@ -1,0 +1,57 @@
+#region
+using Chaos.Client.Controls.Components;
+using Chaos.Client.Controls.World.Hud.Panel;
+using Microsoft.Xna.Framework;
+#endregion
+
+namespace Chaos.Client.Controls.World.Hud;
+
+/// <summary>
+///     Common interface for both small and large HUD layouts. Allows WorldScreen to reference either layout
+///     interchangeably. Extract a shared base class once both implementations are stable.
+/// </summary>
+public interface IWorldHud
+{
+    HudTab ActiveTab { get; }
+
+    // Buttons — nullable since some may not exist in a given prefab
+    UIButton? BulletinButton { get; }
+    UIButton? ChangeLayoutButton { get; }
+    ChatPanel ChatDisplay { get; }
+    UITextBox ChatInput { get; }
+    EffectBarControl EffectBar { get; }
+    UIButton? EmoteButton { get; }
+    UIButton? ExpandButton { get; }
+    ExtendedStatsPanel ExtendedStatsPanel { get; }
+    UIButton? GroupButton { get; }
+    UIButton? GroupIndicator { get; }
+    UIButton? HelpButton { get; }
+    InventoryPanel Inventory { get; }
+    Rectangle InventoryBounds { get; }
+    UIButton?[] InventoryTabButtons { get; }
+    bool IsOrangeBarDragging { get; }
+    UIButton? LegendButton { get; }
+    UIButton? MailButton { get; }
+    UIButton? OptionButton { get; }
+    string PlayerName { get; }
+    PromptControl Prompt { get; }
+    UIButton? ScreenshotButton { get; }
+    SkillBookPanel SkillBook { get; }
+    SkillBookPanel SkillBookAlt { get; }
+    SpellBookPanel SpellBook { get; }
+    SpellBookPanel SpellBookAlt { get; }
+    StatsPanel StatsPanel { get; }
+    UIButton? TownMapButton { get; }
+    UIButton? UsersButton { get; }
+    Rectangle ViewportBounds { get; }
+
+    void SetCoords(int x, int y);
+    void SetDescription(string? text);
+    void SetPlayerName(string name);
+    void SetServerName(string name);
+    void SetWeight(int current, int max);
+    void SetZoneName(string zone);
+    void ShowPersistentMessage(string text);
+    void ShowTab(HudTab tab);
+    void ToggleExpand();
+}

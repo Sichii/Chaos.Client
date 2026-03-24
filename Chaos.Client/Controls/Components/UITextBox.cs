@@ -1,5 +1,4 @@
 #region
-using Chaos.Client.Definitions;
 using Chaos.Client.Rendering;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
@@ -16,8 +15,7 @@ public class UITextBox : UIElement
 
     private static UITextBox? FocusedTextBox;
 
-    private readonly GraphicsDevice Device;
-    private readonly CachedText TextCache;
+    private readonly CachedText TextCache = new();
     private double CursorTimer;
     private bool CursorVisible;
     private bool Dragging;
@@ -86,12 +84,6 @@ public class UITextBox : UIElement
 
     public int SelectionStart => Math.Min(SelectionAnchor, CursorPosition);
 
-    public UITextBox(GraphicsDevice device)
-    {
-        Device = device;
-        TextCache = new CachedText(device);
-    }
-
     /// <summary>
     ///     Ensures cursor and anchor are within valid range after external Text changes.
     /// </summary>
@@ -146,7 +138,7 @@ public class UITextBox : UIElement
         if ((Prefix.Length > 0) && IsFocused)
         {
             prefixWidth = TextRenderer.MeasureWidth(Prefix);
-            PrefixCache ??= new CachedText(Device);
+            PrefixCache ??= new CachedText();
             PrefixCache.Update(Prefix, TextColor);
             PrefixCache.Draw(spriteBatch, new Vector2(sx + PaddingX, textY));
         }
@@ -167,7 +159,6 @@ public class UITextBox : UIElement
 
             DrawRect(
                 spriteBatch,
-                Device,
                 new Rectangle(
                     selStartX,
                     textY,
@@ -210,7 +201,6 @@ public class UITextBox : UIElement
 
         DrawRect(
             spriteBatch,
-            Device,
             new Rectangle(
                 cursorX,
                 textY,

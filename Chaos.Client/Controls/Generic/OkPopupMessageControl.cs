@@ -4,7 +4,6 @@ using Chaos.Client.Data;
 using Chaos.Client.Rendering;
 using Chaos.Client.Utilities;
 using Microsoft.Xna.Framework;
-using Microsoft.Xna.Framework.Graphics;
 using Microsoft.Xna.Framework.Input;
 #endregion
 
@@ -32,15 +31,13 @@ public sealed class OkPopupMessageControl : UIPanel
     private readonly int ContentX;
     private readonly int ContentY;
 
-    private readonly GraphicsDevice Device;
     public UIButton? CancelButton { get; }
 
     private UIImage MessageImage { get; }
     public UIButton OkButton { get; }
 
-    public OkPopupMessageControl(GraphicsDevice device, bool showCancel = false)
+    public OkPopupMessageControl(bool showCancel = false)
     {
-        Device = device;
         Name = "PopupMessage";
         Visible = false;
 
@@ -65,7 +62,7 @@ public sealed class OkPopupMessageControl : UIPanel
         Height = totalHeight;
         X = (ChaosGame.VIRTUAL_WIDTH - Width) / 2;
         Y = (ChaosGame.VIRTUAL_HEIGHT - Height) / 2;
-        Background = TextureConverter.ToTexture2D(device, composite);
+        Background = TextureConverter.ToTexture2D(composite);
 
         // OK button (butt001.epf — frame indices for OK)
         var cache = UiRenderer.Instance!;
@@ -140,7 +137,6 @@ public sealed class OkPopupMessageControl : UIPanel
         MessageImage.Texture?.Dispose();
 
         var textTexture = TextRenderer.RenderWrappedText(
-            Device,
             message,
             ContentWidth,
             ContentHeight,

@@ -236,11 +236,7 @@ public static class TextRenderer
     ///     to the main text, producing visible shadow on the left, right, and bottom edges. Matches the original Dark Ages
     ///     client name tag rendering.
     /// </summary>
-    public static Texture2D RenderShadowedText(
-        GraphicsDevice device,
-        string text,
-        Color textColor,
-        Color shadowColor)
+    public static Texture2D RenderShadowedText(string text, Color textColor, Color shadowColor)
     {
         if (string.IsNullOrEmpty(text))
             text = " ";
@@ -299,7 +295,7 @@ public static class TextRenderer
                 skTextColor);
 
             var texture = new Texture2D(
-                device,
+                TextureConverter.Device,
                 surfaceWidth,
                 surfaceHeight,
                 false,
@@ -316,7 +312,7 @@ public static class TextRenderer
     /// <summary>
     ///     Renders a single line of text to a Texture2D using the game's bitmap font.
     /// </summary>
-    public static Texture2D RenderText(GraphicsDevice device, string text, Color? color = null)
+    public static Texture2D RenderText(string text, Color? color = null)
     {
         if (string.IsNullOrEmpty(text))
             text = " ";
@@ -348,7 +344,7 @@ public static class TextRenderer
                 skColor);
 
             var texture = new Texture2D(
-                device,
+                TextureConverter.Device,
                 width,
                 GLYPH_HEIGHT,
                 false,
@@ -366,7 +362,6 @@ public static class TextRenderer
     ///     Renders word-wrapped text into a bounded area and returns a Texture2D.
     /// </summary>
     public static Texture2D RenderWrappedText(
-        GraphicsDevice device,
         string text,
         int maxWidth,
         int maxHeight,
@@ -414,7 +409,7 @@ public static class TextRenderer
             }
 
             var texture = new Texture2D(
-                device,
+                TextureConverter.Device,
                 surfaceWidth,
                 surfaceHeight,
                 false,

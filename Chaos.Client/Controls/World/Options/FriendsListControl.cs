@@ -43,16 +43,14 @@ public sealed class FriendsListControl : PrefabPanel
 
     public UIButton? OkButton { get; }
 
-    public FriendsListControl(GraphicsDevice device)
-        : base(device, "_nfriend", false)
+    public FriendsListControl()
+        : base("_nfriend", false)
     {
         Name = "FriendsList";
         Visible = false;
 
-        var elements = AutoPopulate();
-
-        CancelButton = elements.GetValueOrDefault("Cancel") as UIButton;
-        OkButton = elements.GetValueOrDefault("OK") as UIButton;
+        CancelButton = CreateButton("Cancel");
+        OkButton = CreateButton("OK");
 
         if (CancelButton is not null)
             CancelButton.OnClick += Close;
@@ -81,8 +79,8 @@ public sealed class FriendsListControl : PrefabPanel
 
         for (var i = 0; i < MAX_VISIBLE_ROWS; i++)
         {
-            LeftNameCaches[i] = new CachedText(device);
-            RightNameCaches[i] = new CachedText(device);
+            LeftNameCaches[i] = new CachedText();
+            RightNameCaches[i] = new CachedText();
         }
     }
 

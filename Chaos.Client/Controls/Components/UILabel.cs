@@ -1,5 +1,4 @@
 #region
-using Chaos.Client.Definitions;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 #endregion
@@ -14,15 +13,13 @@ namespace Chaos.Client.Controls.Components;
 // ReSharper disable once ClassCanBeSealed.Global
 public class UILabel : UIElement
 {
-    private readonly CachedText Cache;
+    private readonly CachedText Cache = new();
     public TextAlignment Alignment { get; set; } = TextAlignment.Left;
     public int PaddingLeft { get; set; } = 1;
     public int PaddingTop { get; set; } = 1;
 
     public string Text { get; private set; } = string.Empty;
     public Color TextColor { get; private set; } = Color.White;
-
-    public UILabel(GraphicsDevice device) => Cache = new CachedText(device);
 
     public override void Dispose()
     {

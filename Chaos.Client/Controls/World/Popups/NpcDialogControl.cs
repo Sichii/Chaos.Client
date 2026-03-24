@@ -58,18 +58,16 @@ public sealed class NpcDialogControl : PrefabPanel
     public UIButton? PreviousButton { get; }
     public UIButton? TopButton { get; }
 
-    public NpcDialogControl(GraphicsDevice device)
-        : base(device, "lnpcd")
+    public NpcDialogControl()
+        : base("lnpcd")
     {
         Name = "NpcDialog";
         Visible = false;
 
-        var elements = AutoPopulate();
-
-        CloseButton = elements.GetValueOrDefault("CloseBtn") as UIButton;
-        NextButton = elements.GetValueOrDefault("NextBtn") as UIButton;
-        PreviousButton = elements.GetValueOrDefault("PrevBtn") as UIButton;
-        TopButton = elements.GetValueOrDefault("TopBtn") as UIButton;
+        CloseButton = CreateButton("CloseBtn");
+        NextButton = CreateButton("NextBtn");
+        PreviousButton = CreateButton("PrevBtn");
+        TopButton = CreateButton("TopBtn");
 
         if (CloseButton is not null)
             CloseButton.OnClick += () =>
@@ -92,8 +90,9 @@ public sealed class NpcDialogControl : PrefabPanel
         TextRect = GetRect("Text");
         OptionsRect = GetRect("MenuDialog");
 
-        // Portrait background (nd_npcbg.spf)
-        PortraitBackground = elements.GetValueOrDefault("NPCTile") as UIImage;
+        // Dialog bar background (nd_talk.spf) and portrait background (nd_npcbg.spf)
+        CreateImage("MessageDialog");
+        PortraitBackground = CreateImage("NPCTile");
 
         NpcNameLabel = CreateLabel("Name");
 
@@ -140,7 +139,7 @@ public sealed class NpcDialogControl : PrefabPanel
                     ? Color.LightGoldenrodYellow
                     : Color.White;
 
-            opt.CachedText ??= new CachedText(Device);
+            opt.CachedText ??= new CachedText();
             opt.CachedText.Update(opt.Text, color);
             opt.CachedText.Draw(spriteBatch, new Vector2(sx + opt.Rect.X, sy + opt.Rect.Y));
         }
@@ -184,7 +183,6 @@ public sealed class NpcDialogControl : PrefabPanel
         TextImage.Texture = string.IsNullOrEmpty(text)
             ? null
             : TextRenderer.RenderWrappedText(
-                Device,
                 text,
                 TextRect.Width,
                 TextRect.Height,

@@ -39,7 +39,7 @@ public sealed class ChantOverlay : UIImage
         Height = height;
     }
 
-    public static ChantOverlay Create(GraphicsDevice device, uint entityId, string message)
+    public static ChantOverlay Create(uint entityId, string message)
     {
         var text = message.Length > MAX_CHARS ? message[..MAX_CHARS] : message;
         var centered = text.Length <= CENTER_THRESHOLD;
@@ -74,7 +74,7 @@ public sealed class ChantOverlay : UIImage
 
         foreach (var visualLine in visualLines)
         {
-            using var lineTexture = TextRenderer.RenderText(device, visualLine, ChantColor);
+            using var lineTexture = TextRenderer.RenderText(visualLine, ChantColor);
 
             var srcPixels = new Color[lineTexture.Width * lineTexture.Height];
             lineTexture.GetData(srcPixels);
@@ -98,7 +98,7 @@ public sealed class ChantOverlay : UIImage
             y += LINE_HEIGHT;
         }
 
-        var texture = new Texture2D(device, totalWidth, totalHeight);
+        var texture = new Texture2D(ChaosGame.Device, totalWidth, totalHeight);
         texture.SetData(pixels);
 
         return new ChantOverlay(

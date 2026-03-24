@@ -43,23 +43,21 @@ public sealed class MailReadControl : PrefabPanel
     public UIButton? ReplyButton { get; }
     public UIButton? UpButton { get; }
 
-    public MailReadControl(GraphicsDevice device)
-        : base(device, "_nmailr", false)
+    public MailReadControl()
+        : base("_nmailr", false)
     {
         Name = "MailRead";
         X = BULLETIN_RECT_LEFT;
         Y = BULLETIN_RECT_BOTTOM - Height;
         Visible = false;
 
-        var elements = AutoPopulate();
-
-        PrevButton = elements.GetValueOrDefault("Prev") as UIButton;
-        NextButton = elements.GetValueOrDefault("Next") as UIButton;
-        NewButton = elements.GetValueOrDefault("New") as UIButton;
-        ReplyButton = elements.GetValueOrDefault("Reply") as UIButton;
-        DeleteButton = elements.GetValueOrDefault("Delete") as UIButton;
-        UpButton = elements.GetValueOrDefault("Up") as UIButton;
-        QuitButton = elements.GetValueOrDefault("Quit") as UIButton;
+        PrevButton = CreateButton("Prev");
+        NextButton = CreateButton("Next");
+        NewButton = CreateButton("New");
+        ReplyButton = CreateButton("Reply");
+        DeleteButton = CreateButton("Delete");
+        UpButton = CreateButton("Up");
+        QuitButton = CreateButton("Quit");
 
         if (QuitButton is not null)
             QuitButton.OnClick += () =>
@@ -102,7 +100,7 @@ public sealed class MailReadControl : PrefabPanel
         LineCaches = new CachedText[MaxVisibleLines];
 
         for (var i = 0; i < MaxVisibleLines; i++)
-            LineCaches[i] = new CachedText(device);
+            LineCaches[i] = new CachedText();
     }
 
     public override void Dispose()

@@ -31,7 +31,6 @@ public sealed class ChantEditControl : PrefabPanel
     private const int MAX_LINES = 10;
     private readonly UIImage? BotImage;
     private readonly UIButton? CancelButton;
-    private readonly GraphicsDevice DeviceRef;
 
     private readonly UIImage? Icon;
     private readonly UILabel? LevelLabel;
@@ -46,51 +45,36 @@ public sealed class ChantEditControl : PrefabPanel
     private bool IsSpell;
     private int LineCount;
 
-    public ChantEditControl(GraphicsDevice device)
-        : base(device, "lssbook", false)
+    public ChantEditControl()
+        : base("lssbook", false)
     {
-        DeviceRef = device;
         Name = "ChantEdit";
         Visible = false;
-
-        var elements = AutoPopulate();
 
         Width = PANEL_WIDTH;
         Height = TOP_HEIGHT + MID_HEIGHT + BOT_HEIGHT;
 
-        // Find auto-populated mid and bot images so we can reposition them
-        MidImage = FindChild<UIImage>("MidImage");
-        BotImage = FindChild<UIImage>("BotImage");
+        // Find mid and bot images from prefab
+        MidImage = CreateImage("MidImage");
+        BotImage = CreateImage("BotImage");
 
-        // The auto-populated OK/Cancel buttons have no textures — hide them and create new ones with butt001.epf
-        var autoOk = elements.GetValueOrDefault("OK") as UIButton;
-        var autoCancel = elements.GetValueOrDefault("Cancel") as UIButton;
-
-        if (autoOk is not null)
-            autoOk.Visible = false;
-
-        if (autoCancel is not null)
-            autoCancel.Visible = false;
-
-        // Hide auto-populated Text element — we use our own TextBoxes
-        if (elements.GetValueOrDefault("Text") is { } autoText)
-            autoText.Visible = false;
+        // Get OK/Cancel rects from prefab for positioning, then create custom buttons with butt001.epf
+        var okRect = GetRect("OK");
+        var cancelRect = GetRect("Cancel");
 
         OkButton = CreateButtonWithEpf(
-            device,
             "OkBtn",
             OK_NORMAL,
             OK_PRESSED,
-            autoOk?.X ?? 12,
-            autoOk?.Y ?? 116);
+            okRect != Rectangle.Empty ? okRect.X : 12,
+            okRect != Rectangle.Empty ? okRect.Y : 116);
 
         CancelButton = CreateButtonWithEpf(
-            device,
             "CancelBtn",
             CANCEL_NORMAL,
             CANCEL_PRESSED,
-            autoCancel?.X ?? 152,
-            autoCancel?.Y ?? 116);
+            cancelRect != Rectangle.Empty ? cancelRect.X : 152,
+            cancelRect != Rectangle.Empty ? cancelRect.Y : 116);
 
         if (OkButton is not null)
             OkButton.OnClick += Confirm;
@@ -107,7 +91,7 @@ public sealed class ChantEditControl : PrefabPanel
 
         for (var i = 0; i < MAX_LINES; i++)
         {
-            TextInputs[i] = new UITextBox(device)
+            TextInputs[i] = new UITextBox
             {
                 Name = $"ChantLine{i}",
                 X = TEXT_X,
@@ -137,7 +121,6 @@ public sealed class ChantEditControl : PrefabPanel
     }
 
     private UIButton? CreateButtonWithEpf(
-        GraphicsDevice device,
         string name,
         int normalFrame,
         int pressedFrame,

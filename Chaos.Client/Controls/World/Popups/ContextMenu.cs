@@ -18,13 +18,11 @@ public sealed class ContextMenu : UIElement
     private const int PADDING_X = 6;
     private const int PADDING_Y = 2;
 
-    private readonly GraphicsDevice Device;
     private readonly List<MenuItem> Items = [];
     private int HoveredIndex = -1;
 
-    public ContextMenu(GraphicsDevice device)
+    public ContextMenu()
     {
-        Device = device;
         Visible = false;
 
         BackgroundColor = new Color(
@@ -67,7 +65,6 @@ public sealed class ContextMenu : UIElement
             if (i == HoveredIndex)
                 DrawRect(
                     spriteBatch,
-                    Device,
                     new Rectangle(
                         sx + 1,
                         itemY,
@@ -99,7 +96,7 @@ public sealed class ContextMenu : UIElement
 
         foreach ((var text, var callback) in options)
         {
-            var cache = new CachedText(Device);
+            var cache = new CachedText();
             cache.Update(text, Color.White);
             Items.Add(new MenuItem(text, cache, callback));
 

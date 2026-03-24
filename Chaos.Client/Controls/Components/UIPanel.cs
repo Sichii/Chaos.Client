@@ -78,6 +78,17 @@ public class UIPanel : UIElement
         return null;
     }
 
+    public void RemoveChild(string name)
+    {
+        for (var i = Children.Count - 1; i >= 0; i--)
+            if (string.Equals(Children[i].Name, name, StringComparison.OrdinalIgnoreCase))
+            {
+                var child = Children[i];
+                Children.RemoveAt(i);
+                child.Dispose();
+            }
+    }
+
     public override void Update(GameTime gameTime, InputBuffer input)
     {
         if (!Visible || !Enabled)

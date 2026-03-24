@@ -1,7 +1,6 @@
 #region
 using Chaos.Client.Controls.Components;
 using Microsoft.Xna.Framework;
-using Microsoft.Xna.Framework.Graphics;
 using Microsoft.Xna.Framework.Input;
 #endregion
 
@@ -16,17 +15,15 @@ public sealed class PasswordChangeControl : PrefabPanel
     public UITextBox? NewPasswordField { get; }
     public UIButton? OkButton { get; }
 
-    public PasswordChangeControl(GraphicsDevice device)
-        : base(device, "_npw")
+    public PasswordChangeControl()
+        : base("_npw")
     {
         Name = "PasswordChange";
         Visible = false;
 
-        var elements = AutoPopulate();
-
         // Buttons
-        OkButton = elements.GetValueOrDefault("OK") as UIButton;
-        CancelButton = elements.GetValueOrDefault("Cancel") as UIButton;
+        OkButton = CreateButton("OK");
+        CancelButton = CreateButton("Cancel");
 
         if (OkButton is not null)
             OkButton.OnClick += () => OnOk?.Invoke();

@@ -41,18 +41,16 @@ public sealed class MailSendControl : PrefabPanel
 
     public UIButton? SendButton { get; }
 
-    public MailSendControl(GraphicsDevice device)
-        : base(device, "_nmails", false)
+    public MailSendControl()
+        : base("_nmails", false)
     {
         Name = "MailSend";
         X = BULLETIN_RECT_LEFT;
         Y = BULLETIN_RECT_BOTTOM - Height;
         Visible = false;
 
-        var elements = AutoPopulate();
-
-        SendButton = elements.GetValueOrDefault("Send") as UIButton;
-        CancelButton = elements.GetValueOrDefault("Cancel") as UIButton;
+        SendButton = CreateButton("Send");
+        CancelButton = CreateButton("Cancel");
 
         if (SendButton is not null)
             SendButton.OnClick += HandleSend;
@@ -68,14 +66,10 @@ public sealed class MailSendControl : PrefabPanel
         ReceiverDisplayLabel = CreateLabel("Receiver");
 
         // Receiver editable overlay (from "ReceiverEdit" control)
-        ReceiverEditBox = elements.GetValueOrDefault("ReceiverEdit") as UITextBox;
-
-        ReceiverEditBox?.MaxLength = 24;
+        ReceiverEditBox = CreateTextBox("ReceiverEdit", 24);
 
         // Subject/title textbox
-        TitleBox = elements.GetValueOrDefault("Title") as UITextBox;
-
-        TitleBox?.MaxLength = 60;
+        TitleBox = CreateTextBox("Title", 60);
 
         // Content rect for body text display
         ContentRect = GetRect("Content");
@@ -84,7 +78,7 @@ public sealed class MailSendControl : PrefabPanel
         LineCaches = new CachedText[MaxVisibleLines];
 
         for (var i = 0; i < MaxVisibleLines; i++)
-            LineCaches[i] = new CachedText(device);
+            LineCaches[i] = new CachedText();
     }
 
     public override void Dispose()

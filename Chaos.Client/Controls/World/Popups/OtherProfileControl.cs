@@ -39,7 +39,6 @@ public sealed class OtherProfileControl : UIPanel
     private const int PROFILE_TEXT_WIDTH = PANEL_WIDTH - PADDING * 2;
     private readonly CachedText ClassLabel;
 
-    private readonly GraphicsDevice Device;
     private readonly CachedText GroupStatusLabel;
     private readonly CachedText GuildLabel;
     private readonly CachedText LegendHeaderLabel;
@@ -62,18 +61,17 @@ public sealed class OtherProfileControl : UIPanel
 
     private Texture2D? ProfileTextTexture;
 
-    public OtherProfileControl(GraphicsDevice device)
+    public OtherProfileControl()
     {
-        Device = device;
         Name = "OtherProfile";
         Visible = false;
 
-        NameLabel = new CachedText(device);
-        ClassLabel = new CachedText(device);
-        GuildLabel = new CachedText(device);
-        TitleLabel = new CachedText(device);
-        GroupStatusLabel = new CachedText(device);
-        LegendHeaderLabel = new CachedText(device);
+        NameLabel = new CachedText();
+        ClassLabel = new CachedText();
+        GuildLabel = new CachedText();
+        TitleLabel = new CachedText();
+        GroupStatusLabel = new CachedText();
+        LegendHeaderLabel = new CachedText();
         LegendHeaderLabel.Update("Legend", new Color(255, 200, 100));
 
         // Legend mark rows
@@ -81,7 +79,7 @@ public sealed class OtherProfileControl : UIPanel
 
         for (var i = 0; i < MAX_VISIBLE_LEGEND_ROWS; i++)
         {
-            LegendRows[i] = new LegendMarkControl(device)
+            LegendRows[i] = new LegendMarkControl
             {
                 Name = $"LegendRow{i}",
                 Width = PANEL_WIDTH - PADDING * 2 - ScrollBarControl.DEFAULT_WIDTH,
@@ -92,7 +90,7 @@ public sealed class OtherProfileControl : UIPanel
         }
 
         // Legend scrollbar
-        LegendScrollBar = new ScrollBarControl(device)
+        LegendScrollBar = new ScrollBarControl
         {
             Name = "LegendScroll",
             Height = LEGEND_LIST_HEIGHT,
@@ -229,7 +227,6 @@ public sealed class OtherProfileControl : UIPanel
 
         DrawRect(
             spriteBatch,
-            Device,
             new Rectangle(
                 ScreenX + PADDING,
                 sy,
@@ -249,7 +246,6 @@ public sealed class OtherProfileControl : UIPanel
 
             DrawRect(
                 spriteBatch,
-                Device,
                 new Rectangle(
                     ScreenX + PADDING,
                     sepY,
@@ -277,7 +273,7 @@ public sealed class OtherProfileControl : UIPanel
             Height);
 
         if (bgImage is not null)
-            Background = TextureConverter.ToTexture2D(Device, bgImage);
+            Background = TextureConverter.ToTexture2D(bgImage);
     }
 
     private void RefreshLegendRows()
@@ -366,7 +362,6 @@ public sealed class OtherProfileControl : UIPanel
         if (!string.IsNullOrWhiteSpace(profileText))
         {
             ProfileTextTexture = TextRenderer.RenderWrappedText(
-                Device,
                 profileText,
                 PROFILE_TEXT_WIDTH,
                 MAX_PROFILE_HEIGHT,

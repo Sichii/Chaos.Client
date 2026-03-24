@@ -1,8 +1,8 @@
 #region
 using Chaos.Client.Controls.World.Hud.Panel.Slots;
 using Chaos.Client.Data.Models;
-using Chaos.Client.Definitions;
 using Chaos.Client.Rendering;
+using Chaos.Client.ViewModel;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 #endregion
@@ -10,49 +10,32 @@ using Microsoft.Xna.Framework.Graphics;
 namespace Chaos.Client.Controls.World.Hud.Panel;
 
 /// <summary>
-///     Skill book panel (S key, Shift+S for secondary). 89 slots total. Skill icons rendered from Setoa.dat skill EPFs
-///     with gui06 palette. Cooldown: grey icon with blue progressively covering from bottom to top.
+///     Skill book panel (S key, Shift+S for secondary). Thin view that subscribes to
+///     <see cref="ViewModel.SkillBook" /> change events and renders skill icons with Progressive-style cooldowns.
 /// </summary>
 public sealed class SkillBookPanel : PanelBase
 {
     private const int MAX_SLOTS = 89;
+    private readonly SkillBook SkillBook;
 
-    private readonly float[] CooldownDuration = new float[MAX_SLOTS];
-    private readonly float[] CooldownRemaining = new float[MAX_SLOTS];
-    private readonly ushort[] SpriteIds = new ushort[MAX_SLOTS];
-
-    public SkillBookPanel(GraphicsDevice device, ControlPrefabSet hudPrefabSet, bool secondary = false)
+    public SkillBookPanel(
+        ControlPrefabSet hudPrefabSet,
+        SkillBook skillBook,
+        bool secondary = false,
+        Texture2D? background = null,
+        int normalVisibleSlots = DEFAULT_VISIBLE_SLOTS)
         : base(
-            device,
             hudPrefabSet,
             MAX_SLOTS,
             CooldownStyle.Progressive,
-            secondary)
-        => Name = secondary ? "SkillBookAlt" : "SkillBook";
-
-    public override void ClearSlot(byte slot)
+            secondary,
+            background: background,
+            normalVisibleSlots: normalVisibleSlots)
     {
-        var index = slot - 1;
-
-        if (index is >= 0 and < MAX_SLOTS)
-        {
-            SpriteIds[index] = 0;
-            CooldownRemaining[index] = 0;
-            CooldownDuration[index] = 0;
-        }
-
-        var control = FindSlot(slot);
-
-        if (control is not null)
-        {
-            control.CooldownTexture?.Dispose();
-            control.CooldownTexture = null;
-            control.GreyTexture?.Dispose();
-            control.GreyTexture = null;
-            control.CooldownPercent = 0;
-        }
-
-        base.ClearSlot(slot);
+        Name = secondary ? "SkillBookAlt" : "SkillBook";
+        SkillBook = skillBook;
+        SkillBook.SlotChanged += OnSlotChanged;
+        SkillBook.Cleared += OnCleared;
     }
 
     protected override PanelSlot CreateSlot(byte slotNumber, string name, CooldownStyle cooldownStyle)
@@ -65,6 +48,9 @@ public sealed class SkillBookPanel : PanelBase
 
     public override void Dispose()
     {
+        SkillBook.SlotChanged -= OnSlotChanged;
+        SkillBook.Cleared -= OnCleared;
+
         foreach (var slot in Slots)
         {
             slot.CooldownTexture?.Dispose();
@@ -77,9 +63,59 @@ public sealed class SkillBookPanel : PanelBase
     }
 
     /// <summary>
-    ///     Returns the SkillSlotControl for a 1-based slot number, or null.
+    ///     Returns the SkillSlot for a 1-based slot number, or null.
     /// </summary>
     public SkillSlot? GetSkillSlot(byte slot) => FindSlot(slot) as SkillSlot;
+
+    private void OnCleared()
+    {
+        foreach (var slot in Slots)
+        {
+            slot.NormalTexture?.Dispose();
+            slot.NormalTexture = null;
+            slot.CooldownTexture?.Dispose();
+            slot.CooldownTexture = null;
+            slot.GreyTexture?.Dispose();
+            slot.GreyTexture = null;
+            slot.CooldownPercent = 0;
+            slot.SlotName = null;
+        }
+    }
+
+    private void OnSlotChanged(byte slot)
+    {
+        var control = FindSlot(slot);
+
+        if (control is null)
+            return;
+
+        var data = SkillBook.GetSlot(slot);
+
+        // Dispose old cooldown textures — sprite may have changed
+        control.CooldownTexture?.Dispose();
+        control.CooldownTexture = null;
+        control.GreyTexture?.Dispose();
+        control.GreyTexture = null;
+
+        if (data.IsOccupied)
+        {
+            control.NormalTexture?.Dispose();
+            control.NormalTexture = RenderIcon(data.Sprite);
+
+            if (control is SkillSlot skillSlot)
+                skillSlot.Chant = data.Chant ?? string.Empty;
+
+            SetSlotName(slot, data.Name);
+        } else
+        {
+            control.NormalTexture?.Dispose();
+            control.NormalTexture = null;
+            control.SlotName = null;
+            control.CooldownPercent = 0;
+            control.CurrentDurability = 0;
+            control.MaxDurability = 0;
+        }
+    }
 
     private Texture2D? RenderGreyIcon(ushort spriteId) => UiRenderer.Instance!.GetSkillGreyIcon(spriteId);
 
@@ -92,86 +128,29 @@ public sealed class SkillBookPanel : PanelBase
         return cache.GetTintedTexture($"skill:{spriteId}", cache.GetSkillIcon(spriteId));
     }
 
-    public void SetCooldown(byte slot, uint durationSecs)
-    {
-        var index = slot - 1;
-
-        if ((index < 0) || (index >= MAX_SLOTS))
-            return;
-
-        var duration = durationSecs * 1000f;
-        CooldownRemaining[index] = duration;
-        CooldownDuration[index] = duration;
-
-        var control = FindSlot(slot);
-
-        if (control is null)
-            return;
-
-        if (durationSecs == 0)
-        {
-            control.CooldownPercent = 0;
-
-            return;
-        }
-
-        // Lazy-load grey base and tinted overlay
-        var spriteId = SpriteIds[index];
-
-        if (spriteId > 0)
-        {
-            control.GreyTexture ??= RenderGreyIcon(spriteId);
-            control.CooldownTexture ??= RenderTintedIcon(spriteId);
-        }
-
-        control.CooldownPercent = 1f;
-    }
-
-    public override void SetSlot(byte slot, ushort sprite)
-    {
-        var index = slot - 1;
-
-        if (index is >= 0 and < MAX_SLOTS)
-        {
-            SpriteIds[index] = sprite;
-
-            var control = FindSlot(slot);
-
-            if (control is not null)
-            {
-                control.CooldownTexture?.Dispose();
-                control.CooldownTexture = null;
-                control.GreyTexture?.Dispose();
-                control.GreyTexture = null;
-            }
-        }
-
-        base.SetSlot(slot, sprite);
-    }
-
     public override void Update(GameTime gameTime, InputBuffer input)
     {
         base.Update(gameTime, input);
 
-        var elapsedMs = (float)gameTime.ElapsedGameTime.TotalMilliseconds;
-
-        for (var i = 0; i < MAX_SLOTS; i++)
+        // Read cooldown state each frame — progressive style: grey base with blue overlay
+        for (var i = 0; (i < VisibleSlotCount) && (i < Slots.Length); i++)
         {
-            if (CooldownRemaining[i] <= 0)
-                continue;
+            var slot = (byte)(i + SlotOffset + 1);
+            var control = Slots[i];
+            var cooldownPercent = SkillBook.GetCooldownPercent(slot);
 
-            CooldownRemaining[i] -= elapsedMs;
-
-            if (CooldownRemaining[i] <= 0)
+            if ((cooldownPercent > 0) && control.NormalTexture is not null)
             {
-                CooldownRemaining[i] = 0;
-                CooldownDuration[i] = 0;
+                var data = SkillBook.GetSlot(slot);
+
+                if (data.IsOccupied)
+                {
+                    control.GreyTexture ??= RenderGreyIcon(data.Sprite);
+                    control.CooldownTexture ??= RenderTintedIcon(data.Sprite);
+                }
             }
 
-            // Update the slot control's cooldown percent
-            var control = FindSlot((byte)(i + 1));
-
-            control?.CooldownPercent = CooldownDuration[i] > 0 ? CooldownRemaining[i] / CooldownDuration[i] : 0;
+            control.CooldownPercent = cooldownPercent;
         }
     }
 }

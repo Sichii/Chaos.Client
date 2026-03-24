@@ -44,7 +44,6 @@ public sealed class NotepadControl : UIPanel
     private readonly CachedText CancelLabelCache;
     private readonly CachedText CloseLabelCache;
 
-    private readonly GraphicsDevice Device;
     private readonly List<string> Lines = [];
     private readonly int MaxPossibleVisibleLines;
 
@@ -73,9 +72,8 @@ public sealed class NotepadControl : UIPanel
     private int ScrollOffset;
     private int VisibleLineCount;
 
-    public NotepadControl(GraphicsDevice device)
+    public NotepadControl()
     {
-        Device = device;
         Name = "Notepad";
         Visible = false;
 
@@ -84,13 +82,13 @@ public sealed class NotepadControl : UIPanel
         ReadonlyLineCaches = new CachedText[MaxPossibleVisibleLines];
 
         for (var i = 0; i < MaxPossibleVisibleLines; i++)
-            ReadonlyLineCaches[i] = new CachedText(device);
+            ReadonlyLineCaches[i] = new CachedText();
 
-        OkLabelCache = new CachedText(device);
+        OkLabelCache = new CachedText();
         OkLabelCache.Update("OK", Color.White);
-        CancelLabelCache = new CachedText(device);
+        CancelLabelCache = new CachedText();
         CancelLabelCache.Update("Cancel", Color.White);
-        CloseLabelCache = new CachedText(device);
+        CloseLabelCache = new CachedText();
         CloseLabelCache.Update("Close", Color.White);
     }
 
@@ -188,7 +186,7 @@ public sealed class NotepadControl : UIPanel
 
         for (var i = 0; i < VisibleLineCount; i++)
         {
-            var box = new UITextBox(Device)
+            var box = new UITextBox
             {
                 Name = $"NoteLine{i}",
                 X = PADDING,
@@ -251,7 +249,6 @@ public sealed class NotepadControl : UIPanel
         // Outer frame
         DrawRect(
             spriteBatch,
-            Device,
             new Rectangle(
                 sx - 2,
                 sy - 2,
@@ -310,7 +307,6 @@ public sealed class NotepadControl : UIPanel
 
         DrawBorderedRect(
             spriteBatch,
-            Device,
             rect,
             hovered ? ButtonHoverFill : ButtonFill,
             ButtonBorder);
@@ -355,7 +351,6 @@ public sealed class NotepadControl : UIPanel
 
         DrawRect(
             spriteBatch,
-            Device,
             new Rectangle(
                 barX,
                 barY,
@@ -365,7 +360,6 @@ public sealed class NotepadControl : UIPanel
 
         DrawRect(
             spriteBatch,
-            Device,
             new Rectangle(
                 barX,
                 thumbY,

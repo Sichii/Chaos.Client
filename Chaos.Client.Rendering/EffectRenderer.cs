@@ -4,7 +4,6 @@ using Chaos.Client.Data.Definitions;
 using Chaos.Client.Rendering.Models;
 using DALib.Definitions;
 using DALib.Drawing;
-using Microsoft.Xna.Framework.Graphics;
 #endregion
 
 namespace Chaos.Client.Rendering;
@@ -38,9 +37,9 @@ public sealed class EffectRenderer : IDisposable
     /// <summary>
     ///     Returns frame count, interval, and blend mode for an effect, or null if the effect doesn't exist.
     /// </summary>
-    public (int FrameCount, int FrameIntervalMs, bool IsEfa, EffectBlendMode BlendMode)? GetEffectInfo(GraphicsDevice device, int effectId)
+    public (int FrameCount, int FrameIntervalMs, bool IsEfa, EffectBlendMode BlendMode)? GetEffectInfo(int effectId)
     {
-        var animation = GetOrLoadAnimation(device, effectId);
+        var animation = GetOrLoadAnimation(effectId);
 
         if (animation is null)
             return null;
@@ -51,26 +50,26 @@ public sealed class EffectRenderer : IDisposable
     /// <summary>
     ///     Returns the sprite frame for a specific frame of an effect.
     /// </summary>
-    public SpriteFrame? GetFrame(GraphicsDevice device, int effectId, int frameIndex)
+    public SpriteFrame? GetFrame(int effectId, int frameIndex)
     {
-        var animation = GetOrLoadAnimation(device, effectId);
+        var animation = GetOrLoadAnimation(effectId);
 
         return animation?.GetFrame(frameIndex);
     }
 
-    private SpriteAnimation? GetOrLoadAnimation(GraphicsDevice device, int effectId)
+    private SpriteAnimation? GetOrLoadAnimation(int effectId)
     {
         if (AnimationCache.TryGetValue(effectId, out var existing))
             return existing;
 
-        var animation = LoadAnimation(device, effectId);
+        var animation = LoadAnimation(effectId);
 
         AnimationCache[effectId] = animation;
 
         return animation;
     }
 
-    private SpriteAnimation? LoadAnimation(GraphicsDevice device, int effectId)
+    private SpriteAnimation? LoadAnimation(int effectId)
     {
         // Check the EffectTable to determine the frame sequence and format
         var tableEntry = DataContext.Effects.GetEffectTableEntry(effectId);
@@ -80,13 +79,13 @@ public sealed class EffectRenderer : IDisposable
 
         // A single-element [0] entry means this is an EFA effect
         if (tableEntry.FrameSequence is [0])
-            return LoadEfaAnimation(device, effectId);
+            return LoadEfaAnimation(effectId);
 
         // Otherwise, it's an EPF effect with a specific frame sequence from the table
-        return LoadEpfAnimation(device, effectId, tableEntry);
+        return LoadEpfAnimation(effectId, tableEntry);
     }
 
-    private SpriteAnimation? LoadEfaAnimation(GraphicsDevice device, int effectId)
+    private SpriteAnimation? LoadEfaAnimation(int effectId)
     {
         var efaFile = DataContext.Effects.GetEfaEffect(effectId);
 
@@ -99,7 +98,7 @@ public sealed class EffectRenderer : IDisposable
         {
             var efaFrame = efaFile[i];
             using var skImage = Graphics.RenderImage(efaFrame, efaFile.BlendingType);
-            var texture = TextureConverter.ToTexture2D(device, skImage);
+            var texture = TextureConverter.ToTexture2D(skImage);
 
             frames[i] = new SpriteFrame(
                 texture,
@@ -125,7 +124,7 @@ public sealed class EffectRenderer : IDisposable
             true);
     }
 
-    private SpriteAnimation? LoadEpfAnimation(GraphicsDevice device, int effectId, EffectTableEntry tableEntry)
+    private SpriteAnimation? LoadEpfAnimation(int effectId, EffectTableEntry tableEntry)
     {
         var epfEffect = DataContext.Effects.GetEpfEffect(effectId);
 
@@ -149,7 +148,7 @@ public sealed class EffectRenderer : IDisposable
 
             var epfFrame = epfFile[epfFrameIndex];
             using var skImage = Graphics.RenderImage(epfFrame, palette);
-            var texture = TextureConverter.ToTexture2D(device, skImage);
+            var texture = TextureConverter.ToTexture2D(skImage);
 
             // Use center point from .tbl if available, otherwise fall back to half-size
             var centerX = centerPoints is not null ? centerPoints[epfFrameIndex].X : (short)(epfFrame.PixelWidth / 2);

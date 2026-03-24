@@ -12,26 +12,26 @@ namespace Chaos.Client.Controls.World.Hud.Panel;
 ///     Message history panel (Shift+F). Displays server message history (same text as the orange bar) in its own tab-sized
 ///     panel. Reads from the shared history list.
 /// </summary>
-public sealed class MessageHistoryPanel : UIPanel
+public sealed class MessageHistoryPanel : ExpandablePanel
 {
     private const int GLYPH_HEIGHT = 12;
-    private readonly Rectangle DisplayBounds;
     private readonly IReadOnlyList<string> History;
     private readonly CachedText[] LineTextures;
-    private readonly int MaxVisibleLines;
+    private readonly Rectangle NormalDisplayBounds;
     private readonly ScrollBarControl ScrollBar;
+
+    private Rectangle DisplayBounds;
+    private Rectangle ExpandedDisplayBounds;
     private int LastHistoryCount;
+    private int MaxVisibleLines;
     private int RenderedHistoryCount = -1;
     private int RenderedScrollOffset = -1;
     private int ScrollOffset;
 
-    public MessageHistoryPanel(
-        GraphicsDevice device,
-        Rectangle displayBounds,
-        Rectangle panelBounds,
-        IReadOnlyList<string> history)
+    public MessageHistoryPanel(Rectangle displayBounds, Rectangle panelBounds, IReadOnlyList<string> history)
     {
         Name = "MessageHistory";
+        NormalDisplayBounds = displayBounds;
         DisplayBounds = displayBounds;
         History = history;
 
@@ -41,12 +41,12 @@ public sealed class MessageHistoryPanel : UIPanel
         LineTextures = new CachedText[MaxVisibleLines];
 
         for (var i = 0; i < MaxVisibleLines; i++)
-            LineTextures[i] = new CachedText(device);
+            LineTextures[i] = new CachedText();
 
         var relX = displayBounds.X - panelBounds.X;
         var relY = displayBounds.Y - panelBounds.Y;
 
-        ScrollBar = new ScrollBarControl(device)
+        ScrollBar = new ScrollBarControl
         {
             X = relX + displayBounds.Width - ScrollBarControl.DEFAULT_WIDTH,
             Y = relY,
@@ -62,6 +62,19 @@ public sealed class MessageHistoryPanel : UIPanel
         AddChild(ScrollBar);
     }
 
+    /// <summary>
+    ///     Configures expand support for the large HUD message history panel (larger text area).
+    /// </summary>
+    public void ConfigureExpand(Texture2D? expandedBackground, Rectangle expandedBounds)
+    {
+        ExpandedDisplayBounds = expandedBounds;
+
+        ConfigureExpand(expandedBackground);
+
+        // In the large HUD, the compact area is too small for a scrollbar
+        ScrollBar.Visible = false;
+    }
+
     public override void Dispose()
     {
         foreach (var texture in LineTextures)
@@ -75,16 +88,19 @@ public sealed class MessageHistoryPanel : UIPanel
         if (!Visible)
             return;
 
+        // ExpandablePanel.Draw handles expanded bg + children, or normal bg + children
         base.Draw(spriteBatch);
 
-        if ((MaxVisibleLines == 0) || (History.Count == 0))
+        var maxLines = Math.Min(MaxVisibleLines, LineTextures.Length);
+
+        if ((maxLines == 0) || (History.Count == 0))
             return;
 
         RefreshDisplay();
 
         var baseY = DisplayBounds.Y + DisplayBounds.Height;
 
-        for (var i = MaxVisibleLines - 1; i >= 0; i--)
+        for (var i = maxLines - 1; i >= 0; i--)
         {
             baseY -= GLYPH_HEIGHT;
 
@@ -104,19 +120,30 @@ public sealed class MessageHistoryPanel : UIPanel
         RenderedHistoryCount = History.Count;
         RenderedScrollOffset = ScrollOffset;
 
-        var startIndex = Math.Max(0, History.Count - MaxVisibleLines - ScrollOffset);
+        var maxLines = Math.Min(MaxVisibleLines, LineTextures.Length);
+        var startIndex = Math.Max(0, History.Count - maxLines - ScrollOffset);
         var lineIndex = 0;
 
-        for (var i = startIndex; (i < History.Count) && (lineIndex < MaxVisibleLines); i++)
+        for (var i = startIndex; (i < History.Count) && (lineIndex < maxLines); i++)
         {
             LineTextures[lineIndex]
                 .Update(History[i], Color.Orange);
             lineIndex++;
         }
 
-        for (; lineIndex < MaxVisibleLines; lineIndex++)
+        for (; lineIndex < maxLines; lineIndex++)
             LineTextures[lineIndex]
                 .Update(string.Empty, Color.White);
+    }
+
+    public override void SetExpanded(bool expanded)
+    {
+        base.SetExpanded(expanded);
+
+        DisplayBounds = expanded ? ExpandedDisplayBounds : NormalDisplayBounds;
+        MaxVisibleLines = DisplayBounds.Height > 0 ? DisplayBounds.Height / GLYPH_HEIGHT : 0;
+        ScrollBar.Visible = expanded;
+        RenderedScrollOffset = -1;
     }
 
     public override void Update(GameTime gameTime, InputBuffer input)

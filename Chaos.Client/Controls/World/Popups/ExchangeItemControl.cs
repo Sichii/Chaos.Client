@@ -20,7 +20,7 @@ public sealed class ExchangeItemControl : UIPanel
 
     private readonly CachedText NameText;
 
-    public ExchangeItemControl(GraphicsDevice device)
+    public ExchangeItemControl()
     {
         Height = ICON_SIZE + ICON_PADDING * 2;
         Visible = false;
@@ -36,7 +36,7 @@ public sealed class ExchangeItemControl : UIPanel
 
         AddChild(Icon);
 
-        NameText = new CachedText(device);
+        NameText = new CachedText();
     }
 
     public void ClearItem()

@@ -1,6 +1,5 @@
 #region
 using Chaos.Client.Controls.Components;
-using Chaos.Client.Definitions;
 using Chaos.Client.Rendering;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
@@ -23,8 +22,6 @@ public sealed class TextPopupControl : UIPanel
     private const int MAX_WIDTH = 500;
     private const int MAX_HEIGHT = 400;
 
-    private readonly GraphicsDevice Device;
-
     private readonly CachedText[] LineCaches;
     private readonly int MaxVisibleLines;
     private int DataVersion;
@@ -34,9 +31,8 @@ public sealed class TextPopupControl : UIPanel
 
     private List<string> WrappedLines = [];
 
-    public TextPopupControl(GraphicsDevice device)
+    public TextPopupControl()
     {
-        Device = device;
         Name = "TextPopup";
         Visible = false;
 
@@ -44,7 +40,7 @@ public sealed class TextPopupControl : UIPanel
         LineCaches = new CachedText[MaxVisibleLines];
 
         for (var i = 0; i < MaxVisibleLines; i++)
-            LineCaches[i] = new CachedText(device);
+            LineCaches[i] = new CachedText();
     }
 
     public override void Dispose()
@@ -66,7 +62,6 @@ public sealed class TextPopupControl : UIPanel
 
         DrawRect(
             spriteBatch,
-            Device,
             new Rectangle(
                 sx - 2,
                 sy - 2,
@@ -104,7 +99,6 @@ public sealed class TextPopupControl : UIPanel
 
             DrawRect(
                 spriteBatch,
-                Device,
                 new Rectangle(
                     barX,
                     sy + PADDING,
@@ -114,7 +108,6 @@ public sealed class TextPopupControl : UIPanel
 
             DrawRect(
                 spriteBatch,
-                Device,
                 new Rectangle(
                     barX,
                     thumbY,

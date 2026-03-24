@@ -18,14 +18,12 @@ namespace Chaos.Client.Controls.World.ViewPort;
 public sealed class WorldMap : UIPanel
 {
     private readonly ConnectionManager Connection;
-    private readonly GraphicsDevice Device;
     private readonly List<WorldMapNode> NodeControls = [];
     private Texture2D? BackgroundTexture;
     private int HoveredNodeIndex = -1;
 
-    public WorldMap(GraphicsDevice device, ConnectionManager connection)
+    public WorldMap(ConnectionManager connection)
     {
-        Device = device;
         Connection = connection;
         Width = 640;
         Height = 480;
@@ -102,7 +100,6 @@ public sealed class WorldMap : UIPanel
             var node = nodes[i];
 
             var control = new WorldMapNode(
-                Device,
                 i,
                 node.Text,
                 node.MapId,

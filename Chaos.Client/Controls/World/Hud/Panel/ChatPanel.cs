@@ -2,6 +2,7 @@
 using Chaos.Client.Controls.Components;
 using Chaos.Client.Controls.Generic;
 using Chaos.Client.Rendering;
+using Chaos.Client.ViewModel;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 #endregion
@@ -12,24 +13,29 @@ namespace Chaos.Client.Controls.World.Hud.Panel;
 ///     Chat display panel (F key). Shows chat message history with word-wrap. Background loaded from _nchatbk.spf (shown
 ///     in tab area). Text rendered at ChatDisplayBounds (separate area of the HUD).
 /// </summary>
-public sealed class ChatPanel : UIPanel
+public sealed class ChatPanel : ExpandablePanel
 {
     private const int MAX_CHAT_LINES = 200;
     private const int GLYPH_HEIGHT = 12;
     private readonly List<ChatLine> ChatLog = [];
-
-    private readonly Rectangle DisplayBounds;
+    private readonly Chat ChatState;
     private readonly CachedText[] LineTextures;
-    private readonly int MaxVisibleLines;
+    private readonly Rectangle NormalDisplayBounds;
     private readonly ScrollBarControl ScrollBar;
+
+    private Rectangle DisplayBounds;
+    private Rectangle ExpandedDisplayBounds;
     private int LogVersion;
+    private int MaxVisibleLines;
     private int RenderedVersion = -1;
     private int ScrollOffset;
 
-    public ChatPanel(GraphicsDevice device, Rectangle displayBounds, Rectangle panelBounds)
+    public ChatPanel(Rectangle displayBounds, Rectangle panelBounds, Chat chat)
     {
         Name = "Chat";
+        NormalDisplayBounds = displayBounds;
         DisplayBounds = displayBounds;
+        ChatState = chat;
 
         Background = UiRenderer.Instance!.GetSpfTexture("_nchatbk.spf");
 
@@ -37,13 +43,13 @@ public sealed class ChatPanel : UIPanel
         LineTextures = new CachedText[MaxVisibleLines];
 
         for (var i = 0; i < MaxVisibleLines; i++)
-            LineTextures[i] = new CachedText(device);
+            LineTextures[i] = new CachedText();
 
         // Position relative to panel origin (panel is placed at panelBounds by RegisterTab)
         var relX = displayBounds.X - panelBounds.X;
         var relY = displayBounds.Y - panelBounds.Y;
 
-        ScrollBar = new ScrollBarControl(device)
+        ScrollBar = new ScrollBarControl
         {
             X = relX + displayBounds.Width - ScrollBarControl.DEFAULT_WIDTH,
             Y = relY,
@@ -57,9 +63,10 @@ public sealed class ChatPanel : UIPanel
         };
 
         AddChild(ScrollBar);
+        ChatState.MessageAdded += OnMessageAdded;
     }
 
-    public void AddMessage(string text, Color color)
+    private void AddMessage(string text, Color color)
     {
         var maxWidth = DisplayBounds.Width;
 
@@ -94,8 +101,23 @@ public sealed class ChatPanel : UIPanel
         ScrollBar.Value = 0;
     }
 
+    /// <summary>
+    ///     Configures expand support for the large HUD chat panel (larger text area).
+    /// </summary>
+    public void ConfigureExpand(Texture2D? expandedBackground, Rectangle expandedBounds, Rectangle panelBounds)
+    {
+        ExpandedDisplayBounds = expandedBounds;
+
+        ConfigureExpand(expandedBackground);
+
+        // In the large HUD, the compact chat area is too small for a scrollbar
+        ScrollBar.Visible = false;
+    }
+
     public override void Dispose()
     {
+        ChatState.MessageAdded -= OnMessageAdded;
+
         foreach (var texture in LineTextures)
             texture.Dispose();
 
@@ -107,16 +129,19 @@ public sealed class ChatPanel : UIPanel
         if (!Visible)
             return;
 
+        // ExpandablePanel.Draw handles expanded bg + children, or normal bg + children
         base.Draw(spriteBatch);
 
-        if ((MaxVisibleLines == 0) || (ChatLog.Count == 0))
+        var maxLines = Math.Min(MaxVisibleLines, LineTextures.Length);
+
+        if ((maxLines == 0) || (ChatLog.Count == 0))
             return;
 
         RefreshDisplay();
 
         var baseY = DisplayBounds.Y + DisplayBounds.Height;
 
-        for (var i = MaxVisibleLines - 1; i >= 0; i--)
+        for (var i = maxLines - 1; i >= 0; i--)
         {
             baseY -= GLYPH_HEIGHT;
 
@@ -128,6 +153,8 @@ public sealed class ChatPanel : UIPanel
         }
     }
 
+    private void OnMessageAdded(Chat.ChatMessage msg) => AddMessage(msg.Text, msg.Color);
+
     private void RefreshDisplay()
     {
         if (RenderedVersion == LogVersion)
@@ -135,10 +162,11 @@ public sealed class ChatPanel : UIPanel
 
         RenderedVersion = LogVersion;
 
-        var startIndex = Math.Max(0, ChatLog.Count - MaxVisibleLines - ScrollOffset);
+        var maxLines = Math.Min(MaxVisibleLines, LineTextures.Length);
+        var startIndex = Math.Max(0, ChatLog.Count - maxLines - ScrollOffset);
         var lineIndex = 0;
 
-        for (var i = startIndex; (i < ChatLog.Count) && (lineIndex < MaxVisibleLines); i++)
+        for (var i = startIndex; (i < ChatLog.Count) && (lineIndex < maxLines); i++)
         {
             var line = ChatLog[i];
 
@@ -147,9 +175,21 @@ public sealed class ChatPanel : UIPanel
             lineIndex++;
         }
 
-        for (; lineIndex < MaxVisibleLines; lineIndex++)
+        for (; lineIndex < maxLines; lineIndex++)
             LineTextures[lineIndex]
                 .Update(string.Empty, Color.White);
+    }
+
+    public override void SetExpanded(bool expanded)
+    {
+        base.SetExpanded(expanded);
+
+        DisplayBounds = expanded ? ExpandedDisplayBounds : NormalDisplayBounds;
+        MaxVisibleLines = DisplayBounds.Height > 0 ? DisplayBounds.Height / GLYPH_HEIGHT : 0;
+        ScrollBar.Visible = expanded;
+
+        // Force re-render with new line count
+        LogVersion++;
     }
 
     public override void Update(GameTime gameTime, InputBuffer input)

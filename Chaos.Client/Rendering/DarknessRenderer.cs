@@ -71,11 +71,7 @@ public sealed class DarknessRenderer : IDisposable
         if (Texture is not null && !Texture.IsDisposed)
             spriteBatch.Draw(Texture, new Vector2(viewport.X, viewport.Y), Color.White);
         else
-            UIElement.DrawRect(
-                spriteBatch,
-                Device,
-                viewport,
-                DarknessColor * Alpha);
+            UIElement.DrawRect(spriteBatch, viewport, DarknessColor * Alpha);
     }
 
     /// <summary>

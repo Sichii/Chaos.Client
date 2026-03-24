@@ -21,8 +21,8 @@ public class LoadingBar : PrefabPanel
 
     private float Progress;
 
-    public LoadingBar(GraphicsDevice device)
-        : base(device, "_nload")
+    public LoadingBar()
+        : base("_nload")
     {
         Name = "Loading";
         Visible = false;

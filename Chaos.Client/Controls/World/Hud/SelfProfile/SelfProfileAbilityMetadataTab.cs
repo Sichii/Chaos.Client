@@ -39,13 +39,11 @@ public sealed class SelfProfileAbilityMetadataTab : PrefabPanel
     private int DataVersion;
     private int RenderedVersion = -1;
 
-    public SelfProfileAbilityMetadataTab(GraphicsDevice device, string prefabName)
-        : base(device, prefabName, false)
+    public SelfProfileAbilityMetadataTab(string prefabName)
+        : base(prefabName, false)
     {
         Name = prefabName;
         Visible = false;
-
-        AutoPopulate();
 
         SpellRect = GetRect("SPELL");
         SkillRect = GetRect("SKILL");
@@ -74,10 +72,10 @@ public sealed class SelfProfileAbilityMetadataTab : PrefabPanel
 
         for (var i = 0; i < MAX_ENTRIES_PER_COLUMN; i++)
         {
-            SpellNameCaches[i] = new CachedText(device);
-            SpellLevelCaches[i] = new CachedText(device);
-            SkillNameCaches[i] = new CachedText(device);
-            SkillLevelCaches[i] = new CachedText(device);
+            SpellNameCaches[i] = new CachedText();
+            SpellLevelCaches[i] = new CachedText();
+            SkillNameCaches[i] = new CachedText();
+            SkillLevelCaches[i] = new CachedText();
         }
     }
 

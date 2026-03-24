@@ -129,6 +129,15 @@ public sealed class Camera
         => MathF.Min(MathF.Min(a, b), MathF.Min(c, d));
 
     /// <summary>
+    ///     Updates the viewport dimensions to the given width and height.
+    /// </summary>
+    public void Resize(int width, int height)
+    {
+        ViewportWidth = width;
+        ViewportHeight = height;
+    }
+
+    /// <summary>
     ///     Converts a screen pixel position to a world pixel position.
     /// </summary>
     public Vector2 ScreenToWorld(Vector2 screenPos)

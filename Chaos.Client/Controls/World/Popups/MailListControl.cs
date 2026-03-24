@@ -53,22 +53,20 @@ public sealed class MailListControl : PrefabPanel
 
     public UIButton? ViewButton { get; }
 
-    public MailListControl(GraphicsDevice device)
-        : base(device, "_nmaill", false)
+    public MailListControl()
+        : base("_nmaill", false)
     {
         Name = "MailList";
         X = BULLETIN_RECT_LEFT;
         Y = BULLETIN_RECT_BOTTOM - Height;
         Visible = false;
 
-        var elements = AutoPopulate();
-
-        ViewButton = elements.GetValueOrDefault("View") as UIButton;
-        NewButton = elements.GetValueOrDefault("New") as UIButton;
-        ReplyButton = elements.GetValueOrDefault("Reply") as UIButton;
-        DeleteButton = elements.GetValueOrDefault("Delete") as UIButton;
-        UpButton = elements.GetValueOrDefault("Up") as UIButton;
-        QuitButton = elements.GetValueOrDefault("Quit") as UIButton;
+        ViewButton = CreateButton("View");
+        NewButton = CreateButton("New");
+        ReplyButton = CreateButton("Reply");
+        DeleteButton = CreateButton("Delete");
+        UpButton = CreateButton("Up");
+        QuitButton = CreateButton("Quit");
 
         if (QuitButton is not null)
             QuitButton.OnClick += () =>
@@ -106,7 +104,7 @@ public sealed class MailListControl : PrefabPanel
         MaxVisibleRows = MailListRect.Height > 0 ? MailListRect.Height / ROW_HEIGHT : 0;
 
         // Scrollbar
-        ScrollBar = new ScrollBarControl(device)
+        ScrollBar = new ScrollBarControl
         {
             Name = "ScrollBar",
             X = MailListRect.X + MailListRect.Width - ScrollBarControl.DEFAULT_WIDTH,
@@ -128,9 +126,9 @@ public sealed class MailListControl : PrefabPanel
 
         for (var i = 0; i < MaxVisibleRows; i++)
         {
-            DateCaches[i] = new CachedText(device);
-            AuthorCaches[i] = new CachedText(device);
-            SubjectCaches[i] = new CachedText(device);
+            DateCaches[i] = new CachedText();
+            AuthorCaches[i] = new CachedText();
+            SubjectCaches[i] = new CachedText();
         }
     }
 
@@ -199,7 +197,6 @@ public sealed class MailListControl : PrefabPanel
             if (entryIndex == SelectedIndex)
                 DrawRect(
                     spriteBatch,
-                    Device,
                     new Rectangle(
                         listX,
                         rowY,

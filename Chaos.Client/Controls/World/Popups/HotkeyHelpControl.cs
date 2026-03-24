@@ -25,13 +25,11 @@ public sealed class HotkeyHelpControl : PrefabPanel
     private readonly KeyGroupEntry[] KeyGroups = new KeyGroupEntry[MAX_KEY_GROUPS];
     private int HoveredIndex = -1;
 
-    public HotkeyHelpControl(GraphicsDevice device)
-        : base(device, "_nhotkem")
+    public HotkeyHelpControl()
+        : base("_nhotkem")
     {
         Name = "HotkeyHelp";
         Visible = false;
-
-        AutoPopulate();
 
         // MAIN rect — keyboard diagram position. C## key rects are relative to this.
         var mainRect = GetRect("MAIN");
@@ -67,7 +65,7 @@ public sealed class HotkeyHelpControl : PrefabPanel
             // Standard single-rect key group
             if (keyPrefabSet.Contains(name))
             {
-                var element = CreateKeyElement(device, keyPrefabSet[name], mainRect);
+                var element = CreateKeyElement(keyPrefabSet[name], mainRect);
 
                 if (element is not null)
                 {
@@ -88,7 +86,7 @@ public sealed class HotkeyHelpControl : PrefabPanel
                 if (!keyPrefabSet.Contains(subName))
                     continue;
 
-                var sub = CreateKeyElement(device, keyPrefabSet[subName], mainRect);
+                var sub = CreateKeyElement(keyPrefabSet[subName], mainRect);
 
                 if (sub is not null)
                     subElements.Add(sub);
@@ -106,7 +104,7 @@ public sealed class HotkeyHelpControl : PrefabPanel
     ///     Creates a UIImage element from a _nhotkey prefab control, offset by the MAIN rect origin to convert from
     ///     keyboard-local space to panel space. Starts hidden.
     /// </summary>
-    private UIImage? CreateKeyElement(GraphicsDevice device, ControlPrefab prefab, Rectangle mainRect)
+    private UIImage? CreateKeyElement(ControlPrefab prefab, Rectangle mainRect)
     {
         var rect = prefab.Control.Rect;
 

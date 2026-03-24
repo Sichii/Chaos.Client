@@ -21,10 +21,10 @@ public sealed class LegendMarkControl : UIElement
 
     private int IconWidth;
 
-    public LegendMarkControl(GraphicsDevice device)
+    public LegendMarkControl()
     {
         Icon = new UIImage();
-        TextCache = new CachedText(device);
+        TextCache = new CachedText();
     }
 
     public void Clear()

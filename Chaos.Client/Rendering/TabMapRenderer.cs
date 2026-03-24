@@ -1,6 +1,5 @@
 #region
 using Chaos.Client.Data;
-using Chaos.Client.Definitions;
 using Chaos.Client.Models;
 using Chaos.DarkAges.Definitions;
 using DALib.Data;

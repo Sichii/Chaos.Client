@@ -1,10 +1,14 @@
 #region
-using Chaos.Client.Definitions;
+using Chaos.Client.Data;
+using Chaos.Client.Data.Models;
 using Chaos.Client.Extensions;
 using Chaos.Client.Models;
+using Chaos.Client.Networking;
 using Chaos.Client.Rendering;
 using Chaos.Client.Systems.Animation;
+using Chaos.Client.ViewModel;
 using Chaos.DarkAges.Definitions;
+using Chaos.Extensions.Common;
 using Chaos.Geometry;
 using Chaos.Geometry.Abstractions;
 using Chaos.Geometry.Abstractions.Definitions;
@@ -21,6 +25,10 @@ public sealed class WorldState
     private readonly Dictionary<uint, WorldEntity> Entities = new();
     private readonly List<WorldEntity> SortBuffer = [];
 
+    // Cached chant data — loaded once per login, invalidated on save
+    private List<SkillChantEntry>? CachedSkillChants;
+    private List<SpellChantEntry>? CachedSpellChants;
+
     /// <summary>
     ///     The player's entity ID, assigned by the server.
     /// </summary>
@@ -32,9 +40,64 @@ public sealed class WorldState
     public List<ActiveEffect> ActiveEffects { get; } = [];
 
     /// <summary>
+    ///     Authoritative player attributes (stats, HP/MP, exp, etc.).
+    /// </summary>
+    public PlayerAttributes Attributes { get; } = new();
+
+    /// <summary>
+    ///     Authoritative bulletin board / mail state.
+    /// </summary>
+    public Board Board { get; } = new();
+
+    /// <summary>
+    ///     Authoritative chat and orange bar message state.
+    /// </summary>
+    public Chat Chat { get; } = new();
+
+    /// <summary>
     ///     Active creature death dissolve animations.
     /// </summary>
     public List<DyingEffect> DyingEffects { get; } = [];
+
+    /// <summary>
+    ///     Authoritative equipment state.
+    /// </summary>
+    public Equipment Equipment { get; } = new();
+
+    /// <summary>
+    ///     Authoritative exchange (trade) state.
+    /// </summary>
+    public Exchange Exchange { get; } = new();
+
+    /// <summary>
+    ///     Authoritative group invite state.
+    /// </summary>
+    public GroupInvite GroupInvite { get; } = new();
+
+    /// <summary>
+    ///     Authoritative inventory state with gold tracking.
+    /// </summary>
+    public Inventory Inventory { get; } = new();
+
+    /// <summary>
+    ///     Authoritative NPC dialog/menu interaction state.
+    /// </summary>
+    public NpcInteraction NpcInteraction { get; } = new();
+
+    /// <summary>
+    ///     Authoritative skill book state with cooldown timers.
+    /// </summary>
+    public SkillBook SkillBook { get; } = new();
+
+    /// <summary>
+    ///     Authoritative spell book state with cooldown timers.
+    /// </summary>
+    public SpellBook SpellBook { get; } = new();
+
+    /// <summary>
+    ///     Authoritative online players list state.
+    /// </summary>
+    public WorldList WorldList { get; } = new();
 
     /// <summary>
     ///     Adds or updates an aisling entity from a DisplayAisling packet.
@@ -329,9 +392,91 @@ public sealed class WorldState
     /// </summary>
     public bool HasGroundItemAt(int tileX, int tileY) => GetGroundItemAt(tileX, tileY) is not null;
 
+    /// <summary>
+    ///     Invalidates the cached chant data, forcing a reload on the next spell/skill addition. Call after chant editing is
+    ///     saved.
+    /// </summary>
+    public void InvalidateChantCache()
+    {
+        CachedSkillChants = null;
+        CachedSpellChants = null;
+    }
+
     private static bool IsBlockingEntity(WorldEntity entity)
         => (entity.Type == ClientEntityType.Aisling)
            || ((entity.Type == ClientEntityType.Creature) && (entity.CreatureType != CreatureType.WalkThrough));
+
+    private string? LookupSkillChant(string? name)
+    {
+        if (string.IsNullOrEmpty(name) || !DataContext.PlayerData.IsInitialized)
+            return null;
+
+        CachedSkillChants ??= DataContext.PlayerData.LoadSkillChants();
+
+        foreach (var entry in CachedSkillChants)
+            if (entry.Name.EqualsI(name))
+                return entry.Chant;
+
+        return null;
+    }
+
+    private string[]? LookupSpellChants(string? name)
+    {
+        if (string.IsNullOrEmpty(name) || !DataContext.PlayerData.IsInitialized)
+            return null;
+
+        CachedSpellChants ??= DataContext.PlayerData.LoadSpellChants();
+
+        foreach (var entry in CachedSpellChants)
+            if (entry.Name.EqualsI(name))
+                return entry.Chants;
+
+        return null;
+    }
+
+    /// <summary>
+    ///     Re-applies chant data to all occupied skill/spell slots. Call after PlayerData becomes available (first
+    ///     DisplayAisling for the player).
+    /// </summary>
+    public void ReloadChants()
+    {
+        InvalidateChantCache();
+
+        for (byte i = 1; i <= SpellBook.MAX_SLOTS; i++)
+        {
+            var spell = SpellBook.GetSlot(i);
+
+            if (spell.IsOccupied)
+            {
+                var chants = LookupSpellChants(spell.Name);
+
+                SpellBook.SetSlot(
+                    i,
+                    spell.Sprite,
+                    spell.Name,
+                    spell.SpellType,
+                    spell.Prompt,
+                    spell.CastLines,
+                    chants);
+            }
+        }
+
+        for (byte i = 1; i <= SkillBook.MAX_SLOTS; i++)
+        {
+            var skill = SkillBook.GetSlot(i);
+
+            if (skill.IsOccupied)
+            {
+                var chant = LookupSkillChant(skill.Name);
+
+                SkillBook.SetSlot(
+                    i,
+                    skill.Sprite,
+                    skill.Name,
+                    chant);
+            }
+        }
+    }
 
     /// <summary>
     ///     Removes an entity from tracking.
@@ -339,10 +484,225 @@ public sealed class WorldState
     public void RemoveEntity(uint id) => Entities.Remove(id);
 
     /// <summary>
-    ///     Advances all active spell/effect animations by the given elapsed time.
+    ///     Subscribes to ConnectionManager events and routes them to state mutations.
+    ///     Call once at startup after ConnectionManager is constructed.
+    /// </summary>
+    public void SubscribeTo(ConnectionManager connection)
+    {
+        connection.OnAddSkillToPane += args =>
+        {
+            var chant = LookupSkillChant(args.Skill.PanelName);
+
+            SkillBook.SetSlot(
+                args.Skill.Slot,
+                args.Skill.Sprite,
+                args.Skill.PanelName,
+                chant);
+        };
+
+        connection.OnRemoveSkillFromPane += args => SkillBook.ClearSlot(args.Slot);
+
+        connection.OnAddSpellToPane += args =>
+        {
+            var chants = LookupSpellChants(args.Spell.PanelName);
+
+            SpellBook.SetSlot(
+                args.Spell.Slot,
+                args.Spell.Sprite,
+                args.Spell.PanelName,
+                args.Spell.SpellType,
+                args.Spell.Prompt,
+                args.Spell.CastLines,
+                chants);
+        };
+
+        connection.OnRemoveSpellFromPane += args => SpellBook.ClearSlot(args.Slot);
+
+        connection.OnCooldown += args =>
+        {
+            if (args.IsSkill)
+                SkillBook.SetCooldown(args.Slot, args.CooldownSecs);
+            else
+                SpellBook.SetCooldown(args.Slot, args.CooldownSecs);
+        };
+
+        // Inventory
+        connection.OnAddItemToPane += args => Inventory.SetSlot(
+            args.Item.Slot,
+            args.Item.Sprite,
+            args.Item.Color,
+            args.Item.Name,
+            args.Item.Stackable,
+            args.Item.Count ?? 0,
+            args.Item.MaxDurability,
+            args.Item.CurrentDurability);
+
+        connection.OnRemoveItemFromPane += args => Inventory.ClearSlot(args.Slot);
+
+        // Equipment
+        connection.OnEquipment += args => Equipment.SetSlot(
+            args.Slot,
+            args.Item.Sprite,
+            args.Item.Color,
+            args.Item.Name,
+            args.Item.MaxDurability,
+            args.Item.CurrentDurability);
+
+        connection.OnDisplayUnequip += args => Equipment.ClearSlot(args.EquipmentSlot);
+
+        // Attributes (stats, HP/MP, etc.) — gold also routed to inventory
+        connection.OnAttributes += args =>
+        {
+            Attributes.Update(args);
+            Inventory.SetGold(args.Gold);
+        };
+
+        // Exchange
+        connection.OnDisplayExchange += args =>
+        {
+            switch (args.ExchangeResponseType)
+            {
+                case ExchangeResponseType.StartExchange:
+                    Exchange.Start(args.OtherUserId!.Value, args.OtherUserName);
+
+                    break;
+
+                case ExchangeResponseType.RequestAmount:
+                    if (args.FromSlot.HasValue)
+                        Exchange.RequestAmount(args.FromSlot.Value);
+
+                    break;
+
+                case ExchangeResponseType.AddItem:
+                    if (args is { RightSide: not null, ExchangeIndex: not null, ItemSprite: not null })
+                        Exchange.AddItem(
+                            args.RightSide.Value,
+                            args.ExchangeIndex.Value,
+                            args.ItemSprite.Value,
+                            args.ItemName);
+
+                    break;
+
+                case ExchangeResponseType.SetGold:
+                    if (args is { RightSide: not null, GoldAmount: not null })
+                        Exchange.SetGold(args.RightSide.Value, args.GoldAmount.Value);
+
+                    break;
+
+                case ExchangeResponseType.Accept:
+                    if (args.PersistExchange == true)
+                        Exchange.SetOtherAccepted();
+                    else
+                    {
+                        Exchange.Close();
+
+                        if (!string.IsNullOrEmpty(args.Message))
+                            Chat.AddOrangeBarMessage(args.Message!);
+                    }
+
+                    break;
+
+                case ExchangeResponseType.Cancel:
+                    Exchange.Close();
+
+                    if (!string.IsNullOrEmpty(args.Message))
+                        Chat.AddOrangeBarMessage(args.Message!);
+
+                    break;
+            }
+        };
+
+        // NPC dialog/menu
+        connection.OnDisplayDialog += args => NpcInteraction.ShowDialog(args);
+        connection.OnDisplayMenu += args => NpcInteraction.ShowMenu(args);
+
+        // Board/mail
+        connection.OnDisplayBoard += args =>
+        {
+            switch (args.Type)
+            {
+                case BoardOrResponseType.BoardList:
+                    if (args.Boards is not null)
+                        Board.ShowBoardList(args.Boards);
+
+                    break;
+
+                case BoardOrResponseType.PublicBoard or BoardOrResponseType.MailBoard:
+                    if (args.Board is not null)
+                    {
+                        var isPublic = args.Type == BoardOrResponseType.PublicBoard;
+
+                        var entries = args.Board
+                                          .Posts
+                                          .Select(p => new MailEntry(
+                                              p.PostId,
+                                              p.Author,
+                                              p.MonthOfYear,
+                                              p.DayOfMonth,
+                                              p.Subject,
+                                              p.IsHighlighted))
+                                          .ToList();
+
+                        if (args.StartPostId.HasValue)
+                            Board.AppendPosts(entries);
+                        else
+                            Board.ShowPostList(args.Board.BoardId, entries, isPublic);
+                    }
+
+                    break;
+
+                case BoardOrResponseType.PublicPost or BoardOrResponseType.MailPost:
+                    if (args.Post is not null)
+                        Board.ShowPost(
+                            args.Post.PostId,
+                            args.Post.Author,
+                            args.Post.MonthOfYear,
+                            args.Post.DayOfMonth,
+                            args.Post.Subject,
+                            args.Post.Message,
+                            args.EnablePrevBtn);
+
+                    break;
+
+                case BoardOrResponseType.SubmitPostResponse
+                     or BoardOrResponseType.DeletePostResponse
+                     or BoardOrResponseType.HighlightPostResponse:
+                    if (args.ResponseMessage is not null)
+                        Board.HandleResponse(args.ResponseMessage);
+
+                    break;
+            }
+        };
+
+        // Group invite
+        connection.OnDisplayGroupInvite += args => GroupInvite.Set(args);
+
+        // World list (online players)
+        connection.OnWorldList += args =>
+        {
+            var entries = args.CountryList
+                              .Select(m => new WorldListEntry(
+                                  m.Name,
+                                  m.Title,
+                                  m.BaseClass,
+                                  m.IsMaster,
+                                  m.IsGuilded,
+                                  m.Color,
+                                  m.SocialStatus))
+                              .ToList();
+
+            WorldList.Update(entries, args.WorldMemberCount);
+        };
+    }
+
+    /// <summary>
+    ///     Advances all active spell/effect animations and cooldown timers by the given elapsed time.
     /// </summary>
     public void UpdateEffects(float elapsedMs)
     {
+        SkillBook.Update(elapsedMs);
+        SpellBook.Update(elapsedMs);
+
         for (var i = ActiveEffects.Count - 1; i >= 0; i--)
         {
             var effect = ActiveEffects[i];

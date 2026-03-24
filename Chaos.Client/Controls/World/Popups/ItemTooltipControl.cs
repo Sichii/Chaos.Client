@@ -22,13 +22,10 @@ public sealed class ItemTooltipControl : UIPanel
 
     private static readonly Color DurabilityColor = new(100, 149, 237);
 
-    private readonly GraphicsDevice Device;
-
     private readonly UIImage? TooltipImage;
 
-    public ItemTooltipControl(GraphicsDevice device)
+    public ItemTooltipControl()
     {
-        Device = device;
         Name = "ItemTooltip";
         Visible = false;
 
@@ -108,7 +105,7 @@ public sealed class ItemTooltipControl : UIPanel
 
         foreach (var line in nameLines)
         {
-            using var lineTexture = TextRenderer.RenderText(Device, line, Color.White);
+            using var lineTexture = TextRenderer.RenderText(line, Color.White);
 
             OverlayTexture(
                 canvas,
@@ -120,7 +117,7 @@ public sealed class ItemTooltipControl : UIPanel
 
         if (durabilityText is not null)
         {
-            using var durTexture = TextRenderer.RenderText(Device, durabilityText, DurabilityColor);
+            using var durTexture = TextRenderer.RenderText(durabilityText, DurabilityColor);
 
             OverlayTexture(
                 canvas,
@@ -131,7 +128,7 @@ public sealed class ItemTooltipControl : UIPanel
 
         using var snapshot = surface.Snapshot();
 
-        return TextureConverter.ToTexture2D(Device, snapshot);
+        return TextureConverter.ToTexture2D(snapshot);
     }
 
     public void Hide() => Visible = false;

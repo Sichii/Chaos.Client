@@ -1,6 +1,6 @@
 #region
 using Chaos.Client.Collections;
-using Chaos.Client.Controls.Components;
+using Chaos.Client.Controls.Generic;
 using Chaos.Client.Data;
 using Chaos.Client.Networking;
 using Chaos.Client.Rendering;
@@ -85,6 +85,8 @@ public sealed class ChaosGame : Game
     /// </summary>
     public WorldState World { get; } = new();
 
+    public static GraphicsDevice Device => TextureConverter.Device;
+
     public ChaosGame()
     {
         Graphics = new GraphicsDeviceManager(this)
@@ -94,6 +96,10 @@ public sealed class ChaosGame : Game
             PreferredDepthStencilFormat = DepthFormat.Depth24Stencil8,
             SynchronizeWithVerticalRetrace = false
         };
+
+        IsFixedTimeStep = true;
+        TargetElapsedTime = TimeSpan.FromSeconds(1.0 / 60.0);
+        InactiveSleepTime = TimeSpan.Zero;
 
         Connection = new ConnectionManager();
         MetaData = new MetaDataManager(Connection, GlobalSettings.DataPath);
@@ -106,8 +112,9 @@ public sealed class ChaosGame : Game
                 DataContext.MetaFiles.Invalidate(name);
         };
 
-        // Wire entity events to WorldState at startup so entities are tracked
+        // Wire state events to WorldState at startup so state is tracked
         // even during world entry (before WorldScreen is created)
+        World.SubscribeTo(Connection);
         Connection.OnDisplayVisibleEntities += args => World.AddOrUpdateVisibleEntities(args);
         Connection.OnDisplayAisling += args => World.AddOrUpdateAisling(args);
 
@@ -151,7 +158,7 @@ public sealed class ChaosGame : Game
         Screens.Draw(SpriteBatch, gameTime);
 
         if (DebugOverlay.IsActive && Screens.ActiveScreen?.Root is { } root)
-            DebugOverlay.Draw(SpriteBatch, GraphicsDevice, root);
+            DebugOverlay.Draw(SpriteBatch, root);
 
         // Custom cursor — drawn in virtual space so it aligns with game content
         if (CursorTexture is not null)
@@ -193,6 +200,7 @@ public sealed class ChaosGame : Game
         Input = new InputBuffer(this);
         Screens = new ScreenManager(this);
 
+        TextureConverter.Device = GraphicsDevice;
         UiRenderer.Instance = new UiRenderer(GraphicsDevice);
 
         LoadCustomCursor();

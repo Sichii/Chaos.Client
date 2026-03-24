@@ -17,13 +17,11 @@ public sealed class ServerSelectControl : PrefabPanel
     private List<ServerTableEntry> Servers = [];
     private List<(CachedText Name, CachedText Description)> ServerTextCache = [];
 
-    public ServerSelectControl(GraphicsDevice device)
-        : base(device, "_nsvr")
+    public ServerSelectControl()
+        : base("_nsvr")
     {
         Name = "ServerSelect";
         Visible = false;
-
-        AutoPopulate();
     }
 
     public override void Dispose()
@@ -75,8 +73,8 @@ public sealed class ServerSelectControl : PrefabPanel
 
         foreach (var server in entries)
         {
-            var nameCache = new CachedText(Device);
-            var descCache = new CachedText(Device);
+            var nameCache = new CachedText();
+            var descCache = new CachedText();
 
             nameCache.Update(server.Name, Color.White);
             descCache.Update(server.Description, Color.LightGray);
