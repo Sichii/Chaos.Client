@@ -14,9 +14,8 @@ namespace Chaos.Client.Controls.World.Popups;
 /// </summary>
 public sealed class MailSendControl : PrefabPanel
 {
-    private const int BULLETIN_RECT_LEFT = 8;
-    private const int BULLETIN_RECT_BOTTOM = 304;
     private const int LINE_HEIGHT = 12;
+    private const float SLIDE_DURATION_MS = 250f;
 
     // Content area — multi-line body
     private readonly Rectangle ContentRect;
@@ -32,8 +31,12 @@ public sealed class MailSendControl : PrefabPanel
     private List<string> BodyLines = [];
     private string BodyText = string.Empty;
     private int DataVersion;
+    private int OffScreenX;
     private int RenderedVersion = -1;
     private int ScrollOffset;
+    private float SlideTimer;
+    private bool Sliding;
+    private int TargetX;
 
     public ushort BoardId { get; set; }
     public bool IsPublicBoard { get; set; }
@@ -41,12 +44,10 @@ public sealed class MailSendControl : PrefabPanel
 
     public UIButton? SendButton { get; }
 
-    public MailSendControl()
-        : base("_nmails", false)
+    public MailSendControl(string prefabName = "_nmails")
+        : base(prefabName, false)
     {
         Name = "MailSend";
-        X = BULLETIN_RECT_LEFT;
-        Y = BULLETIN_RECT_BOTTOM - Height;
         Visible = false;
 
         SendButton = CreateButton("Send");
@@ -62,10 +63,10 @@ public sealed class MailSendControl : PrefabPanel
                 OnCancel?.Invoke();
             };
 
-        // Receiver display (read-only label from "Receiver" control)
-        ReceiverDisplayLabel = CreateLabel("Receiver");
+        // Receiver display (read-only label from "Receiver" control, or "Author" in _nartin)
+        ReceiverDisplayLabel = CreateLabel("Receiver") ?? CreateLabel("Author");
 
-        // Receiver editable overlay (from "ReceiverEdit" control)
+        // Receiver editable overlay (from "ReceiverEdit" control — null for _nartin)
         ReceiverEditBox = CreateTextBox("ReceiverEdit", 24);
 
         // Subject/title textbox
@@ -173,6 +174,13 @@ public sealed class MailSendControl : PrefabPanel
         OnSend?.Invoke(recipient, subject, BodyText);
     }
 
+    public override void Hide()
+    {
+        Visible = false;
+        Sliding = false;
+        X = OffScreenX;
+    }
+
     public event Action? OnCancel;
 
     public event Action<string, string, string>? OnSend; // recipient, subject, body
@@ -191,6 +199,19 @@ public sealed class MailSendControl : PrefabPanel
             LineCaches[i]
                 .Update(lineIndex < BodyLines.Count ? BodyLines[lineIndex] : string.Empty, Color.White);
         }
+    }
+
+    public void SetViewportBounds(Rectangle viewport)
+    {
+        TargetX = viewport.X + viewport.Width - Width;
+        OffScreenX = viewport.X + viewport.Width;
+        Y = viewport.Y;
+    }
+
+    public override void Show()
+    {
+        if (!Visible)
+            SlideIn();
     }
 
     /// <summary>
@@ -228,10 +249,32 @@ public sealed class MailSendControl : PrefabPanel
             TitleBox?.IsFocused = true;
     }
 
+    private void SlideIn()
+    {
+        X = OffScreenX;
+        Visible = true;
+        Sliding = true;
+        SlideTimer = 0;
+    }
+
     public override void Update(GameTime gameTime, InputBuffer input)
     {
         if (!Visible || !Enabled)
             return;
+
+        if (Sliding)
+        {
+            SlideTimer += (float)gameTime.ElapsedGameTime.TotalMilliseconds;
+            var t = Math.Clamp(SlideTimer / SLIDE_DURATION_MS, 0f, 1f);
+            var eased = 1f - (1f - t) * (1f - t);
+            X = (int)MathHelper.Lerp(OffScreenX, TargetX, eased);
+
+            if (t >= 1f)
+            {
+                X = TargetX;
+                Sliding = false;
+            }
+        }
 
         if (input.WasKeyPressed(Keys.Escape))
         {

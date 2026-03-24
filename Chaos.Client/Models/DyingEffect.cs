@@ -3,7 +3,7 @@ using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 #endregion
 
-namespace Chaos.Client.Systems.Animation;
+namespace Chaos.Client.Models;
 
 /// <summary>
 ///     Procedural scanline dissolve effect for creature/merchant death. Captures the entity's last sprite, then over 9

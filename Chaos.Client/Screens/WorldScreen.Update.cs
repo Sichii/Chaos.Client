@@ -1,0 +1,653 @@
+#region
+using Chaos.Client.Controls.Components;
+using Chaos.Client.Systems;
+using Chaos.DarkAges.Definitions;
+using Chaos.Geometry.Abstractions.Definitions;
+using Microsoft.Xna.Framework;
+using Microsoft.Xna.Framework.Input;
+using Pathfinder = Chaos.Client.Systems.Pathfinder;
+#endregion
+
+namespace Chaos.Client.Screens;
+
+public sealed partial class WorldScreen
+{
+    public void Update(GameTime gameTime)
+    {
+        if (PendingLoginSwitch)
+        {
+            PendingLoginSwitch = false;
+            Game.Screens.Switch(new LobbyLoginScreen(true));
+
+            return;
+        }
+
+        var input = Game.Input;
+        var elapsedMs = (float)gameTime.ElapsedGameTime.TotalMilliseconds;
+        LeftClickTracker.Tick(elapsedMs);
+        RightClickTracker.Tick(elapsedMs);
+
+        // Advance entity animations and active effects
+        var smoothScroll = Game.Settings.ScrollLevel > 0;
+        var player = Game.World.GetPlayerEntity();
+
+        foreach (var entity in Game.World.GetSortedEntities())
+        {
+            // All entities step discretely by default. Player gets smooth lerp only if setting enabled.
+            var isSmooth = (entity == player) && smoothScroll;
+            AnimationSystem.Advance(entity, elapsedMs, isSmooth);
+
+            // Tick emote overlay timer and cycle animated emote frames
+            if (entity.ActiveEmoteFrame >= 0)
+            {
+                entity.EmoteElapsedMs += elapsedMs;
+                entity.EmoteRemainingMs -= elapsedMs;
+
+                if (entity.EmoteRemainingMs <= 0)
+                {
+                    entity.ActiveEmoteFrame = -1;
+                    entity.EmoteFrameCount = 0;
+                } else if (entity.EmoteFrameCount > 1)
+                {
+                    var frameDuration = entity.EmoteDurationMs / entity.EmoteFrameCount;
+                    var frameIndex = (int)(entity.EmoteElapsedMs / frameDuration) % entity.EmoteFrameCount;
+                    entity.ActiveEmoteFrame = entity.EmoteStartFrame + frameIndex;
+                }
+            }
+        }
+
+        Game.World.UpdateEffects(elapsedMs);
+
+        // Execute queued walk when player becomes idle after walk animation.
+        var movementHandled = false;
+
+        if (player is not null && (player.AnimState == EntityAnimState.Idle) && QueuedWalkDirection.HasValue)
+        {
+            var queuedDir = QueuedWalkDirection.Value;
+            QueuedWalkDirection = null;
+
+            if (player.Direction != queuedDir)
+            {
+                Game.Connection.Turn(queuedDir);
+                player.Direction = queuedDir;
+            } else
+                PredictAndWalk(player, queuedDir);
+
+            movementHandled = true;
+        }
+
+        // Execute next pathfinding step when player becomes idle
+        if (!movementHandled && player is not null && (player.AnimState == EntityAnimState.Idle))
+        {
+            if (Pathfinding.Path is { Count: > 0 })
+            {
+                // If chasing an entity that no longer exists, stop
+                if (Pathfinding.TargetEntityId.HasValue && Game.World.GetEntity(Pathfinding.TargetEntityId.Value) is null)
+                    Pathfinding.Clear();
+                else
+                {
+                    var nextPoint = Pathfinding.Path.Pop();
+                    var dx = nextPoint.X - player.TileX;
+                    var dy = nextPoint.Y - player.TileY;
+
+                    var pathDir = (dx, dy) switch
+                    {
+                        (0, -1) => Direction.Up,
+                        (1, 0)  => Direction.Right,
+                        (0, 1)  => Direction.Down,
+                        (-1, 0) => Direction.Left,
+                        _       => (Direction?)null
+                    };
+
+                    if (pathDir.HasValue)
+                    {
+                        if (player.Direction != pathDir.Value)
+                        {
+                            Game.Connection.Turn(pathDir.Value);
+                            player.Direction = pathDir.Value;
+                        }
+
+                        PredictAndWalk(player, pathDir.Value);
+                        movementHandled = true;
+                    } else
+                        Pathfinding.Clear();
+                }
+            } else if (Pathfinding.TargetEntityId.HasValue)
+            {
+                // Path exhausted with entity target — check if adjacent and assail, or re-pathfind
+                var target = Game.World.GetEntity(Pathfinding.TargetEntityId.Value);
+
+                if (target is null)
+                    Pathfinding.Clear();
+                else if (Pathfinder.IsAdjacent(
+                             player.TileX,
+                             player.TileY,
+                             target.TileX,
+                             target.TileY))
+                {
+                    // Adjacent — turn toward target and assail
+                    var faceDir = Pathfinder.DirectionToward(
+                        player.TileX,
+                        player.TileY,
+                        target.TileX,
+                        target.TileY);
+
+                    if (faceDir.HasValue && (player.Direction != faceDir.Value))
+                    {
+                        Game.Connection.Turn(faceDir.Value);
+                        player.Direction = faceDir.Value;
+                    }
+
+                    Game.Connection.Spacebar();
+                    Pathfinding.Clear();
+                    movementHandled = true;
+                } else
+                {
+                    // Entity moved — re-pathfind on 100ms timer
+                    Pathfinding.RetargetTimer += elapsedMs;
+
+                    if (Pathfinding.RetargetTimer >= 100f)
+                    {
+                        Pathfinding.RetargetTimer = 0;
+                        PathfindToEntity(player, target);
+
+                        if (Pathfinding.Path is null)
+                            Pathfinding.Clear();
+                    }
+                }
+            }
+        }
+
+        // Tick re-pathfind timer while walking toward an entity target
+        if (Pathfinding.TargetEntityId.HasValue && player is not null && (player.AnimState == EntityAnimState.Walking))
+            Pathfinding.RetargetTimer += elapsedMs;
+
+        // Camera follows player's visual position (tile + walk interpolation offset)
+        FollowPlayerCamera();
+
+        // Overlay panels get first priority for input
+        if (NpcDialog.Visible)
+        {
+            NpcDialog.Update(gameTime, input);
+
+            return;
+        }
+
+        if (MerchantDialog.Visible)
+        {
+            MerchantDialog.Update(gameTime, input);
+
+            return;
+        }
+
+        if (MainOptions.Visible)
+        {
+            // Sub-panels slide out from MainOptions — update them alongside it
+            // If a sub-panel is open, it gets input priority (consumes Escape before MainOptions)
+            var subPanelOpen = false;
+
+            if (MacroMenu.Visible)
+            {
+                MacroMenu.Update(gameTime, input);
+                subPanelOpen = true;
+            } else if (SettingsDialog.Visible)
+            {
+                SettingsDialog.Update(gameTime, input);
+                subPanelOpen = true;
+            } else if (FriendsList.Visible)
+            {
+                FriendsList.Update(gameTime, input);
+                subPanelOpen = true;
+            }
+
+            if (!subPanelOpen)
+                MainOptions.Update(gameTime, input);
+
+            return;
+        }
+
+        if (SettingsDialog.Visible)
+        {
+            SettingsDialog.Update(gameTime, input);
+
+            return;
+        }
+
+        if (ChantEdit.Visible)
+        {
+            ChantEdit.Update(gameTime, input);
+
+            return;
+        }
+
+        if (MacroMenu.Visible)
+        {
+            MacroMenu.Update(gameTime, input);
+
+            return;
+        }
+
+        if (HotkeyHelp.Visible)
+        {
+            HotkeyHelp.Update(gameTime, input);
+
+            return;
+        }
+
+        if (GroupPanel.Visible)
+        {
+            GroupPanel.Update(gameTime, input);
+
+            return;
+        }
+
+        if (WorldList.Visible)
+        {
+            WorldList.Update(gameTime, input);
+
+            return;
+        }
+
+        if (FriendsList.Visible)
+        {
+            FriendsList.Update(gameTime, input);
+
+            return;
+        }
+
+        if (WorldHud.Prompt.Visible)
+        {
+            WorldHud.Prompt.Update(gameTime, input);
+
+            return;
+        }
+
+        if (GoldDrop.Visible)
+        {
+            GoldDrop.Update(gameTime, input);
+
+            return;
+        }
+
+        if (Exchange.Visible)
+        {
+            ((UIPanel)WorldHud).Update(gameTime, input);
+            Exchange.Update(gameTime, input);
+
+            // Allow setting gold by clicking MyMoney area — shows gold amount popup
+            if (input.WasLeftButtonPressed && Exchange.IsMyMoneyClicked(input.MouseX, input.MouseY))
+            {
+                ExchangeAmountSlot = null;
+                GoldDrop.ShowForTarget(Exchange.OtherUserId, 0, 0);
+            }
+
+            return;
+        }
+
+        if (MailRead.Visible)
+        {
+            MailRead.Update(gameTime, input);
+
+            return;
+        }
+
+        if (MailSend.Visible)
+        {
+            MailSend.Update(gameTime, input);
+
+            return;
+        }
+
+        if (MailList.Visible)
+        {
+            MailList.Update(gameTime, input);
+
+            return;
+        }
+
+        if (TextPopup.Visible)
+        {
+            TextPopup.Update(gameTime, input);
+
+            return;
+        }
+
+        if (Notepad.Visible)
+        {
+            Notepad.Update(gameTime, input);
+
+            return;
+        }
+
+        if (StatusBook.Visible)
+        {
+            // HUD panels still receive input while the status book is open (drag-and-drop)
+            ((UIPanel)WorldHud).Update(gameTime, input);
+            StatusBook.Update(gameTime, input);
+
+            return;
+        }
+
+        if (OtherProfile.Visible)
+        {
+            OtherProfile.Update(gameTime, input);
+
+            return;
+        }
+
+        if (WorldMap.Visible)
+        {
+            WorldMap.Update(gameTime, input);
+
+            return;
+        }
+
+        if (SocialStatusPicker.Visible)
+        {
+            SocialStatusPicker.Update(gameTime, input);
+
+            return;
+        }
+
+        // Context menu gets priority when visible
+        if (ContextMenu.Visible)
+        {
+            ContextMenu.Update(gameTime, input);
+
+            return;
+        }
+
+        // Track which entity the mouse is hovering over (for name tags, tint highlight, targeting)
+        var hoverEntity = GetEntityAtScreen(input.MouseX, input.MouseY);
+
+        var newHoveredId = hoverEntity is not null && hoverEntity.Type is ClientEntityType.Aisling or ClientEntityType.Creature
+            ? hoverEntity.Id
+            : (uint?)null;
+
+        if (newHoveredId != Highlight.HoveredEntityId)
+            ClearHighlightCache();
+
+        Highlight.HoveredEntityId = newHoveredId;
+
+        // Tint highlight only shows during spell targeting or item dragging
+        Highlight.ShowTintHighlight = CastingSystem.IsTargeting || GetDraggingPanel() is not null;
+
+        // Tick casting timer (chant lines are sent on a 1-second interval)
+        CastingSystem.Update(elapsedMs, Game.Connection);
+
+        // Cast mode — blocks all other input, only allows target selection or cancel
+        if (CastingSystem.IsTargeting)
+        {
+            if (input.WasKeyPressed(Keys.Escape))
+            {
+                CastingSystem.Reset();
+
+                return;
+            }
+
+            // Click to select target, or cancel if clicking on nothing
+            if (input.WasLeftButtonPressed)
+            {
+                if (hoverEntity is not null && hoverEntity.Type is ClientEntityType.Aisling or ClientEntityType.Creature)
+                    CastingSystem.SelectTarget(
+                        hoverEntity.Id,
+                        hoverEntity.TileX,
+                        hoverEntity.TileY,
+                        Game.Connection);
+                else
+                    CastingSystem.Reset();
+            }
+
+            ((UIPanel)WorldHud).Update(gameTime, input);
+
+            return;
+        }
+
+        // Escape — close overlays, unfocus chat
+        if (input.WasKeyPressed(Keys.Escape))
+            if (WorldHud.ChatInput.IsFocused)
+                Chat.Unfocus();
+
+        // Enter — toggle chat focus / send message
+        if (input.WasKeyPressed(Keys.Enter))
+        {
+            if (WorldHud.ChatInput.IsFocused)
+            {
+                var message = WorldHud.ChatInput.Text.Trim();
+                var prefix = WorldHud.ChatInput.Prefix;
+
+                // Whisper phase 1: "to []? " → user entered a target name, transition to phase 2
+                if ((prefix == "to []? ") && (message.Length > 0))
+                {
+                    WorldHud.ChatInput.Prefix = $"-> {message}: ";
+                    WorldHud.ChatInput.Text = string.Empty;
+                } else
+                {
+                    Chat.Dispatch(message);
+                    WorldHud.ChatInput.Text = string.Empty;
+                    Chat.Unfocus();
+                }
+            } else
+                Chat.Focus($"{WorldHud.PlayerName}: ", Color.White);
+        }
+
+        // Hotkeys and movement — only when chat is not focused
+        if (!WorldHud.ChatInput.IsFocused)
+        {
+            // Shout hotkey (!) — opens chat in shout mode
+            if (input.WasKeyPressed(Keys.D1) && (input.IsKeyHeld(Keys.LeftShift) || input.IsKeyHeld(Keys.RightShift)))
+            {
+                Chat.Focus($"{WorldHud.PlayerName}! ", Color.Yellow);
+
+                return;
+            }
+
+            // Whisper hotkey (") — opens chat in whisper target mode
+            if (input.WasKeyPressed(Keys.OemQuotes) && (input.IsKeyHeld(Keys.LeftShift) || input.IsKeyHeld(Keys.RightShift)))
+            {
+                Chat.Focus("to []? ", new Color(100, 149, 237));
+
+                return;
+            }
+
+            // Tab panel switching — blocked while dragging the orange bar
+            var shift = input.IsKeyHeld(Keys.LeftShift) || input.IsKeyHeld(Keys.RightShift);
+
+            if (WorldHud.IsOrangeBarDragging)
+            {
+                // Suppress all panel switching / expand while dragging
+            } else if (input.WasKeyPressed(Keys.A))
+            {
+                if (shift)
+                {
+                    if (WorldHud.ActiveTab != HudTab.Inventory)
+                        WorldHud.ShowTab(HudTab.Inventory);
+
+                    WorldHud.ToggleExpand();
+                } else if (WorldHud.ActiveTab == HudTab.Inventory)
+                {
+                    SelfProfileRequested = true;
+                    Game.Connection.RequestSelfProfile();
+                } else
+                    WorldHud.ShowTab(HudTab.Inventory);
+            } else if (input.WasKeyPressed(Keys.S))
+                WorldHud.ShowTab(shift ? HudTab.SkillsAlt : HudTab.Skills);
+            else if (input.WasKeyPressed(Keys.D))
+                WorldHud.ShowTab(shift ? HudTab.SpellsAlt : HudTab.Spells);
+            else if (input.WasKeyPressed(Keys.F))
+                WorldHud.ShowTab(shift ? HudTab.MessageHistory : HudTab.Chat);
+            else if (input.WasKeyPressed(Keys.G))
+                WorldHud.ShowTab(shift ? HudTab.ExtendedStats : HudTab.Stats);
+            else if (input.WasKeyPressed(Keys.H))
+                WorldHud.ShowTab(HudTab.Tools);
+
+            // Tab — toggle tab map overlay
+            if (input.WasKeyPressed(Keys.Tab))
+                TabMapVisible = !TabMapVisible;
+
+            // PageUp/PageDown — tab map zoom
+            if (TabMapVisible)
+            {
+                if (input.WasKeyPressed(Keys.PageUp))
+                    TabMapRenderer.ZoomIn();
+
+                if (input.WasKeyPressed(Keys.PageDown))
+                    TabMapRenderer.ZoomOut();
+            }
+
+            // F1 — hotkey help
+            // F1 — help merchant (server-side)
+            if (input.WasKeyPressed(Keys.F1))
+                Game.Connection.ClickEntity(uint.MaxValue);
+
+            // F3 — macro menu
+            if (input.WasKeyPressed(Keys.F3))
+                MacroMenu.Show();
+
+            // F4 — settings
+            if (input.WasKeyPressed(Keys.F4))
+                SettingsDialog.Show();
+
+            // F5 — refresh
+            if (input.WasKeyPressed(Keys.F5))
+                Game.Connection.RequestRefresh();
+
+            // F7 — mail
+            if (input.WasKeyPressed(Keys.F7))
+                Game.Connection.SendBoardInteraction(BoardRequestType.ViewBoard);
+
+            // F8 — group panel
+            if (input.WasKeyPressed(Keys.F8))
+                GroupPanel.Show();
+
+            // F9 — focus chat input
+            if (input.WasKeyPressed(Keys.F9))
+                if (!WorldHud.ChatInput.IsFocused)
+                    Chat.Focus(string.Empty, Color.White);
+
+            // F10 — friends list
+            if (input.WasKeyPressed(Keys.F10))
+                FriendsList.Show();
+
+            // / — swap HUD layout (small ↔ large)
+            if (input.WasKeyPressed(Keys.OemQuestion) && !shift)
+                SwapHudLayout();
+
+            // Spacebar — assail (repeats while held)
+            SpacebarTimer -= elapsedMs;
+
+            if (input.IsKeyHeld(Keys.Space) && (SpacebarTimer <= 0))
+            {
+                Game.Connection.Spacebar();
+                SpacebarTimer = SPACEBAR_INTERVAL_MS;
+                Pathfinding.Clear();
+            } else if (!input.IsKeyHeld(Keys.Space))
+                SpacebarTimer = 0;
+
+            // B — pick up item from under player, or from the tile in front
+            if (input.WasKeyPressed(Keys.B))
+                TryPickupItem();
+
+            // Emote hotkeys: Ctrl/Alt/Ctrl+Alt + number row → body animations 9-44
+            if (HandleEmoteHotkeys(input))
+                return;
+
+            // Slot hotkeys: 1-9, 0, -, = → use slot 1-12 of the active panel
+            HandleSlotHotkeys(input);
+
+            // Click handling — left click in viewport area
+            if (input.WasLeftButtonPressed)
+            {
+                // Ctrl+click — context menu on aisling entities
+                if (input.IsKeyHeld(Keys.LeftControl) || input.IsKeyHeld(Keys.RightControl))
+                    HandleCtrlClick(input.MouseX, input.MouseY);
+
+                // Alt+click on self — open self profile
+                else if (input.IsKeyHeld(Keys.LeftAlt) || input.IsKeyHeld(Keys.RightAlt))
+                {
+                    var altEntity = GetEntityAtScreen(input.MouseX, input.MouseY);
+
+                    if (altEntity is not null && (altEntity.Id == Game.Connection.AislingId))
+                    {
+                        SelfProfileRequested = true;
+                        Game.Connection.RequestSelfProfile();
+                    } else
+                        HandleWorldClick(input.MouseX, input.MouseY);
+                } else
+                    HandleWorldClick(input.MouseX, input.MouseY);
+            }
+
+            // Right-click — pathfind to clicked tile
+            if (input.WasRightButtonPressed)
+                HandleWorldRightClick(input.MouseX, input.MouseY);
+
+            // Player movement — each WasKeyPressed (initial press + OS key repeat) goes through:
+            // - Idle → walk (with client-side prediction) or turn immediately
+            // - Walking at >= 75% → queue one walk
+            Direction? direction = null;
+
+            if (input.WasKeyPressed(Keys.Up))
+                direction = Direction.Up;
+            else if (input.WasKeyPressed(Keys.Right))
+                direction = Direction.Right;
+            else if (input.WasKeyPressed(Keys.Down))
+                direction = Direction.Down;
+            else if (input.WasKeyPressed(Keys.Left))
+                direction = Direction.Left;
+
+            // Arrow key press cancels any active pathfinding
+            if (direction.HasValue)
+                Pathfinding.Clear();
+
+            if (direction.HasValue && player is not null && !movementHandled)
+            {
+                if (player.AnimState == EntityAnimState.Idle)
+                {
+                    if (player.Direction != direction.Value)
+                    {
+                        Game.Connection.Turn(direction.Value);
+                        player.Direction = direction.Value;
+                    } else
+                    {
+                        PredictAndWalk(player, direction.Value);
+                        QueuedWalkDirection = null;
+                    }
+                } else if (player.AnimState == EntityAnimState.Walking)
+                {
+                    // Must match AdvanceWalk's totalDuration formula: frameCount * interval
+                    var totalDuration = Math.Max(1f, player.AnimFrameCount * player.AnimFrameIntervalMs);
+                    var progress = player.AnimElapsedMs / totalDuration;
+
+                    if (progress >= WALK_QUEUE_THRESHOLD)
+                        QueuedWalkDirection = direction.Value;
+                }
+            }
+        }
+
+        ((UIPanel)WorldHud).Update(gameTime, input);
+
+        // Update inventory tooltip position to follow cursor
+        if (HoveredInventorySlot is not null && ItemTooltip.Visible)
+        {
+            var rightX = input.MouseX + 15;
+
+            ItemTooltip.X = (rightX + ItemTooltip.Width) <= ChaosGame.VIRTUAL_WIDTH ? rightX : input.MouseX - ItemTooltip.Width;
+
+            ItemTooltip.Y = Math.Clamp(input.MouseY + 15, 0, ChaosGame.VIRTUAL_HEIGHT - ItemTooltip.Height);
+        }
+
+        // Track highlighted entity when dragging a panel item over the world viewport
+        UpdateDragHighlight(input);
+
+        // Update overlays — tick timers, update screen positions, remove expired
+        if (MapFile is not null)
+            Overlays.Update(
+                gameTime,
+                input,
+                Game.World,
+                Camera,
+                MapFile.Height);
+
+        // Player silhouette is pre-rendered at the start of Draw
+    }
+}

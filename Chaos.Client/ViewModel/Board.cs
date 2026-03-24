@@ -34,9 +34,24 @@ public sealed class Board
     public bool EnablePrevButton { get; private set; }
 
     /// <summary>
+    ///     Whether the session is waiting for a ViewBoard response. Used to gate unsolicited type 2/4 packets.
+    /// </summary>
+    public bool IsBoardListPending { get; set; }
+
+    /// <summary>
     ///     Whether the current board is a public bulletin board (vs personal mail).
     /// </summary>
     public bool IsPublicBoard { get; private set; }
+
+    /// <summary>
+    ///     Whether a board session is currently open (any board panel visible).
+    /// </summary>
+    public bool IsSessionOpen { get; private set; }
+
+    /// <summary>
+    ///     Whether the session was opened from the board list (affects Up behavior on post list).
+    /// </summary>
+    public bool WasOpenedFromBoardList { get; set; }
 
     /// <summary>
     ///     The list of posts in the current board view.
@@ -61,7 +76,32 @@ public sealed class Board
         AvailableBoards = null;
     }
 
+    /// <summary>
+    ///     Closes the board session and resets all state.
+    /// </summary>
+    public void CloseSession()
+    {
+        if (!IsSessionOpen)
+            return;
+
+        IsSessionOpen = false;
+        IsBoardListPending = false;
+        WasOpenedFromBoardList = false;
+        Clear();
+        SessionClosed?.Invoke();
+    }
+
     public void HandleResponse(string message) => ResponseReceived?.Invoke(message);
+
+    /// <summary>
+    ///     Opens a new board session.
+    /// </summary>
+    public void OpenSession()
+    {
+        IsSessionOpen = true;
+        IsBoardListPending = false;
+        WasOpenedFromBoardList = false;
+    }
 
     /// <summary>
     ///     Fired when the post list is shown or updated (new page appended).
@@ -77,6 +117,11 @@ public sealed class Board
     ///     Fired when a server response message is received (submit/delete/highlight result).
     /// </summary>
     public event BoardResponseReceivedHandler? ResponseReceived;
+
+    /// <summary>
+    ///     Fired when the board session is closed (all panels should hide).
+    /// </summary>
+    public event Action? SessionClosed;
 
     public void ShowBoardList(ICollection<BoardInfo> boards)
     {

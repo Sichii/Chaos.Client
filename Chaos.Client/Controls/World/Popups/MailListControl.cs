@@ -15,9 +15,8 @@ namespace Chaos.Client.Controls.World.Popups;
 /// </summary>
 public sealed class MailListControl : PrefabPanel
 {
-    // lback.txt BulletinRect — mail/board panels are bottom-aligned to this region
-    private const int BULLETIN_RECT_LEFT = 8;
-    private const int BULLETIN_RECT_BOTTOM = 304;
+    private const float DOUBLE_CLICK_MS = 400f;
+    private const float SLIDE_DURATION_MS = 250f;
 
     // Server caps board responses at sbyte.MaxValue posts per page
     private const int MAX_POSTS_PER_PAGE = 127;
@@ -37,14 +36,21 @@ public sealed class MailListControl : PrefabPanel
 
     private List<MailEntry> Entries = [];
     private bool HasMorePosts;
+    private float LastClickTime;
+    private int OffScreenX;
 
     private int RenderedVersion = -1;
     private int ScrollOffset;
     private int SelectedIndex = -1;
+    private float SlideTimer;
+    private bool Sliding;
+    private bool SlidingOut;
+    private int TargetX;
 
     public ushort BoardId { get; private set; }
     public bool IsPublicBoard { get; private set; }
     public UIButton? DeleteButton { get; }
+    public UIButton? HighlightButton { get; }
     public UIButton? NewButton { get; }
 
     public UIButton? QuitButton { get; }
@@ -53,12 +59,10 @@ public sealed class MailListControl : PrefabPanel
 
     public UIButton? ViewButton { get; }
 
-    public MailListControl()
-        : base("_nmaill", false)
+    public MailListControl(string prefabName = "_nmaill")
+        : base(prefabName, false)
     {
         Name = "MailList";
-        X = BULLETIN_RECT_LEFT;
-        Y = BULLETIN_RECT_BOTTOM - Height;
         Visible = false;
 
         ViewButton = CreateButton("View");
@@ -66,14 +70,10 @@ public sealed class MailListControl : PrefabPanel
         ReplyButton = CreateButton("Reply");
         DeleteButton = CreateButton("Delete");
         UpButton = CreateButton("Up");
-        QuitButton = CreateButton("Quit");
+        QuitButton = CreateButton("Quit") ?? CreateButton("Close");
 
         if (QuitButton is not null)
-            QuitButton.OnClick += () =>
-            {
-                Hide();
-                OnClose?.Invoke();
-            };
+            QuitButton.OnClick += () => OnClose?.Invoke();
 
         if (ViewButton is not null)
             ViewButton.OnClick += () =>
@@ -99,8 +99,29 @@ public sealed class MailListControl : PrefabPanel
                     OnDeletePost?.Invoke(Entries[SelectedIndex].PostId);
             };
 
-        // MailList rect for scrollable area
-        MailListRect = GetRect("MailList");
+        if (UpButton is not null)
+            UpButton.OnClick += () => OnUp?.Invoke();
+
+        HighlightButton = CreateButton("Hilight");
+
+        if (HighlightButton is not null)
+        {
+            HighlightButton.Visible = false;
+
+            HighlightButton.OnClick += () =>
+            {
+                if ((SelectedIndex >= 0) && (SelectedIndex < Entries.Count))
+                    OnHighlight?.Invoke(Entries[SelectedIndex].PostId);
+            };
+        }
+
+        // List rect for scrollable area — "MailList" in _nmaill, "ArticleList" in _narlist
+        var listRect = GetRect("MailList");
+
+        if (listRect.Width == 0)
+            listRect = GetRect("ArticleList");
+
+        MailListRect = listRect;
         MaxVisibleRows = MailListRect.Height > 0 ? MailListRect.Height / ROW_HEIGHT : 0;
 
         // Scrollbar
@@ -193,21 +214,6 @@ public sealed class MailListControl : PrefabPanel
                 continue;
             }
 
-            // Selection highlight
-            if (entryIndex == SelectedIndex)
-                DrawRect(
-                    spriteBatch,
-                    new Rectangle(
-                        listX,
-                        rowY,
-                        MailListRect.Width - 16,
-                        ROW_HEIGHT),
-                    new Color(
-                        80,
-                        120,
-                        200,
-                        100));
-
             // Date
             DateCaches[i]
                 .Draw(spriteBatch, new Vector2(listX + 2, rowY + 2));
@@ -222,8 +228,16 @@ public sealed class MailListControl : PrefabPanel
         }
     }
 
+    public override void Hide()
+    {
+        Visible = false;
+        Sliding = false;
+        X = OffScreenX;
+    }
+
     public event Action? OnClose;
     public event Action<short>? OnDeletePost;
+    public event Action<short>? OnHighlight;
 
     /// <summary>
     ///     Fired when the user clicks the "Load More" row at the bottom of a full page. The short is the last visible PostId
@@ -233,6 +247,7 @@ public sealed class MailListControl : PrefabPanel
 
     public event Action? OnNewMail;
     public event Action<short>? OnReplyPost;
+    public event Action? OnUp;
     public event Action<short>? OnViewPost;
 
     private void RefreshRowCaches()
@@ -260,7 +275,13 @@ public sealed class MailListControl : PrefabPanel
             } else if (entryIndex < Entries.Count)
             {
                 var entry = Entries[entryIndex];
-                var textColor = entry.IsHighlighted ? Color.Yellow : Color.White;
+                var isSelected = entryIndex == SelectedIndex;
+
+                var textColor = isSelected
+                    ? new Color(100, 149, 237)
+                    : entry.IsHighlighted
+                        ? Color.Yellow
+                        : Color.White;
 
                 DateCaches[i]
                     .Update($"{entry.Month}/{entry.Day}", textColor);
@@ -285,6 +306,28 @@ public sealed class MailListControl : PrefabPanel
     }
 
     /// <summary>
+    ///     Shows or hides the Highlight button based on GM status and board type.
+    /// </summary>
+    public void SetHighlightEnabled(bool enabled)
+    {
+        if (HighlightButton is not null)
+            HighlightButton.Visible = enabled;
+    }
+
+    public void SetViewportBounds(Rectangle viewport)
+    {
+        TargetX = viewport.X + viewport.Width - Width;
+        OffScreenX = viewport.X + viewport.Width;
+        Y = viewport.Y;
+    }
+
+    public override void Show()
+    {
+        if (!Visible)
+            SlideIn();
+    }
+
+    /// <summary>
     ///     Populates the mail list from server data (first page).
     /// </summary>
     public void ShowMailList(ushort boardId, List<MailEntry> entries, bool isPublicBoard)
@@ -303,7 +346,17 @@ public sealed class MailListControl : PrefabPanel
         if (ReplyButton is not null)
             ReplyButton.Visible = !isPublicBoard;
 
+        UpdateButtonStates();
         Show();
+    }
+
+    private void SlideIn()
+    {
+        X = OffScreenX;
+        Visible = true;
+        Sliding = true;
+        SlidingOut = false;
+        SlideTimer = 0;
     }
 
     public override void Update(GameTime gameTime, InputBuffer input)
@@ -311,10 +364,40 @@ public sealed class MailListControl : PrefabPanel
         if (!Visible || !Enabled)
             return;
 
+        if (Sliding)
+        {
+            SlideTimer += (float)gameTime.ElapsedGameTime.TotalMilliseconds;
+            var t = Math.Clamp(SlideTimer / SLIDE_DURATION_MS, 0f, 1f);
+            var eased = 1f - (1f - t) * (1f - t);
+
+            if (SlidingOut)
+            {
+                X = (int)MathHelper.Lerp(TargetX, OffScreenX, eased);
+
+                if (t >= 1f)
+                {
+                    Visible = false;
+                    Sliding = false;
+                    X = OffScreenX;
+                    OnClose?.Invoke();
+
+                    return;
+                }
+            } else
+            {
+                X = (int)MathHelper.Lerp(OffScreenX, TargetX, eased);
+
+                if (t >= 1f)
+                {
+                    X = TargetX;
+                    Sliding = false;
+                }
+            }
+        }
+
         if (input.WasKeyPressed(Keys.Escape))
         {
-            Hide();
-            OnClose?.Invoke();
+            OnUp?.Invoke();
 
             return;
         }
@@ -322,6 +405,8 @@ public sealed class MailListControl : PrefabPanel
         base.Update(gameTime, input);
 
         var totalRows = Entries.Count + (HasMorePosts ? 1 : 0);
+
+        LastClickTime += (float)gameTime.ElapsedGameTime.TotalMilliseconds;
 
         // Click to select row or trigger "Load More"
         if (input.WasLeftButtonPressed)
@@ -341,8 +426,17 @@ public sealed class MailListControl : PrefabPanel
                     OnLoadMorePosts?.Invoke(lastPostId);
                 } else if (entryIndex < Entries.Count)
                 {
-                    SelectedIndex = entryIndex;
-                    DataVersion++;
+                    if ((entryIndex == SelectedIndex) && (LastClickTime < DOUBLE_CLICK_MS))
+                    {
+                        OnViewPost?.Invoke(Entries[entryIndex].PostId);
+                        LastClickTime = float.MaxValue;
+                    } else
+                    {
+                        SelectedIndex = entryIndex;
+                        DataVersion++;
+                        UpdateButtonStates();
+                        LastClickTime = 0;
+                    }
                 }
             }
         }
@@ -354,6 +448,23 @@ public sealed class MailListControl : PrefabPanel
             ScrollBar.Value = ScrollOffset;
             DataVersion++;
         }
+    }
+
+    private void UpdateButtonStates()
+    {
+        var hasSelection = (SelectedIndex >= 0) && (SelectedIndex < Entries.Count);
+
+        if (ViewButton is not null)
+            ViewButton.Enabled = hasSelection;
+
+        if (DeleteButton is not null)
+            DeleteButton.Enabled = hasSelection;
+
+        if (ReplyButton is not null)
+            ReplyButton.Enabled = hasSelection;
+
+        if (HighlightButton is { Visible: true })
+            HighlightButton.Enabled = hasSelection;
     }
 
     private void UpdateScrollBar()

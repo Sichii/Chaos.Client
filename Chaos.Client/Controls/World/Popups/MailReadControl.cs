@@ -14,9 +14,8 @@ namespace Chaos.Client.Controls.World.Popups;
 /// </summary>
 public sealed class MailReadControl : PrefabPanel
 {
-    private const int BULLETIN_RECT_LEFT = 8;
-    private const int BULLETIN_RECT_BOTTOM = 304;
     private const int LINE_HEIGHT = 12;
+    private const float SLIDE_DURATION_MS = 250f;
 
     private readonly UILabel? AuthorLabel;
     private readonly Rectangle ContentRect;
@@ -26,8 +25,12 @@ public sealed class MailReadControl : PrefabPanel
     private readonly int MaxVisibleLines;
     private readonly UILabel? TitleLabel;
     private int DataVersion;
+    private int OffScreenX;
     private int RenderedVersion = -1;
     private int ScrollOffset;
+    private float SlideTimer;
+    private bool Sliding;
+    private int TargetX;
     private List<string> WrappedLines = [];
     public ushort BoardId { get; set; }
     public string CurrentAuthor { get; private set; } = string.Empty;
@@ -43,12 +46,10 @@ public sealed class MailReadControl : PrefabPanel
     public UIButton? ReplyButton { get; }
     public UIButton? UpButton { get; }
 
-    public MailReadControl()
-        : base("_nmailr", false)
+    public MailReadControl(string prefabName = "_nmailr")
+        : base(prefabName, false)
     {
         Name = "MailRead";
-        X = BULLETIN_RECT_LEFT;
-        Y = BULLETIN_RECT_BOTTOM - Height;
         Visible = false;
 
         PrevButton = CreateButton("Prev");
@@ -57,21 +58,13 @@ public sealed class MailReadControl : PrefabPanel
         ReplyButton = CreateButton("Reply");
         DeleteButton = CreateButton("Delete");
         UpButton = CreateButton("Up");
-        QuitButton = CreateButton("Quit");
+        QuitButton = CreateButton("Quit") ?? CreateButton("Close");
 
         if (QuitButton is not null)
-            QuitButton.OnClick += () =>
-            {
-                Hide();
-                OnClose?.Invoke();
-            };
+            QuitButton.OnClick += () => OnQuit?.Invoke();
 
         if (UpButton is not null)
-            UpButton.OnClick += () =>
-            {
-                Hide();
-                OnClose?.Invoke();
-            };
+            UpButton.OnClick += () => OnUp?.Invoke();
 
         if (PrevButton is not null)
             PrevButton.OnClick += () => OnPrev?.Invoke();
@@ -138,12 +131,20 @@ public sealed class MailReadControl : PrefabPanel
         }
     }
 
-    public event Action? OnClose;
+    public override void Hide()
+    {
+        Visible = false;
+        Sliding = false;
+        X = OffScreenX;
+    }
+
     public event Action<short>? OnDeletePost;
     public event Action? OnNewMail;
     public event Action? OnNext;
     public event Action? OnPrev;
+    public event Action? OnQuit;
     public event Action<short>? OnReplyPost;
+    public event Action? OnUp;
 
     private void RefreshLineCaches()
     {
@@ -159,6 +160,19 @@ public sealed class MailReadControl : PrefabPanel
             LineCaches[i]
                 .Update(lineIndex < WrappedLines.Count ? WrappedLines[lineIndex] : string.Empty, Color.White);
         }
+    }
+
+    public void SetViewportBounds(Rectangle viewport)
+    {
+        TargetX = viewport.X + viewport.Width - Width;
+        OffScreenX = viewport.X + viewport.Width;
+        Y = viewport.Y;
+    }
+
+    public override void Show()
+    {
+        if (!Visible)
+            SlideIn();
     }
 
     /// <summary>
@@ -194,15 +208,36 @@ public sealed class MailReadControl : PrefabPanel
         Show();
     }
 
+    private void SlideIn()
+    {
+        X = OffScreenX;
+        Visible = true;
+        Sliding = true;
+        SlideTimer = 0;
+    }
+
     public override void Update(GameTime gameTime, InputBuffer input)
     {
         if (!Visible || !Enabled)
             return;
 
+        if (Sliding)
+        {
+            SlideTimer += (float)gameTime.ElapsedGameTime.TotalMilliseconds;
+            var t = Math.Clamp(SlideTimer / SLIDE_DURATION_MS, 0f, 1f);
+            var eased = 1f - (1f - t) * (1f - t);
+            X = (int)MathHelper.Lerp(OffScreenX, TargetX, eased);
+
+            if (t >= 1f)
+            {
+                X = TargetX;
+                Sliding = false;
+            }
+        }
+
         if (input.WasKeyPressed(Keys.Escape))
         {
-            Hide();
-            OnClose?.Invoke();
+            OnUp?.Invoke();
 
             return;
         }

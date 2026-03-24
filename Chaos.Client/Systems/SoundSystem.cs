@@ -4,13 +4,13 @@ using Microsoft.Xna.Framework.Audio;
 using NAudio.Wave;
 #endregion
 
-namespace Chaos.Client.Systems.Sound;
+namespace Chaos.Client.Systems;
 
 /// <summary>
 ///     Manages sound effect playback. Decodes MP3 streams from the game archives via NAudio, caches a bounded number of
 ///     SoundEffect instances. Reads directly from memory-mapped archives — no intermediate stream caching.
 /// </summary>
-public sealed class SoundManager : IDisposable
+public sealed class SoundSystem : IDisposable
 {
     private const int MAX_CACHED_SOUNDS = 64;
     private const int VOLUME_STEPS = 10;

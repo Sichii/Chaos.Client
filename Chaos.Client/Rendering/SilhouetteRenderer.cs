@@ -1,6 +1,6 @@
 #region
 using Chaos.Client.Models;
-using Chaos.Client.Systems.Animation;
+using Chaos.Client.Systems;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 #endregion
@@ -56,7 +56,7 @@ public sealed class SilhouetteRenderer : IDisposable
             return;
 
         var appearance = entity.Appearance.Value;
-        (var frameIndex, var flip, var animSuffix, var isFrontFacing) = AnimationManager.GetAislingFrame(entity);
+        (var frameIndex, var flip, var animSuffix, var isFrontFacing) = AnimationSystem.GetAislingFrame(entity);
         var emotionFrame = entity.ActiveEmoteFrame;
 
         var drawData = aislingRenderer.GetLayerFrames(

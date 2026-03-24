@@ -5,7 +5,7 @@ using Chaos.Client.Extensions;
 using Chaos.Client.Models;
 using Chaos.Client.Networking;
 using Chaos.Client.Rendering;
-using Chaos.Client.Systems.Animation;
+using Chaos.Client.Systems;
 using Chaos.Client.ViewModel;
 using Chaos.DarkAges.Definitions;
 using Chaos.Extensions.Common;
@@ -68,6 +68,11 @@ public sealed class WorldState
     ///     Authoritative exchange (trade) state.
     /// </summary>
     public Exchange Exchange { get; } = new();
+
+    /// <summary>
+    ///     Authoritative group/party membership state.
+    /// </summary>
+    public GroupState Group { get; } = new();
 
     /// <summary>
     ///     Authoritative group invite state.
@@ -342,7 +347,7 @@ public sealed class WorldState
         entity.TileY = oldY + dy;
         entity.Direction = direction;
 
-        AnimationManager.StartWalk(
+        AnimationSystem.StartWalk(
             entity,
             direction,
             entity.UsesCreatureWalkTiming,
@@ -362,7 +367,7 @@ public sealed class WorldState
         entity.TileY = oldY + dy;
         entity.Direction = direction;
 
-        AnimationManager.StartWalk(
+        AnimationSystem.StartWalk(
             entity,
             direction,
             entity.UsesCreatureWalkTiming,
@@ -628,6 +633,11 @@ public sealed class WorldState
                     break;
 
                 case BoardOrResponseType.PublicBoard or BoardOrResponseType.MailBoard:
+                    if (!Board.IsBoardListPending)
+                        break;
+
+                    Board.IsBoardListPending = false;
+
                     if (args.Board is not null)
                     {
                         var isPublic = args.Type == BoardOrResponseType.PublicBoard;
@@ -653,6 +663,14 @@ public sealed class WorldState
 
                 case BoardOrResponseType.PublicPost or BoardOrResponseType.MailPost:
                     if (args.Post is not null)
+                    {
+                        if (args.Post.PostId == 0)
+                        {
+                            Board.HandleResponse("No such post.");
+
+                            break;
+                        }
+
                         Board.ShowPost(
                             args.Post.PostId,
                             args.Post.Author,
@@ -661,6 +679,7 @@ public sealed class WorldState
                             args.Post.Subject,
                             args.Post.Message,
                             args.EnablePrevBtn);
+                    }
 
                     break;
 

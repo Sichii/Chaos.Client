@@ -625,7 +625,7 @@ public sealed class NotepadControl : UIPanel
         {
             var currentBox = EditBoxes[focusedIndex];
 
-            if ((currentBox.CursorPosition == 0) && !currentBox.HasSelection)
+            if (currentBox is { CursorPosition: 0, HasSelection: false })
             {
                 var lineIndex = ScrollOffset + focusedIndex;
 

@@ -2,7 +2,7 @@
 using Chaos.Client.Data.Definitions;
 #endregion
 
-namespace Chaos.Client.Systems.Animation;
+namespace Chaos.Client.Models;
 
 /// <summary>
 ///     Tracks a single in-flight spell/effect animation. Can be attached to an entity or positioned at a tile.

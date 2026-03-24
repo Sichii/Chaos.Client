@@ -1,6 +1,5 @@
 #region
 using Chaos.Client.Data.Utilities;
-using Chaos.Client.Definitions;
 using Chaos.Client.Models;
 using Chaos.Client.Rendering;
 using Chaos.DarkAges.Definitions;
@@ -8,13 +7,13 @@ using Chaos.Geometry.Abstractions.Definitions;
 using Microsoft.Xna.Framework;
 #endregion
 
-namespace Chaos.Client.Systems.Animation;
+namespace Chaos.Client.Systems;
 
 /// <summary>
 ///     Static class containing all entity animation logic. WorldEntity is a data bag; this class provides pure methods to
 ///     start, advance, and resolve animation state for rendering.
 /// </summary>
-public static class AnimationManager
+public static class AnimationSystem
 {
     private const int DEFAULT_WALK_FRAMES = 4;
     private const float DEFAULT_WALK_FRAME_MS = 114;
@@ -120,7 +119,7 @@ public static class AnimationManager
         if (DataUtilities.IsEmote(bodyAnim))
             return;
 
-        (var startIndex, var framesPerDir) = ResolveCreatureAttack(bodyAnim, in animInfo);
+        (_, var framesPerDir) = ResolveCreatureAttack(bodyAnim, in animInfo);
 
         if (framesPerDir == 0)
             return;
@@ -155,10 +154,14 @@ public static class AnimationManager
     ///     Advances an entity's animation by the given elapsed milliseconds. Handles walk offset, frame stepping, and
     ///     completion reset to idle.
     /// </summary>
+    /// <param name="elapsedMs">
+    /// </param>
     /// <param name="smoothScroll">
     ///     When true (smooth), the player's walk visual offset lerps continuously between frames. When false (rough/default),
     ///     the visual offset steps discretely with each animation frame, matching how all non-player entities move. Only
     ///     relevant for the player entity.
+    /// </param>
+    /// <param name="entity">
     /// </param>
     public static void Advance(WorldEntity entity, float elapsedMs, bool smoothScroll = false)
     {

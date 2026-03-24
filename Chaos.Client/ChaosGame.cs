@@ -6,7 +6,6 @@ using Chaos.Client.Networking;
 using Chaos.Client.Rendering;
 using Chaos.Client.Screens;
 using Chaos.Client.Systems;
-using Chaos.Client.Systems.Sound;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using Microsoft.Xna.Framework.Input;
@@ -78,7 +77,7 @@ public sealed class ChaosGame : Game
     /// <summary>
     ///     Manages sound effect and music playback.
     /// </summary>
-    public SoundManager SoundManager { get; } = new();
+    public SoundSystem SoundSystem { get; } = new();
 
     /// <summary>
     ///     Tracks all visible entities in the current map.
@@ -296,7 +295,7 @@ public sealed class ChaosGame : Game
         AislingRenderer.Dispose();
         EffectRenderer.Dispose();
         ItemRenderer.Dispose();
-        SoundManager.Dispose();
+        SoundSystem.Dispose();
         UiRenderer.Instance?.Dispose();
         UiRenderer.Instance = null;
         base.UnloadContent();

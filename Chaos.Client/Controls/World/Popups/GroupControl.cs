@@ -1,5 +1,7 @@
 #region
 using Chaos.Client.Controls.Components;
+using Chaos.Client.Rendering;
+using Chaos.Client.ViewModel;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using Microsoft.Xna.Framework.Input;
@@ -8,8 +10,9 @@ using Microsoft.Xna.Framework.Input;
 namespace Chaos.Client.Controls.World.Popups;
 
 /// <summary>
-///     Group/party panel using _ngcdlg0 (empty/invite mode) prefab. Displays group member slots (USER0/USER1) and an
-///     invite button. When in a group, shows member names and a "leave" option. BTN_OK confirms actions.
+///     Group/party panel using _ngcdlg0 prefab. Displays group member slots with quit buttons.
+///     When the player is the leader, quit buttons next to other members are enabled (kick).
+///     BTN_OK closes the panel.
 /// </summary>
 public sealed class GroupControl : PrefabPanel
 {
@@ -17,19 +20,22 @@ public sealed class GroupControl : PrefabPanel
     private const int ROW_HEIGHT = 22;
     private const int NAME_X = 53;
     private const int NAME_START_Y = 47;
+    private const int QUIT_BTN_X = 156;
+    private const int QUIT_BTN_START_Y = 42;
+    private const int QUIT_BTN_WIDTH = 30;
+    private const int QUIT_BTN_HEIGHT = 20;
 
+    private readonly GroupState GroupState;
     private readonly UILabel?[] MemberLabels = new UILabel?[MAX_MEMBERS];
-    private int DataVersion;
+    private readonly UIButton[] QuitButtons = new UIButton[MAX_MEMBERS];
+    private bool Dirty;
 
-    private List<string> Members = [];
-    private int RenderedVersion = -1;
-
-    public UIButton? InviteButton { get; }
     public UIButton? OkButton { get; }
 
-    public GroupControl()
+    public GroupControl(GroupState groupState)
         : base("_ngcdlg0", false)
     {
+        GroupState = groupState;
         Name = "Group";
         Visible = false;
 
@@ -37,7 +43,6 @@ public sealed class GroupControl : PrefabPanel
         X = 0;
         Y = 0;
 
-        InviteButton = CreateButton("B_BTN0");
         OkButton = CreateButton("BTN_OK");
 
         if (OkButton is not null)
@@ -47,10 +52,13 @@ public sealed class GroupControl : PrefabPanel
                 OnClose?.Invoke();
             };
 
-        if (InviteButton is not null)
-            InviteButton.OnClick += () => OnInvite?.Invoke();
+        // Quit button textures from B_BTN0: 0=normal, 1=pressed, 2=disabled
+        var cache = UiRenderer.Instance!;
+        var normalTexture = cache.GetPrefabTexture("_ngcdlg0", "B_BTN0", 0);
+        var pressedTexture = cache.GetPrefabTexture("_ngcdlg0", "B_BTN0", 1);
+        var disabledTexture = cache.GetPrefabTexture("_ngcdlg0", "B_BTN0", 2);
 
-        // Create member name labels from USER prefab controls (and extras manually)
+        // Create member name labels and quit buttons for each row
         for (var i = 0; i < MAX_MEMBERS; i++)
         {
             var controlName = $"USER{i}";
@@ -58,9 +66,8 @@ public sealed class GroupControl : PrefabPanel
 
             if (label is not null)
                 MemberLabels[i] = label;
-            else if (i < 2)
+            else
             {
-                // Create default labels for USER0/USER1 if not found in prefab
                 MemberLabels[i] = new UILabel
                 {
                     Name = controlName,
@@ -72,16 +79,37 @@ public sealed class GroupControl : PrefabPanel
 
                 AddChild(MemberLabels[i]!);
             }
-        }
-    }
 
-    /// <summary>
-    ///     Clears the group state (left or disbanded).
-    /// </summary>
-    public void ClearGroup()
-    {
-        Members.Clear();
-        DataVersion++;
+            // Quit/kick button for each row — disabled by default
+            var quitButton = new UIButton
+            {
+                Name = $"QUIT{i}",
+                X = QUIT_BTN_X,
+                Y = QUIT_BTN_START_Y + i * ROW_HEIGHT,
+                Width = QUIT_BTN_WIDTH,
+                Height = QUIT_BTN_HEIGHT,
+                NormalTexture = disabledTexture,
+                PressedTexture = pressedTexture,
+                Enabled = false
+            };
+
+            // Capture index for the click handler
+            var memberIndex = i;
+
+            quitButton.OnClick += () =>
+            {
+                var members = GroupState.Members;
+
+                if (memberIndex < members.Count)
+                    OnKick?.Invoke(members[memberIndex]);
+            };
+
+            QuitButtons[i] = quitButton;
+            AddChild(quitButton);
+        }
+
+        GroupState.Changed += () => Dirty = true;
+        Dirty = true;
     }
 
     public override void Draw(SpriteBatch spriteBatch)
@@ -89,43 +117,49 @@ public sealed class GroupControl : PrefabPanel
         if (!Visible)
             return;
 
-        RefreshLabels();
+        if (Dirty)
+            Refresh();
 
         base.Draw(spriteBatch);
     }
 
     public event Action? OnClose;
-    public event Action? OnInvite;
+    public event Action<string>? OnKick;
     #pragma warning disable CS0067 // not yet wired
     public event Action? OnLeave;
     #pragma warning restore CS0067
 
-    private void RefreshLabels()
+    private void Refresh()
     {
-        if (RenderedVersion == DataVersion)
-            return;
+        Dirty = false;
+        var members = GroupState.Members;
+        var leaderName = GroupState.LeaderName;
+        var isLeader = GroupState.IsLeader;
+        var playerName = GroupState.PlayerName;
 
-        RenderedVersion = DataVersion;
+        var cache = UiRenderer.Instance!;
+        var normalTexture = cache.GetPrefabTexture("_ngcdlg0", "B_BTN0", 0);
+        var disabledTexture = cache.GetPrefabTexture("_ngcdlg0", "B_BTN0", 2);
 
         for (var i = 0; i < MAX_MEMBERS; i++)
         {
-            if (MemberLabels[i] is null)
-                continue;
+            if (MemberLabels[i] is not null)
+            {
+                if (i < members.Count)
+                {
+                    var isMemberLeader = string.Equals(members[i], leaderName, StringComparison.OrdinalIgnoreCase);
+                    MemberLabels[i]!.SetText(members[i], isMemberLeader ? Color.White : Color.LightGray);
+                } else
+                    MemberLabels[i]!.SetText(string.Empty);
+            }
 
-            if (i < Members.Count)
-                MemberLabels[i]!.SetText(Members[i], Color.White);
-            else
-                MemberLabels[i]!.SetText(string.Empty);
+            // Enable quit button only for other members when we are the leader
+            var isSelf = (i < members.Count) && string.Equals(members[i], playerName, StringComparison.OrdinalIgnoreCase);
+            var canKick = isLeader && (i < members.Count) && !isSelf;
+
+            QuitButtons[i].Enabled = canKick;
+            QuitButtons[i].NormalTexture = canKick ? normalTexture : disabledTexture;
         }
-    }
-
-    /// <summary>
-    ///     Updates the group display with member names.
-    /// </summary>
-    public void SetMembers(List<string> members)
-    {
-        Members = members;
-        DataVersion++;
     }
 
     public override void Update(GameTime gameTime, InputBuffer input)

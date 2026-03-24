@@ -20,9 +20,7 @@ public sealed class ToolsPanel : PanelBase
             TOOL_SLOTS,
             background: background,
             normalVisibleSlots: normalVisibleSlots)
-    {
-        Name = "Tools";
-    }
+        => Name = "Tools";
 
     protected override Texture2D? RenderIcon(ushort spriteId) => UiRenderer.Instance!.GetItemIcon(spriteId);
 }

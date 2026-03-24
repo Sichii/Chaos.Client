@@ -8,7 +8,7 @@ namespace Chaos.Client.Systems;
 /// <summary>
 ///     Tracks the state of the spell casting pipeline: target selection (cast mode) and chant line sequencing.
 /// </summary>
-public sealed class CastingManager
+public sealed class CastingSystem
 {
     private const float CHANT_INTERVAL_MS = 1000f;
     private float ElapsedMs;

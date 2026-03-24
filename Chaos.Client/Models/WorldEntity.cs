@@ -1,8 +1,7 @@
 #region
 using Chaos.Client.Collections;
-using Chaos.Client.Definitions;
 using Chaos.Client.Rendering;
-using Chaos.Client.Systems.Animation;
+using Chaos.Client.Systems;
 using Chaos.DarkAges.Definitions;
 using Chaos.Geometry.Abstractions.Definitions;
 using Microsoft.Xna.Framework;
@@ -12,7 +11,7 @@ namespace Chaos.Client.Models;
 
 /// <summary>
 ///     Represents a visible entity in the game world. Tracked by <see cref="WorldState" /> and rendered by GameScreen.
-///     Animation state is managed by <see cref="AnimationManager" />.
+///     Animation state is managed by <see cref="AnimationSystem" />.
 /// </summary>
 public sealed class WorldEntity
 {
