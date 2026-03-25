@@ -1,29 +1,20 @@
 namespace Chaos.Client.Models;
 
 /// <summary>
-///     Tracks double-click detection for a tile position. Call <see cref="Tick" /> each frame, then <see cref="Click" />
-///     when a click occurs to get whether it's a double-click.
+///     Tracks whether consecutive clicks target the same tile. Call <see cref="Click" /> when a click occurs; returns true
+///     if the same tile was clicked previously. Double-click timing is handled by <see cref="InputBuffer" />.
 /// </summary>
 public struct TileClickTracker
 {
-    private const float DOUBLE_CLICK_MS = 400f;
-
     private int LastTileX;
     private int LastTileY;
-    private float Timer = DOUBLE_CLICK_MS;
-
-    public TileClickTracker() { }
-
-    public void Tick(float elapsedMs) => Timer += elapsedMs;
 
     public bool Click(int tileX, int tileY)
     {
-        var isDouble = (Timer < DOUBLE_CLICK_MS) && (tileX == LastTileX) && (tileY == LastTileY);
-
-        Timer = 0;
+        var sameTile = (tileX == LastTileX) && (tileY == LastTileY);
         LastTileX = tileX;
         LastTileY = tileY;
 
-        return isDouble;
+        return sameTile;
     }
 }

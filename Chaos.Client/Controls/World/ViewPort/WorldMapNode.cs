@@ -23,7 +23,7 @@ public sealed class WorldMapNode : UIElement
     private static Texture2D? SharedNormalBox;
     private static Texture2D? SharedHoveredBox;
 
-    private readonly CachedText Label;
+    private readonly TextElement Label;
     private readonly string Text;
     private bool IsHovered;
     public ushort CheckSum { get; }
@@ -47,12 +47,12 @@ public sealed class WorldMapNode : UIElement
         DestY = destY;
         CheckSum = checkSum;
         Text = text;
-        Label = new CachedText();
+        Label = new TextElement();
         Label.Update(text, Color.White);
 
         EnsureBoxTextures();
 
-        var textWidth = Label.Texture?.Width ?? 0;
+        var textWidth = Label.Width;
         Width = BOX_SIZE + BOX_GAP + textWidth;
         Height = Math.Max(BOX_SIZE, GLYPH_HEIGHT);
     }
@@ -89,13 +89,6 @@ public sealed class WorldMapNode : UIElement
         return texture;
     }
 
-    public override void Dispose()
-    {
-        Label.Dispose();
-
-        base.Dispose();
-    }
-
     public override void Draw(SpriteBatch spriteBatch)
     {
         if (!Visible)
@@ -114,7 +107,7 @@ public sealed class WorldMapNode : UIElement
         }
 
         // Text bottom-aligned
-        var textHeight = Label.Texture?.Height ?? GLYPH_HEIGHT;
+        var textHeight = Label.Height > 0 ? Label.Height : GLYPH_HEIGHT;
         var textY = bottom - textHeight;
         Label.Draw(spriteBatch, new Vector2(ScreenX + BOX_SIZE + BOX_GAP, textY));
     }

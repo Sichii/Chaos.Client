@@ -4,6 +4,7 @@ using Chaos.Client.Data;
 using Chaos.Client.Rendering;
 using Chaos.Client.Utilities;
 using Microsoft.Xna.Framework;
+using Microsoft.Xna.Framework.Graphics;
 using Microsoft.Xna.Framework.Input;
 #endregion
 
@@ -31,9 +32,11 @@ public sealed class OkPopupMessageControl : UIPanel
     private readonly int ContentX;
     private readonly int ContentY;
 
-    public UIButton? CancelButton { get; }
+    private List<string>? MessageLines;
+    private int MessageTextX;
+    private int MessageTextY;
 
-    private UIImage MessageImage { get; }
+    public UIButton? CancelButton { get; }
     public UIButton OkButton { get; }
 
     public OkPopupMessageControl(bool showCancel = false)
@@ -91,14 +94,6 @@ public sealed class OkPopupMessageControl : UIPanel
         ContentWidth = interiorWidth - CONTENT_PADDING * 2;
         ContentHeight = INTERIOR_HEIGHT - CONTENT_PADDING * 2;
 
-        // Text image placeholder
-        MessageImage = new UIImage
-        {
-            Name = "MessageText",
-            Visible = false
-        };
-        AddChild(MessageImage);
-
         // Cancel button (optional)
         if (showCancel)
         {
@@ -122,10 +117,25 @@ public sealed class OkPopupMessageControl : UIPanel
         }
     }
 
+    public override void Draw(SpriteBatch spriteBatch)
+    {
+        if (!Visible)
+            return;
+
+        base.Draw(spriteBatch);
+
+        if (MessageLines is not null)
+            TextRenderer.DrawLines(
+                spriteBatch,
+                new Vector2(ScreenX + MessageTextX, ScreenY + MessageTextY),
+                MessageLines,
+                Color.White);
+    }
+
     public void Hide()
     {
         Visible = false;
-        MessageImage.Visible = false;
+        MessageLines = null;
     }
 
     public event Action? OnCancel;
@@ -134,20 +144,12 @@ public sealed class OkPopupMessageControl : UIPanel
 
     public void Show(string message)
     {
-        MessageImage.Texture?.Dispose();
+        var lines = TextRenderer.WrapText(message, ContentWidth);
+        var textHeight = Math.Max(TextRenderer.CHAR_HEIGHT, lines.Count * TextRenderer.CHAR_HEIGHT);
 
-        var textTexture = TextRenderer.RenderWrappedText(
-            message,
-            ContentWidth,
-            ContentHeight,
-            Color.White);
-
-        MessageImage.Texture = textTexture;
-        MessageImage.X = ContentX + (ContentWidth - textTexture.Width) / 2 - 9;
-        MessageImage.Y = ContentY + (ContentHeight - textTexture.Height) / 2 - 10;
-        MessageImage.Width = textTexture.Width;
-        MessageImage.Height = textTexture.Height;
-        MessageImage.Visible = true;
+        MessageLines = lines;
+        MessageTextX = ContentX - 9;
+        MessageTextY = ContentY + (ContentHeight - textHeight) / 2 - 10;
         Visible = true;
     }
 

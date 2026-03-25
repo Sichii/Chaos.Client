@@ -1,18 +1,14 @@
 #region
-using System.Buffers;
 using System.Text;
-using Chaos.Client.Data;
-using DALib.Drawing;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
-using SkiaSharp;
 #endregion
 
 namespace Chaos.Client.Rendering;
 
 /// <summary>
-///     Renders text strings to Texture2D using bitmap fonts from Legend.dat. Supports mixed English (8x12) and Korean
-///     (16x12) text via codepage 949.
+///     Draws text via per-character SpriteBatch calls from the font texture atlas. Supports mixed English (8x12) and
+///     Korean (16x12) text via codepage 949, inline {=x color codes, drop shadows, and word wrapping.
 /// </summary>
 public static class TextRenderer
 {
@@ -25,144 +21,11 @@ public static class TextRenderer
     private const int ENGLISH_ADVANCE = ENGLISH_GLYPH_WIDTH - 2;
     private const int KOREAN_ADVANCE = KOREAN_GLYPH_WIDTH - 2;
 
-    private static FntFile? EnglishFont;
-    private static FntFile? KoreanFont;
     private static Encoding? KoreanEncoding;
 
-    private static void DrawTextLine(
-        Span<byte> pixelBuffer,
-        int bufferWidth,
-        string text,
-        int startX,
-        int startY,
-        SKColor color)
-    {
-        var cursorX = startX;
-        var activeColor = color;
+    private static void EnsureInitialized() => KoreanEncoding ??= Encoding.GetEncoding(949);
 
-        for (var i = 0; i < text.Length; i++)
-        {
-            // Check for color code sequence: {=x (3 chars, no closing brace)
-            if (IsColorCode(text, i))
-            {
-                activeColor = GetColorCode(text[i + 2])!.Value;
-                i += 2; // skip past =x, loop increment handles {
-
-                continue;
-            }
-
-            var c = text[i];
-
-            if (c is >= (char)33 and <= (char)126)
-            {
-                Graphics.DrawGlyph(
-                    EnglishFont!,
-                    pixelBuffer,
-                    bufferWidth,
-                    c - 33,
-                    cursorX,
-                    startY,
-                    activeColor);
-                cursorX += ENGLISH_ADVANCE;
-
-                continue;
-            }
-
-            if (IsKorean(c))
-            {
-                var koreanIndex = GetKoreanGlyphIndex(c);
-
-                if (koreanIndex >= 0)
-                    Graphics.DrawGlyph(
-                        KoreanFont!,
-                        pixelBuffer,
-                        bufferWidth,
-                        koreanIndex,
-                        cursorX,
-                        startY,
-                        activeColor);
-
-                cursorX += KOREAN_ADVANCE;
-
-                continue;
-            }
-
-            // Space or unmapped — advance without drawing
-            cursorX += ENGLISH_ADVANCE;
-        }
-    }
-
-    private static void EnsureFontsLoaded()
-    {
-        if (EnglishFont is not null)
-            return;
-
-        EnglishFont = DataContext.Fonts.EnglishFont;
-        KoreanFont = DataContext.Fonts.KoreanFont;
-        KoreanEncoding = Encoding.GetEncoding(949);
-    }
-
-    /// <summary>
-    ///     Finds the character index at which to break a line to fit within maxWidth pixels. Prefers breaking at the last
-    ///     space; falls back to force-breaking mid-word. Skips {=x} color codes for width measurement.
-    /// </summary>
-    public static int FindLineBreak(string text, int maxWidth)
-    {
-        var width = 0;
-        var lastSpace = -1;
-
-        for (var i = 0; i < text.Length; i++)
-        {
-            // Skip color codes — they have zero visual width
-            if (IsColorCode(text, i))
-            {
-                i += 2; // skip past =x, loop increment handles {
-
-                continue;
-            }
-
-            if (text[i] == ' ')
-                lastSpace = i;
-
-            width += MeasureCharWidth(text[i]);
-
-            if (width > maxWidth)
-                return lastSpace > 0 ? lastSpace + 1 : Math.Max(1, i);
-        }
-
-        return text.Length;
-    }
-
-    /// <summary>
-    ///     Maps a color code character (the letter after {=) to its SKColor.
-    /// </summary>
-    private static SKColor? GetColorCode(char code)
-        => code switch
-        {
-            'a' => new SKColor(128, 128, 128),
-            'b' => new SKColor(255, 0, 0),
-            'c' => new SKColor(255, 255, 0),
-            'd' => new SKColor(0, 128, 0),
-            'e' => new SKColor(192, 192, 192),
-            'f' => new SKColor(0, 0, 255),
-            'g' => new SKColor(220, 220, 220),
-            'h' => new SKColor(128, 128, 128),
-            'i' => new SKColor(152, 152, 152),
-            'j' => new SKColor(128, 128, 128),
-            'k' => new SKColor(112, 128, 144),
-            'l' => new SKColor(54, 69, 79),
-            'm' => new SKColor(28, 28, 28),
-            'n' => new SKColor(0, 0, 0),
-            'o' => new SKColor(255, 105, 180),
-            'p' => new SKColor(128, 0, 128),
-            'q' => new SKColor(57, 255, 20),
-            's' => new SKColor(255, 165, 0),
-            't' => new SKColor(139, 69, 19),
-            'u' => new SKColor(255, 255, 255),
-            'x' => SKColor.Empty,
-            _   => null
-        };
-
+    #region Korean Glyph Mapping
     /// <summary>
     ///     Maps a Unicode character to its Korean font glyph index via codepage 949 (EUC-KR).
     /// </summary>
@@ -189,11 +52,302 @@ public static class TextRenderer
 
         return -1;
     }
+    #endregion
+
+    #region Draw Methods
+    /// <summary>
+    ///     Draws a single line of text from the font atlas. Handles inline {=x color codes by changing the vertex color per
+    ///     character.
+    /// </summary>
+    public static void DrawText(
+        SpriteBatch spriteBatch,
+        Vector2 position,
+        string text,
+        Color color)
+    {
+        if (string.IsNullOrEmpty(text))
+            return;
+
+        EnsureInitialized();
+
+        var atlas = FontAtlas.Instance;
+        var cursorX = position.X;
+        var y = position.Y;
+        var activeColor = color;
+
+        for (var i = 0; i < text.Length; i++)
+        {
+            if (IsColorCode(text, i))
+            {
+                activeColor = GetColorCode(text[i + 2])!.Value;
+                i += 2;
+
+                continue;
+            }
+
+            var c = text[i];
+
+            if (c is >= (char)33 and <= (char)126)
+            {
+                var glyph = atlas.GetEnglishGlyph(c - 33);
+
+                spriteBatch.Draw(
+                    glyph.Atlas,
+                    new Vector2(cursorX, y),
+                    glyph.SourceRect,
+                    activeColor);
+                cursorX += ENGLISH_ADVANCE;
+
+                continue;
+            }
+
+            if (IsKorean(c))
+            {
+                var koreanIndex = GetKoreanGlyphIndex(c);
+
+                if (koreanIndex >= 0)
+                {
+                    var glyph = atlas.GetKoreanGlyph(koreanIndex);
+
+                    spriteBatch.Draw(
+                        glyph.Atlas,
+                        new Vector2(cursorX, y),
+                        glyph.SourceRect,
+                        activeColor);
+                }
+
+                cursorX += KOREAN_ADVANCE;
+
+                continue;
+            }
+
+            // Space or unmapped — advance without drawing
+            cursorX += ENGLISH_ADVANCE;
+        }
+    }
+
+    /// <summary>
+    ///     Draws a single line of text with a dual diagonal drop shadow. The shadow is drawn at (-1,+1) and (+1,+1) relative
+    ///     to the main text, matching the original Dark Ages client name tag rendering. The bounding box of the result is
+    ///     (MeasureWidth(text) + 2) wide and (CHAR_HEIGHT + 1) tall.
+    /// </summary>
+    public static void DrawShadowedText(
+        SpriteBatch spriteBatch,
+        Vector2 position,
+        string text,
+        Color textColor,
+        Color shadowColor)
+    {
+        if (string.IsNullOrEmpty(text))
+            return;
+
+        // Shadow at down-right (+1,+1) and down-left (-1,+1) relative to main text at (1,0) within the bounding box
+        DrawText(
+            spriteBatch,
+            position + new Vector2(2, 1),
+            text,
+            shadowColor);
+
+        DrawText(
+            spriteBatch,
+            position + new Vector2(0, 1),
+            text,
+            shadowColor);
+
+        DrawText(
+            spriteBatch,
+            position + new Vector2(1, 0),
+            text,
+            textColor);
+    }
+
+    /// <summary>
+    ///     Word-wraps text and draws all resulting lines.
+    /// </summary>
+    public static void DrawWrappedText(
+        SpriteBatch spriteBatch,
+        Vector2 position,
+        string text,
+        int maxWidth,
+        Color color)
+    {
+        if (string.IsNullOrEmpty(text))
+            return;
+
+        var lines = WrapText(text, maxWidth);
+
+        DrawLines(
+            spriteBatch,
+            position,
+            lines,
+            color);
+    }
+
+    /// <summary>
+    ///     Word-wraps text and draws lines up to maxHeight pixels.
+    /// </summary>
+    public static void DrawWrappedText(
+        SpriteBatch spriteBatch,
+        Vector2 position,
+        string text,
+        int maxWidth,
+        int maxHeight,
+        Color color)
+    {
+        if (string.IsNullOrEmpty(text))
+            return;
+
+        var lines = WrapText(text, maxWidth);
+
+        DrawLines(
+            spriteBatch,
+            position,
+            lines,
+            maxHeight,
+            color);
+    }
+
+    /// <summary>
+    ///     Draws pre-wrapped text lines sequentially.
+    /// </summary>
+    public static void DrawLines(
+        SpriteBatch spriteBatch,
+        Vector2 position,
+        IReadOnlyList<string> lines,
+        Color color)
+    {
+        var y = position.Y;
+
+        foreach (var line in lines)
+        {
+            DrawText(
+                spriteBatch,
+                new Vector2(position.X, y),
+                line,
+                color);
+            y += GLYPH_HEIGHT;
+        }
+    }
+
+    /// <summary>
+    ///     Draws pre-wrapped text lines up to maxHeight pixels.
+    /// </summary>
+    public static void DrawLines(
+        SpriteBatch spriteBatch,
+        Vector2 position,
+        IReadOnlyList<string> lines,
+        int maxHeight,
+        Color color)
+    {
+        var y = position.Y;
+        var maxY = position.Y + maxHeight;
+
+        foreach (var line in lines)
+        {
+            if ((y + GLYPH_HEIGHT) > maxY)
+                break;
+
+            DrawText(
+                spriteBatch,
+                new Vector2(position.X, y),
+                line,
+                color);
+            y += GLYPH_HEIGHT;
+        }
+    }
+
+    /// <summary>
+    ///     Draws a range of pre-wrapped text lines starting at startLine, up to maxLines lines.
+    /// </summary>
+    public static void DrawLines(
+        SpriteBatch spriteBatch,
+        Vector2 position,
+        IReadOnlyList<string> lines,
+        int startLine,
+        int maxLines,
+        Color color)
+    {
+        var y = position.Y;
+        var endLine = Math.Min(lines.Count, startLine + maxLines);
+
+        for (var i = startLine; i < endLine; i++)
+        {
+            DrawText(
+                spriteBatch,
+                new Vector2(position.X, y),
+                lines[i],
+                color);
+            y += GLYPH_HEIGHT;
+        }
+    }
+    #endregion
+
+    #region Measurement
+    /// <summary>
+    ///     Finds the character index at which to break a line to fit within maxWidth pixels. Prefers breaking at the last
+    ///     space; falls back to force-breaking mid-word. Skips {=x} color codes for width measurement.
+    /// </summary>
+    public static int FindLineBreak(string text, int maxWidth)
+    {
+        var width = 0;
+        var lastSpace = -1;
+
+        for (var i = 0; i < text.Length; i++)
+        {
+            // Skip color codes — they have zero visual width
+            if (IsColorCode(text, i))
+            {
+                i += 2;
+
+                continue;
+            }
+
+            if (text[i] == ' ')
+                lastSpace = i;
+
+            width += MeasureCharWidth(text[i]);
+
+            if (width > maxWidth)
+                return lastSpace > 0 ? lastSpace + 1 : Math.Max(1, i);
+        }
+
+        return text.Length;
+    }
+
+    /// <summary>
+    ///     Maps a color code character (the letter after {=) to its Color.
+    /// </summary>
+    public static Color? GetColorCode(char code)
+        => code switch
+        {
+            'a' => new Color(128, 128, 128),
+            'b' => new Color(255, 0, 0),
+            'c' => new Color(255, 255, 0),
+            'd' => new Color(0, 128, 0),
+            'e' => new Color(192, 192, 192),
+            'f' => new Color(0, 0, 255),
+            'g' => new Color(220, 220, 220),
+            'h' => new Color(128, 128, 128),
+            'i' => new Color(152, 152, 152),
+            'j' => new Color(128, 128, 128),
+            'k' => new Color(112, 128, 144),
+            'l' => new Color(54, 69, 79),
+            'm' => new Color(28, 28, 28),
+            'n' => new Color(0, 0, 0),
+            'o' => new Color(255, 105, 180),
+            'p' => new Color(128, 0, 128),
+            'q' => new Color(57, 255, 20),
+            's' => new Color(255, 165, 0),
+            't' => new Color(139, 69, 19),
+            'u' => new Color(255, 255, 255),
+            'x' => Color.Transparent,
+            _   => null
+        };
 
     /// <summary>
     ///     Returns true if the text at position i starts a {=x color code sequence.
     /// </summary>
-    private static bool IsColorCode(string text, int i)
+    public static bool IsColorCode(string text, int i)
         => ((i + 2) < text.Length) && (text[i] == '{') && (text[i + 1] == '=') && GetColorCode(text[i + 2]) is not null;
 
     private static bool IsKorean(char c) => c > 127;
@@ -210,8 +364,6 @@ public static class TextRenderer
     {
         if (string.IsNullOrEmpty(text))
             return 0;
-
-        EnsureFontsLoaded();
 
         var width = 0;
 
@@ -230,233 +382,9 @@ public static class TextRenderer
 
         return width;
     }
+    #endregion
 
-    private static Texture2D RenderLines(
-        IReadOnlyList<string> lines,
-        int maxWidth,
-        int maxHeight,
-        Color? color = null)
-    {
-        EnsureFontsLoaded();
-
-        var textColor = color ?? Color.White;
-
-        var skColor = new SKColor(
-            textColor.R,
-            textColor.G,
-            textColor.B,
-            textColor.A);
-
-        var surfaceWidth = Math.Max(1, maxWidth);
-        var surfaceHeight = Math.Max(1, maxHeight);
-
-        var byteCount = surfaceWidth * surfaceHeight * 4;
-        var pixelBuffer = ArrayPool<byte>.Shared.Rent(byteCount);
-
-        try
-        {
-            Array.Clear(pixelBuffer, 0, byteCount);
-
-            var y = 0;
-
-            foreach (var line in lines)
-            {
-                if ((y + GLYPH_HEIGHT) > surfaceHeight)
-                    break;
-
-                DrawTextLine(
-                    pixelBuffer,
-                    surfaceWidth,
-                    line,
-                    0,
-                    y,
-                    skColor);
-                y += GLYPH_HEIGHT;
-            }
-
-            var texture = new Texture2D(
-                TextureConverter.Device,
-                surfaceWidth,
-                surfaceHeight,
-                false,
-                SurfaceFormat.Color);
-            texture.SetData(pixelBuffer, 0, byteCount);
-
-            return texture;
-        } finally
-        {
-            ArrayPool<byte>.Shared.Return(pixelBuffer);
-        }
-    }
-
-    /// <summary>
-    ///     Renders a single line of text with a dual diagonal drop shadow. The shadow is drawn at (-1,+1) and (+1,+1) relative
-    ///     to the main text, producing visible shadow on the left, right, and bottom edges. Matches the original Dark Ages
-    ///     client name tag rendering.
-    /// </summary>
-    public static Texture2D RenderShadowedText(string text, Color textColor, Color shadowColor)
-    {
-        if (string.IsNullOrEmpty(text))
-            text = " ";
-
-        EnsureFontsLoaded();
-
-        var skTextColor = new SKColor(
-            textColor.R,
-            textColor.G,
-            textColor.B,
-            textColor.A);
-
-        var skShadowColor = new SKColor(
-            shadowColor.R,
-            shadowColor.G,
-            shadowColor.B,
-            shadowColor.A);
-
-        var textWidth = Math.Max(1, MeasureWidth(text));
-
-        // +2 width for 1px shadow margin on each side, +1 height for shadow below
-        var surfaceWidth = textWidth + 2;
-        var surfaceHeight = GLYPH_HEIGHT + 1;
-
-        var byteCount = surfaceWidth * surfaceHeight * 4;
-        var pixelBuffer = ArrayPool<byte>.Shared.Rent(byteCount);
-
-        try
-        {
-            Array.Clear(pixelBuffer, 0, byteCount);
-
-            // Shadow draws: down-right (+1,+1) and down-left (-1,+1) relative to main text at (1,0)
-            DrawTextLine(
-                pixelBuffer,
-                surfaceWidth,
-                text,
-                2,
-                1,
-                skShadowColor);
-
-            DrawTextLine(
-                pixelBuffer,
-                surfaceWidth,
-                text,
-                0,
-                1,
-                skShadowColor);
-
-            // Main text: centered at (1,0)
-            DrawTextLine(
-                pixelBuffer,
-                surfaceWidth,
-                text,
-                1,
-                0,
-                skTextColor);
-
-            var texture = new Texture2D(
-                TextureConverter.Device,
-                surfaceWidth,
-                surfaceHeight,
-                false,
-                SurfaceFormat.Color);
-            texture.SetData(pixelBuffer, 0, byteCount);
-
-            return texture;
-        } finally
-        {
-            ArrayPool<byte>.Shared.Return(pixelBuffer);
-        }
-    }
-
-    /// <summary>
-    ///     Renders a single line of text to a Texture2D using the game's bitmap font.
-    /// </summary>
-    public static Texture2D RenderText(string text, Color? color = null)
-    {
-        if (string.IsNullOrEmpty(text))
-            text = " ";
-
-        EnsureFontsLoaded();
-
-        var textColor = color ?? Color.White;
-
-        var skColor = new SKColor(
-            textColor.R,
-            textColor.G,
-            textColor.B,
-            textColor.A);
-        var width = Math.Max(1, MeasureWidth(text));
-
-        var byteCount = width * GLYPH_HEIGHT * 4;
-        var pixelBuffer = ArrayPool<byte>.Shared.Rent(byteCount);
-
-        try
-        {
-            Array.Clear(pixelBuffer, 0, byteCount);
-
-            DrawTextLine(
-                pixelBuffer,
-                width,
-                text,
-                0,
-                0,
-                skColor);
-
-            var texture = new Texture2D(
-                TextureConverter.Device,
-                width,
-                GLYPH_HEIGHT,
-                false,
-                SurfaceFormat.Color);
-            texture.SetData(pixelBuffer, 0, byteCount);
-
-            return texture;
-        } finally
-        {
-            ArrayPool<byte>.Shared.Return(pixelBuffer);
-        }
-    }
-
-    /// <summary>
-    ///     Renders word-wrapped text into a bounded area and returns a Texture2D.
-    /// </summary>
-    public static Texture2D RenderWrappedText(
-        string text,
-        int maxWidth,
-        int maxHeight,
-        Color? color = null)
-    {
-        if (string.IsNullOrEmpty(text))
-            text = " ";
-
-        EnsureFontsLoaded();
-
-        return RenderLines(
-            WrapText(text, maxWidth),
-            maxWidth,
-            maxHeight,
-            color ?? Color.White);
-    }
-
-    /// <summary>
-    ///     Renders word-wrapped text to a Texture2D sized to fit all lines (no height cap).
-    /// </summary>
-    public static Texture2D RenderWrappedText(string text, int maxWidth, Color? color = null)
-    {
-        if (string.IsNullOrEmpty(text))
-            text = " ";
-
-        EnsureFontsLoaded();
-
-        var lines = WrapText(text, maxWidth);
-        var totalHeight = Math.Max(GLYPH_HEIGHT, lines.Count * GLYPH_HEIGHT);
-
-        return RenderLines(
-            lines,
-            maxWidth,
-            totalHeight,
-            color ?? Color.White);
-    }
-
+    #region Word Wrapping
     /// <summary>
     ///     Word-wraps text into lines that fit within maxWidth pixels. Splits on explicit newlines, then wraps each paragraph
     ///     by character width.
@@ -491,15 +419,17 @@ public static class TextRenderer
         return lines;
     }
 
-    private static List<string> WrapText(string text, int maxWidth)
+    /// <summary>
+    ///     Word-wraps text with full escape sequence preprocessing. Handles literal \n, \r, tab collapsing, and splits on \r,
+    ///     \n, \t delimiters before word-wrapping each paragraph.
+    /// </summary>
+    public static List<string> WrapText(string text, int maxWidth)
     {
         var lines = new List<string>();
 
         // Handle literal escape sequences (\n, \r) in addition to actual control characters
         text = text.Replace("\\n", "\n")
                    .Replace("\\r", "\r");
-
-        // Color codes ({=a, {=b, etc.) are preserved — DrawTextLine renders them
 
         // Collapse consecutive tabs into a single newline
         while (text.Contains("\t\t"))
@@ -544,4 +474,5 @@ public static class TextRenderer
 
         return lines;
     }
+    #endregion
 }

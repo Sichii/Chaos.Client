@@ -71,6 +71,7 @@ public abstract class PrefabPanel : UIPanel
 
         var cache = UiRenderer.Instance!;
         var pressedTexture = prefab.Images.Count > 1 ? cache.GetPrefabTexture(PrefabSet.Name, prefab.Control.Name, 1) : null;
+        var disabledTexture = prefab.Images.Count > 2 ? cache.GetPrefabTexture(PrefabSet.Name, prefab.Control.Name, 2) : null;
 
         return new UIButton
         {
@@ -81,7 +82,8 @@ public abstract class PrefabPanel : UIPanel
             Height = (int)r.Height,
             NormalTexture = prefab.Images.Count > 0 ? cache.GetPrefabTexture(PrefabSet.Name, prefab.Control.Name, 0) : null,
             PressedTexture = pressedTexture,
-            SelectedTexture = pressedTexture
+            SelectedTexture = pressedTexture,
+            DisabledTexture = disabledTexture
         };
     }
 

@@ -18,9 +18,18 @@ public static class GlobalSettings
     private static readonly Type[] PreInitializedStatics = [typeof(DataContext)];
     public static readonly SamplerState Sampler = SamplerState.PointClamp; //SamplerState.LinearClamp;
     private static ushort ClientVersion => 741;
-    public static string DataPath => @"C:\Users\Despe\Desktop\Unora\Unora"; //@"C:\Users\Despe\Desktop\Dark Ages";
-    public static string LobbyHost => "chaotic-minds.dynu.net"; //"127.0.0.1"; //"da0.kru.com";
-    public static int LobbyPort => 6900; //4200; //2610;
+
+    public static string DataPath => @"C:\Users\Despe\Desktop\Unora\Unora";
+
+    //@"C:\Users\Despe\Desktop\Dark Ages"; 
+    public static string LobbyHost => "chaotic-minds.dynu.net";
+
+    //"127.0.0.1"; 
+    //"da0.kru.com";
+    public static int LobbyPort => 6900;
+
+    //4200;
+    //2610;
 
     static GlobalSettings() => InitializeOthers();
 

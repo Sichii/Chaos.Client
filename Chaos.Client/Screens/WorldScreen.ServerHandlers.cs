@@ -1,10 +1,12 @@
 #region
 using Chaos.Client.Data;
+using Chaos.Client.Data.Models;
 using Chaos.Client.Data.Utilities;
 using Chaos.Client.Extensions;
 using Chaos.Client.Models;
 using Chaos.Client.Networking;
 using Chaos.Client.Systems;
+using Chaos.Client.ViewModel;
 using Chaos.DarkAges.Definitions;
 using Chaos.Extensions.Common;
 using Chaos.Geometry.Abstractions.Definitions;
@@ -400,6 +402,8 @@ public sealed partial class WorldScreen
         if (boards is null or { Count: 0 })
             return;
 
+        Game.World.Board.OpenSession();
+
         BoardList.ShowBoards(
             boards.Select(b => (b.BoardId, b.Name))
                   .ToList());
@@ -408,18 +412,27 @@ public sealed partial class WorldScreen
     private void HandleBoardPostListChanged()
     {
         var board = Game.World.Board;
-        var list = board.IsPublicBoard ? ArticleList : MailList;
+        var posts = board.Posts.ToList();
 
-        // Paginated append: same board, already visible, triggered by "Load More"
-        if (LoadingMoreBoardPosts && list.Visible && (list.BoardId == board.BoardId))
-            list.AppendEntries(board.Posts.ToList());
-        else
+        if (board.IsPublicBoard)
         {
-            // Hide whatever was visible, then show the new list (same frame — no flash)
-            HideAllBoardControls();
-
-            list.ShowMailList(board.BoardId, board.Posts.ToList(), board.IsPublicBoard);
-            list.SetHighlightEnabled(board.IsPublicBoard && IsGameMaster);
+            if (LoadingMoreBoardPosts && ArticleList.Visible && (ArticleList.BoardId == board.BoardId))
+                ArticleList.AppendEntries(posts);
+            else
+            {
+                HideAllBoardControls();
+                ArticleList.ShowArticles(board.BoardId, posts);
+                ArticleList.SetHighlightEnabled(IsGameMaster);
+            }
+        } else
+        {
+            if (LoadingMoreBoardPosts && MailList.Visible && (MailList.BoardId == board.BoardId))
+                MailList.AppendEntries(posts);
+            else
+            {
+                HideAllBoardControls();
+                MailList.ShowMailList(board.BoardId, posts);
+            }
         }
 
         LoadingMoreBoardPosts = false;
@@ -433,22 +446,34 @@ public sealed partial class WorldScreen
             return;
 
         var board = Game.World.Board;
-        var read = board.IsPublicBoard ? ArticleRead : MailRead;
 
-        // Hide whatever was visible, then show the read panel (same frame — no flash)
         HideAllBoardControls();
 
-        read.BoardId = board.BoardId;
-        read.IsPublicBoard = board.IsPublicBoard;
+        if (board.IsPublicBoard)
+        {
+            ArticleRead.BoardId = board.BoardId;
 
-        read.ShowMail(
-            p.PostId,
-            p.Author,
-            p.MonthOfYear,
-            p.DayOfMonth,
-            p.Subject,
-            p.Message,
-            board.EnablePrevButton);
+            ArticleRead.ShowArticle(
+                p.PostId,
+                p.Author,
+                p.MonthOfYear,
+                p.DayOfMonth,
+                p.Subject,
+                p.Message,
+                board.EnablePrevButton);
+        } else
+        {
+            MailRead.BoardId = board.BoardId;
+
+            MailRead.ShowMail(
+                p.PostId,
+                p.Author,
+                p.MonthOfYear,
+                p.DayOfMonth,
+                p.Subject,
+                p.Message,
+                board.EnablePrevButton);
+        }
     }
 
     // --- Group ---
@@ -571,6 +596,35 @@ public sealed partial class WorldScreen
 
         StatusBook.SetLegendMarks(marks);
 
+        // Ability metadata (skills/spells from SClass file)
+        var abilityMetadata = DataContext.MetaFiles.GetAbilityMetadata((byte)args.BaseClass);
+
+        if (abilityMetadata is not null)
+            StatusBook.SetAbilityMetadata(abilityMetadata, ResolveAbilityIconState);
+        else
+            StatusBook.ClearSkills();
+
+        // Event metadata (quests from SEvent files)
+        var eventMetadata = DataContext.MetaFiles.GetEventMetadata();
+
+        if (eventMetadata.Count > 0)
+        {
+            // Build a set of completed event IDs from legend marks for O(1) lookup
+            var completedEventIds = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+            foreach (var mark in args.LegendMarks)
+                completedEventIds.Add(mark.Key);
+
+            StatusBook.SetEvents(
+                eventMetadata,
+                entry => ResolveEventState(
+                    entry,
+                    completedEventIds,
+                    args.BaseClass,
+                    args.EnableMasterQuestMetaData));
+        } else
+            StatusBook.ClearEvents();
+
         // Family info
         StatusBook.SetFamilyInfo(args.Name, args.SpouseName ?? string.Empty);
         LoadPlayerFamilyList();
@@ -623,6 +677,133 @@ public sealed partial class WorldScreen
 
         StatusBook.SwitchTab(StatusBookTab.Equipment);
         StatusBook.Show();
+    }
+
+    private AbilityIconState ResolveAbilityIconState(AbilityMetadataEntry entry)
+    {
+        var world = Game.World;
+
+        // Check if player already knows this ability
+        if (entry.IsSpell)
+            for (byte i = 1; i <= SpellBook.MAX_SLOTS; i++)
+            {
+                ref readonly var slot = ref world.SpellBook.GetSlot(i);
+
+                if (slot.IsOccupied && string.Equals(slot.Name, entry.Name, StringComparison.OrdinalIgnoreCase))
+                    return AbilityIconState.Known;
+            }
+        else
+            for (byte i = 1; i <= SkillBook.MAX_SLOTS; i++)
+            {
+                ref readonly var slot = ref world.SkillBook.GetSlot(i);
+
+                if (slot.IsOccupied && string.Equals(slot.Name, entry.Name, StringComparison.OrdinalIgnoreCase))
+                    return AbilityIconState.Known;
+            }
+
+        // Check if player meets the requirements to learn it
+        if (world.Attributes.Current is not { } attrs)
+            return AbilityIconState.Locked;
+
+        if (attrs.Level < entry.Level)
+            return AbilityIconState.Locked;
+
+        if ((attrs.Str < entry.Str)
+            || (attrs.Int < entry.Int)
+            || (attrs.Wis < entry.Wis)
+            || (attrs.Dex < entry.Dex)
+            || (attrs.Con < entry.Con))
+            return AbilityIconState.Locked;
+
+        // Check prerequisite abilities
+        if (!HasPreRequisite(entry.PreReq1Name, entry.PreReq1Level))
+            return AbilityIconState.Locked;
+
+        if (!HasPreRequisite(entry.PreReq2Name, entry.PreReq2Level))
+            return AbilityIconState.Locked;
+
+        return AbilityIconState.Learnable;
+    }
+
+    private bool HasPreRequisite(string? name, byte requiredLevel)
+    {
+        if (name is null)
+            return true;
+
+        var world = Game.World;
+
+        // Check spell book
+        for (byte i = 1; i <= SpellBook.MAX_SLOTS; i++)
+        {
+            ref readonly var slot = ref world.SpellBook.GetSlot(i);
+
+            if (slot.IsOccupied && string.Equals(slot.Name, name, StringComparison.OrdinalIgnoreCase))
+                return true;
+        }
+
+        // Check skill book
+        for (byte i = 1; i <= SkillBook.MAX_SLOTS; i++)
+        {
+            ref readonly var slot = ref world.SkillBook.GetSlot(i);
+
+            if (slot.IsOccupied && string.Equals(slot.Name, name, StringComparison.OrdinalIgnoreCase))
+                return true;
+        }
+
+        return false;
+    }
+
+    private EventState ResolveEventState(
+        EventMetadataEntry entry,
+        HashSet<string> completedEventIds,
+        BaseClass baseClass,
+        bool enableMasterQuests)
+    {
+        // Completed: player has a legend mark with key matching this event's ID
+        if (!string.IsNullOrEmpty(entry.Id) && completedEventIds.Contains(entry.Id))
+            return EventState.Completed;
+
+        var attrs = Game.World.Attributes.Current;
+        var playerLevel = attrs?.Level ?? 1;
+
+        // Derive player's circle from level; master flag overrides to circle 6
+        var playerCircle = enableMasterQuests
+            ? 6
+            : playerLevel switch
+            {
+                >= 99 => 5,
+                >= 71 => 4,
+                >= 41 => 3,
+                >= 11 => 2,
+                _     => 1
+            };
+
+        if (playerCircle == 6)
+            return EventState.Unavailable;
+
+        // Check qualifying circles — player's circle must be in the list
+        if (!string.IsNullOrEmpty(entry.QualifyingCircles))
+        {
+            var circleChar = (char)('0' + playerCircle);
+
+            if (!entry.QualifyingCircles.Contains(circleChar))
+                return EventState.Unavailable;
+        }
+
+        // Check qualifying classes — player's class must be in the list
+        if (!string.IsNullOrEmpty(entry.QualifyingClasses))
+        {
+            var classChar = (char)('0' + (int)baseClass);
+
+            if (!entry.QualifyingClasses.Contains(classChar))
+                return EventState.Unavailable;
+        }
+
+        // Check prerequisite event — must be completed
+        if (!string.IsNullOrEmpty(entry.PreRequisiteId) && !completedEventIds.Contains(entry.PreRequisiteId))
+            return EventState.Unavailable;
+
+        return EventState.Available;
     }
 
     private void HandleOtherProfile(OtherProfileArgs args)
@@ -834,6 +1015,8 @@ public sealed partial class WorldScreen
     }
 
     private void HandleLightLevel(LightLevelArgs args) => DarknessRenderer.OnLightLevel(args);
+
+    private void HandleMetaDataSyncComplete() => DarknessRenderer.ReloadMetadata();
 
     // --- Notepad ---
 

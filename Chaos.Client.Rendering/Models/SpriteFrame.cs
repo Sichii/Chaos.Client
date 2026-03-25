@@ -16,5 +16,5 @@ public readonly record struct SpriteFrame(
     short Left,
     short Top) : IDisposable
 {
-    public void Dispose() => Texture.Dispose();
+    public void Dispose() => Texture?.Dispose();
 }

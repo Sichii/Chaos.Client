@@ -15,24 +15,13 @@ public sealed class ServerSelectControl : PrefabPanel
     private const int DESC_X = 108;
 
     private List<ServerTableEntry> Servers = [];
-    private List<(CachedText Name, CachedText Description)> ServerTextCache = [];
+    private List<(TextElement Name, TextElement Description)> ServerTextElements = [];
 
     public ServerSelectControl()
         : base("_nsvr")
     {
         Name = "ServerSelect";
         Visible = false;
-    }
-
-    public override void Dispose()
-    {
-        foreach ((var name, var desc) in ServerTextCache)
-        {
-            name.Dispose();
-            desc.Dispose();
-        }
-
-        base.Dispose();
     }
 
     public override void Draw(SpriteBatch spriteBatch)
@@ -45,10 +34,10 @@ public sealed class ServerSelectControl : PrefabPanel
         var sx = ScreenX;
         var sy = ScreenY;
 
-        for (var i = 0; i < ServerTextCache.Count; i++)
+        for (var i = 0; i < ServerTextElements.Count; i++)
         {
             var rowY = sy + FIRST_ROW_Y + i * ROW_HEIGHT;
-            (var nameCache, var descCache) = ServerTextCache[i];
+            (var nameCache, var descCache) = ServerTextElements[i];
 
             nameCache.Draw(spriteBatch, new Vector2(sx + NAME_X, rowY));
             descCache.Draw(spriteBatch, new Vector2(sx + DESC_X, rowY));
@@ -60,26 +49,17 @@ public sealed class ServerSelectControl : PrefabPanel
     public void SetServers(List<ServerTableEntry> entries)
     {
         Servers = entries;
-
-        // Dispose old cached text
-        foreach ((var name, var desc) in ServerTextCache)
-        {
-            name.Dispose();
-            desc.Dispose();
-        }
-
-        // Build new cache
-        ServerTextCache = [];
+        ServerTextElements = [];
 
         foreach (var server in entries)
         {
-            var nameCache = new CachedText();
-            var descCache = new CachedText();
+            var name = new TextElement();
+            var description = new TextElement();
 
-            nameCache.Update(server.Name, Color.White);
-            descCache.Update(server.Description, Color.LightGray);
+            name.Update(server.Name, Color.White);
+            description.Update(server.Description, Color.LightGray);
 
-            ServerTextCache.Add((nameCache, descCache));
+            ServerTextElements.Add((name, description));
         }
     }
 

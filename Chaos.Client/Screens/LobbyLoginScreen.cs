@@ -147,7 +147,7 @@ public sealed class LobbyLoginScreen : IScreen
         if (ReturningFromWorld)
         {
             // Already connected to login server via redirect — skip lobby handshake, show login directly
-            StartPanel.Visible = false;
+            StartPanel.SetButtonsEnabled(false);
             LoginControl.Show();
             SetStatus("Logged out.", Color.LightBlue);
         } else
@@ -252,7 +252,11 @@ public sealed class LobbyLoginScreen : IScreen
             ServerSelectControl.Update(gameTime, input);
     }
 
-    private void SetStatus(string message, Color color) => StatusLabel.SetText(message, color);
+    private void SetStatus(string message, Color color)
+    {
+        StatusLabel.ForegroundColor = color;
+        StatusLabel.Text = message;
+    }
 
     #region Button Handlers
     private void OnContinueClicked()
@@ -595,6 +599,14 @@ public sealed class LobbyLoginScreen : IScreen
 
     private void OnLoginNotice(LoginNoticeArgs args)
     {
+        // Returning from world — already accepted the EULA this session, skip entirely
+        if (ReturningFromWorld)
+        {
+            StartPanel.EnableButtons();
+
+            return;
+        }
+
         if (!args.IsFullResponse)
         {
             // Checksum-only probe — request full notice if we don't have a cached match

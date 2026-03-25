@@ -17,8 +17,7 @@ namespace Chaos.Client.Data.Repositories;
 
 public sealed class UiComponentRepository : RepositoryBase
 {
-    private readonly IDictionary<int, Palette> GuiPalettes = Palette.FromArchive("gui", DatArchives.Setoa)
-                                                                    .ToFrozenDictionary();
+    private readonly IDictionary<int, Palette> GuiPalettes = LoadGuiPalettes();
 
     public UiComponentRepository()
     {
@@ -253,6 +252,17 @@ public sealed class UiComponentRepository : RepositoryBase
                 : Graphics.RenderImage(spf[i], spf.PrimaryColors!);
 
         return images;
+    }
+
+    private static FrozenDictionary<int, Palette> LoadGuiPalettes()
+    {
+        var palettes = Palette.FromArchive("gui", DatArchives.Setoa);
+
+        // Match original client behavior: copy entry[0] to entry[255], then entry[0] becomes transparent at render time
+        foreach (var palette in palettes.Values)
+            palette[255] = palette[0];
+
+        return palettes.ToFrozenDictionary();
     }
 
     private static SpfView? LoadNationalSpfFile(string fileName)

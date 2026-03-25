@@ -182,8 +182,8 @@ public sealed class ChantEditControl : PrefabPanel
         IsSpell = isSpell;
         LineCount = lineCount;
 
-        NameLabel?.SetText(name);
-        LevelLabel?.SetText(level);
+        NameLabel?.Text = name;
+        LevelLabel?.Text = level;
 
         if (Icon is not null)
             Icon.Texture = icon;

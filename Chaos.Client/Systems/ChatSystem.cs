@@ -54,7 +54,7 @@ public sealed class ChatSystem
             128);
         Hud.ChatInput.IsFocused = true;
         Hud.ChatInput.Prefix = prefix;
-        Hud.ChatInput.TextColor = textColor;
+        Hud.ChatInput.ForegroundColor = textColor;
         Hud.SetDescription(null);
     }
 
@@ -66,6 +66,6 @@ public sealed class ChatSystem
         Hud.ChatInput.IsFocused = false;
         Hud.ChatInput.Text = string.Empty;
         Hud.ChatInput.Prefix = string.Empty;
-        Hud.ChatInput.TextColor = Color.White;
+        Hud.ChatInput.ForegroundColor = Color.White;
     }
 }

@@ -19,7 +19,7 @@ public sealed class ChatPanel : ExpandablePanel
     private const int GLYPH_HEIGHT = 12;
     private readonly List<ChatLine> ChatLog = [];
     private readonly Chat ChatState;
-    private readonly CachedText[] LineTextures;
+    private readonly TextElement[] Lines;
     private readonly Rectangle NormalDisplayBounds;
     private readonly ScrollBarControl ScrollBar;
 
@@ -40,10 +40,10 @@ public sealed class ChatPanel : ExpandablePanel
         Background = UiRenderer.Instance!.GetSpfTexture("_nchatbk.spf");
 
         MaxVisibleLines = displayBounds.Height > 0 ? displayBounds.Height / GLYPH_HEIGHT : 0;
-        LineTextures = new CachedText[MaxVisibleLines];
+        Lines = new TextElement[MaxVisibleLines];
 
         for (var i = 0; i < MaxVisibleLines; i++)
-            LineTextures[i] = new CachedText();
+            Lines[i] = new TextElement();
 
         // Position relative to panel origin (panel is placed at panelBounds by RegisterTab)
         var relX = displayBounds.X - panelBounds.X;
@@ -118,9 +118,6 @@ public sealed class ChatPanel : ExpandablePanel
     {
         ChatState.MessageAdded -= OnMessageAdded;
 
-        foreach (var texture in LineTextures)
-            texture.Dispose();
-
         base.Dispose();
     }
 
@@ -132,7 +129,7 @@ public sealed class ChatPanel : ExpandablePanel
         // ExpandablePanel.Draw handles expanded bg + children, or normal bg + children
         base.Draw(spriteBatch);
 
-        var maxLines = Math.Min(MaxVisibleLines, LineTextures.Length);
+        var maxLines = Math.Min(MaxVisibleLines, Lines.Length);
 
         if ((maxLines == 0) || (ChatLog.Count == 0))
             return;
@@ -148,7 +145,7 @@ public sealed class ChatPanel : ExpandablePanel
             if (baseY < DisplayBounds.Y)
                 break;
 
-            LineTextures[i]
+            Lines[i]
                 .Draw(spriteBatch, new Vector2(DisplayBounds.X, baseY));
         }
     }
@@ -162,7 +159,7 @@ public sealed class ChatPanel : ExpandablePanel
 
         RenderedVersion = LogVersion;
 
-        var maxLines = Math.Min(MaxVisibleLines, LineTextures.Length);
+        var maxLines = Math.Min(MaxVisibleLines, Lines.Length);
         var startIndex = Math.Max(0, ChatLog.Count - maxLines - ScrollOffset);
         var lineIndex = 0;
 
@@ -170,13 +167,13 @@ public sealed class ChatPanel : ExpandablePanel
         {
             var line = ChatLog[i];
 
-            LineTextures[lineIndex]
+            Lines[lineIndex]
                 .Update(line.Text, line.Color);
             lineIndex++;
         }
 
         for (; lineIndex < maxLines; lineIndex++)
-            LineTextures[lineIndex]
+            Lines[lineIndex]
                 .Update(string.Empty, Color.White);
     }
 

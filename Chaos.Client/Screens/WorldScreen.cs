@@ -3,9 +3,13 @@ using Chaos.Client.Controls.Components;
 using Chaos.Client.Controls.Generic;
 using Chaos.Client.Controls.World.Hud;
 using Chaos.Client.Controls.World.Hud.Panel.Slots;
-using Chaos.Client.Controls.World.Hud.SelfProfile;
-using Chaos.Client.Controls.World.Options;
 using Chaos.Client.Controls.World.Popups;
+using Chaos.Client.Controls.World.Popups.Boards;
+using Chaos.Client.Controls.World.Popups.Dialog;
+using Chaos.Client.Controls.World.Popups.Exchange;
+using Chaos.Client.Controls.World.Popups.Options;
+using Chaos.Client.Controls.World.Popups.Profile;
+using Chaos.Client.Controls.World.Popups.WorldList;
 using Chaos.Client.Controls.World.ViewPort;
 using Chaos.Client.Models;
 using Chaos.Client.Rendering;
@@ -63,10 +67,11 @@ public sealed partial class WorldScreen : IScreen
     private readonly EntityOverlayManager Overlays = new();
     private readonly PathfindingState Pathfinding = new();
 
+    private AbilityDetailControl AbilityDetail = null!;
     private AislingPopupMenu AislingPopup = null!;
-    private MailListControl ArticleList = null!;
-    private MailReadControl ArticleRead = null!;
-    private MailSendControl ArticleSend = null!;
+    private ArticleListControl ArticleList = null!;
+    private ArticleReadControl ArticleRead = null!;
+    private ArticleSendControl ArticleSend = null!;
 
     // Board/mail controls — 7 instances for 7 prefabs
     private BoardListControl BoardList = null!;
@@ -79,6 +84,9 @@ public sealed partial class WorldScreen : IScreen
     private DarknessRenderer DarknessRenderer = null!;
     private OkPopupMessageControl DeleteConfirm = null!;
     private GraphicsDevice Device = null!;
+
+    // Event detail popup (from Events tab)
+    private EventDetailControl EventDetail = null!;
     private ExchangeControl Exchange = null!;
     private byte? ExchangeAmountSlot;
 
@@ -217,6 +225,9 @@ public sealed partial class WorldScreen : IScreen
 
         // Light level
         Game.Connection.OnLightLevel += HandleLightLevel;
+
+        // Metadata sync — reload metadata consumers after server handshake completes
+        Game.MetaData.OnSyncComplete += HandleMetaDataSyncComplete;
 
         // Notepad popups
         Game.Connection.OnDisplayReadonlyNotepad += HandleDisplayReadonlyNotepad;
@@ -398,17 +409,17 @@ public sealed partial class WorldScreen : IScreen
             ZIndex = -2
         };
 
-        ArticleList = new MailListControl("_narlist")
+        ArticleList = new ArticleListControl
         {
             ZIndex = -2
         };
 
-        ArticleRead = new MailReadControl("_narti")
+        ArticleRead = new ArticleReadControl
         {
             ZIndex = -2
         };
 
-        ArticleSend = new MailSendControl("_nartin")
+        ArticleSend = new ArticleSendControl
         {
             ZIndex = -2
         };
@@ -450,6 +461,19 @@ public sealed partial class WorldScreen : IScreen
         StatusBook.OnClose += SavePlayerFamilyList;
 
         StatusBook.OnGroupToggled += () => Game.Connection.ToggleGroup();
+
+        StatusBook.OnAbilityDetailRequested += entry => AbilityDetail.ShowEntry(entry, WorldHud.ViewportBounds);
+        StatusBook.OnEventDetailRequested += (entry, state) => EventDetail.ShowEntry(entry, state, WorldHud.ViewportBounds);
+
+        AbilityDetail = new AbilityDetailControl
+        {
+            ZIndex = 3
+        };
+
+        EventDetail = new EventDetailControl
+        {
+            ZIndex = 3
+        };
 
         SocialStatusPicker = new SocialStatusControl();
 
@@ -530,6 +554,8 @@ public sealed partial class WorldScreen : IScreen
         Root.AddChild(MailSend);
         Root.AddChild(DeleteConfirm);
         Root.AddChild(StatusBook);
+        Root.AddChild(AbilityDetail);
+        Root.AddChild(EventDetail);
         Root.AddChild(OtherProfile);
         Root.AddChild(TextPopup);
         Root.AddChild(Notepad);
@@ -585,6 +611,7 @@ public sealed partial class WorldScreen : IScreen
         Game.Connection.OnHealthBar -= HandleHealthBar;
         Game.Connection.OnEffect -= HandleEffect;
         Game.Connection.OnLightLevel -= HandleLightLevel;
+        Game.MetaData.OnSyncComplete -= HandleMetaDataSyncComplete;
         Game.Connection.OnDisplayReadonlyNotepad -= HandleDisplayReadonlyNotepad;
         Game.Connection.OnDisplayEditableNotepad -= HandleDisplayEditableNotepad;
         Game.Connection.OnWorldMap -= HandleWorldMap;

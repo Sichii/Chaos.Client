@@ -1,6 +1,5 @@
 #region
 using Chaos.Client.Controls.Components;
-using Chaos.Client.Rendering;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Input;
 #endregion
@@ -9,7 +8,7 @@ namespace Chaos.Client.Controls.LobbyLogin;
 
 public sealed class EulaNoticeControl : PrefabPanel
 {
-    private readonly UIImage? AgreementTextImage;
+    private readonly UILabel? AgreementTextLabel;
     private readonly int TextAreaHeight;
     private readonly int TextAreaWidth;
     public UIButton? CancelButton { get; }
@@ -40,17 +39,20 @@ public sealed class EulaNoticeControl : PrefabPanel
             TextAreaWidth = textRect.Width - 25;
             TextAreaHeight = textRect.Height;
 
-            AgreementTextImage = new UIImage
+            AgreementTextLabel = new UILabel
             {
                 Name = "AgreementText",
                 X = textRect.X,
                 Y = textRect.Y,
                 Width = TextAreaWidth,
                 Height = TextAreaHeight,
+                PaddingLeft = 0,
+                PaddingTop = 0,
+                WordWrap = true,
                 Visible = false
             };
 
-            AddChild(AgreementTextImage);
+            AddChild(AgreementTextLabel);
         }
     }
 
@@ -58,7 +60,7 @@ public sealed class EulaNoticeControl : PrefabPanel
     {
         Visible = false;
 
-        AgreementTextImage?.Visible = false;
+        AgreementTextLabel?.Visible = false;
     }
 
     public event Action? OnCancel;
@@ -67,17 +69,11 @@ public sealed class EulaNoticeControl : PrefabPanel
 
     public void Show(string agreementText)
     {
-        if (AgreementTextImage is not null)
+        if (AgreementTextLabel is not null)
         {
-            AgreementTextImage.Texture?.Dispose();
-
-            AgreementTextImage.Texture = TextRenderer.RenderWrappedText(
-                agreementText,
-                TextAreaWidth,
-                TextAreaHeight,
-                Color.White);
-
-            AgreementTextImage.Visible = true;
+            AgreementTextLabel.ForegroundColor = Color.White;
+            AgreementTextLabel.Text = agreementText;
+            AgreementTextLabel.Visible = true;
         }
 
         Visible = true;

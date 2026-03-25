@@ -593,7 +593,8 @@ public sealed partial class WorldScreen
         (var tileX, var tileY) = ScreenToTile(mouseX, mouseY);
 
         // Check for double-click (same tile within time window)
-        var isDoubleClick = LeftClickTracker.Click(tileX, tileY);
+        var sameTile = LeftClickTracker.Click(tileX, tileY);
+        var isDoubleClick = Game.Input.WasLeftButtonDoubleClicked && sameTile;
 
         if (isDoubleClick)
         {
@@ -674,7 +675,8 @@ public sealed partial class WorldScreen
         tileX = Math.Clamp(tileX, 0, MapFile.Width - 1);
         tileY = Math.Clamp(tileY, 0, MapFile.Height - 1);
 
-        var isDoubleRightClick = RightClickTracker.Click(tileX, tileY);
+        var sameTile = RightClickTracker.Click(tileX, tileY);
+        var isDoubleRightClick = Game.Input.WasRightButtonDoubleClicked && sameTile;
 
         // Don't pathfind to current position
         if ((tileX == player.TileX) && (tileY == player.TileY))

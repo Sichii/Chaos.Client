@@ -11,6 +11,7 @@ namespace Chaos.Client;
 /// </summary>
 public sealed class InputBuffer : IDisposable
 {
+    private const float DOUBLE_CLICK_MS = 300f;
     private readonly Game Game;
     private readonly HashSet<Keys> HeldKeys = [];
 
@@ -24,12 +25,22 @@ public sealed class InputBuffer : IDisposable
     // Frame snapshot — frozen at the start of each Update()
     private HashSet<Keys> FramePresses = [];
     private HashSet<Keys> FrameReleases = [];
+    private float LastLeftPressMs;
+    private float LastRightPressMs;
+    private bool LeftDoubleClicked;
     private MouseState PreviousMouse;
+    private bool RightDoubleClicked;
     private char[] TextBuffer = [];
     private int TextCount;
 
     // Virtual resolution transform — raw window coords → virtual 640×480 coords
     private float VirtualScale = 1f;
+
+    /// <summary>
+    ///     When true, all input queries return empty/false. Used to let modal popups capture input while other controls
+    ///     continue updating (animations, cooldowns).
+    /// </summary>
+    public bool Suppressed { get; set; }
 
     public InputBuffer(Game game)
     {
@@ -71,7 +82,7 @@ public sealed class InputBuffer : IDisposable
     /// <summary>
     ///     Freezes all buffered input for this frame. Call once at the start of each Update.
     /// </summary>
-    public void Update()
+    public void Update(GameTime gameTime)
     {
         if (!Game.IsActive)
         {
@@ -85,6 +96,10 @@ public sealed class InputBuffer : IDisposable
             TextCount = 0;
             PreviousMouse = CurrentMouse;
             CurrentMouse = Mouse.GetState();
+            LeftDoubleClicked = false;
+            RightDoubleClicked = false;
+            LastLeftPressMs = 0;
+            LastRightPressMs = 0;
 
             return;
         }
@@ -116,29 +131,48 @@ public sealed class InputBuffer : IDisposable
 
         PreviousMouse = CurrentMouse;
         CurrentMouse = Mouse.GetState();
+
+        // Double-click detection
+        var now = (float)gameTime.TotalGameTime.TotalMilliseconds;
+
+        LeftDoubleClicked = false;
+
+        if (WasLeftButtonPressed)
+        {
+            LeftDoubleClicked = (now - LastLeftPressMs) < DOUBLE_CLICK_MS;
+            LastLeftPressMs = now;
+        }
+
+        RightDoubleClicked = false;
+
+        if (WasRightButtonPressed)
+        {
+            RightDoubleClicked = (now - LastRightPressMs) < DOUBLE_CLICK_MS;
+            LastRightPressMs = now;
+        }
     }
 
     #region Keyboard
     /// <summary>
     ///     Returns true if the key is currently held down (event-tracked, not polled).
     /// </summary>
-    public bool IsKeyHeld(Keys key) => HeldKeys.Contains(key);
+    public bool IsKeyHeld(Keys key) => !Suppressed && HeldKeys.Contains(key);
 
     /// <summary>
     ///     Returns true if the key had a rising edge (was pressed) during this frame. Key-repeat events from the OS are
     ///     filtered out — only the initial press fires.
     /// </summary>
-    public bool WasKeyPressed(Keys key) => FramePresses.Contains(key);
+    public bool WasKeyPressed(Keys key) => !Suppressed && FramePresses.Contains(key);
 
     /// <summary>
     ///     Returns true if the key had a falling edge (was released) during this frame.
     /// </summary>
-    public bool WasKeyReleased(Keys key) => FrameReleases.Contains(key);
+    public bool WasKeyReleased(Keys key) => !Suppressed && FrameReleases.Contains(key);
 
     /// <summary>
     ///     Characters typed during this frame (from TextInput events). Includes key-repeat characters from the OS.
     /// </summary>
-    public ReadOnlySpan<char> TextInput => TextBuffer.AsSpan(0, TextCount);
+    public ReadOnlySpan<char> TextInput => Suppressed ? ReadOnlySpan<char>.Empty : TextBuffer.AsSpan(0, TextCount);
     #endregion
 
     #region Mouse
@@ -153,36 +187,63 @@ public sealed class InputBuffer : IDisposable
     public int MouseY => (int)(CurrentMouse.Y / VirtualScale);
 
     /// <summary>
-    ///     Mouse scroll wheel delta since the previous frame.
+    ///     Mouse scroll wheel delta in notches (typically +-1 per wheel click).
+    ///     Normalized from the raw MonoGame ScrollWheelValue (120 units per notch).
     /// </summary>
-    public int ScrollDelta => CurrentMouse.ScrollWheelValue - PreviousMouse.ScrollWheelValue;
+    public int ScrollDelta
+    {
+        get
+        {
+            if (Suppressed)
+                return 0;
+
+            var raw = CurrentMouse.ScrollWheelValue - PreviousMouse.ScrollWheelValue;
+
+            if (raw == 0)
+                return 0;
+
+            return Math.Sign(raw) * Math.Max(1, Math.Abs(raw) / 120);
+        }
+    }
 
     /// <summary>
     ///     Returns true if the left mouse button was pressed this frame (rising edge).
     /// </summary>
     public bool WasLeftButtonPressed
-        => (CurrentMouse.LeftButton == ButtonState.Pressed) && (PreviousMouse.LeftButton == ButtonState.Released);
+        => !Suppressed && (CurrentMouse.LeftButton == ButtonState.Pressed) && (PreviousMouse.LeftButton == ButtonState.Released);
+
+    /// <summary>
+    ///     Returns true if the left mouse button was double-clicked (two presses within 300ms). Consumers should additionally
+    ///     verify the same logical target was clicked.
+    /// </summary>
+    public bool WasLeftButtonDoubleClicked => !Suppressed && LeftDoubleClicked;
 
     /// <summary>
     ///     Returns true if the left mouse button was released this frame (falling edge).
     /// </summary>
     public bool WasLeftButtonReleased
-        => (CurrentMouse.LeftButton == ButtonState.Released) && (PreviousMouse.LeftButton == ButtonState.Pressed);
+        => !Suppressed && (CurrentMouse.LeftButton == ButtonState.Released) && (PreviousMouse.LeftButton == ButtonState.Pressed);
 
     /// <summary>
     ///     Returns true if the right mouse button was pressed this frame (rising edge).
     /// </summary>
     public bool WasRightButtonPressed
-        => (CurrentMouse.RightButton == ButtonState.Pressed) && (PreviousMouse.RightButton == ButtonState.Released);
+        => !Suppressed && (CurrentMouse.RightButton == ButtonState.Pressed) && (PreviousMouse.RightButton == ButtonState.Released);
+
+    /// <summary>
+    ///     Returns true if the right mouse button was double-clicked (two presses within 300ms). Consumers should additionally
+    ///     verify the same logical target was clicked.
+    /// </summary>
+    public bool WasRightButtonDoubleClicked => !Suppressed && RightDoubleClicked;
 
     /// <summary>
     ///     Returns true if the left mouse button is currently held down.
     /// </summary>
-    public bool IsLeftButtonHeld => CurrentMouse.LeftButton == ButtonState.Pressed;
+    public bool IsLeftButtonHeld => !Suppressed && (CurrentMouse.LeftButton == ButtonState.Pressed);
 
     /// <summary>
     ///     Returns true if the right mouse button is currently held down.
     /// </summary>
-    public bool IsRightButtonHeld => CurrentMouse.RightButton == ButtonState.Pressed;
+    public bool IsRightButtonHeld => !Suppressed && (CurrentMouse.RightButton == ButtonState.Pressed);
     #endregion
 }

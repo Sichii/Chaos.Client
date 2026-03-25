@@ -22,7 +22,7 @@ public sealed class TextPopupControl : UIPanel
     private const int MAX_WIDTH = 500;
     private const int MAX_HEIGHT = 400;
 
-    private readonly CachedText[] LineCaches;
+    private readonly TextElement[] Lines;
     private readonly int MaxVisibleLines;
     private int DataVersion;
     private int RenderedVersion = -1;
@@ -37,18 +37,10 @@ public sealed class TextPopupControl : UIPanel
         Visible = false;
 
         MaxVisibleLines = (MAX_HEIGHT - PADDING * 2) / LINE_HEIGHT;
-        LineCaches = new CachedText[MaxVisibleLines];
+        Lines = new TextElement[MaxVisibleLines];
 
         for (var i = 0; i < MaxVisibleLines; i++)
-            LineCaches[i] = new CachedText();
-    }
-
-    public override void Dispose()
-    {
-        foreach (var c in LineCaches)
-            c.Dispose();
-
-        base.Dispose();
+            Lines[i] = new TextElement();
     }
 
     public override void Draw(SpriteBatch spriteBatch)
@@ -85,7 +77,7 @@ public sealed class TextPopupControl : UIPanel
             if (lineIndex >= WrappedLines.Count)
                 break;
 
-            LineCaches[i]
+            Lines[i]
                 .Draw(spriteBatch, new Vector2(textX, textY + i * LINE_HEIGHT));
         }
 
@@ -136,7 +128,7 @@ public sealed class TextPopupControl : UIPanel
         {
             var lineIndex = ScrollOffset + i;
 
-            LineCaches[i]
+            Lines[i]
                 .Update(lineIndex < WrappedLines.Count ? WrappedLines[lineIndex] : string.Empty, Color.White);
         }
     }

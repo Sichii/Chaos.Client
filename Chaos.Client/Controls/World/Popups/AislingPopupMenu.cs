@@ -31,9 +31,9 @@ public sealed class AislingPopupMenu : UIElement
         "whisper"
     ];
 
-    private readonly CachedText NameCache = new();
-    private readonly CachedText[] OptionCaches;
+    private readonly TextElement NameTextElement = new();
     private readonly Action[] OptionCallbacks = new Action[3];
+    private readonly TextElement[] OptionTextElements;
     private Texture2D? Background;
     private int HoveredIndex = -1;
 
@@ -41,25 +41,15 @@ public sealed class AislingPopupMenu : UIElement
     {
         Visible = false;
 
-        OptionCaches = new CachedText[3];
+        OptionTextElements = new TextElement[3];
 
         for (var i = 0; i < 3; i++)
         {
-            OptionCaches[i] = new CachedText();
+            OptionTextElements[i] = new TextElement();
 
-            OptionCaches[i]
+            OptionTextElements[i]
                 .Update(OPTION_LABELS[i], Color.White);
         }
-    }
-
-    public override void Dispose()
-    {
-        NameCache.Dispose();
-
-        foreach (var cache in OptionCaches)
-            cache.Dispose();
-
-        base.Dispose();
     }
 
     public override void Draw(SpriteBatch spriteBatch)
@@ -103,8 +93,8 @@ public sealed class AislingPopupMenu : UIElement
             sy + BOX_START_Y,
             BOX_WIDTH,
             BOX_HEIGHT);
-        NameCache.Alignment = TextAlignment.Center;
-        NameCache.Draw(spriteBatch, nameRect);
+        NameTextElement.Alignment = TextAlignment.Center;
+        NameTextElement.Draw(spriteBatch, nameRect);
 
         // Draw 3 option rows (left-aligned)
         for (var i = 0; i < 3; i++)
@@ -114,9 +104,9 @@ public sealed class AislingPopupMenu : UIElement
                 sy + BOX_START_Y + OPTIONS_OFFSET_Y + (i + 1) * BOX_HEIGHT,
                 BOX_WIDTH,
                 BOX_HEIGHT);
-            OptionCaches[i].Alignment = TextAlignment.Left;
+            OptionTextElements[i].Alignment = TextAlignment.Left;
 
-            OptionCaches[i]
+            OptionTextElements[i]
                 .Draw(spriteBatch, optionRect);
         }
     }
@@ -160,7 +150,7 @@ public sealed class AislingPopupMenu : UIElement
         if (bg is null)
             return;
 
-        NameCache.Update(name, Color.White);
+        NameTextElement.Update(name, Color.White);
         OptionCallbacks[0] = onInfo;
         OptionCallbacks[1] = onGroupRequest;
         OptionCallbacks[2] = onWhisper;

@@ -17,11 +17,11 @@ public sealed class ScrollBarControl : UIElement
     private const int BUTTON_SIZE = 16;
 
     // scroll.epf frame order: left(0,1), right(2,3), up(4,5), down(6,7), thumb(8), track(9)
-    // Each pair: [active, normal]
-    private const int FRAME_UP_ACTIVE = 4;
-    private const int FRAME_UP_NORMAL = 5;
-    private const int FRAME_DOWN_ACTIVE = 6;
-    private const int FRAME_DOWN_NORMAL = 7;
+    // Each pair: [normal, active]
+    private const int FRAME_UP_NORMAL = 4;
+    private const int FRAME_UP_ACTIVE = 5;
+    private const int FRAME_DOWN_NORMAL = 6;
+    private const int FRAME_DOWN_ACTIVE = 7;
     private const int FRAME_THUMB = 8;
     private const int FRAME_TRACK = 9;
 
@@ -197,12 +197,12 @@ public sealed class ScrollBarControl : UIElement
             } else if (my < thumbY)
             {
                 ActiveZone = 1;
-                Value = Math.Max(0, Value - VisibleItems);
+                Value = Math.Max(0, Value - 1);
                 OnValueChanged?.Invoke(Value);
             } else
             {
                 ActiveZone = 3;
-                Value = Math.Min(MaxValue, Value + VisibleItems);
+                Value = Math.Min(MaxValue, Value + 1);
                 OnValueChanged?.Invoke(Value);
             }
         }

@@ -41,6 +41,10 @@ public sealed class ChatBubble : UIImage
     private static readonly Color NormalTextColor = Color.White;
     private static readonly Color ShoutTextColor = Color.Yellow;
 
+    private readonly int BubbleBodyHeight;
+    private readonly List<string> Lines;
+    private readonly Color TextColor;
+
     private float ElapsedMs;
     public bool TailOnTop { get; set; }
 
@@ -50,12 +54,18 @@ public sealed class ChatBubble : UIImage
 
     private ChatBubble(
         uint entityId,
-        Texture2D texture,
+        Texture2D backgroundTexture,
+        List<string> lines,
+        Color textColor,
+        int bubbleBodyHeight,
         int width,
         int height)
     {
         EntityId = entityId;
-        Texture = texture;
+        Texture = backgroundTexture;
+        Lines = lines;
+        TextColor = textColor;
+        BubbleBodyHeight = bubbleBodyHeight;
         Width = width;
         Height = height;
     }
@@ -98,33 +108,54 @@ public sealed class ChatBubble : UIImage
                 BubbleBorderColor,
                 BubbleFillColor);
 
-            var textSurfaceHeight = Math.Max(1, lines.Count * LINE_HEIGHT);
-
-            using var textTexture = RenderBubbleText(
-                lines,
-                textAreaWidth,
-                textSurfaceHeight,
-                textColor);
-
-            OverlayTexture(
-                pixels,
-                totalWidth,
-                totalHeight,
-                textTexture,
-                LEFT_CAP_WIDTH + INNER_PADDING_LEFT,
-                INNER_PADDING_TOP);
-
             var texture = new Texture2D(ChaosGame.Device, totalWidth, totalHeight);
             texture.SetData(pixels, 0, pixelCount);
 
             return new ChatBubble(
                 entityId,
                 texture,
+                lines,
+                textColor,
+                bubbleHeight,
                 totalWidth,
                 totalHeight);
         } finally
         {
             ArrayPool<Color>.Shared.Return(pixels);
+        }
+    }
+
+    public override void Draw(SpriteBatch spriteBatch)
+    {
+        if (!Visible || Texture is null)
+            return;
+
+        // Draw bubble background
+        var bgEffect = TailOnTop ? SpriteEffects.FlipVertically : SpriteEffects.None;
+
+        spriteBatch.Draw(
+            Texture,
+            new Vector2(ScreenX, ScreenY),
+            null,
+            Color.White,
+            0f,
+            Vector2.Zero,
+            1f,
+            bgEffect,
+            0f);
+
+        // Draw text lines on top of the bubble background
+        var textX = ScreenX + LEFT_CAP_WIDTH + INNER_PADDING_LEFT;
+        var textY = TailOnTop ? ScreenY + TAIL_HEIGHT + INNER_PADDING_TOP : ScreenY + INNER_PADDING_TOP;
+
+        foreach (var line in Lines)
+        {
+            TextRenderer.DrawText(
+                spriteBatch,
+                new Vector2(textX, textY),
+                line,
+                TextColor);
+            textY += LINE_HEIGHT;
         }
     }
 
@@ -341,111 +372,6 @@ public sealed class ChatBubble : UIImage
             return bottomInset[row - (height - bottomInset.Length)];
 
         return 0;
-    }
-
-    private static void OverlayTexture(
-        Color[] dest,
-        int destWidth,
-        int destHeight,
-        Texture2D src,
-        int offsetX,
-        int offsetY)
-    {
-        var srcCount = src.Width * src.Height;
-        var srcPixels = ArrayPool<Color>.Shared.Rent(srcCount);
-
-        try
-        {
-            src.GetData(srcPixels, 0, srcCount);
-
-            for (var row = 0; row < src.Height; row++)
-            {
-                for (var col = 0; col < src.Width; col++)
-                {
-                    var srcPixel = srcPixels[row * src.Width + col];
-
-                    if (srcPixel.A == 0)
-                        continue;
-
-                    var dx = offsetX + col;
-                    var dy = offsetY + row;
-
-                    if ((dx >= 0) && (dx < destWidth) && (dy >= 0) && (dy < destHeight))
-                        dest[dy * destWidth + dx] = srcPixel;
-                }
-            }
-        } finally
-        {
-            ArrayPool<Color>.Shared.Return(srcPixels);
-        }
-    }
-
-    private static Texture2D RenderBubbleText(
-        List<string> lines,
-        int width,
-        int height,
-        Color color)
-    {
-        var surfaceWidth = Math.Max(1, width);
-        var surfaceHeight = Math.Max(1, height);
-
-        var result = new Texture2D(ChaosGame.Device, surfaceWidth, surfaceHeight);
-        var resultCount = surfaceWidth * surfaceHeight;
-        var resultPixels = ArrayPool<Color>.Shared.Rent(resultCount);
-
-        try
-        {
-            Array.Clear(resultPixels, 0, resultCount);
-
-            var y = 0;
-            var srcPixels = Array.Empty<Color>();
-            var srcRented = false;
-
-            try
-            {
-                foreach (var line in lines)
-                {
-                    using var lineTexture = TextRenderer.RenderText(line, color);
-
-                    var srcCount = lineTexture.Width * lineTexture.Height;
-
-                    if (srcPixels.Length < srcCount)
-                    {
-                        if (srcRented)
-                            ArrayPool<Color>.Shared.Return(srcPixels);
-
-                        srcPixels = ArrayPool<Color>.Shared.Rent(srcCount);
-                        srcRented = true;
-                    }
-
-                    lineTexture.GetData(srcPixels, 0, srcCount);
-
-                    for (var row = 0; (row < lineTexture.Height) && ((y + row) < surfaceHeight); row++)
-                    {
-                        for (var col = 0; (col < lineTexture.Width) && (col < surfaceWidth); col++)
-                        {
-                            var src = srcPixels[row * lineTexture.Width + col];
-
-                            if (src.A > 0)
-                                resultPixels[(y + row) * surfaceWidth + col] = src;
-                        }
-                    }
-
-                    y += LINE_HEIGHT;
-                }
-            } finally
-            {
-                if (srcRented)
-                    ArrayPool<Color>.Shared.Return(srcPixels);
-            }
-
-            result.SetData(resultPixels, 0, resultCount);
-
-            return result;
-        } finally
-        {
-            ArrayPool<Color>.Shared.Return(resultPixels);
-        }
     }
 
     private static void SetPixel(

@@ -23,6 +23,8 @@ public sealed class ItemTooltipControl : UIPanel
     private static readonly Color DurabilityColor = new(100, 149, 237);
 
     private readonly UIImage? TooltipImage;
+    private string? DurabilityText;
+    private List<string>? NameLines;
 
     public ItemTooltipControl()
     {
@@ -66,13 +68,8 @@ public sealed class ItemTooltipControl : UIPanel
         return lines;
     }
 
-    private Texture2D CompositeTooltip(
-        List<string> nameLines,
-        string? durabilityText,
-        int totalWidth,
-        int totalHeight)
+    private static Texture2D CompositeBackground(int totalWidth, int totalHeight)
     {
-        // Composite: solid black background + dlgframe border
         using var background = DialogFrame.Composite(
             new SKColor(
                 0,
@@ -100,72 +97,44 @@ public sealed class ItemTooltipControl : UIPanel
                     0,
                     255));
 
-        // Render text
-        var textY = PADDING;
-
-        foreach (var line in nameLines)
-        {
-            using var lineTexture = TextRenderer.RenderText(line, Color.White);
-
-            OverlayTexture(
-                canvas,
-                lineTexture,
-                PADDING,
-                textY);
-            textY += LINE_HEIGHT;
-        }
-
-        if (durabilityText is not null)
-        {
-            using var durTexture = TextRenderer.RenderText(durabilityText, DurabilityColor);
-
-            OverlayTexture(
-                canvas,
-                durTexture,
-                PADDING,
-                textY);
-        }
-
         using var snapshot = surface.Snapshot();
 
         return TextureConverter.ToTexture2D(snapshot);
     }
 
-    public void Hide() => Visible = false;
-
-    private static void OverlayTexture(
-        SKCanvas canvas,
-        Texture2D texture,
-        int x,
-        int y)
+    public override void Draw(SpriteBatch spriteBatch)
     {
-        var pixels = new Color[texture.Width * texture.Height];
-        texture.GetData(pixels);
+        if (!Visible)
+            return;
 
-        var info = new SKImageInfo(
-            texture.Width,
-            texture.Height,
-            SKColorType.Rgba8888,
-            SKAlphaType.Premul);
-        using var bitmap = new SKBitmap(info);
+        base.Draw(spriteBatch);
 
-        for (var row = 0; row < texture.Height; row++)
-            for (var col = 0; col < texture.Width; col++)
-            {
-                var c = pixels[row * texture.Width + col];
+        // Draw text lines on top of the background
+        if (NameLines is null)
+            return;
 
-                bitmap.SetPixel(
-                    col,
-                    row,
-                    new SKColor(
-                        c.R,
-                        c.G,
-                        c.B,
-                        c.A));
-            }
+        var textY = (float)(ScreenY + PADDING);
+        var textX = (float)(ScreenX + PADDING);
 
-        canvas.DrawBitmap(bitmap, x, y);
+        foreach (var line in NameLines)
+        {
+            TextRenderer.DrawText(
+                spriteBatch,
+                new Vector2(textX, textY),
+                line,
+                Color.White);
+            textY += LINE_HEIGHT;
+        }
+
+        if (DurabilityText is not null)
+            TextRenderer.DrawText(
+                spriteBatch,
+                new Vector2(textX, textY),
+                DurabilityText,
+                DurabilityColor);
     }
+
+    public void Hide() => Visible = false;
 
     public void Show(
         string itemName,
@@ -175,13 +144,13 @@ public sealed class ItemTooltipControl : UIPanel
         int mouseY)
     {
         // Character-wrap the name
-        var nameLines = CharacterWrap(itemName);
+        NameLines = CharacterWrap(itemName);
         var hasDurability = maxDurability > 0;
-        var durabilityText = hasDurability ? $"{currentDurability}/{maxDurability}" : null;
+        DurabilityText = hasDurability ? $"{currentDurability}/{maxDurability}" : null;
 
         // Content dimensions
         var contentWidth = MAX_CHARS_PER_LINE * CHAR_CELL_WIDTH;
-        var contentHeight = nameLines.Count * LINE_HEIGHT;
+        var contentHeight = NameLines.Count * LINE_HEIGHT;
 
         if (hasDurability)
             contentHeight += LINE_HEIGHT;
@@ -193,14 +162,10 @@ public sealed class ItemTooltipControl : UIPanel
         Width = totalWidth;
         Height = totalHeight;
 
-        // Composite the tooltip texture
+        // Composite background only (text drawn at draw time)
         TooltipImage?.Texture?.Dispose();
 
-        var texture = CompositeTooltip(
-            nameLines,
-            durabilityText,
-            totalWidth,
-            totalHeight);
+        var texture = CompositeBackground(totalWidth, totalHeight);
         TooltipImage!.Texture = texture;
         TooltipImage.X = 0;
         TooltipImage.Y = 0;

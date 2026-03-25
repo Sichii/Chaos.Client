@@ -14,11 +14,7 @@ namespace Chaos.Client.Controls.World.Hud.Panel.Slots;
 /// </summary>
 public class PanelSlot : UIButton
 {
-    private const float DOUBLE_CLICK_MS = 300f;
     private bool DoubleClickFired;
-
-    // Double-click tracking
-    private float LastClickTime;
 
     /// <summary>
     ///     Cooldown progress from 0 (fully cooled down) to 1 (just started, fully on cooldown).
@@ -159,18 +155,12 @@ public class PanelSlot : UIButton
         // Slots on cooldown cannot be activated or dragged
         if (input.WasLeftButtonPressed && hovering && NormalTexture is not null && (CooldownPercent <= 0))
         {
-            var now = (float)gameTime.TotalGameTime.TotalMilliseconds;
-
-            if ((now - LastClickTime) < DOUBLE_CLICK_MS)
+            if (input.WasLeftButtonDoubleClicked)
             {
                 OnDoubleClick?.Invoke(Slot);
                 DoubleClickFired = true;
-                LastClickTime = 0;
             } else
-            {
-                LastClickTime = now;
                 DoubleClickFired = false;
-            }
         }
 
         // Drag detection — mouse held and moved away from origin

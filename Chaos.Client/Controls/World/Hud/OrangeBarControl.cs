@@ -18,7 +18,7 @@ public sealed class OrangeBarControl : UIElement
     private const int MAX_EXPAND_LINES = 10;
     private const int GLYPH_HEIGHT = 12;
     private readonly Chat ChatState;
-    private readonly CachedText[] HistoryTextures;
+    private readonly TextElement[] Lines;
     private readonly Texture2D? PaneBg;
 
     private readonly Rectangle TextBounds;
@@ -39,18 +39,15 @@ public sealed class OrangeBarControl : UIElement
         if (hudPrefabSet.Contains("SystemMessagePane"))
             PaneBg = UiRenderer.Instance!.GetPrefabTexture(hudPrefabSet.Name, "SystemMessagePane", 0);
 
-        HistoryTextures = new CachedText[MAX_EXPAND_LINES];
+        Lines = new TextElement[MAX_EXPAND_LINES];
 
         for (var i = 0; i < MAX_EXPAND_LINES; i++)
-            HistoryTextures[i] = new CachedText();
+            Lines[i] = new TextElement();
     }
 
     public override void Dispose()
     {
         PaneBg?.Dispose();
-
-        foreach (var texture in HistoryTextures)
-            texture.Dispose();
 
         base.Dispose();
     }
@@ -121,10 +118,10 @@ public sealed class OrangeBarControl : UIElement
             {
                 var textY = bottomY - slot * GLYPH_HEIGHT;
 
-                HistoryTextures[slot]
+                Lines[slot]
                     .Update(history[i], Color.Orange);
 
-                HistoryTextures[slot]
+                Lines[slot]
                     .Draw(spriteBatch, new Vector2(textX, textY));
                 slot++;
             }

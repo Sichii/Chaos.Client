@@ -346,7 +346,7 @@ public sealed class UiRenderer : IDisposable
         if (Cache.TryGetValue(key, out var cached))
             return cached;
 
-        var texture = RenderSprite(DataContext.PanelIcons.GetSkillGreyIcon(spriteId));
+        var texture = RenderSprite(DataContext.PanelIcons.GetSkillLockedIcon(spriteId));
 
         if (texture is null)
             return MissingTexture;
@@ -377,6 +377,46 @@ public sealed class UiRenderer : IDisposable
     }
 
     /// <summary>
+    ///     Renders and caches a skill icon (learnable/002 variant).
+    /// </summary>
+    public Texture2D GetSkillLearnableIcon(ushort spriteId)
+    {
+        var key = $"skill_learnable:{spriteId}";
+
+        if (Cache.TryGetValue(key, out var cached))
+            return cached;
+
+        var texture = RenderSprite(DataContext.PanelIcons.GetSkillLearnableIcon(spriteId));
+
+        if (texture is null)
+            return MissingTexture;
+
+        Cache[key] = texture;
+
+        return texture;
+    }
+
+    /// <summary>
+    ///     Renders and caches a skill icon (locked/003 variant).
+    /// </summary>
+    public Texture2D GetSkillLockedIcon(ushort spriteId)
+    {
+        var key = $"skill_locked:{spriteId}";
+
+        if (Cache.TryGetValue(key, out var cached))
+            return cached;
+
+        var texture = RenderSprite(DataContext.PanelIcons.GetSkillLockedIcon(spriteId));
+
+        if (texture is null)
+            return MissingTexture;
+
+        Cache[key] = texture;
+
+        return texture;
+    }
+
+    /// <summary>
     ///     Renders and caches a spell icon.
     /// </summary>
     public Texture2D GetSpellIcon(ushort spriteId)
@@ -387,6 +427,46 @@ public sealed class UiRenderer : IDisposable
             return cached;
 
         var texture = RenderSprite(DataContext.PanelIcons.GetSpellIcon(spriteId));
+
+        if (texture is null)
+            return MissingTexture;
+
+        Cache[key] = texture;
+
+        return texture;
+    }
+
+    /// <summary>
+    ///     Renders and caches a spell icon (learnable/002 variant).
+    /// </summary>
+    public Texture2D GetSpellLearnableIcon(ushort spriteId)
+    {
+        var key = $"spell_learnable:{spriteId}";
+
+        if (Cache.TryGetValue(key, out var cached))
+            return cached;
+
+        var texture = RenderSprite(DataContext.PanelIcons.GetSpellLearnableIcon(spriteId));
+
+        if (texture is null)
+            return MissingTexture;
+
+        Cache[key] = texture;
+
+        return texture;
+    }
+
+    /// <summary>
+    ///     Renders and caches a spell icon (locked/003 variant).
+    /// </summary>
+    public Texture2D GetSpellLockedIcon(ushort spriteId)
+    {
+        var key = $"spell_locked:{spriteId}";
+
+        if (Cache.TryGetValue(key, out var cached))
+            return cached;
+
+        var texture = RenderSprite(DataContext.PanelIcons.GetSpellLockedIcon(spriteId));
 
         if (texture is null)
             return MissingTexture;

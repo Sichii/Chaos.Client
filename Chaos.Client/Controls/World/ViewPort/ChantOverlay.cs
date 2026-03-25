@@ -12,7 +12,7 @@ namespace Chaos.Client.Controls.World.ViewPort;
 ///     chars per visual line with character wrap (not word wrap). If total character count is 10 or less, text is centered
 ///     per line; otherwise left-aligned.
 /// </summary>
-public sealed class ChantOverlay : UIImage
+public sealed class ChantOverlay : UIElement
 {
     private const int CHARS_PER_LINE = 18;
     private const int LINE_HEIGHT = 12;
@@ -22,6 +22,9 @@ public sealed class ChantOverlay : UIImage
 
     private static readonly Color ChantColor = new(100, 149, 237);
 
+    private readonly bool Centered;
+    private readonly List<string> VisualLines;
+
     private float ElapsedMs;
 
     public uint EntityId { get; }
@@ -29,12 +32,14 @@ public sealed class ChantOverlay : UIImage
 
     private ChantOverlay(
         uint entityId,
-        Texture2D texture,
+        List<string> visualLines,
+        bool centered,
         int width,
         int height)
     {
         EntityId = entityId;
-        Texture = texture;
+        VisualLines = visualLines;
+        Centered = centered;
         Width = width;
         Height = height;
     }
@@ -64,48 +69,36 @@ public sealed class ChantOverlay : UIImage
         if (visualLines.Count == 0)
             visualLines.Add(" ");
 
-        // Compute texture dimensions
         var textAreaWidth = CHARS_PER_LINE * 6 + 2;
         var totalHeight = visualLines.Count * LINE_HEIGHT;
-        var totalWidth = textAreaWidth;
-
-        var pixels = new Color[totalWidth * totalHeight];
-        var y = 0;
-
-        foreach (var visualLine in visualLines)
-        {
-            using var lineTexture = TextRenderer.RenderText(visualLine, ChantColor);
-
-            var srcPixels = new Color[lineTexture.Width * lineTexture.Height];
-            lineTexture.GetData(srcPixels);
-
-            var offsetX = centered ? (totalWidth - lineTexture.Width) / 2 : 0;
-
-            if (offsetX < 0)
-                offsetX = 0;
-
-            for (var row = 0; (row < lineTexture.Height) && ((y + row) < totalHeight); row++)
-            {
-                for (var col = 0; (col < lineTexture.Width) && ((offsetX + col) < totalWidth); col++)
-                {
-                    var src = srcPixels[row * lineTexture.Width + col];
-
-                    if (src.A > 0)
-                        pixels[(y + row) * totalWidth + offsetX + col] = src;
-                }
-            }
-
-            y += LINE_HEIGHT;
-        }
-
-        var texture = new Texture2D(ChaosGame.Device, totalWidth, totalHeight);
-        texture.SetData(pixels);
 
         return new ChantOverlay(
             entityId,
-            texture,
-            totalWidth,
+            visualLines,
+            centered,
+            textAreaWidth,
             totalHeight);
+    }
+
+    public override void Draw(SpriteBatch spriteBatch)
+    {
+        if (!Visible)
+            return;
+
+        var y = (float)ScreenY;
+
+        foreach (var line in VisualLines)
+        {
+            var lineWidth = TextRenderer.MeasureWidth(line);
+            var x = Centered ? ScreenX + (Width - lineWidth) / 2f : ScreenX;
+
+            TextRenderer.DrawText(
+                spriteBatch,
+                new Vector2(x, y),
+                line,
+                ChantColor);
+            y += LINE_HEIGHT;
+        }
     }
 
     public override void Update(GameTime gameTime, InputBuffer input) => ElapsedMs += (float)gameTime.ElapsedGameTime.TotalMilliseconds;

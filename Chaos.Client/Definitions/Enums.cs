@@ -90,3 +90,45 @@ public enum StatusBookTab
     Album,
     Family
 }
+
+/// <summary>
+///     Determines which icon variant to display for an ability in the metadata tab.
+/// </summary>
+public enum AbilityIconState
+{
+    /// <summary>
+    ///     Player already knows this ability — use the standard icon (001 variant).
+    /// </summary>
+    Known,
+
+    /// <summary>
+    ///     Player meets all requirements to learn this ability — use the learnable icon (002 variant).
+    /// </summary>
+    Learnable,
+
+    /// <summary>
+    ///     Player does not meet the requirements — use the locked icon (003 variant).
+    /// </summary>
+    Locked
+}
+
+/// <summary>
+///     Determines the display state of an event entry in the events metadata tab.
+/// </summary>
+public enum EventState
+{
+    /// <summary>
+    ///     Player does not meet circle, class, or prerequisite requirements — gray text.
+    /// </summary>
+    Unavailable,
+
+    /// <summary>
+    ///     Player meets all requirements and can complete this event — blue text.
+    /// </summary>
+    Available,
+
+    /// <summary>
+    ///     Player has a legend mark matching this event's ID — green text.
+    /// </summary>
+    Completed
+}

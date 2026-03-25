@@ -33,20 +33,7 @@ public sealed class ContextMenu : UIElement
         BorderColor = Color.Gray;
     }
 
-    private void ClearItems()
-    {
-        foreach (var item in Items)
-            item.Cache.Dispose();
-
-        Items.Clear();
-    }
-
-    public override void Dispose()
-    {
-        ClearItems();
-
-        base.Dispose();
-    }
+    private void ClearItems() => Items.Clear();
 
     public override void Draw(SpriteBatch spriteBatch)
     {
@@ -96,9 +83,9 @@ public sealed class ContextMenu : UIElement
 
         foreach ((var text, var callback) in options)
         {
-            var cache = new CachedText();
-            cache.Update(text, Color.White);
-            Items.Add(new MenuItem(text, cache, callback));
+            var menuTextElement = new TextElement();
+            menuTextElement.Update(text, Color.White);
+            Items.Add(new MenuItem(menuTextElement, callback));
 
             var textWidth = TextRenderer.MeasureWidth(text);
 
@@ -155,5 +142,5 @@ public sealed class ContextMenu : UIElement
             Hide();
     }
 
-    private record struct MenuItem(string Text, CachedText Cache, Action Callback);
+    private record struct MenuItem(TextElement Cache, Action Callback);
 }

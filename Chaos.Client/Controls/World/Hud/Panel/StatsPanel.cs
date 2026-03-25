@@ -71,22 +71,22 @@ public sealed class StatsPanel : PrefabPanel
 
     public void UpdateAttributes(AttributesArgs attrs)
     {
-        StrLabel?.SetText($"{attrs.Str}");
-        IntLabel?.SetText($"{attrs.Int}");
-        WisLabel?.SetText($"{attrs.Wis}");
-        ConLabel?.SetText($"{attrs.Con}");
-        DexLabel?.SetText($"{attrs.Dex}");
-        HpLabel?.SetText($"{attrs.CurrentHp}");
-        HpMaxLabel?.SetText($"{attrs.MaximumHp}");
-        MpLabel?.SetText($"{attrs.CurrentMp}");
-        MpMaxLabel?.SetText($"{attrs.MaximumMp}");
-        ExpLabel?.SetText($"{attrs.TotalExp}");
-        AbExpLabel?.SetText($"{attrs.TotalAbility}");
-        GoldLabel?.SetText($"{attrs.Gold}");
-        GpLabel?.SetText($"{attrs.GamePoints}");
-        LevelLabel?.SetText($"{attrs.Level}");
-        NextLevelLabel?.SetText($"{attrs.ToNextLevel}");
-        AbilityLabel?.SetText($"{attrs.Ability}");
-        NextAbilityLabel?.SetText($"{attrs.ToNextAbility}");
+        StrLabel?.Text = $"{attrs.Str}";
+        IntLabel?.Text = $"{attrs.Int}";
+        WisLabel?.Text = $"{attrs.Wis}";
+        ConLabel?.Text = $"{attrs.Con}";
+        DexLabel?.Text = $"{attrs.Dex}";
+        HpLabel?.Text = $"{attrs.CurrentHp}";
+        HpMaxLabel?.Text = $"{attrs.MaximumHp}";
+        MpLabel?.Text = $"{attrs.CurrentMp}";
+        MpMaxLabel?.Text = $"{attrs.MaximumMp}";
+        ExpLabel?.Text = $"{attrs.TotalExp}";
+        AbExpLabel?.Text = $"{attrs.TotalAbility}";
+        GoldLabel?.Text = $"{attrs.Gold}";
+        GpLabel?.Text = $"{attrs.GamePoints}";
+        LevelLabel?.Text = $"{attrs.Level}";
+        NextLevelLabel?.Text = $"{attrs.ToNextLevel}";
+        AbilityLabel?.Text = $"{attrs.Ability}";
+        NextAbilityLabel?.Text = $"{attrs.ToNextAbility}";
     }
 }

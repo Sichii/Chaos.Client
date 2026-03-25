@@ -23,9 +23,8 @@ public sealed partial class WorldScreen
         }
 
         var input = Game.Input;
+        input.Suppressed = false;
         var elapsedMs = (float)gameTime.ElapsedGameTime.TotalMilliseconds;
-        LeftClickTracker.Tick(elapsedMs);
-        RightClickTracker.Tick(elapsedMs);
 
         // Advance entity animations and active effects
         var smoothScroll = Game.Settings.ScrollLevel > 0;
@@ -354,6 +353,16 @@ public sealed partial class WorldScreen
             return;
         }
 
+        // Modal popup check — find the topmost visible modal and give it exclusive input.
+        // All other controls still update (animations, cooldowns) but with suppressed input.
+        var modal = FindVisibleModal();
+
+        if (modal is not null)
+        {
+            modal.Update(gameTime, input);
+            input.Suppressed = true;
+        }
+
         if (StatusBook.Visible)
         {
             // HUD panels still receive input while the status book is open (drag-and-drop)
@@ -522,6 +531,8 @@ public sealed partial class WorldScreen
                 WorldHud.ShowTab(shift ? HudTab.ExtendedStats : HudTab.Stats);
             else if (input.WasKeyPressed(Keys.H))
                 WorldHud.ShowTab(HudTab.Tools);
+            else if (input.WasKeyPressed(Keys.R))
+                ToggleSocialStatusPicker();
 
             // Tab — toggle tab map overlay
             if (input.WasKeyPressed(Keys.Tab))
@@ -691,5 +702,22 @@ public sealed partial class WorldScreen
                 MapFile.Height);
 
         // Player silhouette is pre-rendered at the start of Draw
+    }
+
+    /// <summary>
+    ///     Returns the first visible modal panel among Root's children (highest ZIndex first), or null.
+    /// </summary>
+    private UIPanel? FindVisibleModal()
+    {
+        if (Root is null)
+            return null;
+
+        UIPanel? best = null;
+
+        foreach (var child in Root.Children)
+            if (child is UIPanel { Visible: true, IsModal: true } panel && (best is null || (panel.ZIndex > best.ZIndex)))
+                best = panel;
+
+        return best;
     }
 }

@@ -9,14 +9,15 @@ namespace Chaos.Client.Networking;
 
 /// <summary>
 ///     Manages metadata file synchronization with the server. Compares local checksums against server-reported checksums
-///     and requests updated files when they differ. Stores received metadata to disk and invalidates the
-///     MetaFileRepository cache.
+///     and requests updated files when they differ. Stores received metadata to disk. Fires OnSyncComplete when all
+///     pending files have been received.
 /// </summary>
 public sealed class MetaDataManager
 {
     private readonly ConnectionManager Connection;
     private readonly string MetaFilePath;
     private readonly Dictionary<string, uint> PendingChecksums = new(StringComparer.OrdinalIgnoreCase);
+    private bool SyncStarted;
 
     public MetaDataManager(ConnectionManager connection, string dataPath)
     {
@@ -51,9 +52,14 @@ public sealed class MetaDataManager
     private void HandleCheckSums(ICollection<MetaDataInfo>? collection)
     {
         if (collection is null || (collection.Count == 0))
+        {
+            OnSyncComplete?.Invoke();
+
             return;
+        }
 
         PendingChecksums.Clear();
+        SyncStarted = true;
         var staleFiles = new List<string>();
 
         foreach (var info in collection)
@@ -70,6 +76,10 @@ public sealed class MetaDataManager
         // Request each stale file
         foreach (var name in staleFiles)
             Connection.SendMetaDataRequest(MetaDataRequestType.DataByName, name);
+
+        // If nothing was stale, sync is already complete
+        if (PendingChecksums.Count == 0)
+            OnSyncComplete?.Invoke();
     }
 
     private void HandleFileData(MetaDataInfo? info)
@@ -83,8 +93,9 @@ public sealed class MetaDataManager
 
         PendingChecksums.Remove(info.Name);
 
-        // Notify listeners that metadata was updated
-        OnMetaDataUpdated?.Invoke([info.Name]);
+        // All pending files received — sync is complete
+        if (SyncStarted && (PendingChecksums.Count == 0))
+            OnSyncComplete?.Invoke();
     }
 
     /// <summary>
@@ -108,10 +119,10 @@ public sealed class MetaDataManager
     }
 
     /// <summary>
-    ///     Fired when one or more metadata files have been updated from the server. Parameter is the list of updated file
-    ///     names.
+    ///     Fired when all metadata files are up to date — either nothing was stale, or all stale files
+    ///     have been received from the server.
     /// </summary>
-    public event Action<List<string>>? OnMetaDataUpdated;
+    public event Action? OnSyncComplete;
 
     /// <summary>
     ///     Requests all metadata checksums from the server. Call on world entry.

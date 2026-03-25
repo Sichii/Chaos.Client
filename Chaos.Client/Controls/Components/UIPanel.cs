@@ -12,6 +12,13 @@ public class UIPanel : UIElement
     internal bool ChildOrderDirty;
 
     public Texture2D? Background { get; set; }
+
+    /// <summary>
+    ///     When true, this panel captures all input while visible — other controls receive suppressed input (no keys, no mouse
+    ///     events) so their animations/timers still tick.
+    /// </summary>
+    public bool IsModal { get; set; }
+
     public List<UIElement> Children { get; } = [];
 
     public void AddChild(UIElement child)

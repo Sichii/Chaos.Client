@@ -15,19 +15,13 @@ namespace Chaos.Client.Rendering;
 /// </summary>
 public sealed class WorldDebugRenderer
 {
-    private readonly Dictionary<uint, CachedText> LabelCache = new();
-    private readonly List<(CachedText Text, Vector2 Position)> PendingLabels = new();
+    private readonly Dictionary<uint, TextElement> LabelCache = new();
+    private readonly List<(TextElement Text, Vector2 Position)> PendingLabels = new();
 
     /// <summary>
-    ///     Disposes and clears all cached debug labels. Call on map change or unload.
+    ///     Clears all cached debug labels. Call on map change or unload.
     /// </summary>
-    public void Clear()
-    {
-        foreach (var cached in LabelCache.Values)
-            cached.Dispose();
-
-        LabelCache.Clear();
-    }
+    public void Clear() => LabelCache.Clear();
 
     /// <summary>
     ///     Draws all debug overlays. Call within a SpriteBatch Begin/End block with camera transform applied.
@@ -134,15 +128,15 @@ public sealed class WorldDebugRenderer
 
             if (!LabelCache.TryGetValue(entity.Id, out var cachedLabel))
             {
-                cachedLabel = new CachedText();
+                cachedLabel = new TextElement();
                 LabelCache[entity.Id] = cachedLabel;
             }
 
             cachedLabel.Update(label, color);
 
-            if (cachedLabel.Texture is not null)
+            if (cachedLabel.HasContent)
             {
-                var labelPos = camera.WorldToScreen(new Vector2(tileCenterX - cachedLabel.Texture.Width / 2f, tileWorld.Y - 12));
+                var labelPos = camera.WorldToScreen(new Vector2(tileCenterX - cachedLabel.Width / 2f, tileWorld.Y - 12));
                 PendingLabels.Add((cachedLabel, labelPos));
             }
         }
@@ -302,9 +296,5 @@ public sealed class WorldDebugRenderer
     /// <summary>
     ///     Removes a single entity's cached debug label. Call when an entity is removed from the world.
     /// </summary>
-    public void RemoveEntity(uint entityId)
-    {
-        if (LabelCache.Remove(entityId, out var label))
-            label.Dispose();
-    }
+    public void RemoveEntity(uint entityId) => LabelCache.Remove(entityId);
 }

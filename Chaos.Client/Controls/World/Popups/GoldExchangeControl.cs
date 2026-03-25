@@ -36,7 +36,8 @@ public sealed class GoldExchangeControl : PrefabPanel
         // Replace any existing text display with a label showing the prompt
         var titleLabel = CreateLabel("Title");
 
-        titleLabel?.SetText("Gold amount to drop?", Color.White);
+        titleLabel?.ForegroundColor = Color.White;
+        titleLabel?.Text = "Gold amount to drop?";
 
         if (OkButton is not null)
             OkButton.OnClick += Confirm;

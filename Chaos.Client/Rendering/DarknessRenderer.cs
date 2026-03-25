@@ -1,6 +1,7 @@
 #region
 using Chaos.Client.Controls.Components;
 using Chaos.Client.Data;
+using Chaos.Client.Data.Models;
 using Chaos.Networking.Entities.Server;
 using DALib.Drawing;
 using DALib.Extensions;
@@ -17,8 +18,6 @@ namespace Chaos.Client.Rendering;
 public sealed class DarknessRenderer : IDisposable
 {
     private readonly GraphicsDevice Device;
-    private readonly Dictionary<string, (byte Alpha, byte R, byte G, byte B)> LightProperties = [];
-    private readonly Dictionary<short, string> MapLightTypes = [];
 
     private float Alpha;
     private string CurrentLightType = "default";
@@ -26,6 +25,7 @@ public sealed class DarknessRenderer : IDisposable
     private HeaFile? HeaFile;
     private int LastOffsetX = int.MinValue;
     private int LastOffsetY = int.MinValue;
+    private LightMetadata? LightData;
     private Color[]? Pixels;
     private byte[]? ScanlineBuffer;
     private Texture2D? Texture;
@@ -40,11 +40,7 @@ public sealed class DarknessRenderer : IDisposable
     /// </summary>
     public bool IsActive => Alpha > 0f;
 
-    public DarknessRenderer(GraphicsDevice device)
-    {
-        Device = device;
-        LoadLightMetadata();
-    }
+    public DarknessRenderer(GraphicsDevice device) => Device = device;
 
     /// <inheritdoc />
     public void Dispose()
@@ -75,38 +71,6 @@ public sealed class DarknessRenderer : IDisposable
     }
 
     /// <summary>
-    ///     Parses the "Light" metadata file into light property and map-to-light-type lookups.
-    /// </summary>
-    private void LoadLightMetadata()
-    {
-        var lightFile = DataContext.MetaFiles.Get("Light");
-
-        if (lightFile is null)
-            return;
-
-        foreach (var entry in lightFile)
-            if (entry.Key.Contains('_'))
-            {
-                // LightPropertyMetaNode: "{TypeName}_{HexEnumValue}"
-                // Properties: [StartHour, EndHour, Alpha, Red, Green, Blue]
-                if (entry.Properties.Count < 6)
-                    continue;
-
-                if (!byte.TryParse(entry.Properties[2], out var alpha)
-                    || !byte.TryParse(entry.Properties[3], out var r)
-                    || !byte.TryParse(entry.Properties[4], out var g)
-                    || !byte.TryParse(entry.Properties[5], out var b))
-                    continue;
-
-                LightProperties[entry.Key.ToLowerInvariant()] = (alpha, r, g, b);
-            } else if (short.TryParse(entry.Key, out var mapId) && (entry.Properties.Count > 0))
-
-                // MapLightMetaNode: "{MapId}" -> [LightTypeName]
-                MapLightTypes[mapId] = entry.Properties[0]
-                                            .ToLowerInvariant();
-    }
-
-    /// <summary>
     ///     Called when the server sends a LightLevel packet. Updates the darkness alpha and color based on the current map's
     ///     light type metadata.
     /// </summary>
@@ -115,7 +79,7 @@ public sealed class DarknessRenderer : IDisposable
         var enumHex = ((byte)args.LightLevel).ToString("X");
         var key = $"{CurrentLightType}_{enumHex}".ToLowerInvariant();
 
-        if (LightProperties.TryGetValue(key, out var props) && (props.Alpha < 32))
+        if (LightData?.LightProperties.TryGetValue(key, out var props) is true && (props.Alpha < 32))
         {
             Alpha = (32 - props.Alpha) / 32f;
             DarknessColor = new Color(props.R, props.G, props.B);
@@ -140,7 +104,7 @@ public sealed class DarknessRenderer : IDisposable
     /// </summary>
     public void OnMapChanged(short mapId)
     {
-        CurrentLightType = MapLightTypes.TryGetValue(mapId, out var lightType) ? lightType : "default";
+        CurrentLightType = LightData?.MapLightTypes.TryGetValue(mapId, out var lightType) is true ? lightType : "default";
 
         Alpha = 0f;
         DarknessColor = Color.Transparent;
@@ -253,6 +217,11 @@ public sealed class DarknessRenderer : IDisposable
         LastOffsetX = worldOffsetX;
         LastOffsetY = worldOffsetY;
     }
+
+    /// <summary>
+    ///     Reloads light metadata from disk. Call after metadata sync completes.
+    /// </summary>
+    public void ReloadMetadata() => LightData = DataContext.MetaFiles.GetLightMetadata();
 
     private static HeaFile? TryLoadHeaFile(short mapId)
     {

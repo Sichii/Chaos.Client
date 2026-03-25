@@ -15,11 +15,11 @@ public class UITextBox : UIElement
 
     private static UITextBox? FocusedTextBox;
 
-    private readonly CachedText TextCache = new();
+    private readonly TextElement TextElement = new();
     private double CursorTimer;
     private bool CursorVisible;
     private bool Dragging;
-    private CachedText? PrefixCache;
+    private TextElement? PrefixTextElement;
     private int SelectionAnchor;
     public TextAlignment Alignment { get; set; } = TextAlignment.Left;
     public int CursorPosition { get; internal set; }
@@ -28,6 +28,11 @@ public class UITextBox : UIElement
     ///     Background color drawn behind the textbox when focused. Null = no overlay.
     /// </summary>
     public Color? FocusedBackgroundColor { get; set; }
+
+    /// <summary>
+    ///     Color used for rendering both prefix and editable text. Default white.
+    /// </summary>
+    public Color ForegroundColor { get; set; } = Color.White;
 
     public bool IsFocusable { get; set; } = true;
 
@@ -70,11 +75,6 @@ public class UITextBox : UIElement
 
     public string Text { get; set; } = string.Empty;
 
-    /// <summary>
-    ///     Color used for rendering both prefix and editable text. Default white.
-    /// </summary>
-    public Color TextColor { get; set; } = Color.White;
-
     public bool HasSelection => IsSelectable && (SelectionAnchor != CursorPosition);
 
     public string SelectedText => HasSelection ? Text[SelectionStart..Math.Min(SelectionEnd, Text.Length)] : string.Empty;
@@ -111,14 +111,6 @@ public class UITextBox : UIElement
         SelectionAnchor = start;
     }
 
-    public override void Dispose()
-    {
-        TextCache.Dispose();
-        PrefixCache?.Dispose();
-
-        base.Dispose();
-    }
-
     public override void Draw(SpriteBatch spriteBatch)
     {
         if (!Visible)
@@ -138,9 +130,9 @@ public class UITextBox : UIElement
         if ((Prefix.Length > 0) && IsFocused)
         {
             prefixWidth = TextRenderer.MeasureWidth(Prefix);
-            PrefixCache ??= new CachedText();
-            PrefixCache.Update(Prefix, TextColor);
-            PrefixCache.Draw(spriteBatch, new Vector2(sx + PaddingX, textY));
+            PrefixTextElement ??= new TextElement();
+            PrefixTextElement.Update(Prefix, ForegroundColor);
+            PrefixTextElement.Draw(spriteBatch, new Vector2(sx + PaddingX, textY));
         }
 
         var textStartX = sx + PaddingX + prefixWidth;
@@ -171,13 +163,13 @@ public class UITextBox : UIElement
                     150));
         }
 
-        TextCache.Update(displayText, TextColor);
+        TextElement.Update(displayText, ForegroundColor);
 
         if ((Alignment != TextAlignment.Left) && !IsFocused)
         {
-            TextCache.Alignment = Alignment;
+            TextElement.Alignment = Alignment;
 
-            TextCache.Draw(
+            TextElement.Draw(
                 spriteBatch,
                 new Rectangle(
                     sx + PaddingX,
@@ -186,8 +178,8 @@ public class UITextBox : UIElement
                     textHeight));
         } else
         {
-            TextCache.Alignment = TextAlignment.Left;
-            TextCache.Draw(spriteBatch, new Vector2(textStartX, textY));
+            TextElement.Alignment = TextAlignment.Left;
+            TextElement.Draw(spriteBatch, new Vector2(textStartX, textY));
         }
 
         if (!IsFocused || !CursorVisible || IsReadOnly)

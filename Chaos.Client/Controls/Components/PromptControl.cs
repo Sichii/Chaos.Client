@@ -17,7 +17,7 @@ public sealed class PromptControl : UITextBox
         Visible = false;
         BackgroundColor = Color.White;
         FocusedBackgroundColor = Color.White;
-        TextColor = Color.Black;
+        ForegroundColor = Color.Black;
         PaddingX = 1;
         PaddingY = 1;
         MaxLength = 12;

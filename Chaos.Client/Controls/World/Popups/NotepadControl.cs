@@ -41,17 +41,17 @@ public sealed class NotepadControl : UIPanel
     private static readonly Color ButtonHoverFill = new(70, 55, 40);
     private static readonly Color ScrollTrackColor = new(40, 35, 25);
     private static readonly Color ScrollThumbColor = new(140, 120, 80);
-    private readonly CachedText CancelLabelCache;
-    private readonly CachedText CloseLabelCache;
+    private readonly TextElement CancelLabelCache;
+    private readonly TextElement CloseLabelCache;
 
     private readonly List<string> Lines = [];
     private readonly int MaxPossibleVisibleLines;
 
     // Cached button label textures to avoid per-frame allocation
-    private readonly CachedText OkLabelCache;
+    private readonly TextElement OkLabelCache;
 
     // Visible-line CachedText array for readonly rendering
-    private readonly CachedText[] ReadonlyLineCaches;
+    private readonly TextElement[] ReadonlyLineCaches;
     private Rectangle CancelButtonRect;
     private bool CancelHovered;
 
@@ -79,16 +79,16 @@ public sealed class NotepadControl : UIPanel
 
         // Pre-allocate readonly line caches for the largest possible visible area
         MaxPossibleVisibleLines = (MAX_HEIGHT - PADDING * 2 - BUTTON_AREA_HEIGHT) / LINE_HEIGHT;
-        ReadonlyLineCaches = new CachedText[MaxPossibleVisibleLines];
+        ReadonlyLineCaches = new TextElement[MaxPossibleVisibleLines];
 
         for (var i = 0; i < MaxPossibleVisibleLines; i++)
-            ReadonlyLineCaches[i] = new CachedText();
+            ReadonlyLineCaches[i] = new TextElement();
 
-        OkLabelCache = new CachedText();
+        OkLabelCache = new TextElement();
         OkLabelCache.Update("OK", Color.White);
-        CancelLabelCache = new CachedText();
+        CancelLabelCache = new TextElement();
         CancelLabelCache.Update("Cancel", Color.White);
-        CloseLabelCache = new CachedText();
+        CloseLabelCache = new TextElement();
         CloseLabelCache.Update("Close", Color.White);
     }
 
@@ -196,7 +196,7 @@ public sealed class NotepadControl : UIPanel
                 MaxLength = MaxCharsPerLine,
                 PaddingX = 0,
                 PaddingY = 1,
-                TextColor = Color.White,
+                ForegroundColor = Color.White,
                 IsFocusable = true,
                 IsReadOnly = false,
                 IsSelectable = true,
@@ -227,13 +227,6 @@ public sealed class NotepadControl : UIPanel
     public override void Dispose()
     {
         DestroyEditBoxes();
-
-        foreach (var c in ReadonlyLineCaches)
-            c.Dispose();
-
-        OkLabelCache.Dispose();
-        CancelLabelCache.Dispose();
-        CloseLabelCache.Dispose();
 
         base.Dispose();
     }
@@ -293,7 +286,7 @@ public sealed class NotepadControl : UIPanel
         int panelX,
         int panelY,
         Rectangle buttonRect,
-        CachedText labelCache,
+        TextElement labelCache,
         bool hovered)
     {
         var bx = panelX + buttonRect.X;
@@ -311,10 +304,10 @@ public sealed class NotepadControl : UIPanel
             hovered ? ButtonHoverFill : ButtonFill,
             ButtonBorder);
 
-        if (labelCache.Texture is not null)
+        if (labelCache.HasContent)
         {
-            var textX = bx + (buttonRect.Width - labelCache.Texture.Width) / 2;
-            var textY = by + (buttonRect.Height - labelCache.Texture.Height) / 2;
+            var textX = bx + (buttonRect.Width - labelCache.Width) / 2;
+            var textY = by + (buttonRect.Height - labelCache.Height) / 2;
             labelCache.Draw(spriteBatch, new Vector2(textX, textY));
         }
     }

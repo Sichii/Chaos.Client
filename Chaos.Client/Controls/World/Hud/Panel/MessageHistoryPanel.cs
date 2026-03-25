@@ -16,7 +16,7 @@ public sealed class MessageHistoryPanel : ExpandablePanel
 {
     private const int GLYPH_HEIGHT = 12;
     private readonly IReadOnlyList<string> History;
-    private readonly CachedText[] LineTextures;
+    private readonly TextElement[] Lines;
     private readonly Rectangle NormalDisplayBounds;
     private readonly ScrollBarControl ScrollBar;
 
@@ -38,10 +38,10 @@ public sealed class MessageHistoryPanel : ExpandablePanel
         Background = UiRenderer.Instance!.GetSpfTexture("_nchatbk.spf");
 
         MaxVisibleLines = displayBounds.Height > 0 ? displayBounds.Height / GLYPH_HEIGHT : 0;
-        LineTextures = new CachedText[MaxVisibleLines];
+        Lines = new TextElement[MaxVisibleLines];
 
         for (var i = 0; i < MaxVisibleLines; i++)
-            LineTextures[i] = new CachedText();
+            Lines[i] = new TextElement();
 
         var relX = displayBounds.X - panelBounds.X;
         var relY = displayBounds.Y - panelBounds.Y;
@@ -75,14 +75,6 @@ public sealed class MessageHistoryPanel : ExpandablePanel
         ScrollBar.Visible = false;
     }
 
-    public override void Dispose()
-    {
-        foreach (var texture in LineTextures)
-            texture.Dispose();
-
-        base.Dispose();
-    }
-
     public override void Draw(SpriteBatch spriteBatch)
     {
         if (!Visible)
@@ -91,7 +83,7 @@ public sealed class MessageHistoryPanel : ExpandablePanel
         // ExpandablePanel.Draw handles expanded bg + children, or normal bg + children
         base.Draw(spriteBatch);
 
-        var maxLines = Math.Min(MaxVisibleLines, LineTextures.Length);
+        var maxLines = Math.Min(MaxVisibleLines, Lines.Length);
 
         if ((maxLines == 0) || (History.Count == 0))
             return;
@@ -107,7 +99,7 @@ public sealed class MessageHistoryPanel : ExpandablePanel
             if (baseY < DisplayBounds.Y)
                 break;
 
-            LineTextures[i]
+            Lines[i]
                 .Draw(spriteBatch, new Vector2(DisplayBounds.X, baseY));
         }
     }
@@ -120,19 +112,19 @@ public sealed class MessageHistoryPanel : ExpandablePanel
         RenderedHistoryCount = History.Count;
         RenderedScrollOffset = ScrollOffset;
 
-        var maxLines = Math.Min(MaxVisibleLines, LineTextures.Length);
+        var maxLines = Math.Min(MaxVisibleLines, Lines.Length);
         var startIndex = Math.Max(0, History.Count - maxLines - ScrollOffset);
         var lineIndex = 0;
 
         for (var i = startIndex; (i < History.Count) && (lineIndex < maxLines); i++)
         {
-            LineTextures[lineIndex]
+            Lines[lineIndex]
                 .Update(History[i], Color.Orange);
             lineIndex++;
         }
 
         for (; lineIndex < maxLines; lineIndex++)
-            LineTextures[lineIndex]
+            Lines[lineIndex]
                 .Update(string.Empty, Color.White);
     }
 

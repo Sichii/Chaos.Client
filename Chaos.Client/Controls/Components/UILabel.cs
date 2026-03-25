@@ -1,4 +1,5 @@
 #region
+using Chaos.Client.Rendering;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 #endregion
@@ -7,15 +8,21 @@ namespace Chaos.Client.Controls.Components;
 
 /// <summary>
 ///     Read-only text label that participates in the UI element tree. Wraps CachedText for efficient re-rendering only
-///     when content changes. Supports scrollable wrapped text via SetWrappedText + ScrollOffset.
+///     when content changes. When WordWrap is true, text is wrapped to the label width; use ScrollOffset to scroll when
+///     ContentHeight exceeds the label bounds.
 /// </summary>
 
 // ReSharper disable once ClassCanBeSealed.Global
 public class UILabel : UIElement
 {
-    private readonly CachedText Cache = new();
-    private bool IsWrapped;
+    private readonly TextElement TextElement = new();
     public TextAlignment Alignment { get; set; } = TextAlignment.Left;
+
+    public Color ForegroundColor
+    {
+        get => TextElement.Color;
+        set => Invalidate(TextElement.Text, value);
+    }
 
     public int PaddingLeft { get; set; } = 1;
     public int PaddingTop { get; set; } = 1;
@@ -25,24 +32,22 @@ public class UILabel : UIElement
     /// </summary>
     public int ScrollOffset { get; set; }
 
-    public string Text { get; private set; } = string.Empty;
-    public Color TextColor { get; private set; } = Color.White;
+    public string Text
+    {
+        get => TextElement.Text;
+        set => Invalidate(value, TextElement.Color);
+    }
+
+    public bool WordWrap { get; set; }
 
     /// <summary>
     ///     Total pixel height of the rendered content. For wrapped text, this may exceed the label bounds.
     /// </summary>
-    public int ContentHeight => Cache.Texture?.Height ?? 0;
-
-    public override void Dispose()
-    {
-        Cache.Dispose();
-
-        base.Dispose();
-    }
+    public int ContentHeight => TextElement.Height;
 
     public override void Draw(SpriteBatch spriteBatch)
     {
-        if (!Visible || Cache.Texture is null)
+        if (!Visible || !TextElement.HasContent)
             return;
 
         base.Draw(spriteBatch);
@@ -52,26 +57,23 @@ public class UILabel : UIElement
         var innerW = Width - PaddingLeft * 2;
         var innerH = Height - PaddingTop * 2;
 
-        if (IsWrapped)
+        if (TextElement.WrappedLines is not null)
         {
-            var srcH = Math.Min(innerH, Cache.Texture.Height - ScrollOffset);
+            var firstLine = ScrollOffset / TextRenderer.CHAR_HEIGHT;
+            var maxLines = (innerH + TextRenderer.CHAR_HEIGHT - 1) / TextRenderer.CHAR_HEIGHT;
 
-            var sourceRect = new Rectangle(
-                0,
-                ScrollOffset,
-                Cache.Texture.Width,
-                srcH);
-
-            spriteBatch.Draw(
-                Cache.Texture,
+            TextRenderer.DrawLines(
+                spriteBatch,
                 new Vector2(innerX, innerY),
-                sourceRect,
-                Color.White);
+                TextElement.WrappedLines,
+                firstLine,
+                maxLines,
+                TextElement.Color);
         } else
         {
-            Cache.Alignment = Alignment;
+            TextElement.Alignment = Alignment;
 
-            Cache.Draw(
+            TextElement.Draw(
                 spriteBatch,
                 new Rectangle(
                     innerX,
@@ -81,30 +83,12 @@ public class UILabel : UIElement
         }
     }
 
-    public void SetText(string text, Color? color = null)
+    private void Invalidate(string text, Color color)
     {
-        IsWrapped = false;
-        Text = text;
-
-        if (color.HasValue)
-            TextColor = color.Value;
-
-        Cache.Update(text, TextColor);
-    }
-
-    /// <summary>
-    ///     Sets word-wrapped text content. The text is wrapped to the label width and rendered at full height. Use
-    ///     ScrollOffset to scroll when ContentHeight exceeds the label bounds.
-    /// </summary>
-    public void SetWrappedText(string text, Color? color = null)
-    {
-        IsWrapped = true;
-        Text = text;
-
-        if (color.HasValue)
-            TextColor = color.Value;
-
-        Cache.UpdateWrapped(text, Width - PaddingLeft * 2, TextColor);
+        if (WordWrap)
+            TextElement.UpdateWrapped(text, Width - PaddingLeft * 2, color);
+        else
+            TextElement.Update(text, color);
     }
 
     public override void Update(GameTime gameTime, InputBuffer input) { }

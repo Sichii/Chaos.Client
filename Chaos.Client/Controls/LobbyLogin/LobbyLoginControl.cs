@@ -87,7 +87,7 @@ public sealed class LobbyLoginControl : PrefabPanel
 
         // Version label — type 7, 0 images
         VersionLabel = CreateLabel("Version", TextAlignment.Right);
-        VersionLabel?.SetText("Chaos v0.1.0");
+        VersionLabel?.Text = "Chaos v0.1.0";
     }
 
     public void EnableButtons() => SetButtonsEnabled(true);

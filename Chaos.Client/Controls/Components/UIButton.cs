@@ -18,6 +18,7 @@ public class UIButton : UIElement
     /// </summary>
     public bool CenterTexture { get; set; }
 
+    public Texture2D? DisabledTexture { get; set; }
     public Texture2D? HoverTexture { get; set; }
     public bool IsHovered { get; private set; }
     public bool IsPressed { get; private set; }
@@ -29,11 +30,13 @@ public class UIButton : UIElement
     private Texture2D? ActiveTexture
         => IsSelected && SelectedTexture is not null
             ? SelectedTexture
-            : Enabled && IsPressed && PressedTexture is not null
-                ? PressedTexture
-                : Enabled && IsHovered && HoverTexture is not null
-                    ? HoverTexture
-                    : NormalTexture;
+            : !Enabled && DisabledTexture is not null
+                ? DisabledTexture
+                : Enabled && IsPressed && PressedTexture is not null
+                    ? PressedTexture
+                    : Enabled && IsHovered && HoverTexture is not null
+                        ? HoverTexture
+                        : NormalTexture;
 
     public override void Dispose()
     {
@@ -49,6 +52,8 @@ public class UIButton : UIElement
         PressedTexture = null;
         HoverTexture?.Dispose();
         HoverTexture = null;
+        DisabledTexture?.Dispose();
+        DisabledTexture = null;
 
         base.Dispose();
     }

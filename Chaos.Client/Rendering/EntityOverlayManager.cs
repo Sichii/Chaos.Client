@@ -26,7 +26,7 @@ public sealed class EntityOverlayManager
 
     private readonly Dictionary<uint, ChatBubble> ChatBubbles = new();
     private readonly Dictionary<uint, HealthBar> HealthBars = new();
-    private readonly Dictionary<uint, CachedText> NameTagCache = new();
+    private readonly Dictionary<uint, TextElement> NameTagCache = new();
 
     /// <summary>
     ///     Adds a chant overlay for the given entity, replacing any existing chant or chat bubble. A null/empty message clears
@@ -87,8 +87,6 @@ public sealed class EntityOverlayManager
             overlay.Dispose();
         ChantOverlays.Clear();
 
-        foreach (var cached in NameTagCache.Values)
-            cached.Dispose();
         NameTagCache.Clear();
     }
 
@@ -155,19 +153,19 @@ public sealed class EntityOverlayManager
 
             if (!NameTagCache.TryGetValue(entity.Id, out var cachedText))
             {
-                cachedText = new CachedText();
+                cachedText = new TextElement();
                 NameTagCache[entity.Id] = cachedText;
             }
 
             cachedText.UpdateShadowed(entity.Name, nameColor, NAME_TAG_SHADOW_COLOR);
 
-            if (cachedText.Texture is null)
+            if (!cachedText.HasContent)
                 continue;
 
             var tileWorld = Camera.TileToWorld(entity.TileX, entity.TileY, mapHeight);
             var entityWorldX = tileWorld.X + DaLibConstants.HALF_TILE_WIDTH + entity.VisualOffset.X;
             var entityWorldY = tileWorld.Y + DaLibConstants.HALF_TILE_HEIGHT + entity.VisualOffset.Y - NAME_TAG_Y_OFFSET;
-            var screenPos = camera.WorldToScreen(new Vector2(entityWorldX - cachedText.Texture.Width / 2f, entityWorldY));
+            var screenPos = camera.WorldToScreen(new Vector2(entityWorldX - cachedText.Width / 2f, entityWorldY));
 
             cachedText.Draw(spriteBatch, screenPos);
         }
@@ -188,11 +186,7 @@ public sealed class EntityOverlayManager
     /// <summary>
     ///     Removes a single entity's cached name tag. Call when an entity is removed from the world.
     /// </summary>
-    public void RemoveNameTag(uint entityId)
-    {
-        if (NameTagCache.Remove(entityId, out var nameTag))
-            nameTag.Dispose();
-    }
+    public void RemoveNameTag(uint entityId) => NameTagCache.Remove(entityId);
 
     /// <summary>
     ///     Ticks bubble/bar/overlay timers, updates screen positions from entity world positions, and removes expired entries.

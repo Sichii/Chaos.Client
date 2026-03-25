@@ -1,7 +1,6 @@
 #region
 using Chaos.Client.Collections;
 using Chaos.Client.Controls.Generic;
-using Chaos.Client.Data;
 using Chaos.Client.Networking;
 using Chaos.Client.Rendering;
 using Chaos.Client.Screens;
@@ -105,12 +104,6 @@ public sealed class ChaosGame : Game
         Connection.OnMetaData += MetaData.HandleMetaData;
         Connection.OnWorldEntryComplete += MetaData.RequestSync;
 
-        MetaData.OnMetaDataUpdated += updatedFiles =>
-        {
-            foreach (var name in updatedFiles)
-                DataContext.MetaFiles.Invalidate(name);
-        };
-
         // Wire state events to WorldState at startup so state is tracked
         // even during world entry (before WorldScreen is created)
         World.SubscribeTo(Connection);
@@ -202,6 +195,7 @@ public sealed class ChaosGame : Game
         Screens = new ScreenManager(this);
 
         TextureConverter.Device = GraphicsDevice;
+        FontAtlas.Initialize(GraphicsDevice);
         UiRenderer.Instance = new UiRenderer(GraphicsDevice);
 
         LoadCustomCursor();
@@ -312,7 +306,7 @@ public sealed class ChaosGame : Game
         Input.SetVirtualScale(scale);
 
         // Freeze buffered input for this frame before anything reads it
-        Input.Update();
+        Input.Update(gameTime);
 
         // F12 — toggle debug overlay (handled globally before screen update)
         if (Input.WasKeyPressed(Keys.F12))

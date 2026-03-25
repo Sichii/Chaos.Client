@@ -148,9 +148,10 @@ public sealed class GroupControl : PrefabPanel
                 if (i < members.Count)
                 {
                     var isMemberLeader = string.Equals(members[i], leaderName, StringComparison.OrdinalIgnoreCase);
-                    MemberLabels[i]!.SetText(members[i], isMemberLeader ? Color.White : Color.LightGray);
+                    MemberLabels[i]!.ForegroundColor = isMemberLeader ? Color.White : Color.LightGray;
+                    MemberLabels[i]!.Text = members[i];
                 } else
-                    MemberLabels[i]!.SetText(string.Empty);
+                    MemberLabels[i]!.Text = string.Empty;
             }
 
             // Enable quit button only for other members when we are the leader

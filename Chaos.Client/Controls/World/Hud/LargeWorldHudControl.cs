@@ -24,6 +24,7 @@ public sealed class LargeWorldHudControl : PrefabPanel, IWorldHud
     private readonly PlayerAttributes AttributesState;
     private readonly UILabel CoordsLabel;
     private readonly UILabel? DescriptionLabel;
+    private readonly Rectangle ExpandedChatBounds;
     private readonly UILabel HpNumLabel;
     private readonly UIProgressBar HpOrb;
     private readonly UILabel MpNumLabel;
@@ -40,7 +41,6 @@ public sealed class LargeWorldHudControl : PrefabPanel, IWorldHud
     private readonly UILabel WeightLabel;
     private readonly UILabel ZoneNameLabel;
     private bool Expanded;
-    private readonly Rectangle ExpandedChatBounds;
     private Rectangle NormalChatBounds;
 
     public HudTab ActiveTab { get; private set; } = HudTab.Inventory;
@@ -413,13 +413,13 @@ public sealed class LargeWorldHudControl : PrefabPanel, IWorldHud
     #region Public Methods
     public void UpdateHp(int current, int max)
     {
-        HpNumLabel.SetText($"{current}");
+        HpNumLabel.Text = $"{current}";
         HpOrb.UpdateValue(current, max);
     }
 
     public void UpdateMp(int current, int max)
     {
-        MpNumLabel.SetText($"{current}");
+        MpNumLabel.Text = $"{current}";
         MpOrb.UpdateValue(current, max);
     }
 
@@ -428,20 +428,20 @@ public sealed class LargeWorldHudControl : PrefabPanel, IWorldHud
     public void SetPlayerName(string name)
     {
         PlayerName = name;
-        PlayerNameLabel.SetText(name);
+        PlayerNameLabel.Text = name;
     }
 
-    public void SetZoneName(string zone) => ZoneNameLabel.SetText(zone);
-    public void SetWeight(int current, int max) => WeightLabel.SetText($"{current}/{max}");
-    public void SetCoords(int x, int y) => CoordsLabel.SetText($"{x},{y}");
-    public void SetServerName(string name) => ServerNameLabel?.SetText(name);
+    public void SetZoneName(string zone) => ZoneNameLabel.Text = zone;
+    public void SetWeight(int current, int max) => WeightLabel.Text = $"{current}/{max}";
+    public void SetCoords(int x, int y) => CoordsLabel.Text = $"{x},{y}";
+    public void SetServerName(string name) => ServerNameLabel?.Text = name;
 
     public void SetDescription(string? text)
     {
         if (ChatInput.IsFocused && !string.IsNullOrEmpty(text))
             return;
 
-        DescriptionLabel?.SetText(text ?? string.Empty);
+        DescriptionLabel?.Text = text ?? string.Empty;
     }
 
     public bool IsOrangeBarDragging => OrangeBar.IsDragging;
@@ -472,7 +472,8 @@ public sealed class LargeWorldHudControl : PrefabPanel, IWorldHud
             PersistentMessagePanel.Visible = false;
         else
         {
-            PersistentMessageLabel.SetText(text, Color.White);
+            PersistentMessageLabel.ForegroundColor = Color.White;
+            PersistentMessageLabel.Text = text;
             PersistentMessagePanel.Visible = true;
         }
     }

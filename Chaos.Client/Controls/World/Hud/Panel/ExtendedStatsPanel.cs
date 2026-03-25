@@ -132,11 +132,11 @@ public sealed class ExtendedStatsPanel : UIPanel
 
     public void UpdateAttributes(AttributesArgs attrs)
     {
-        AcLabel?.SetText($"{attrs.Ac}");
-        DmgLabel?.SetText($"{attrs.Dmg}");
-        HitLabel?.SetText($"{attrs.Hit}");
-        MagicLabel?.SetText($"{attrs.MagicResistance}");
-        AttackLabel?.SetText(FormatElement(attrs.OffenseElement));
-        DefenseLabel?.SetText(FormatElement(attrs.DefenseElement));
+        AcLabel?.Text = $"{attrs.Ac}";
+        DmgLabel?.Text = $"{attrs.Dmg}";
+        HitLabel?.Text = $"{attrs.Hit}";
+        MagicLabel?.Text = $"{attrs.MagicResistance}";
+        AttackLabel?.Text = FormatElement(attrs.OffenseElement);
+        DefenseLabel?.Text = FormatElement(attrs.DefenseElement);
     }
 }

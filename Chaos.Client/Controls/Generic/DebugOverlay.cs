@@ -23,9 +23,9 @@ public static class DebugOverlay
 
     private static readonly float[] FrameTimeHistory = new float[FRAME_TIME_HISTORY];
     private static readonly Stopwatch FrameStopwatch = new();
-    private static readonly Dictionary<UIElement, CachedText> ElementLabelCache = new();
-    private static readonly List<(CachedText Text, Vector2 Position)> PendingLabels = [];
-    private static CachedText[]? StatsTextCache;
+    private static readonly Dictionary<UIElement, TextElement> TextElementCache = new();
+    private static readonly List<(TextElement Text, Vector2 Position)> TextElementPositions = [];
+    private static TextElement[]? StatsTextElement;
     private static int FrameTimeIndex;
     private static int LastGen0Count;
     private static int LastGen1Count;
@@ -67,21 +67,9 @@ public static class DebugOverlay
 
     private static void ClearCaches()
     {
-        foreach (var cached in ElementLabelCache.Values)
-            cached.Dispose();
-
-        ElementLabelCache.Clear();
-        PendingLabels.Clear();
-
-        if (StatsTextCache is not null)
-        {
-            foreach (var cached in StatsTextCache)
-
-                // ReSharper disable once ConditionalAccessQualifierIsNonNullableAccordingToAPIContract
-                cached?.Dispose();
-
-            StatsTextCache = null;
-        }
+        TextElementCache.Clear();
+        TextElementPositions.Clear();
+        StatsTextElement = null;
     }
 
     public static void Draw(SpriteBatch spriteBatch, UIPanel root)
@@ -89,7 +77,7 @@ public static class DebugOverlay
         if (!IsActive)
             return;
 
-        PendingLabels.Clear();
+        TextElementPositions.Clear();
 
         spriteBatch.Begin(samplerState: GlobalSettings.Sampler);
 
@@ -100,7 +88,7 @@ public static class DebugOverlay
         DrawPerformanceStatsGeometry(spriteBatch);
 
         // Phase 2: all text draws — each unique texture breaks the batch, but no pixel interruptions
-        foreach ((var text, var pos) in PendingLabels)
+        foreach ((var text, var pos) in TextElementPositions)
             text.Draw(spriteBatch, pos);
 
         DrawPerformanceStatsText(spriteBatch);
@@ -157,18 +145,18 @@ public static class DebugOverlay
                 : element.GetType()
                          .Name;
 
-            if (!ElementLabelCache.TryGetValue(element, out var cachedLabel))
+            if (!TextElementCache.TryGetValue(element, out var cachedTextElement))
             {
-                cachedLabel = new CachedText();
-                ElementLabelCache[element] = cachedLabel;
+                cachedTextElement = new TextElement();
+                TextElementCache[element] = cachedTextElement;
             }
 
-            cachedLabel.Update(name, color);
+            cachedTextElement.Update(name, color);
 
-            if (cachedLabel.Texture is not null)
+            if (cachedTextElement.HasContent)
             {
-                var tw = cachedLabel.Texture.Width;
-                var th = cachedLabel.Texture.Height;
+                var tw = cachedTextElement.Width;
+                var th = cachedTextElement.Height;
                 var tx = sx + (w - tw) / 2;
                 var ty = sy + (h - th) / 2;
 
@@ -181,7 +169,7 @@ public static class DebugOverlay
                         th + 2),
                     Color.Black * 0.66f);
 
-                PendingLabels.Add((cachedLabel, new Vector2(tx, ty)));
+                TextElementPositions.Add((cachedTextElement, new Vector2(tx, ty)));
             }
         }
 
@@ -313,23 +301,23 @@ public static class DebugOverlay
             ($"Latency: {latencyMode}", Color.Gray)
         };
 
-        StatsTextCache ??= new CachedText[STATS_LINE_COUNT];
+        StatsTextElement ??= new TextElement[STATS_LINE_COUNT];
 
         var y = StatsY;
 
         for (var i = 0; i < lines.Length; i++)
         {
             // ReSharper disable once NullCoalescingConditionIsAlwaysNotNullAccordingToAPIContract
-            StatsTextCache[i] ??= new CachedText();
+            StatsTextElement[i] ??= new TextElement();
 
-            StatsTextCache[i]
+            StatsTextElement[i]
                 .Update(lines[i].Text, lines[i].Color);
 
-            if (StatsTextCache[i].Texture is not null)
+            if (StatsTextElement[i].HasContent)
             {
-                StatsTextCache[i]
+                StatsTextElement[i]
                     .Draw(spriteBatch, new Vector2(StatsX, y));
-                y += StatsTextCache[i].Texture!.Height + 1;
+                y += StatsTextElement[i].Height + 1;
             }
         }
     }

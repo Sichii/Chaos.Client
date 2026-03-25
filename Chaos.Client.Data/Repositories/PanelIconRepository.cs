@@ -25,8 +25,10 @@ public sealed class PanelIconRepository : RepositoryBase
         };
     }
 
-    public Palettized<EpfFrame>? GetSkillGreyIcon(int spriteId) => GetFrame(spriteId, "skill003");
-
     public Palettized<EpfFrame>? GetSkillIcon(int spriteId) => GetFrame(spriteId, "skill001");
+    public Palettized<EpfFrame>? GetSkillLearnableIcon(int spriteId) => GetFrame(spriteId, "skill002");
+    public Palettized<EpfFrame>? GetSkillLockedIcon(int spriteId) => GetFrame(spriteId, "skill003");
     public Palettized<EpfFrame>? GetSpellIcon(int spriteId) => GetFrame(spriteId, "spell001");
+    public Palettized<EpfFrame>? GetSpellLearnableIcon(int spriteId) => GetFrame(spriteId, "spell002");
+    public Palettized<EpfFrame>? GetSpellLockedIcon(int spriteId) => GetFrame(spriteId, "spell003");
 }
