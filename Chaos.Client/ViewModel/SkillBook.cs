@@ -71,6 +71,31 @@ public sealed class SkillBook
     }
 
     /// <summary>
+    ///     Returns true if any slot contains a skill whose name matches (case-insensitive, prefix match for leveled skills).
+    /// </summary>
+    public bool HasSkillByName(string name)
+    {
+        for (var i = 0; i < MAX_SLOTS; i++)
+        {
+            var slotName = Slots[i].Name;
+
+            if (!Slots[i].IsOccupied || slotName is null)
+                continue;
+
+            if (slotName.Equals(name, StringComparison.OrdinalIgnoreCase))
+                return true;
+
+            // Prefix match for leveled skills (e.g., "swimming Lv.5")
+            if (slotName.StartsWith(name, StringComparison.OrdinalIgnoreCase)
+                && (slotName.Length > name.Length)
+                && (slotName[name.Length] == ' '))
+                return true;
+        }
+
+        return false;
+    }
+
+    /// <summary>
     ///     Returns true if the 1-based slot has an active cooldown.
     /// </summary>
     public bool IsOnCooldown(byte slot)

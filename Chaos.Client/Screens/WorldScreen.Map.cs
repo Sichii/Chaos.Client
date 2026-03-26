@@ -55,9 +55,10 @@ public sealed partial class WorldScreen
         ClearAislingCache();
         Overlays.Clear();
         DebugRenderer.Clear();
-        NpcDialog.Hide();
-        MerchantDialog.Hide();
+        NpcSession.HideAll();
         Pathfinding.Clear();
+        GroupHighlightedIds.Clear();
+        ClearGroupTintCache();
     }
 
     private void HandleMapData(MapDataArgs args)
@@ -109,6 +110,7 @@ public sealed partial class WorldScreen
     private static Pathfinder BuildPathfinder(MapFile mapFile)
     {
         var sotpData = DataContext.Tiles.SotpData;
+        var gndAttrs = DataContext.Tiles.GroundAttributes;
         var walls = new List<IPoint>();
 
         for (var y = 0; y < mapFile.Height; y++)
@@ -117,6 +119,8 @@ public sealed partial class WorldScreen
                 var tile = mapFile.Tiles[x, y];
 
                 if (IsTileWall(tile.LeftForeground, sotpData) || IsTileWall(tile.RightForeground, sotpData))
+                    walls.Add(new Point(x, y));
+                else if (gndAttrs.TryGetValue(tile.Background, out var gndAttr) && gndAttr.IsWalkBlocking)
                     walls.Add(new Point(x, y));
             }
 
@@ -166,6 +170,10 @@ public sealed partial class WorldScreen
         var sotpData = DataContext.Tiles.SotpData;
 
         if (IsTileWall(tile.LeftForeground, sotpData) || IsTileWall(tile.RightForeground, sotpData))
+            return false;
+
+        // Check gndattr walk-blocking (deep water tiles)
+        if (DataContext.Tiles.GroundAttributes.TryGetValue(tile.Background, out var gndAttr) && gndAttr.IsWalkBlocking)
             return false;
 
         // Check entities at the destination tile

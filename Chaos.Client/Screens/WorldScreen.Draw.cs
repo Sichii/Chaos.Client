@@ -1,10 +1,12 @@
 #region
 using Chaos.Client.Controls.Generic;
 using Chaos.Client.Controls.World.Hud.Panel;
+using Chaos.Client.Data;
 using Chaos.Client.Data.Definitions;
 using Chaos.Client.Models;
 using Chaos.Client.Rendering;
 using Chaos.Client.Systems;
+using Chaos.DarkAges.Definitions;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 #endregion
@@ -59,7 +61,12 @@ public sealed partial class WorldScreen
 
             // Background tiles + tile cursor: batched (many draws, no blend changes)
             spriteBatch.Begin(samplerState: GlobalSettings.Sampler, rasterizerState: ScissorRasterizerState, transformMatrix: transform);
-            MapRenderer.DrawBackground(spriteBatch, MapFile, Camera);
+
+            MapRenderer.DrawBackground(
+                spriteBatch,
+                MapFile,
+                Camera,
+                AnimationTick);
             DrawTileCursor(spriteBatch);
             spriteBatch.End();
 
@@ -81,7 +88,8 @@ public sealed partial class WorldScreen
                 MapFile.Height,
                 Game.World.GetSortedEntities(),
                 Highlight.ShowTintHighlight,
-                Highlight.HoveredEntityId);
+                Highlight.HoveredEntityId,
+                Game.World.PlayerEntityId);
             spriteBatch.End();
 
             // Darkness overlay — drawn over the world in screen space (no camera transform)
@@ -153,6 +161,43 @@ public sealed partial class WorldScreen
         DrawDragIcon(spriteBatch);
         spriteBatch.End();
     }
+
+    #region Swimming
+    /// <summary>
+    ///     Updates the entity's water tile state from the current map tile's gndattr data.
+    /// </summary>
+    private void UpdateEntityWaterState(WorldEntity entity)
+    {
+        if (MapFile is null
+            || (entity.TileX < 0)
+            || (entity.TileX >= MapFile.Width)
+            || (entity.TileY < 0)
+            || (entity.TileY >= MapFile.Height))
+        {
+            entity.GroundPaintHeight = 0;
+
+            return;
+        }
+
+        var bgTileId = MapFile.Tiles[entity.TileX, entity.TileY].Background;
+
+        if (DataContext.Tiles.GroundAttributes.TryGetValue(bgTileId, out var gndAttr))
+        {
+            entity.IsOnSwimmingTile = gndAttr.IsWalkBlocking;
+            entity.GroundPaintHeight = gndAttr.PaintHeight;
+
+            entity.GroundTintColor = new Color(
+                gndAttr.R,
+                gndAttr.G,
+                gndAttr.B,
+                gndAttr.A);
+        } else
+        {
+            entity.IsOnSwimmingTile = false;
+            entity.GroundPaintHeight = 0;
+        }
+    }
+    #endregion
 
     #region Diagonal Stripe Rendering
     /// <summary>
@@ -228,7 +273,8 @@ public sealed partial class WorldScreen
                     MapFile,
                     Camera,
                     tileX,
-                    depth - tileX);
+                    depth - tileX,
+                    AnimationTick);
         }
     }
 
@@ -337,12 +383,12 @@ public sealed partial class WorldScreen
         var tileCenterX = tileWorldPos.X + DaLibConstants.HALF_TILE_WIDTH;
         var tileCenterY = tileWorldPos.Y + DaLibConstants.HALF_TILE_HEIGHT;
 
-        var textureBottom = 0;
+        var entityTextureBottom = 0;
 
         switch (entity.Type)
         {
             case ClientEntityType.Aisling:
-                textureBottom = DrawAisling(
+                entityTextureBottom = DrawAisling(
                     spriteBatch,
                     entity,
                     tileCenterX,
@@ -351,7 +397,7 @@ public sealed partial class WorldScreen
                 break;
 
             case ClientEntityType.Creature:
-                textureBottom = DrawCreature(
+                entityTextureBottom = DrawCreature(
                     spriteBatch,
                     entity,
                     tileCenterX,
@@ -369,8 +415,10 @@ public sealed partial class WorldScreen
                 return; // Ground items don't get hitboxes
         }
 
-        if (textureBottom <= 0)
+        if (entityTextureBottom <= 0)
             return;
+
+        var textureBottom = entityTextureBottom;
 
         // Hitbox: 28px wide centered on tile screen X, 60px tall bottom-aligned to texture bottom
         var tileScreenPos = Camera.WorldToScreen(new Vector2(tileCenterX + entity.VisualOffset.X, tileCenterY + entity.VisualOffset.Y));
@@ -427,7 +475,13 @@ public sealed partial class WorldScreen
         var effects = flip ? SpriteEffects.FlipHorizontally : SpriteEffects.None;
 
         var shouldTint = Highlight.ShowTintHighlight && (Highlight.HoveredEntityId == entity.Id);
-        var drawTexture = shouldTint ? GetOrCreateTintedTexture(frame.Texture, entity.Id) : frame.Texture;
+        var shouldGroupTint = !shouldTint && GroupHighlightedIds.Contains(entity.Id);
+
+        var drawTexture = shouldTint
+            ? GetOrCreateTintedTexture(frame.Texture, entity.Id)
+            : shouldGroupTint
+                ? GetOrCreateGroupTintedTexture(frame.Texture)
+                : frame.Texture;
 
         spriteBatch.Draw(
             drawTexture,
@@ -452,33 +506,87 @@ public sealed partial class WorldScreen
         float tileCenterX,
         float tileCenterY)
     {
-        // Morphed aislings (creature form) render as creatures
-        if (entity.Appearance is null && (entity.SpriteId > 0))
+        // Morphed aislings (creature form) render as creatures — swimming overrides morphs too
+        if (entity.Appearance is null && (entity.SpriteId > 0) && !entity.IsOnSwimmingTile)
             return DrawCreature(
                 spriteBatch,
                 entity,
                 tileCenterX,
                 tileCenterY);
 
-        if (entity.Appearance is null)
+        if (entity.Appearance is null && !entity.IsOnSwimmingTile)
             return 0;
 
-        var appearance = entity.Appearance.Value;
+        var appearance = entity.Appearance ?? default;
         (var frameIndex, var flip, var animSuffix, var isFrontFacing) = AnimationSystem.GetAislingFrame(entity);
+
+        // Swimming override — single sprite replaces all aisling layers, driven by existing animation state
+        if (entity.IsOnSwimmingTile)
+        {
+            var isFemale = entity.Appearance?.Gender == Gender.Female;
+            var dirIndex = isFrontFacing ? 1 : 0;
+
+            var swimFrameCount = Game.AislingRenderer.GetSwimFrameCount(isFemale);
+            var framesPerDir = swimFrameCount / 2;
+
+            if (framesPerDir <= 0)
+                return 0;
+
+            // Walking: use walk frame index directly. Idle: use IdleAnimTick for continuous cycling.
+            // Frame 0 is the idle/standing pose — skip it so the swim animation only cycles walk frames (1..N).
+            var walkFrames = framesPerDir - 1;
+
+            var animIndex = walkFrames > 0
+                ? 1 + (entity.AnimState == EntityAnimState.Walking ? entity.AnimFrameIndex % walkFrames : entity.IdleAnimTick % walkFrames)
+                : 0;
+
+            var swimFrame = dirIndex * framesPerDir + animIndex;
+            var texture = Game.AislingRenderer.GetSwimFrame(isFemale, swimFrame);
+
+            if (texture is null)
+                return 0;
+
+            var maxWidth = Game.AislingRenderer.GetSwimMaxFrameWidth(isFemale);
+            var drawX = tileCenterX + entity.VisualOffset.X - maxWidth / 2f;
+
+            // When flipped, compensate for the difference between maxWidth and actual texture width
+            // so the flip pivot stays at the center of maxWidth rather than the center of the texture
+            if (flip)
+                drawX += maxWidth - texture.Width;
+
+            var drawY = tileCenterY + entity.VisualOffset.Y - BODY_CENTER_Y;
+            var swimScreenPos = Camera.WorldToScreen(new Vector2(drawX, drawY));
+            var effects = flip ? SpriteEffects.FlipHorizontally : SpriteEffects.None;
+
+            spriteBatch.Draw(
+                texture,
+                swimScreenPos,
+                null,
+                Color.White,
+                0f,
+                Vector2.Zero,
+                1f,
+                effects,
+                0f);
+
+            return (int)swimScreenPos.Y + texture.Height;
+        }
 
         var emotionFrame = entity.ActiveEmoteFrame;
 
-        // Check cache — re-resolve layer frames if appearance, frame, flip, animation suffix, or emotion changed.
-        // Individual layer textures are cached globally in AislingRenderer — this just tracks which draw data is current.
+        // Check cache — recomposite if appearance, frame, flip, animation suffix, emotion, or ground tint changed.
+        var groundPaintHeight = entity.IsOnSwimmingTile ? 0 : entity.GroundPaintHeight;
+
         if (!AislingCache.TryGetValue(entity.Id, out var cached)
             || (cached.Appearance != appearance)
             || (cached.FrameIndex != frameIndex)
             || (cached.Flip != flip)
             || (cached.IsFrontFacing != isFrontFacing)
             || (cached.AnimSuffix != animSuffix)
-            || (cached.EmotionFrame != emotionFrame))
+            || (cached.EmotionFrame != emotionFrame)
+            || (cached.GroundPaintHeight != groundPaintHeight))
         {
-            var drawData = Game.AislingRenderer.GetLayerFrames(
+            var texture = Game.AislingRenderer.Render(
                 in appearance,
                 frameIndex,
                 animSuffix,
@@ -486,8 +594,15 @@ public sealed partial class WorldScreen
                 isFrontFacing,
                 emotionFrame);
 
-            if (!drawData.Layers[(int)LayerSlot.Body].HasValue)
+            if (texture is null)
                 return 0;
+
+            // Apply ground tint before caching so the first draw is already tinted
+            if (groundPaintHeight > 0)
+                ApplyGroundTint(texture, groundPaintHeight, entity.GroundTintColor);
+
+            // Dispose previous texture if replacing a cache entry
+            cached.Texture?.Dispose();
 
             cached = new AislingDrawDataEntry(
                 appearance,
@@ -496,18 +611,19 @@ public sealed partial class WorldScreen
                 isFrontFacing,
                 animSuffix,
                 emotionFrame,
-                drawData);
+                groundPaintHeight,
+                texture);
             AislingCache[entity.Id] = cached;
         }
 
-        var cachedDrawData = cached.DrawData!;
+        var aislingTexture = cached.Texture!;
 
         // Base position: composite canvas origin relative to tile center
         var baseX = tileCenterX + entity.VisualOffset.X - BODY_CENTER_X;
         var baseY = tileCenterY + entity.VisualOffset.Y - BODY_CENTER_Y;
-        var flipPivot = AislingRenderer.BODY_CENTER_X + AislingRenderer.LAYER_OFFSET_PADDING;
 
         var isHighlighted = Highlight.ShowTintHighlight && (Highlight.HoveredEntityId == entity.Id);
+        var isGroupHighlighted = !isHighlighted && GroupHighlightedIds.Contains(entity.Id);
 
         // Transparent aislings use the pre-composited render target for uniform alpha (no layer bleed-through)
         if (entity.IsTransparent
@@ -524,43 +640,63 @@ public sealed partial class WorldScreen
             return (int)(bodyScreenPos2.Y + AislingRenderer.COMPOSITE_HEIGHT);
         }
 
-        // Draw each layer in order
-        foreach (var slot in cachedDrawData.DrawOrder)
+        var screenPos = Camera.WorldToScreen(new Vector2(baseX, baseY));
+
+        var drawTexture = isHighlighted
+            ? Game.AislingRenderer.GetOrCreateTintedTexture(aislingTexture)
+            : isGroupHighlighted
+                ? GetOrCreateGroupTintedTexture(aislingTexture)
+                : aislingTexture;
+
+        spriteBatch.Draw(drawTexture, screenPos, Color.White);
+
+        return (int)screenPos.Y + AislingRenderer.COMPOSITE_HEIGHT;
+    }
+
+    /// <summary>
+    ///     Applies a water tint to the bottom portion of a composited aisling texture by lerping opaque pixels toward the tint
+    ///     color. Modifies the texture in place. Called once when the texture is first composited.
+    /// </summary>
+    private static void ApplyGroundTint(Texture2D texture, int paintHeight, Color tintColor)
+    {
+        var tintTop = BODY_CENTER_Y - paintHeight;
+        var startRow = Math.Clamp(tintTop, 0, texture.Height);
+        var pixelCount = texture.Width * texture.Height;
+        var pixels = new Color[pixelCount];
+        texture.GetData(pixels);
+
+        var tintR = tintColor.R;
+        var tintG = tintColor.G;
+        var tintB = tintColor.B;
+        var alpha = tintColor.A / 255f;
+
+        for (var y = startRow; y < texture.Height; y++)
         {
-            if (cachedDrawData.Layers[(int)slot] is not { } layer)
-                continue;
+            var rowStart = y * texture.Width;
 
-            var layerOffsetX = AislingRenderer.GetLayerOffsetX(layer.TypeLetter) + AislingRenderer.LAYER_OFFSET_PADDING;
+            for (var x = 0; x < texture.Width; x++)
+            {
+                var i = rowStart + x;
+                var pixel = pixels[i];
 
-            float compositeX;
+                if (pixel.A == 0)
+                    continue;
 
-            if (cachedDrawData.FlipHorizontal)
-                compositeX = 2 * flipPivot - layerOffsetX - layer.Texture.Width;
-            else
-                compositeX = layerOffsetX;
+                // Unpremultiply, lerp toward tint color, re-premultiply
+                var a = pixel.A / 255f;
+                var r = (byte)(pixel.R / a * (1 - alpha) + tintR * alpha);
+                var g = (byte)(pixel.G / a * (1 - alpha) + tintG * alpha);
+                var b = (byte)(pixel.B / a * (1 - alpha) + tintB * alpha);
 
-            var worldPos = new Vector2(baseX + compositeX, baseY);
-            var screenPos = Camera.WorldToScreen(worldPos);
-            var effects = cachedDrawData.FlipHorizontal ? SpriteEffects.FlipHorizontally : SpriteEffects.None;
-
-            var drawTexture = isHighlighted ? Game.AislingRenderer.GetOrCreateTintedTexture(layer.Texture) : layer.Texture;
-
-            spriteBatch.Draw(
-                drawTexture,
-                screenPos,
-                null,
-                Color.White,
-                0f,
-                Vector2.Zero,
-                1f,
-                effects,
-                0f);
+                pixels[i] = new Color(
+                    (byte)(r * a),
+                    (byte)(g * a),
+                    (byte)(b * a),
+                    pixel.A);
+            }
         }
 
-        // Return bottom edge for hitbox calculation (body layer defines the aisling's visual bounds)
-        var bodyScreenPos = Camera.WorldToScreen(new Vector2(baseX, baseY));
-
-        return (int)bodyScreenPos.Y + AislingRenderer.COMPOSITE_HEIGHT;
+        texture.SetData(pixels);
     }
 
     /// <summary>
@@ -574,6 +710,27 @@ public sealed partial class WorldScreen
     /// </summary>
     private Texture2D? GetOrCreateTintedTexture(Texture2D source, uint entityId)
         => Highlight.GetOrCreateTinted(source, entityId, CreateTintedTexture);
+
+    private readonly Dictionary<Texture2D, Texture2D> GroupTintCache = new();
+
+    private Texture2D GetOrCreateGroupTintedTexture(Texture2D source)
+    {
+        if (GroupTintCache.TryGetValue(source, out var cached))
+            return cached;
+
+        cached = TextureConverter.CreateGroupTintedTexture(source);
+        GroupTintCache[source] = cached;
+
+        return cached;
+    }
+
+    private void ClearGroupTintCache()
+    {
+        foreach (var texture in GroupTintCache.Values)
+            texture.Dispose();
+
+        GroupTintCache.Clear();
+    }
 
     private void ClearHighlightCache()
     {

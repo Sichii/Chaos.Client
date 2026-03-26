@@ -53,8 +53,7 @@ public sealed partial class WorldScreen : IScreen
         AlphaDestinationBlend = Blend.InverseSourceAlpha
     };
 
-    // Aisling draw data cache: keyed by entity ID, invalidated when appearance/frame/suffix changes.
-    // Individual layer textures are owned by AislingRenderer.LayerTextureCache — this just tracks which draw data is current.
+    // Aisling composited texture cache: keyed by entity ID, invalidated when appearance/frame/suffix changes.
     private readonly Dictionary<uint, AislingDrawDataEntry> AislingCache = new();
 
     private readonly CastingSystem CastingSystem = new();
@@ -69,6 +68,8 @@ public sealed partial class WorldScreen : IScreen
 
     private AbilityDetailControl AbilityDetail = null!;
     private AislingPopupMenu AislingPopup = null!;
+
+    private int AnimationTick;
     private ArticleListControl ArticleList = null!;
     private ArticleReadControl ArticleRead = null!;
     private ArticleSendControl ArticleSend = null!;
@@ -94,6 +95,13 @@ public sealed partial class WorldScreen : IScreen
 
     private ChaosGame Game = null!;
     private GoldExchangeControl GoldDrop = null!;
+
+    // Set of entity IDs currently highlighted as group members (auto-expires after 1000ms)
+    private readonly HashSet<uint> GroupHighlightedIds = [];
+
+    // True when J was pressed — the next SelfProfile response triggers group highlighting instead of opening the panel
+    private bool GroupHighlightRequested;
+    private float GroupHighlightTimer;
     private GroupControl GroupPanel = null!;
     private HotkeyHelpControl HotkeyHelp = null!;
     private PanelSlot? HoveredInventorySlot;
@@ -109,16 +117,14 @@ public sealed partial class WorldScreen : IScreen
     private MailReadControl MailRead = null!;
     private MailSendControl MailSend = null!;
     private MainOptionsControl MainOptions = null!;
-
     private MapFile? MapFile;
     private Pathfinder? MapPathfinder;
     private bool MapPreloaded;
     private MapRenderer MapRenderer = null!;
 
     // Overlay panels (rendered on top of HUD)
-    private MerchantDialogControl MerchantDialog = null!;
     private NotepadControl Notepad = null!;
-    private NpcDialogControl NpcDialog = null!;
+    private NpcSessionControl NpcSession = null!;
     private OtherProfileControl OtherProfile = null!;
     private Action? PendingDeleteAction;
     private bool PendingLoginSwitch;
@@ -279,11 +285,8 @@ public sealed partial class WorldScreen : IScreen
         TileCursorDragTexture = CreateTileCursorTexture(graphicsDevice, new Color(100, 149, 237));
 
         // Overlay panels — ZIndex: -2 sub-panels, -1 slide panels, 0 standard (default), 1 popups, 2 context menu
-        NpcDialog = new NpcDialogControl();
-        WireNpcDialog();
-
-        MerchantDialog = new MerchantDialogControl();
-        WireMerchantDialog();
+        NpcSession = new NpcSessionControl();
+        WireNpcSession();
 
         MainOptions = new MainOptionsControl
         {
@@ -534,8 +537,7 @@ public sealed partial class WorldScreen : IScreen
         Root.AddChild(SmallHud);
         Root.AddChild(LargeHud);
         Root.AddChild(ItemTooltip);
-        Root.AddChild(NpcDialog);
-        Root.AddChild(MerchantDialog);
+        Root.AddChild(NpcSession);
         Root.AddChild(MainOptions);
         Root.AddChild(SettingsDialog);
         Root.AddChild(MacroMenu);
@@ -631,6 +633,7 @@ public sealed partial class WorldScreen : IScreen
         SilhouetteRenderer.Dispose();
         Root?.Dispose();
         ClearAislingCache();
+        ClearGroupTintCache();
         Game.ItemRenderer.Clear();
         Overlays.Clear();
         DebugRenderer.Clear();

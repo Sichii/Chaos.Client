@@ -396,10 +396,12 @@ public sealed partial class WorldScreen
     // --- Cache / persistence helpers ---
 
     private void ClearAislingCache()
-        =>
+    {
+        foreach (var entry in AislingCache.Values)
+            entry.Texture?.Dispose();
 
-            // Layer textures are owned by AislingRenderer.LayerTextureCache — just clear the draw data references
-            AislingCache.Clear();
+        AislingCache.Clear();
+    }
 
     private void LoadPlayerFamilyList()
     {

@@ -191,17 +191,31 @@ public sealed class AislingRenderer : IDisposable
         LayerSlot.Acc3C
     ];
 
+    private const string SWIM_MALE_EPF = "mb00501.epf";
+    private const string SWIM_FEMALE_EPF = "wb00501.epf";
+
     private readonly AislingDataRepository Data = DataContext.AislingData;
     private readonly EpfView? EmotionsEpf = LoadEmotionsEpf();
     private readonly Dictionary<LayerCacheKey, AislingLayerTexture> LayerTextureCache = new();
     private readonly LayerInfo?[] RenderLayers = new LayerInfo?[(int)LayerSlot.Count];
+    private readonly Dictionary<int, Texture2D> SwimFemaleFrameCache = new();
+
+    private readonly Dictionary<int, Texture2D> SwimMaleFrameCache = new();
     private readonly Dictionary<Texture2D, Texture2D> TintedTextureCache = new();
+    private EpfFile? SwimFemaleEpf;
+    private int SwimFemaleMaxWidth;
+    private Palette? SwimFemalePalette;
+    private bool SwimLoaded;
+    private EpfFile? SwimMaleEpf;
+    private int SwimMaleMaxWidth;
+    private Palette? SwimMalePalette;
 
     /// <inheritdoc />
     public void Dispose()
     {
         ClearCache();
         ClearLayerCache();
+        ClearSwimCache();
     }
 
     /// <summary>
@@ -1183,6 +1197,103 @@ public sealed class AislingRenderer : IDisposable
             frame.Left,
             frame.Top,
             typeLetter);
+    }
+    #endregion
+
+    #region Swimming
+    private void EnsureSwimLoaded()
+    {
+        if (SwimLoaded)
+            return;
+
+        SwimLoaded = true;
+
+        var palLookup = PaletteLookup.FromArchive("palb", DatArchives.Khanpal);
+
+        if (DatArchives.Khanmad.TryGetValue(SWIM_MALE_EPF, out var maleEntry) && maleEntry.TryGetNumericIdentifier(out var maleId, 3))
+        {
+            SwimMaleEpf = EpfFile.FromEntry(maleEntry);
+            SwimMalePalette = palLookup.GetPaletteForId(maleId, KhanPalOverrideType.Male);
+            SwimMaleMaxWidth = SwimMaleEpf.Max(f => f.PixelWidth + Math.Max((int)f.Left, 0));
+        }
+
+        if (DatArchives.Khanwad.TryGetValue(SWIM_FEMALE_EPF, out var femaleEntry)
+            && femaleEntry.TryGetNumericIdentifier(out var femaleId, 3))
+        {
+            SwimFemaleEpf = EpfFile.FromEntry(femaleEntry);
+            SwimFemalePalette = palLookup.GetPaletteForId(femaleId, KhanPalOverrideType.Female);
+            SwimFemaleMaxWidth = SwimFemaleEpf.Max(f => f.PixelWidth + Math.Max((int)f.Left, 0));
+        }
+    }
+
+    /// <summary>
+    ///     Gets the max frame width across all swimming frames for a gender. Used for consistent horizontal centering.
+    /// </summary>
+    public int GetSwimMaxFrameWidth(bool isFemale)
+    {
+        EnsureSwimLoaded();
+
+        return isFemale ? SwimFemaleMaxWidth : SwimMaleMaxWidth;
+    }
+
+    /// <summary>
+    ///     Gets the total number of swimming frames available for a gender. Returns 0 if no swimming sprite is available.
+    /// </summary>
+    public int GetSwimFrameCount(bool isFemale)
+    {
+        EnsureSwimLoaded();
+
+        var epf = isFemale ? SwimFemaleEpf : SwimMaleEpf;
+
+        return epf?.Count ?? 0;
+    }
+
+    /// <summary>
+    ///     Gets a cached swimming frame texture by index. Returns null if unavailable.
+    /// </summary>
+    public Texture2D? GetSwimFrame(bool isFemale, int frameIndex)
+    {
+        EnsureSwimLoaded();
+
+        var epf = isFemale ? SwimFemaleEpf : SwimMaleEpf;
+        var palette = isFemale ? SwimFemalePalette : SwimMalePalette;
+        var cache = isFemale ? SwimFemaleFrameCache : SwimMaleFrameCache;
+
+        if (epf is null || palette is null)
+            return null;
+
+        if ((frameIndex < 0) || (frameIndex >= epf.Count))
+            return null;
+
+        if (cache.TryGetValue(frameIndex, out var cached))
+            return cached;
+
+        var frame = epf[frameIndex];
+
+        using var image = Graphics.RenderImage(frame, palette);
+
+        if (image is null)
+            return null;
+
+        var texture = TextureConverter.ToTexture2D(image);
+        cache[frameIndex] = texture;
+
+        return texture;
+    }
+
+    /// <summary>
+    ///     Clears all cached swimming frame textures.
+    /// </summary>
+    public void ClearSwimCache()
+    {
+        foreach (var tex in SwimMaleFrameCache.Values)
+            tex.Dispose();
+
+        foreach (var tex in SwimFemaleFrameCache.Values)
+            tex.Dispose();
+
+        SwimMaleFrameCache.Clear();
+        SwimFemaleFrameCache.Clear();
     }
     #endregion
 

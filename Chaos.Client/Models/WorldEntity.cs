@@ -41,6 +41,18 @@ public sealed class WorldEntity
     public int EmoteFrameCount { get; set; }
     public float EmoteRemainingMs { get; set; }
     public int EmoteStartFrame { get; set; }
+
+    /// <summary>
+    ///     The gndattr paint height of the tile the entity is standing on. 0 = no ground tint. Controls how many pixels from
+    ///     the entity bottom are tinted.
+    /// </summary>
+    public int GroundPaintHeight { get; set; }
+
+    /// <summary>
+    ///     The RGBA tint color from the tile's gndattr data. Applied to the lower portion of aislings.
+    /// </summary>
+    public Color GroundTintColor { get; set; }
+
     public string? GroupBoxText { get; set; }
     public uint Id { get; init; }
     public float IdleAnimElapsedMs { get; set; }
@@ -49,7 +61,15 @@ public sealed class WorldEntity
     // IdleAnimTick increments independently of AnimState so idle cycling survives body animations.
     public int IdleAnimFrameCount { get; set; }
     public int IdleAnimTick { get; set; }
+    public int IdleCycleEndsAt { get; set; }
+    public bool IdleOptionalActive { get; set; }
     public bool IsDead { get; set; }
+
+    /// <summary>
+    ///     True when the entity is on a walk-blocking water tile (gndattr H=1) that triggers swimming animation.
+    /// </summary>
+    public bool IsOnSwimmingTile { get; set; }
+
     public bool IsTransparent { get; set; }
     public byte ItemColor { get; set; }
     public LanternSize LanternSize { get; set; }
@@ -64,6 +84,7 @@ public sealed class WorldEntity
     public ClientEntityType Type { get; set; }
     public Vector2 VisualOffset { get; set; }
     public Vector2 WalkStartOffset { get; set; }
+
     public int SortDepth => TileX + TileY;
     public bool UsesCreatureWalkTiming => (Type == ClientEntityType.Creature) || (Appearance is null && (SpriteId > 0));
 }

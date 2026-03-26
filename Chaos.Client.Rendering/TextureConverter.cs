@@ -48,6 +48,30 @@ public static class TextureConverter
     }
 
     /// <summary>
+    ///     Creates a group-tinted copy of a texture using saturated additive blend with (255, 231, 59) — warm yellow/gold.
+    ///     Matches the original DA client's group member highlight (palette index 0x45 from legend.pal, effect slot 1).
+    /// </summary>
+    public static Texture2D CreateGroupTintedTexture(Texture2D source)
+    {
+        var count = source.Width * source.Height;
+        var pixels = ArrayPool<Color>.Shared.Rent(count);
+
+        try
+        {
+            source.GetData(pixels, 0, count);
+            GroupTintPixels(pixels, count);
+
+            var tinted = new Texture2D(Device, source.Width, source.Height);
+            tinted.SetData(pixels, 0, count);
+
+            return tinted;
+        } finally
+        {
+            ArrayPool<Color>.Shared.Return(pixels);
+        }
+    }
+
+    /// <summary>
     ///     Creates a tinted (blue-shifted) copy of a texture. Used for entity hover highlights.
     /// </summary>
     public static Texture2D CreateTintedTexture(Texture2D source)
@@ -67,6 +91,27 @@ public static class TextureConverter
         } finally
         {
             ArrayPool<Color>.Shared.Return(pixels);
+        }
+    }
+
+    /// <summary>
+    ///     Applies saturated additive blend with (255, 231, 59) to a pixel array in-place. The original DA client uses this
+    ///     palette-based additive tint for group member highlighting — the entity appears washed toward bright yellow-white.
+    /// </summary>
+    internal static void GroupTintPixels(Color[] pixels, int count)
+    {
+        for (var i = 0; i < count; i++)
+        {
+            var p = pixels[i];
+
+            if (p.A == 0)
+                continue;
+
+            pixels[i] = new Color(
+                (byte)Math.Min(p.R + 255, 255),
+                (byte)Math.Min(p.G + 231, 255),
+                (byte)Math.Min(p.B + 59, 255),
+                p.A);
         }
     }
 

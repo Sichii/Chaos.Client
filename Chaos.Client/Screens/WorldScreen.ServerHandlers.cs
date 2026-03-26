@@ -5,13 +5,17 @@ using Chaos.Client.Data.Utilities;
 using Chaos.Client.Extensions;
 using Chaos.Client.Models;
 using Chaos.Client.Networking;
+using Chaos.Client.Rendering;
 using Chaos.Client.Systems;
 using Chaos.Client.ViewModel;
 using Chaos.DarkAges.Definitions;
 using Chaos.Extensions.Common;
 using Chaos.Geometry.Abstractions.Definitions;
 using Chaos.Networking.Entities.Server;
+using DALib.Definitions;
+using DALib.Drawing;
 using Microsoft.Xna.Framework;
+using Microsoft.Xna.Framework.Graphics;
 #endregion
 
 namespace Chaos.Client.Screens;
@@ -58,8 +62,9 @@ public sealed partial class WorldScreen
         if (entity is { Type: ClientEntityType.Creature })
             CreateDyingEffect(entity);
 
-        // Clean up aisling draw data cache (layer textures are owned by AislingRenderer)
-        AislingCache.Remove(id);
+        // Clean up aisling composited texture cache
+        if (AislingCache.Remove(id, out var removed))
+            removed.Texture?.Dispose();
 
         // Clean up cached name tag texture
         Overlays.RemoveNameTag(id);
@@ -118,6 +123,14 @@ public sealed partial class WorldScreen
 
         if (MapFile is null || (newX < 0) || (newY < 0) || (newX >= MapFile.Width) || (newY >= MapFile.Height))
             return;
+
+        // Swimming check — if on a water tile and don't have the "swimming" skill, block movement
+        if (player.IsOnSwimmingTile && !IsGameMaster && !Game.World.SkillBook.HasSkillByName("swimming"))
+        {
+            Game.World.Chat.AddMessage("You need to learn how to swim.", Color.White);
+
+            return;
+        }
 
         // Collision check — GM bypasses all collision
         if (!IsGameMaster && !IsTilePassable(newX, newY))
@@ -315,19 +328,15 @@ public sealed partial class WorldScreen
     {
         var dialog = Game.World.NpcInteraction.CurrentDialog;
 
-        // No dialog or CloseDialog type means hide all panels
         if (dialog is null || (dialog.DialogType == DialogType.CloseDialog))
         {
-            NpcDialog.Hide();
-            MerchantDialog.Hide();
+            NpcSession.HideAll();
 
             return;
         }
 
-        // Dialog replaces any open merchant panel
-        MerchantDialog.Hide();
-        NpcDialog.ShowDialog(dialog);
-        RenderNpcPortrait();
+        NpcSession.ShowDialog(dialog);
+        RenderNpcSessionPortrait();
     }
 
     private void HandleMenuChanged()
@@ -337,47 +346,84 @@ public sealed partial class WorldScreen
         if (menu is null)
             return;
 
-        if (menu.MenuType is MenuType.ShowItems
-                             or MenuType.ShowPlayerItems
-                             or MenuType.ShowSkills
-                             or MenuType.ShowSpells
-                             or MenuType.ShowPlayerSkills
-                             or MenuType.ShowPlayerSpells)
-        {
-            NpcDialog.Hide();
-            MerchantDialog.ShowMerchant(menu, Game.Connection);
-
-            return;
-        }
-
-        MerchantDialog.Hide();
-        NpcDialog.ShowMenu(menu);
-        RenderNpcPortrait();
+        NpcSession.ShowMenu(menu, Game.Connection);
+        RenderNpcSessionPortrait();
     }
 
-    private void RenderNpcPortrait()
+    private void RenderNpcSessionPortrait()
     {
-        if (!NpcDialog.ShouldIllustrate || (NpcDialog.PortraitSpriteId == 0))
+        // Phase 1: If ShouldIllustrate, try full-art illustration SPF from NPCIllust metadata + npcbase.dat
+        if (NpcSession.ShouldIllustrate && !string.IsNullOrEmpty(NpcSession.NpcName))
         {
-            NpcDialog.SetPortrait(null);
+            var illustTexture = TryLoadNpcIllustration(NpcSession.NpcName);
+
+            if (illustTexture is not null)
+            {
+                NpcSession.SetPortrait(illustTexture, true);
+
+                return;
+            }
+        }
+
+        // Phase 2: Fall back to entity sprite portrait based on EntityType
+        if (NpcSession.PortraitSpriteId == 0)
+        {
+            NpcSession.SetPortrait(null, false);
 
             return;
         }
 
-        // Render creature standing frame at direction 0 (front-facing)
-        var animInfo = Game.CreatureRenderer.GetAnimInfo(NpcDialog.PortraitSpriteId);
+        var portrait = NpcSession.SourceEntityType switch
+        {
+            EntityType.Creature => RenderCreaturePortrait(NpcSession.PortraitSpriteId),
+            EntityType.Item     => RenderItemPortrait(NpcSession.PortraitSpriteId, NpcSession.PortraitColor),
+            _                   => null
+        };
+
+        NpcSession.SetPortrait(portrait, false);
+    }
+
+    /// <summary>
+    ///     Attempts to load a full-art NPC illustration SPF from npcbase.dat via the NPCIllust metadata mapping.
+    /// </summary>
+    private static Texture2D? TryLoadNpcIllustration(string npcName)
+    {
+        var illustMeta = DataContext.MetaFiles.GetNpcIllustrationMetadata();
+
+        if ((illustMeta?.Illustrations.TryGetValue(npcName, out var spfFileName) != true) || spfFileName is null)
+            return null;
+
+        if (!DatArchives.Npcbase.TryGetValue(spfFileName, out var entry))
+            return null;
+
+        var spf = SpfFile.FromEntry(entry);
+
+        if (spf.Count == 0)
+            return null;
+
+        var frame = spf[0];
+
+        using var image = (spf.Format == SpfFormatType.Palettized) && spf.PrimaryColors is not null
+            ? Graphics.RenderImage(frame, spf.PrimaryColors)
+            : Graphics.RenderImage(frame);
+
+        return TextureConverter.ToTexture2D(image);
+    }
+
+    private Texture2D? RenderCreaturePortrait(ushort spriteId)
+    {
+        var animInfo = Game.CreatureRenderer.GetAnimInfo(spriteId);
 
         if (animInfo is null)
-        {
-            NpcDialog.SetPortrait(null);
+            return null;
 
-            return;
-        }
-
-        var standingFrame = Game.CreatureRenderer.GetFrame(NpcDialog.PortraitSpriteId, animInfo.Value.StandingFrameIndex);
-
-        NpcDialog.SetPortrait(standingFrame?.Texture);
+        return Game.CreatureRenderer.GetFrame(spriteId, animInfo.Value.StandingFrameIndex)
+                   ?.Texture;
     }
+
+    private Texture2D? RenderItemPortrait(ushort spriteId, DisplayColor color)
+        => Game.ItemRenderer.GetSprite(spriteId, (byte)color)
+               ?.Texture;
 
     private void HandleRefreshResponse()
         =>
@@ -655,11 +701,40 @@ public sealed partial class WorldScreen
         } else
             Game.World.Group.Clear();
 
-        if (SelfProfileRequested)
+        if (GroupHighlightRequested)
+        {
+            GroupHighlightRequested = false;
+            ApplyGroupHighlight();
+        } else if (SelfProfileRequested)
         {
             SelfProfileRequested = false;
             ShowStatusBook();
         }
+    }
+
+    private void ApplyGroupHighlight()
+    {
+        GroupHighlightedIds.Clear();
+        ClearGroupTintCache();
+
+        var members = Game.World.Group.Members;
+
+        if (members.Count == 0)
+            return;
+
+        var memberSet = new HashSet<string>(members, StringComparer.OrdinalIgnoreCase);
+
+        foreach (var entity in Game.World.GetSortedEntities())
+        {
+            if (entity.Type != ClientEntityType.Aisling)
+                continue;
+
+            if (!string.IsNullOrEmpty(entity.Name) && memberSet.Contains(entity.Name))
+                GroupHighlightedIds.Add(entity.Id);
+        }
+
+        if (GroupHighlightedIds.Count > 0)
+            GroupHighlightTimer = 1000f;
     }
 
     private void ShowStatusBook()
@@ -778,8 +853,9 @@ public sealed partial class WorldScreen
                 _     => 1
             };
 
+        /*//the original client probably does something like this
         if (playerCircle == 6)
-            return EventState.Unavailable;
+            return EventState.Unavailable;*/
 
         // Check qualifying circles — player's circle must be in the list
         if (!string.IsNullOrEmpty(entry.QualifyingCircles))

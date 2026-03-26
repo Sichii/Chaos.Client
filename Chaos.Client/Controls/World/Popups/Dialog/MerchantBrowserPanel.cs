@@ -6,17 +6,17 @@ using Chaos.DarkAges.Definitions;
 using Chaos.Networking.Entities.Server;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
-using Microsoft.Xna.Framework.Input;
 #endregion
 
 namespace Chaos.Client.Controls.World.Popups.Dialog;
 
 /// <summary>
-///     Merchant/shop/trainer dialog using the lnpcd3 prefab. Handles the 6 merchant menu types: ShowItems (buy),
+///     Merchant/shop/trainer browser panel using the lnpcd3 prefab. Handles the 6 merchant menu types: ShowItems (buy),
 ///     ShowPlayerItems (sell), ShowSkills, ShowSpells, ShowPlayerSkills, ShowPlayerSpells. Displays an icon+name list in
-///     the Content area, item details on the right side, page navigation, and a close button.
+///     the Content area, item details on the right side, and page navigation. Owned by NpcSessionControl which handles
+///     Escape, close, and response dispatch.
 /// </summary>
-public sealed class MerchantDialogControl : PrefabPanel
+public sealed class MerchantBrowserPanel : PrefabPanel
 {
     private const int ICON_SIZE = 32;
     private const int ROW_HEIGHT = 40;
@@ -36,11 +36,8 @@ public sealed class MerchantDialogControl : PrefabPanel
     private int HoveredIndex = -1;
     private int SelectedIndex = -1;
     private int TotalPages;
-    public MenuType CurrentMenuType { get; private set; }
-    public ushort PursuitId { get; private set; }
 
-    public EntityType SourceEntityType { get; private set; }
-    public uint? SourceId { get; private set; }
+    public MenuType CurrentMenuType { get; private set; }
 
     public UIButton? CloseButton { get; }
     public UIButton? PageNextButton { get; }
@@ -48,10 +45,10 @@ public sealed class MerchantDialogControl : PrefabPanel
     public UIButton? TabNextButton { get; }
     public UIButton? TabPrevButton { get; }
 
-    public MerchantDialogControl()
+    public MerchantBrowserPanel()
         : base("lnpcd3")
     {
-        Name = "MerchantDialog";
+        Name = "MerchantBrowser";
         Visible = false;
 
         CloseButton = CreateButton("Btn1");
@@ -61,11 +58,7 @@ public sealed class MerchantDialogControl : PrefabPanel
         TabNextButton = CreateButton("TabNext");
 
         if (CloseButton is not null)
-            CloseButton.OnClick += () =>
-            {
-                Hide();
-                OnClose?.Invoke();
-            };
+            CloseButton.OnClick += () => OnClose?.Invoke();
 
         if (PagePrevButton is not null)
             PagePrevButton.OnClick += () =>
@@ -360,9 +353,6 @@ public sealed class MerchantDialogControl : PrefabPanel
     public void ShowMerchant(DisplayMenuArgs args, ConnectionManager connection)
     {
         CurrentMenuType = args.MenuType;
-        SourceEntityType = args.EntityType;
-        SourceId = args.SourceId;
-        PursuitId = args.PursuitId;
 
         ClearEntries();
         CurrentPage = 0;
@@ -413,14 +403,6 @@ public sealed class MerchantDialogControl : PrefabPanel
     {
         if (!Visible || !Enabled)
             return;
-
-        if (input.WasKeyPressed(Keys.Escape))
-        {
-            Hide();
-            OnClose?.Invoke();
-
-            return;
-        }
 
         // Hover tracking over visible rows
         HoveredIndex = -1;

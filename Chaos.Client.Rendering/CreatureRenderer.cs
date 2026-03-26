@@ -53,6 +53,7 @@ public sealed class CreatureRenderer : IDisposable
             mpf.StandingFrameIndex,
             mpf.StandingFrameCount,
             mpf.OptionalAnimationFrameCount,
+            mpf.OptionalAnimationRatio,
             mpf.Count);
     }
 
@@ -124,4 +125,5 @@ public readonly record struct CreatureAnimInfo(
     byte StandingFrameIndex,
     byte StandingFrameCount,
     byte OptionalAnimationFrameCount,
+    byte OptionalAnimationRatio,
     int TotalFrameCount);

@@ -26,7 +26,7 @@ public static class AnimationSystem
     private const float BODY_ANIM_SPEED_TO_MS = 10f;
     private const float DEFAULT_BODY_ANIM_FRAME_MS = 150f;
     private const float CREATURE_ATTACK_FRAME_MS = 300f;
-    private const float IDLE_ANIM_FRAME_MS = 250f;
+    private const float IDLE_ANIM_FRAME_MS = 300f;
 
     public const string PEASANT_ANIM_SUFFIX = "03";
 
@@ -165,8 +165,10 @@ public static class AnimationSystem
     /// </param>
     public static void Advance(WorldEntity entity, float elapsedMs, bool smoothScroll = false)
     {
-        // Idle animation ticks independently so it survives body animations
-        if (entity.IdleAnimFrameCount > 0)
+        // Idle animation ticks independently so it survives body animations.
+        // Aislings use IdleAnimFrameCount (from "04" EPF); creatures always tick.
+        // Swimming aislings always tick so the swim animation cycles while idle.
+        if ((entity.IdleAnimFrameCount > 0) || (entity.Type == ClientEntityType.Creature) || entity.IsOnSwimmingTile)
             AdvanceIdleAnim(entity, elapsedMs);
 
         switch (entity.AnimState)
@@ -222,6 +224,28 @@ public static class AnimationSystem
         }
     }
 
+    /// <summary>
+    ///     Re-rolls optional standing animation when the idle tick reaches the current cycle's end. Called each frame from
+    ///     DrawCreature; only acts once per cycle boundary.
+    /// </summary>
+    public static void UpdateCreatureIdleCycle(WorldEntity entity, in CreatureAnimInfo info)
+    {
+        if (info.StandingFrameCount == 0)
+            return;
+
+        if (entity.IdleAnimTick < entity.IdleCycleEndsAt)
+            return;
+
+        // Roll for next cycle: OptionalAnimationRatio is % chance to play extended frames
+        if ((info.OptionalAnimationFrameCount > info.StandingFrameCount) && (info.OptionalAnimationRatio > 0))
+            entity.IdleOptionalActive = Random.Shared.Next(100) < info.OptionalAnimationRatio;
+        else
+            entity.IdleOptionalActive = false;
+
+        int cycleLength = entity.IdleOptionalActive ? info.OptionalAnimationFrameCount : info.StandingFrameCount;
+        entity.IdleCycleEndsAt = entity.IdleAnimTick + Math.Max(cycleLength, 1);
+    }
+
     private static void AdvanceBodyAnim(WorldEntity entity, float elapsedMs)
     {
         entity.AnimElapsedMs += elapsedMs;
@@ -266,15 +290,18 @@ public static class AnimationSystem
                 var framesPerDir = info.WalkFrameCount;
 
                 if (framesPerDir == 0)
-                    return GetCreatureIdleFrame(entity.Direction, in info);
+                    return GetCreatureIdleFrame(entity, in info);
 
                 var mappedFrame = MapFrameIndex(entity.AnimFrameIndex, DEFAULT_WALK_FRAMES, framesPerDir);
+
+                // Single-direction sprite: reuse base frames for all directions
+                var walkOffset = (info.WalkFrameIndex + framesPerDir + mappedFrame) >= info.TotalFrameCount ? 0 : framesPerDir;
 
                 return entity.Direction switch
                 {
                     Direction.Up    => (info.WalkFrameIndex + mappedFrame, false),
-                    Direction.Right => (info.WalkFrameIndex + framesPerDir + mappedFrame, false),
-                    Direction.Down  => (info.WalkFrameIndex + framesPerDir + mappedFrame, true),
+                    Direction.Right => (info.WalkFrameIndex + walkOffset + mappedFrame, false),
+                    Direction.Down  => (info.WalkFrameIndex + walkOffset + mappedFrame, true),
                     Direction.Left  => (info.WalkFrameIndex + mappedFrame, true),
                     _               => (info.WalkFrameIndex + mappedFrame, false)
                 };
@@ -286,22 +313,25 @@ public static class AnimationSystem
                 (var attackStart, var framesPerDir) = ResolveCreatureAttack(entity.ActiveBodyAnimation ?? BodyAnimation.Assail, in info);
 
                 if (framesPerDir == 0)
-                    return GetCreatureIdleFrame(entity.Direction, in info);
+                    return GetCreatureIdleFrame(entity, in info);
 
-                var frameIndex = Math.Min(entity.AnimFrameIndex, framesPerDir - 1);
+                var animFrame = Math.Min(entity.AnimFrameIndex, framesPerDir - 1);
+
+                // Single-direction sprite: reuse base frames for all directions
+                var atkOffset = (attackStart + framesPerDir + animFrame) >= info.TotalFrameCount ? 0 : framesPerDir;
 
                 return entity.Direction switch
                 {
-                    Direction.Up    => (attackStart + frameIndex, false),
-                    Direction.Right => (attackStart + framesPerDir + frameIndex, false),
-                    Direction.Down  => (attackStart + framesPerDir + frameIndex, true),
-                    Direction.Left  => (attackStart + frameIndex, true),
-                    _               => (info.AttackFrameIndex + frameIndex, false)
+                    Direction.Up    => (attackStart + animFrame, false),
+                    Direction.Right => (attackStart + atkOffset + animFrame, false),
+                    Direction.Down  => (attackStart + atkOffset + animFrame, true),
+                    Direction.Left  => (attackStart + animFrame, true),
+                    _               => (info.AttackFrameIndex + animFrame, false)
                 };
             }
 
             default:
-                return GetCreatureIdleFrame(entity.Direction, in info);
+                return GetCreatureIdleFrame(entity, in info);
         }
     }
 
@@ -458,31 +488,39 @@ public static class AnimationSystem
             _                         => (-1, 0, 0)
         };
 
-    private static (int FrameIndex, bool Flip) GetCreatureIdleFrame(Direction direction, in CreatureAnimInfo info)
+    private static (int FrameIndex, bool Flip) GetCreatureIdleFrame(WorldEntity entity, in CreatureAnimInfo info)
     {
         int baseIndex;
         int dirOffset;
+        int frameCount;
 
         if (info.StandingFrameCount > 0)
         {
             baseIndex = info.StandingFrameIndex;
-
-            // Standing direction offset uses OptionalAnimationFrameCount when available
+            frameCount = entity.IdleOptionalActive ? info.OptionalAnimationFrameCount : info.StandingFrameCount;
             dirOffset = info.OptionalAnimationFrameCount > 0 ? info.OptionalAnimationFrameCount : info.StandingFrameCount;
         } else
         {
-            // Fallback: first walk frame per direction
+            // Fallback: static first walk frame per direction (no cycling)
             baseIndex = info.WalkFrameIndex;
             dirOffset = info.WalkFrameCount;
+            frameCount = 1;
         }
 
-        return direction switch
+        // Single-direction sprite: second direction frames don't exist — reuse base frames for all directions
+        if ((baseIndex + dirOffset) >= info.TotalFrameCount)
+            dirOffset = 0;
+
+        // Cycle through the standing frames using the entity's idle tick
+        var frameTick = frameCount > 1 ? entity.IdleAnimTick % frameCount : 0;
+
+        return entity.Direction switch
         {
-            Direction.Up    => (baseIndex, false),
-            Direction.Right => (baseIndex + dirOffset, false),
-            Direction.Down  => (baseIndex + dirOffset, true),
-            Direction.Left  => (baseIndex, true),
-            _               => (baseIndex, false)
+            Direction.Up    => (baseIndex + frameTick, false),
+            Direction.Right => (baseIndex + dirOffset + frameTick, false),
+            Direction.Down  => (baseIndex + dirOffset + frameTick, true),
+            Direction.Left  => (baseIndex + frameTick, true),
+            _               => (baseIndex + frameTick, false)
         };
     }
 

@@ -100,7 +100,8 @@ public sealed class EntityOverlayManager
         int mapHeight,
         IReadOnlyList<WorldEntity> sortedEntities,
         bool showTintHighlight,
-        uint? hoveredEntityId)
+        uint? hoveredEntityId,
+        uint playerEntityId)
     {
         foreach (var overlay in ChantOverlays.Values)
             overlay.Draw(spriteBatch);
@@ -114,7 +115,8 @@ public sealed class EntityOverlayManager
             mapHeight,
             sortedEntities,
             showTintHighlight,
-            hoveredEntityId);
+            hoveredEntityId,
+            playerEntityId);
 
         foreach (var bubble in ChatBubbles.Values)
             bubble.Draw(spriteBatch);
@@ -126,7 +128,8 @@ public sealed class EntityOverlayManager
         int mapHeight,
         IReadOnlyList<WorldEntity> sortedEntities,
         bool showTintHighlight,
-        uint? hoveredEntityId)
+        uint? hoveredEntityId,
+        uint playerEntityId)
     {
         for (var i = 0; i < sortedEntities.Count; i++)
         {
@@ -139,9 +142,10 @@ public sealed class EntityOverlayManager
                 continue;
 
             // NeutralHover/FriendlyHover: only show on hover, and not during targeting/dragging
+            // Never show hover nametag for the player's own character
             var isHoverOnly = entity.NameTagStyle is NameTagStyle.NeutralHover or NameTagStyle.FriendlyHover;
 
-            if (isHoverOnly && (showTintHighlight || (hoveredEntityId != entity.Id)))
+            if (isHoverOnly && (showTintHighlight || (hoveredEntityId != entity.Id) || (entity.Id == playerEntityId)))
                 continue;
 
             var nameColor = entity.NameTagStyle switch

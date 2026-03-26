@@ -5,6 +5,7 @@ using Chaos.Client.Controls.World.Hud.Panel;
 using Chaos.Client.Controls.World.Popups.Options;
 using Chaos.Client.Rendering;
 using Chaos.DarkAges.Definitions;
+using Microsoft.Xna.Framework.Graphics;
 #endregion
 
 namespace Chaos.Client.Screens;
@@ -24,127 +25,146 @@ public sealed partial class WorldScreen
     }
     #endregion
 
-    #region Merchant Dialog Wiring
-    private void WireMerchantDialog()
+    #region NPC Session Wiring
+    private void WireNpcSession()
     {
-        MerchantDialog.OnClose += () =>
+        NpcSession.OnClose += () =>
         {
-            if (MerchantDialog.SourceId is { } sourceId)
-                Game.Connection.SendMenuResponse(MerchantDialog.SourceEntityType, sourceId, MerchantDialog.PursuitId);
-        };
-
-        MerchantDialog.OnItemSelected += selectedIndex =>
-        {
-            if (MerchantDialog.SourceId is not { } sourceId)
+            if (NpcSession.SourceId is not { } sourceId)
                 return;
 
-            var slot = MerchantDialog.GetEntrySlot(selectedIndex);
+            if (NpcSession.IsDialogOpcode)
+                Game.Connection.SendDialogResponse(
+                    NpcSession.SourceEntityType,
+                    sourceId,
+                    NpcSession.PursuitId,
+                    0);
+            else
+                Game.Connection.SendMenuResponse(NpcSession.SourceEntityType, sourceId, NpcSession.PursuitId);
+        };
+
+        NpcSession.OnNext += () =>
+        {
+            if (NpcSession.SourceId is { } sourceId)
+                Game.Connection.SendDialogResponse(
+                    NpcSession.SourceEntityType,
+                    sourceId,
+                    NpcSession.PursuitId,
+                    (ushort)(NpcSession.DialogId + 1));
+        };
+
+        NpcSession.OnPrevious += () =>
+        {
+            if (NpcSession.SourceId is { } sourceId)
+                Game.Connection.SendDialogResponse(
+                    NpcSession.SourceEntityType,
+                    sourceId,
+                    NpcSession.PursuitId,
+                    (ushort)(NpcSession.DialogId - 1));
+        };
+
+        NpcSession.OnOptionSelected += optionIndex =>
+        {
+            if (NpcSession.SourceId is not { } sourceId)
+                return;
+
+            if (NpcSession.IsDialogOpcode)
+                Game.Connection.SendDialogResponse(
+                    NpcSession.SourceEntityType,
+                    sourceId,
+                    NpcSession.PursuitId,
+                    (ushort)(NpcSession.DialogId + 1),
+                    DialogArgsType.MenuResponse,
+                    (byte)(optionIndex + 1));
+            else
+            {
+                var pursuitId = NpcSession.GetOptionPursuitId(optionIndex);
+                Game.Connection.SendMenuResponse(NpcSession.SourceEntityType, sourceId, pursuitId);
+            }
+        };
+
+        NpcSession.OnTextSubmit += text =>
+        {
+            if (NpcSession.SourceId is not { } sourceId)
+                return;
+
+            if (NpcSession.IsDialogOpcode)
+                Game.Connection.SendDialogResponse(
+                    NpcSession.SourceEntityType,
+                    sourceId,
+                    NpcSession.PursuitId,
+                    (ushort)(NpcSession.DialogId + 1),
+                    DialogArgsType.TextResponse,
+                    args: [text]);
+            else
+            {
+                // Include previous args for TextEntryWithArgs
+                var prevArgs = NpcSession.GetMenuTextPreviousArgs();
+
+                if (prevArgs is not null)
+                    Game.Connection.SendMenuResponse(
+                        NpcSession.SourceEntityType,
+                        sourceId,
+                        NpcSession.PursuitId,
+                        args:
+                        [
+                            prevArgs,
+                            text
+                        ]);
+                else
+                    Game.Connection.SendMenuResponse(
+                        NpcSession.SourceEntityType,
+                        sourceId,
+                        NpcSession.PursuitId,
+                        args: [text]);
+            }
+        };
+
+        NpcSession.OnProtectedSubmit += (id, password) =>
+        {
+            if (NpcSession.SourceId is not { } sourceId)
+                return;
+
+            Game.Connection.SendDialogResponse(
+                NpcSession.SourceEntityType,
+                sourceId,
+                NpcSession.PursuitId,
+                (ushort)(NpcSession.DialogId + 1),
+                DialogArgsType.TextResponse,
+                args:
+                [
+                    id,
+                    password
+                ]);
+        };
+
+        NpcSession.OnMerchantItemSelected += selectedIndex =>
+        {
+            if (NpcSession.SourceId is not { } sourceId)
+                return;
+
+            var slot = NpcSession.GetMerchantEntrySlot(selectedIndex);
 
             if (slot is null)
                 return;
 
-            // ShowPlayerItems/ShowPlayerSkills/ShowPlayerSpells send the slot byte
-            // ShowItems/ShowSkills/ShowSpells send the name as an arg
-            if (MerchantDialog.CurrentMenuType is MenuType.ShowPlayerItems or MenuType.ShowPlayerSkills or MenuType.ShowPlayerSpells)
+            if (NpcSession.CurrentMenuType is MenuType.ShowPlayerItems or MenuType.ShowPlayerSkills or MenuType.ShowPlayerSpells)
                 Game.Connection.SendMenuResponse(
-                    MerchantDialog.SourceEntityType,
+                    NpcSession.SourceEntityType,
                     sourceId,
-                    MerchantDialog.PursuitId,
+                    NpcSession.PursuitId,
                     slot.Value);
             else
             {
-                var name = MerchantDialog.GetEntryName(selectedIndex);
+                var name = NpcSession.GetMerchantEntryName(selectedIndex);
 
                 if (name is not null)
                     Game.Connection.SendMenuResponse(
-                        MerchantDialog.SourceEntityType,
+                        NpcSession.SourceEntityType,
                         sourceId,
-                        MerchantDialog.PursuitId,
+                        NpcSession.PursuitId,
                         args: [name]);
             }
-        };
-    }
-    #endregion
-
-    #region NPC Dialog Wiring
-    private void WireNpcDialog()
-    {
-        NpcDialog.OnClose += () =>
-        {
-            if (NpcDialog.SourceId is { } sourceId)
-                Game.Connection.SendDialogResponse(
-                    NpcDialog.SourceEntityType,
-                    sourceId,
-                    NpcDialog.PursuitId,
-                    0); // dialogId 0 = close
-        };
-
-        NpcDialog.OnNext += () =>
-        {
-            if (NpcDialog.SourceId is { } sourceId)
-                Game.Connection.SendDialogResponse(
-                    NpcDialog.SourceEntityType,
-                    sourceId,
-                    NpcDialog.PursuitId,
-                    (ushort)(NpcDialog.DialogId + 1));
-        };
-
-        NpcDialog.OnPrevious += () =>
-        {
-            if (NpcDialog.SourceId is { } sourceId)
-                Game.Connection.SendDialogResponse(
-                    NpcDialog.SourceEntityType,
-                    sourceId,
-                    NpcDialog.PursuitId,
-                    (ushort)(NpcDialog.DialogId - 1));
-        };
-
-        NpcDialog.OnOptionSelected += optionIndex =>
-        {
-            if (NpcDialog.SourceId is not { } sourceId)
-                return;
-
-            if (NpcDialog.IsMenuMode)
-            {
-                // Menu responses use MenuInteraction opcode (0x39) with the option's pursuit ID
-                var pursuitId = NpcDialog.GetOptionPursuitId(optionIndex);
-
-                Game.Connection.SendMenuResponse(NpcDialog.SourceEntityType, sourceId, pursuitId);
-            } else
-
-                // Dialog responses use DialogInteraction opcode (0x3A) with option index
-                Game.Connection.SendDialogResponse(
-                    NpcDialog.SourceEntityType,
-                    sourceId,
-                    NpcDialog.PursuitId,
-                    (ushort)(NpcDialog.DialogId + 1),
-                    DialogArgsType.MenuResponse,
-                    (byte)(optionIndex + 1));
-        };
-
-        NpcDialog.OnTextSubmit += text =>
-        {
-            if (NpcDialog.SourceId is not { } sourceId)
-                return;
-
-            if (NpcDialog.IsMenuMode)
-
-                // Menu text responses use MenuInteraction opcode (0x39)
-                Game.Connection.SendMenuResponse(
-                    NpcDialog.SourceEntityType,
-                    sourceId,
-                    NpcDialog.PursuitId,
-                    args: [text]);
-            else
-
-                // Dialog text responses use DialogInteraction opcode (0x3A)
-                Game.Connection.SendDialogResponse(
-                    NpcDialog.SourceEntityType,
-                    sourceId,
-                    NpcDialog.PursuitId,
-                    (ushort)(NpcDialog.DialogId + 1),
-                    DialogArgsType.TextResponse,
-                    args: [text]);
         };
     }
     #endregion
@@ -156,7 +176,8 @@ public sealed partial class WorldScreen
         bool IsFrontFacing,
         string AnimSuffix,
         int EmotionFrame,
-        AislingDrawData? DrawData);
+        int GroundPaintHeight,
+        Texture2D? Texture);
 
     #region Board/Mail Wiring
     private void WireMailControls()

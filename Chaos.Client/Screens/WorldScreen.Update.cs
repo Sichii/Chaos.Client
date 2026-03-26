@@ -26,15 +26,33 @@ public sealed partial class WorldScreen
         input.Suppressed = false;
         var elapsedMs = (float)gameTime.ElapsedGameTime.TotalMilliseconds;
 
+        // Global tile animation tick — 100ms resolution (matches tile animation table format)
+        AnimationTick = (int)(gameTime.TotalGameTime.TotalMilliseconds / 100);
+
         // Advance entity animations and active effects
         var smoothScroll = Game.Settings.ScrollLevel > 0;
         var player = Game.World.GetPlayerEntity();
 
         foreach (var entity in Game.World.GetSortedEntities())
         {
+            // Update water tile state before animation so swimming idle tick advances
+            UpdateEntityWaterState(entity);
+
             // All entities step discretely by default. Player gets smooth lerp only if setting enabled.
             var isSmooth = (entity == player) && smoothScroll;
             AnimationSystem.Advance(entity, elapsedMs, isSmooth);
+
+            // Update creature optional standing animation cycle
+            if (entity.Type == ClientEntityType.Creature)
+            {
+                var animInfo = Game.CreatureRenderer.GetAnimInfo(entity.SpriteId);
+
+                if (animInfo.HasValue)
+                {
+                    var info = animInfo.Value;
+                    AnimationSystem.UpdateCreatureIdleCycle(entity, in info);
+                }
+            }
 
             // Tick emote overlay timer and cycle animated emote frames
             if (entity.ActiveEmoteFrame >= 0)
@@ -56,6 +74,18 @@ public sealed partial class WorldScreen
         }
 
         Game.World.UpdateEffects(elapsedMs);
+
+        // Group highlight auto-expire (1000ms flash)
+        if (GroupHighlightedIds.Count > 0)
+        {
+            GroupHighlightTimer -= elapsedMs;
+
+            if (GroupHighlightTimer <= 0)
+            {
+                GroupHighlightedIds.Clear();
+                ClearGroupTintCache();
+            }
+        }
 
         // Execute queued walk when player becomes idle after walk animation.
         var movementHandled = false;
@@ -165,16 +195,9 @@ public sealed partial class WorldScreen
         FollowPlayerCamera();
 
         // Overlay panels get first priority for input
-        if (NpcDialog.Visible)
+        if (NpcSession.Visible)
         {
-            NpcDialog.Update(gameTime, input);
-
-            return;
-        }
-
-        if (MerchantDialog.Visible)
-        {
-            MerchantDialog.Update(gameTime, input);
+            NpcSession.Update(gameTime, input);
 
             return;
         }
@@ -596,6 +619,13 @@ public sealed partial class WorldScreen
                 Pathfinding.Clear();
             } else if (!input.IsKeyHeld(Keys.Space))
                 SpacebarTimer = 0;
+
+            // J — flash group member highlighting (1000ms, gated while pending or active)
+            if (input.WasKeyPressed(Keys.J) && !GroupHighlightRequested && (GroupHighlightedIds.Count == 0))
+            {
+                GroupHighlightRequested = true;
+                Game.Connection.RequestSelfProfile();
+            }
 
             // B — pick up item from under player, or from the tile in front
             if (input.WasKeyPressed(Keys.B))
