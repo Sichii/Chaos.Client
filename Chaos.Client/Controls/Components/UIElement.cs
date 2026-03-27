@@ -23,7 +23,21 @@ public abstract class UIElement : IDisposable
     public int Height { get; set; }
     public string Name { get; init; } = string.Empty;
     public UIPanel? Parent { get; internal set; }
-    public bool Visible { get; set; } = true;
+
+    public bool Visible
+    {
+        get => field;
+
+        set
+        {
+            if (field == value)
+                return;
+
+            field = value;
+            VisibilityChanged?.Invoke(value);
+        }
+    } = true;
+
     public int Width { get; set; }
     public int X { get; set; }
     public int Y { get; set; }
@@ -206,4 +220,6 @@ public abstract class UIElement : IDisposable
     }
 
     public abstract void Update(GameTime gameTime, InputBuffer input);
+
+    public event Action<bool>? VisibilityChanged;
 }

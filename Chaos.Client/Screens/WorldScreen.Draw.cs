@@ -5,6 +5,7 @@ using Chaos.Client.Data;
 using Chaos.Client.Data.Definitions;
 using Chaos.Client.Models;
 using Chaos.Client.Rendering;
+using Chaos.Client.Rendering.Definitions;
 using Chaos.Client.Systems;
 using Chaos.DarkAges.Definitions;
 using Microsoft.Xna.Framework;
@@ -270,6 +271,7 @@ public sealed partial class WorldScreen
             for (var tileX = tileXStart; tileX <= tileXEnd; tileX++)
                 MapRenderer.DrawForegroundTile(
                     spriteBatch,
+                    Device,
                     MapFile,
                     Camera,
                     tileX,
@@ -362,7 +364,7 @@ public sealed partial class WorldScreen
             Device.BlendState = effect.BlendMode switch
             {
                 EffectBlendMode.Additive  => BlendState.Additive,
-                EffectBlendMode.SelfAlpha => ScreenBlendState,
+                EffectBlendMode.SelfAlpha => BlendStates.Screen,
                 _                         => BlendState.AlphaBlend
             };
 

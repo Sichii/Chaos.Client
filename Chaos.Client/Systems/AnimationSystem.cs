@@ -28,8 +28,6 @@ public static class AnimationSystem
     private const float CREATURE_ATTACK_FRAME_MS = 300f;
     private const float IDLE_ANIM_FRAME_MS = 300f;
 
-    public const string PEASANT_ANIM_SUFFIX = "03";
-
     // Aisling walk anim "01": frame 0 = Up idle, 1-4 = Up walk; frame 5 = Right idle, 6-9 = Right walk
     private const int AISLING_UP_WALK_BASE = 1;
     private const int AISLING_RIGHT_WALK_BASE = 6;

@@ -28,6 +28,7 @@ public sealed partial class WorldScreen
 
         // Global tile animation tick — 100ms resolution (matches tile animation table format)
         AnimationTick = (int)(gameTime.TotalGameTime.TotalMilliseconds / 100);
+        MapRenderer.UpdatePaletteCycling(AnimationTick);
 
         // Advance entity animations and active effects
         var smoothScroll = Game.Settings.ScrollLevel > 0;
@@ -608,6 +609,16 @@ public sealed partial class WorldScreen
             // / — swap HUD layout (small ↔ large)
             if (input.WasKeyPressed(Keys.OemQuestion) && !shift)
                 SwapHudLayout();
+
+            // ` — unequip weapon and shield
+            if (input.WasKeyPressed(Keys.OemTilde))
+            {
+                if (Game.Connection.Equipment.ContainsKey(EquipmentSlot.Weapon))
+                    Game.Connection.Unequip(EquipmentSlot.Weapon);
+
+                if (Game.Connection.Equipment.ContainsKey(EquipmentSlot.Shield))
+                    Game.Connection.Unequip(EquipmentSlot.Shield);
+            }
 
             // Spacebar — assail (repeats while held)
             SpacebarTimer -= elapsedMs;

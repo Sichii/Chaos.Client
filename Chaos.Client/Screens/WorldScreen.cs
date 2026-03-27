@@ -14,6 +14,7 @@ using Chaos.Client.Controls.World.ViewPort;
 using Chaos.Client.Models;
 using Chaos.Client.Rendering;
 using Chaos.Client.Systems;
+using Chaos.Client.ViewModel;
 using Chaos.DarkAges.Definitions;
 using Chaos.Geometry.Abstractions.Definitions;
 using DALib.Data;
@@ -44,15 +45,6 @@ public sealed partial class WorldScreen : IScreen
     private const string SPOUSE_PREFIX = "Spouse: ";
     private const string GROUP_MEMBERS_PREFIX = "Group members";
 
-    // Screen blend: output = src + dst * (1 - src) per channel. Used for SelfAlpha EFA effects.
-    private static readonly BlendState ScreenBlendState = new()
-    {
-        ColorSourceBlend = Blend.One,
-        ColorDestinationBlend = Blend.InverseSourceColor,
-        AlphaSourceBlend = Blend.One,
-        AlphaDestinationBlend = Blend.InverseSourceAlpha
-    };
-
     // Aisling composited texture cache: keyed by entity ID, invalidated when appearance/frame/suffix changes.
     private readonly Dictionary<uint, AislingDrawDataEntry> AislingCache = new();
 
@@ -62,6 +54,9 @@ public sealed partial class WorldScreen : IScreen
 
     // Draw-pass hitbox list: rebuilt every frame during entity rendering, in draw order (back-to-front)
     private readonly List<EntityHitBox> EntityHitBoxes = new(256);
+
+    // Set of entity IDs currently highlighted as group members (auto-expires after 1000ms)
+    private readonly HashSet<uint> GroupHighlightedIds = [];
     private readonly EntityHighlightState Highlight = new();
     private readonly EntityOverlayManager Overlays = new();
     private readonly PathfindingState Pathfinding = new();
@@ -95,9 +90,6 @@ public sealed partial class WorldScreen : IScreen
 
     private ChaosGame Game = null!;
     private GoldExchangeControl GoldDrop = null!;
-
-    // Set of entity IDs currently highlighted as group members (auto-expires after 1000ms)
-    private readonly HashSet<uint> GroupHighlightedIds = [];
 
     // True when J was pressed — the next SelfProfile response triggers group highlighting instead of opening the panel
     private bool GroupHighlightRequested;
@@ -299,59 +291,68 @@ public sealed partial class WorldScreen : IScreen
         var optionsAnchorX = WorldHud.ViewportBounds.X + WorldHud.ViewportBounds.Width - MainOptions.Width + 10;
         var optionsAnchorY = WorldHud.ViewportBounds.Y;
 
-        SettingsDialog = new SettingsControl
+        // Initialize client-local settings into UserOptions from persisted config
+        var userOptions = Game.World.UserOptions;
+        userOptions.SetValue(6, Game.Settings.AutoAcceptGroupInvites);
+        userOptions.SetValue(8, Game.Settings.ScrollLevel > 0);
+        userOptions.SetValue(9, Game.Settings.UseShiftKeyForAltPanels);
+        userOptions.SetValue(10, Game.Settings.EnableProfileClick > 0);
+        userOptions.SetValue(11, Game.Settings.RecordNpcChat);
+        userOptions.SetValue(12, Game.Settings.GroupOpen);
+
+        // Route user-initiated toggles to server or local persistence
+        userOptions.SettingToggled += (index, value) =>
+        {
+            if (UserOptions.IsServerSetting(index))
+            {
+                var option = (UserOption)(index + 1);
+                Game.Connection.SendOptionToggle(option);
+            } else
+            {
+                switch (index)
+                {
+                    case 6:
+                        Game.Settings.AutoAcceptGroupInvites = value;
+
+                        break;
+                    case 8:
+                        Game.Settings.ScrollLevel = value ? 1 : 0;
+
+                        break;
+                    case 9:
+                        Game.Settings.UseShiftKeyForAltPanels = value;
+
+                        break;
+                    case 10:
+                        Game.Settings.EnableProfileClick = value ? 1 : 0;
+
+                        break;
+                    case 11:
+                        Game.Settings.RecordNpcChat = value;
+
+                        break;
+                    case 12:
+                        // Server-authoritative — send toggle, server responds with updated profile
+                        Game.Connection.ToggleGroup();
+
+                        return;
+                }
+
+                Game.Settings.Save();
+            }
+        };
+
+        SettingsDialog = new SettingsControl(userOptions)
         {
             ZIndex = -3
         };
         SettingsDialog.SetSlideAnchor(optionsAnchorX, optionsAnchorY);
 
-        SettingsDialog.OnSettingToggled += (index, _) =>
+        SettingsDialog.VisibilityChanged += visible =>
         {
-            var option = (UserOption)(index + 1);
-            Game.Connection.SendOptionToggle(option);
+            if (visible)
+                Game.Connection.SendOptionToggle(UserOption.Request);
         };
-
-        SettingsDialog.OnLocalSettingToggled += (index, value) =>
-        {
-            switch (index)
-            {
-                case 6:
-                    Game.Settings.AutoAcceptGroupInvites = value;
-
-                    break;
-                case 8:
-                    Game.Settings.ScrollLevel = value ? 1 : 0;
-
-                    break;
-                case 9:
-                    Game.Settings.UseShiftKeyForAltPanels = value;
-
-                    break;
-                case 10:
-                    Game.Settings.EnableProfileClick = value ? 1 : 0;
-
-                    break;
-                case 11:
-                    Game.Settings.RecordNpcChat = value;
-
-                    break;
-                case 12:
-                    // Server-authoritative — send toggle, server responds with updated profile
-                    Game.Connection.ToggleGroup();
-
-                    return;
-            }
-
-            Game.Settings.Save();
-        };
-
-        // Apply saved local settings to the settings dialog
-        SettingsDialog.SetSettingValue(6, Game.Settings.AutoAcceptGroupInvites);
-        SettingsDialog.SetSettingValue(8, Game.Settings.ScrollLevel > 0);
-        SettingsDialog.SetSettingValue(9, Game.Settings.UseShiftKeyForAltPanels);
-        SettingsDialog.SetSettingValue(10, Game.Settings.EnableProfileClick > 0);
-        SettingsDialog.SetSettingValue(11, Game.Settings.RecordNpcChat);
-        SettingsDialog.SetSettingValue(12, Game.Settings.GroupOpen);
 
         MacroMenu = new MacroMenuControl
         {
@@ -569,9 +570,6 @@ public sealed partial class WorldScreen : IScreen
 
         WireHudPanels(SmallHud);
         WireHudPanels(LargeHud);
-
-        // Request current server settings (populates setting names/values)
-        Game.Connection.SendOptionToggle(UserOption.Request);
 
         // Build UI atlas after all HUD controls are constructed
         UiRenderer.Instance?.BuildAtlas();

@@ -10,9 +10,6 @@ namespace Chaos.Client.Data.Repositories;
 
 public sealed class TileRepository
 {
-    private readonly PaletteLookup BackgroundPalettes = PaletteLookup.FromArchive("mpt", DatArchives.Seo)
-                                                                     .Freeze();
-
     private readonly TileAnimationTable BgAnimations = DatArchives.Seo.TryGetValue("gndani.tbl", out var bgAnimEntry)
         ? TileAnimationTable.FromEntry(bgAnimEntry)
         : new TileAnimationTable();
@@ -20,9 +17,6 @@ public sealed class TileRepository
     private readonly TileAnimationTable FgAnimations = DatArchives.Ia.TryGetValue("stcani.tbl", out var fgAnimEntry)
         ? TileAnimationTable.FromEntry(fgAnimEntry)
         : new TileAnimationTable();
-
-    private readonly PaletteLookup ForegroundPalettes = PaletteLookup.FromArchive("stc", DatArchives.Ia)
-                                                                     .Freeze();
 
     private TilesetView Tileset = TilesetView.FromArchive("tilea", DatArchives.Seo);
     private bool UseSnowTileset;
@@ -43,6 +37,12 @@ public sealed class TileRepository
                    .ToArray()
         : [];
 
+    public PaletteLookup BackgroundPaletteLookup { get; } = PaletteLookup.FromArchive("mpt", DatArchives.Seo)
+                                                                         .Freeze();
+
+    public PaletteLookup ForegroundPaletteLookup { get; } = PaletteLookup.FromArchive("stc", DatArchives.Ia)
+                                                                         .Freeze();
+
     public Palettized<Tile>? GetBackgroundTile(int tileId)
     {
         if ((tileId <= 0) || ((tileId - 1) >= Tileset.Count))
@@ -51,7 +51,7 @@ public sealed class TileRepository
         return new Palettized<Tile>
         {
             Entity = Tileset[tileId - 1],
-            Palette = BackgroundPalettes.GetPaletteForId(tileId + 1)
+            Palette = BackgroundPaletteLookup.GetPaletteForId(tileId + 1)
         };
     }
 
@@ -67,7 +67,7 @@ public sealed class TileRepository
         return new Palettized<HpfFile>
         {
             Entity = HpfFile.FromEntry(entry),
-            Palette = ForegroundPalettes.GetPaletteForId(tileId + 1)
+            Palette = ForegroundPaletteLookup.GetPaletteForId(tileId + 1)
         };
     }
 

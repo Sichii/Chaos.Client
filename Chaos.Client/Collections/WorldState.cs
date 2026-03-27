@@ -100,6 +100,11 @@ public sealed class WorldState
     public SpellBook SpellBook { get; } = new();
 
     /// <summary>
+    ///     Authoritative server-controlled user option toggles.
+    /// </summary>
+    public UserOptions UserOptions { get; } = new();
+
+    /// <summary>
     ///     Authoritative online players list state.
     /// </summary>
     public WorldList WorldList { get; } = new();

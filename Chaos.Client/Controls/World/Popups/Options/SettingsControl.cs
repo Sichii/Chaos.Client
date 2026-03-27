@@ -2,6 +2,7 @@
 using Chaos.Client.Controls.Components;
 using Chaos.Client.Rendering;
 using Chaos.Client.Utilities;
+using Chaos.Client.ViewModel;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Input;
 #endregion
@@ -15,7 +16,6 @@ namespace Chaos.Client.Controls.World.Popups.Options;
 /// </summary>
 public sealed class SettingsControl : PrefabPanel
 {
-    private const int SETTING_COUNT = 13;
     private const int ROWS_PER_COLUMN = 10;
     private const int ROW_HEIGHT = 21;
     private const int BUTTON_X = 15;
@@ -24,32 +24,11 @@ public sealed class SettingsControl : PrefabPanel
     private const int LABEL_X = 40;
     private const int LABEL_Y = 42;
     private const int COLUMN_OFFSET = 211;
-
     private const int LABEL_WIDTH = 170;
+    private readonly UserOptions Options;
 
-    // Server settings (0-indexed): 0-5, 7 send opcode 0x1B to server on toggle
-    // Client-local settings: 6, 8-12 toggle locally with :ON/:OFF label suffix
-    private static readonly bool[] IsServerSetting =
-    [
-        true,
-        true,
-        true,
-        true,
-        true,
-        true, // 0-5
-        false, // 6
-        true, // 7
-        false,
-        false,
-        false,
-        false,
-        false // 8-12
-    ];
-
-    private readonly string[] SettingBaseNames = new string[SETTING_COUNT];
-
-    private readonly UILabel[] SettingLabels = new UILabel[SETTING_COUNT];
-    private readonly bool[] SettingValues = new bool[SETTING_COUNT];
+    private readonly string[] SettingBaseNames = new string[UserOptions.SETTING_COUNT];
+    private readonly UILabel[] SettingLabels = new UILabel[UserOptions.SETTING_COUNT];
     private SlideAnimator Slide;
     private int SlideAnchorY;
     private bool SlideMode;
@@ -58,9 +37,10 @@ public sealed class SettingsControl : PrefabPanel
 
     public UIButton? OkButton { get; }
 
-    public SettingsControl()
+    public SettingsControl(UserOptions options)
         : base("_nsett", false)
     {
+        Options = options;
         Name = "Settings";
         Visible = false;
 
@@ -77,7 +57,7 @@ public sealed class SettingsControl : PrefabPanel
         // 2-column layout: settings 0-9 in left column, 10-12 in right column
         var cache = UiRenderer.Instance!;
 
-        for (var i = 0; i < SETTING_COUNT; i++)
+        for (var i = 0; i < UserOptions.SETTING_COUNT; i++)
         {
             var settingIndex = i;
             var row = i % ROWS_PER_COLUMN;
@@ -96,7 +76,7 @@ public sealed class SettingsControl : PrefabPanel
                 PressedTexture = cache.GetSpfTexture("_nsettb.spf", pressedIdx)
             };
 
-            btn.OnClick += () => ToggleSetting(settingIndex);
+            btn.OnClick += () => Options.Toggle(settingIndex);
 
             AddChild(btn);
 
@@ -123,6 +103,12 @@ public sealed class SettingsControl : PrefabPanel
         SetSettingName(10, "click character profile");
         SetSettingName(11, "NPC Record Mundane Chat");
         SetSettingName(12, "group recruiting");
+
+        // Refresh all labels to reflect current option values
+        for (var i = 0; i < UserOptions.SETTING_COUNT; i++)
+            RefreshLabel(i);
+
+        Options.SettingChanged += (index, _) => RefreshLabel(index);
     }
 
     private void Close()
@@ -136,11 +122,6 @@ public sealed class SettingsControl : PrefabPanel
         }
     }
 
-    /// <summary>
-    ///     Gets or sets a setting toggle value by index.
-    /// </summary>
-    public bool GetSetting(int index) => index is >= 0 and < SETTING_COUNT && SettingValues[index];
-
     public override void Hide()
     {
         if (SlideMode)
@@ -150,8 +131,6 @@ public sealed class SettingsControl : PrefabPanel
     }
 
     public event Action? OnClose;
-    public event Action<int, bool>? OnLocalSettingToggled;
-    public event Action<int, bool>? OnSettingToggled;
 
     private void RefreshLabel(int index)
     {
@@ -160,19 +139,21 @@ public sealed class SettingsControl : PrefabPanel
         if (string.IsNullOrEmpty(baseName))
             return;
 
+        var value = Options[index];
+
         var text = index switch
         {
             // "Scroll Screen : Rough" / "Scroll Screen : Smooth"
-            8 => $"Scroll Screen : {(SettingValues[index] ? "Smooth" : "Rough")}",
+            8 => $"Scroll Screen : {(value ? "Smooth" : "Rough")}",
 
             // "the Shift key." / "not use the Shift key."
-            9 => SettingValues[index] ? "the Shift key." : "not use the Shift key.",
+            9 => value ? "the Shift key." : "not use the Shift key.",
 
-            // Server settings — name only (server controls the display)
-            _ when IsServerSetting[index] => baseName,
+            // Server settings — full text from server (already includes :ON/:OFF)
+            _ when UserOptions.IsServerSetting(index) => baseName,
 
-            // Other local settings — ":ON" / ":OFF" suffix
-            _ => $"{baseName} :{(SettingValues[index] ? "ON" : "OFF")}"
+            // Client-local settings — append :ON/:OFF
+            _ => $"{baseName} :{(value ? "ON" : "OFF")}"
         };
 
         SettingLabels[index].ForegroundColor = Color.White;
@@ -181,19 +162,10 @@ public sealed class SettingsControl : PrefabPanel
 
     public void SetSettingName(int index, string name)
     {
-        if (index is < 0 or >= SETTING_COUNT)
+        if (index is < 0 or >= UserOptions.SETTING_COUNT)
             return;
 
         SettingBaseNames[index] = name;
-        RefreshLabel(index);
-    }
-
-    public void SetSettingValue(int index, bool value)
-    {
-        if (index is < 0 or >= SETTING_COUNT)
-            return;
-
-        SettingValues[index] = value;
         RefreshLabel(index);
     }
 
@@ -225,20 +197,6 @@ public sealed class SettingsControl : PrefabPanel
         Y = SlideAnchorY;
         Slide.SlideIn(this);
         SlideMode = true;
-    }
-
-    private void ToggleSetting(int index)
-    {
-        var newValue = !SettingValues[index];
-        SettingValues[index] = newValue;
-
-        if (IsServerSetting[index])
-            OnSettingToggled?.Invoke(index, newValue);
-        else
-        {
-            RefreshLabel(index);
-            OnLocalSettingToggled?.Invoke(index, newValue);
-        }
     }
 
     public override void Update(GameTime gameTime, InputBuffer input)

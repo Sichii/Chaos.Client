@@ -1,5 +1,6 @@
 #region
 using Chaos.Client.Data;
+using Chaos.Client.Rendering.Definitions;
 using DALib.Data;
 using DALib.Definitions;
 using DALib.Drawing;
@@ -14,8 +15,10 @@ public sealed class MapRenderer : IDisposable
 {
     private readonly Dictionary<int, Texture2D> BgTextureCache = new();
     private readonly Dictionary<int, Texture2D> FgTextureCache = new();
+    private readonly byte[] SotpData = DataContext.Tiles.SotpData;
 
     private TextureAtlas? BgAtlas;
+    private PaletteCyclingManager? CyclingManager;
 
     /// <summary>
     ///     Extra tile margin derived from the tallest foreground tile on the current map. Used by callers to expand visible
@@ -27,6 +30,8 @@ public sealed class MapRenderer : IDisposable
     {
         BgAtlas?.Dispose();
         BgAtlas = null;
+        CyclingManager?.Dispose();
+        CyclingManager = null;
 
         foreach (var texture in BgTextureCache.Values)
             texture.Dispose();
@@ -69,6 +74,7 @@ public sealed class MapRenderer : IDisposable
     /// </summary>
     public void Draw(
         SpriteBatch spriteBatch,
+        GraphicsDevice device,
         MapFile mapFile,
         Camera camera,
         int animationTick)
@@ -87,6 +93,7 @@ public sealed class MapRenderer : IDisposable
             for (var x = fgMinX; x <= fgMaxX; x++)
                 DrawForegroundTile(
                     spriteBatch,
+                    device,
                     mapFile,
                     camera,
                     x,
@@ -159,6 +166,7 @@ public sealed class MapRenderer : IDisposable
     /// </summary>
     public void DrawForegroundTile(
         SpriteBatch spriteBatch,
+        GraphicsDevice device,
         MapFile mapFile,
         Camera camera,
         int x,
@@ -180,11 +188,20 @@ public sealed class MapRenderer : IDisposable
             if (lfgTexture is not null)
             {
                 var lfgWorldY = worldPos.Y + CONSTANTS.HALF_TILE_HEIGHT * 2 - lfgTexture.Height;
-
                 var lfgScreenPos = camera.WorldToScreen(new Vector2(worldPos.X, lfgWorldY));
 
                 if (IsOnScreen(lfgScreenPos, lfgTexture, camera))
+                {
+                    var screenBlend = IsTileScreenBlend(lfgTileId);
+
+                    if (screenBlend)
+                        device.BlendState = BlendStates.Screen;
+
                     spriteBatch.Draw(lfgTexture, lfgScreenPos, Color.White);
+
+                    if (screenBlend)
+                        device.BlendState = BlendState.AlphaBlend;
+                }
             }
         }
 
@@ -204,7 +221,17 @@ public sealed class MapRenderer : IDisposable
                 var rfgScreenPos = camera.WorldToScreen(new Vector2(rfgWorldX, rfgWorldY));
 
                 if (IsOnScreen(rfgScreenPos, rfgTexture, camera))
+                {
+                    var screenBlend = IsTileScreenBlend(rfgTileId);
+
+                    if (screenBlend)
+                        device.BlendState = BlendStates.Screen;
+
                     spriteBatch.Draw(rfgTexture, rfgScreenPos, Color.White);
+
+                    if (screenBlend)
+                        device.BlendState = BlendState.AlphaBlend;
+                }
             }
         }
     }
@@ -248,6 +275,16 @@ public sealed class MapRenderer : IDisposable
            && (screenPos.X < camera.ViewportWidth)
            && ((screenPos.Y + texture.Height) > 0)
            && (screenPos.Y < camera.ViewportHeight);
+
+    private bool IsTileScreenBlend(int tileId)
+    {
+        var sotpIndex = tileId - 1;
+
+        if ((sotpIndex < 0) || (sotpIndex >= SotpData.Length))
+            return false;
+
+        return ((TileFlags)SotpData[sotpIndex]).HasFlag(TileFlags.Transparent);
+    }
 
     /// <summary>
     ///     Preloads all unique tile textures used by the map into GPU caches. Computes the foreground extra margin from the
@@ -327,6 +364,10 @@ public sealed class MapRenderer : IDisposable
 
         // Build background tile atlas from all preloaded tiles (includes animation frames)
         BuildBgAtlas(device);
+
+        // Initialize palette cycling for animated environmental effects (water shimmer, etc.)
+        CyclingManager = new PaletteCyclingManager();
+        CyclingManager.Initialize(mapFile, BgAtlas, FgTextureCache);
     }
 
     /// <summary>
@@ -341,4 +382,6 @@ public sealed class MapRenderer : IDisposable
 
         return anim.TileSequence[frameIndex];
     }
+
+    public void UpdatePaletteCycling(int animationTick) => CyclingManager?.Update(animationTick);
 }

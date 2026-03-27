@@ -116,8 +116,6 @@ public sealed class AislingRenderer : IDisposable
     private const int MAX_HAIR_COLOR = 13;
     private const string WALK_ANIM = "01";
     private const string IDLE_ANIM = "04";
-    public const string PEASANT_ANIM_SUFFIX = "03";
-
     public const int BODY_WIDTH = 57;
     public const int BODY_HEIGHT = 85;
     public const int LAYER_OFFSET_PADDING = 27;
@@ -1425,9 +1423,10 @@ public sealed class AislingRenderer : IDisposable
     }
 
     /// <summary>
-    ///     Returns true if the displayed armor/overcoat has an EPF file for the given animation suffix.
+    ///     Returns true if the displayed armor/overcoat is allowed to play the given body animation,
+    ///     according to the ability animation tables (Skill_e.tbl / Skill_i.tbl).
     /// </summary>
-    public bool HasArmorAnimation(in AislingAppearance appearance, string animSuffix)
+    public bool HasArmorAnimation(in AislingAppearance appearance, BodyAnimation anim)
     {
         var spriteId = appearance.OvercoatSprite > 0
             ? appearance.OvercoatSprite
@@ -1435,16 +1434,7 @@ public sealed class AislingRenderer : IDisposable
                 ? appearance.ArmorSprite
                 : 0;
 
-        if (spriteId <= 0)
-            return true;
-
-        var isOverType = spriteId >= 1000;
-        var adjustedId = isOverType ? spriteId - 1000 : spriteId;
-        var bodyLetter = isOverType ? 'i' : 'u';
-        var fileName = $"{appearance.GenderPrefix}{bodyLetter}{adjustedId:D3}{animSuffix}";
-        var epf = TryLoadEpf(bodyLetter, appearance.IsMale, fileName);
-
-        return epf is not null;
+        return DataContext.AislingData.AbilityAnimations.IsAbilityAnimationAllowed(anim, spriteId);
     }
     #endregion
 }

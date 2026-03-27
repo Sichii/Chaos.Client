@@ -1,6 +1,7 @@
 #region
 using Chaos.Client.Data;
 using Chaos.Client.Models;
+using Chaos.Client.Rendering.Definitions;
 using Chaos.DarkAges.Definitions;
 using DALib.Data;
 using Microsoft.Xna.Framework;
@@ -70,11 +71,6 @@ public sealed class TabMapRenderer : IDisposable
         ReferenceStencil = 1,
         StencilPass = StencilOperation.Keep,
         DepthBufferEnable = false
-    };
-
-    private static readonly BlendState NoColorWrite = new()
-    {
-        ColorWriteChannels = ColorWriteChannels.None
     };
 
     private static readonly RasterizerState ScissorRasterizer = new()
@@ -313,7 +309,7 @@ public sealed class TabMapRenderer : IDisposable
             0);
 
         spriteBatch.Begin(
-            blendState: NoColorWrite,
+            blendState: BlendStates.NoColorWrite,
             depthStencilState: StencilWrite,
             samplerState: SamplerState.PointClamp,
             rasterizerState: ScissorRasterizer,

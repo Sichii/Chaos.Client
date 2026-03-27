@@ -278,48 +278,60 @@ public sealed partial class WorldScreen
     }
 
     /// <summary>
-    ///     Parses the server's UserOptions response. Format is tab-delimited entries, each formatted as
-    ///     "{optionNum}{description,-25}:{ON/OFF,-3}". A full request response has a leading "0" prefix before all entries.
+    ///     Parses the server's UserOptions response. Two formats:
+    ///     Full request: "0{desc}:{state}\t{desc}:{state}\t..." — '0' prefix, digits stripped, options ordered by position.
+    ///     Single toggle: "{digit}{desc}:{state}" — leading digit identifies the option (1-based).
     /// </summary>
     private void ParseUserOptions(string message)
     {
-        var entries = message.Split('\t', StringSplitOptions.RemoveEmptyEntries);
+        if (message.Length < 2)
+            return;
 
-        foreach (var entry in entries)
+        // Single option toggle response: "{digit}{description,-25}:{ON/OFF,-3}"
+        if (message[0] != '0')
         {
-            if (entry.Length < 2)
-                continue;
+            if (!char.IsDigit(message[0]))
+                return;
 
-            // First char is option number (1-based), or '0' for the leading prefix
-            var numChar = entry[0];
+            var optionIndex = message[0] - '1';
 
-            if (numChar == '0')
-                continue;
+            if (optionIndex is < 0 or >= UserOptions.SETTING_COUNT)
+                return;
 
-            if (!char.IsDigit(numChar))
-                continue;
+            ParseOptionEntry(optionIndex, message[1..]);
 
-            var optionIndex = numChar - '1';
-
-            if (optionIndex is < 0 or >= 13)
-                continue;
-
-            // Parse "description   :ON " or "description   :OFF"
-            var colonIdx = entry.LastIndexOf(':');
-
-            if (colonIdx < 1)
-                continue;
-
-            var name = entry[1..colonIdx]
-                .TrimEnd();
-
-            var stateStr = entry[(colonIdx + 1)..]
-                .Trim();
-            var isOn = stateStr.StartsWithI("ON");
-
-            SettingsDialog.SetSettingName(optionIndex, name);
-            SettingsDialog.SetSettingValue(optionIndex, isOn);
+            return;
         }
+
+        // Full request response: "0{opt1_desc}:{state}\t{opt2_desc}:{state}\t..."
+        // Leading '0' prefix, then 8 options in order with digits stripped
+        var entries = message[1..]
+            .Split('\t', StringSplitOptions.RemoveEmptyEntries);
+
+        for (var i = 0; (i < entries.Length) && (i < 8); i++)
+            ParseOptionEntry(i, entries[i]);
+    }
+
+    /// <summary>
+    ///     Parses a single option entry in the format "{description,-25}:{ON/OFF,-3}" and applies it.
+    /// </summary>
+    private void ParseOptionEntry(int optionIndex, string entry)
+    {
+        if (!UserOptions.IsServerSetting(optionIndex))
+            return;
+
+        var colonIdx = entry.LastIndexOf(':');
+
+        if (colonIdx < 1)
+            return;
+
+        var stateStr = entry[(colonIdx + 1)..]
+            .Trim();
+        var isOn = stateStr.StartsWithI("ON");
+
+        // Server settings: use the full formatted text as the display name (includes :ON/:OFF)
+        SettingsDialog.SetSettingName(optionIndex, entry.TrimEnd());
+        Game.World.UserOptions.SetValue(optionIndex, isOn);
     }
 
     // --- NPC dialog / menu ---
@@ -683,7 +695,7 @@ public sealed partial class WorldScreen
 
         // Group open state — server is source of truth, sync all UI
         StatusBook.SetGroupOpen(args.GroupOpen);
-        SettingsDialog.SetSettingValue(12, args.GroupOpen);
+        Game.World.UserOptions.SetValue(12, args.GroupOpen);
 
         // Group members — parse GroupString into state, UI subscribes via event
         if (!string.IsNullOrEmpty(args.GroupString))
@@ -929,14 +941,11 @@ public sealed partial class WorldScreen
                     in info);
         } else
         {
-            (var suffix, var framesPerDir, _, _) = AnimationSystem.ResolveBodyAnimParams(args.BodyAnimation);
+            (_, var framesPerDir, _, _) = AnimationSystem.ResolveBodyAnimParams(args.BodyAnimation);
 
             if (framesPerDir > 0)
             {
-                // Has body animation frames — skip if armor doesn't support it (exempt "03" peasant anims)
-                if (entity.Appearance.HasValue
-                    && (suffix != AnimationSystem.PEASANT_ANIM_SUFFIX)
-                    && !Game.AislingRenderer.HasArmorAnimation(entity.Appearance.Value, suffix))
+                if (entity.Appearance.HasValue && !Game.AislingRenderer.HasArmorAnimation(entity.Appearance.Value, args.BodyAnimation))
                     return;
 
                 AnimationSystem.StartBodyAnimation(entity, args.BodyAnimation, args.AnimationSpeed);

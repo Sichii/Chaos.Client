@@ -1,5 +1,7 @@
 #region
 using System.Collections.Frozen;
+using Chaos.Client.Data.Models;
+using Chaos.Client.Data.Utilities;
 using Chaos.DarkAges.Definitions;
 using DALib.Data;
 using DALib.Drawing;
@@ -18,6 +20,8 @@ namespace Chaos.Client.Data.Repositories;
 public sealed class AislingDataRepository
 {
     private readonly Dictionary<string, EpfView?> EpfCache = new();
+
+    public AbilityAnimationTable AbilityAnimations { get; }
 
     public IDictionary<int, Palette> BodyPalettes { get; } = Palette.FromArchive("palm", DatArchives.Khanpal)
                                                                     .ToFrozenDictionary();
@@ -66,6 +70,13 @@ public sealed class AislingDataRepository
         // Cache the default (undyed) colors — entry 0 contains the placeholder colors at palette slots 98-103
         if (DyeColorTable.Contains(0))
             DefaultDyeColors = DyeColorTable[0].Colors;
+
+        if (DatArchives.Legend.TryGetValue("Skill_e.tbl", out var skillEntry))
+        {
+            DatArchives.Legend.TryGetValue("Skill_i.tbl", out var overcoatEntry);
+            AbilityAnimations = AbilityAnimationTableParser.Parse(skillEntry, overcoatEntry);
+        } else
+            AbilityAnimations = new AbilityAnimationTable([]);
     }
 
     /// <summary>
