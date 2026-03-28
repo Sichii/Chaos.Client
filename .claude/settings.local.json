@@ -9,5 +9,27 @@
     "deny": [],
     "ask": []
   },
-  "prefersReducedMotion": true
+  "prefersReducedMotion": true,
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "echo '{\"hookSpecificOutput\":{\"hookEventName\":\"SessionStart\",\"additionalContext\":\"Activate the Serena MCP project Chaos.Client using mcp__plugin_serena_serena__activate_project before doing any other work this session.\"}}'",
+            "timeout": 5
+          }
+        ]
+      },
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "echo '{\"hookSpecificOutput\":{\"hookEventName\":\"SessionStart\",\"additionalContext\":\"Invoke the using-superpowers skill via the Skill tool before responding to the user.\"}}'",
+            "timeout": 5
+          }
+        ]
+      }
+    ]
+  }
 }

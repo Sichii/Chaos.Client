@@ -1,9 +1,11 @@
 #region
+using Chaos.Client.Collections;
 using Chaos.Client.Controls.Components;
 using Chaos.Client.Controls.World.Hud;
 using Chaos.Client.Controls.World.Hud.Panel;
 using Chaos.Client.Controls.World.Popups.Options;
 using Chaos.Client.Rendering;
+using Chaos.Client.Systems;
 using Chaos.DarkAges.Definitions;
 using Microsoft.Xna.Framework.Graphics;
 #endregion
@@ -20,7 +22,7 @@ public sealed partial class WorldScreen
         Exchange.OnCancel += () =>
         {
             Game.Connection.SendExchangeInteraction(ExchangeRequestType.Cancel, Exchange.OtherUserId);
-            Game.World.Exchange.Close();
+            WorldState.Exchange.Close();
         };
     }
     #endregion
@@ -203,11 +205,7 @@ public sealed partial class WorldScreen
             DeleteConfirm.Hide();
         };
 
-        Game.World.Board.SessionClosed += () =>
-        {
-            HideAllBoardControls();
-            DeselectBoardButtons();
-        };
+        WorldState.Board.SessionClosed += HideAllBoardControls;
     }
 
     private void ToggleSocialStatusPicker()
@@ -248,15 +246,6 @@ public sealed partial class WorldScreen
         SocialStatusPicker.Show();
     }
 
-    private void DeselectBoardButtons()
-    {
-        if (WorldHud.BulletinButton is not null)
-            WorldHud.BulletinButton.IsSelected = false;
-
-        if (WorldHud.MailButton is not null)
-            WorldHud.MailButton.IsSelected = false;
-    }
-
     private void HideAllBoardControls()
     {
         BoardList.Hide();
@@ -272,12 +261,12 @@ public sealed partial class WorldScreen
     {
         BoardList.OnViewBoard += boardId =>
         {
-            Game.World.Board.IsBoardListPending = true;
-            Game.World.Board.WasOpenedFromBoardList = true;
+            WorldState.Board.IsBoardListPending = true;
+            WorldState.Board.WasOpenedFromBoardList = true;
             Game.Connection.SendBoardInteraction(BoardRequestType.ViewBoard, boardId, startPostId: short.MaxValue);
         };
 
-        BoardList.OnClose += () => Game.World.Board.CloseSession();
+        BoardList.OnClose += () => WorldState.Board.CloseSession();
     }
 
     private void WireArticleListControl()
@@ -323,19 +312,18 @@ public sealed partial class WorldScreen
         {
             ArticleList.Hide();
 
-            if (Game.World.Board.WasOpenedFromBoardList && Game.World.Board.AvailableBoards is { Count: > 0 })
+            if (WorldState.Board.WasOpenedFromBoardList && WorldState.Board.AvailableBoards is { Count: > 0 })
                 BoardList.ShowBoards(
-                    Game.World
-                        .Board
-                        .AvailableBoards
-                        .Select(b => (b.BoardId, b.Name))
-                        .ToList(),
+                    WorldState.Board
+                              .AvailableBoards
+                              .Select(b => (b.BoardId, b.Name))
+                              .ToList(),
                     false);
             else
-                Game.World.Board.CloseSession();
+                WorldState.Board.CloseSession();
         };
 
-        ArticleList.OnClose += () => Game.World.Board.CloseSession();
+        ArticleList.OnClose += () => WorldState.Board.CloseSession();
     }
 
     private void WireMailListControl()
@@ -385,19 +373,18 @@ public sealed partial class WorldScreen
         {
             MailList.Hide();
 
-            if (Game.World.Board.WasOpenedFromBoardList && Game.World.Board.AvailableBoards is { Count: > 0 })
+            if (WorldState.Board.WasOpenedFromBoardList && WorldState.Board.AvailableBoards is { Count: > 0 })
                 BoardList.ShowBoards(
-                    Game.World
-                        .Board
-                        .AvailableBoards
-                        .Select(b => (b.BoardId, b.Name))
-                        .ToList(),
+                    WorldState.Board
+                              .AvailableBoards
+                              .Select(b => (b.BoardId, b.Name))
+                              .ToList(),
                     false);
             else
-                Game.World.Board.CloseSession();
+                WorldState.Board.CloseSession();
         };
 
-        MailList.OnClose += () => Game.World.Board.CloseSession();
+        MailList.OnClose += () => WorldState.Board.CloseSession();
     }
 
     private void WireArticleReadControl()
@@ -408,7 +395,7 @@ public sealed partial class WorldScreen
             ArticleList.Show();
         };
 
-        ArticleRead.OnClose += () => Game.World.Board.CloseSession();
+        ArticleRead.OnClose += () => WorldState.Board.CloseSession();
 
         ArticleRead.OnPrev += () =>
         {
@@ -460,7 +447,7 @@ public sealed partial class WorldScreen
             MailList.Show();
         };
 
-        MailRead.OnQuit += () => Game.World.Board.CloseSession();
+        MailRead.OnQuit += () => WorldState.Board.CloseSession();
 
         MailRead.OnPrev += () =>
         {
@@ -522,7 +509,7 @@ public sealed partial class WorldScreen
                 message: body);
 
             // Re-request post list — compose stays visible until server responds
-            Game.World.Board.IsBoardListPending = true;
+            WorldState.Board.IsBoardListPending = true;
             Game.Connection.SendBoardInteraction(BoardRequestType.ViewBoard, ArticleSend.BoardId, startPostId: short.MaxValue);
         };
 
@@ -545,7 +532,7 @@ public sealed partial class WorldScreen
                 message: body);
 
             // Re-request post list — compose stays visible until server responds
-            Game.World.Board.IsBoardListPending = true;
+            WorldState.Board.IsBoardListPending = true;
             Game.Connection.SendBoardInteraction(BoardRequestType.ViewBoard, MailSend.BoardId, startPostId: short.MaxValue);
         };
 
@@ -604,11 +591,15 @@ public sealed partial class WorldScreen
         }
 
         if (hud.BulletinButton is not null)
+        {
             hud.BulletinButton.OnClick += () =>
             {
                 hud.BulletinButton!.IsSelected = true;
                 Game.Connection.SendBoardInteraction(BoardRequestType.BoardList);
             };
+
+            WorldState.Board.SessionClosed += () => hud.BulletinButton.IsSelected = false;
+        }
 
         if (hud.LegendButton is not null)
             hud.LegendButton.OnClick += () =>
@@ -631,11 +622,15 @@ public sealed partial class WorldScreen
             SocialStatusPicker.OnClosed += () => hud.EmoteButton.IsSelected = false;
 
         if (hud.MailButton is not null)
+        {
             hud.MailButton.OnClick += () =>
             {
                 hud.MailButton!.IsSelected = true;
                 Game.Connection.SendBoardInteraction(BoardRequestType.BoardList);
             };
+
+            WorldState.Board.SessionClosed += () => hud.MailButton.IsSelected = false;
+        }
 
         // Slot events
         hud.Inventory.OnSlotClicked += HandleInventorySlotClicked;
@@ -719,22 +714,22 @@ public sealed partial class WorldScreen
         MainOptions.OnSoundVolumeChanged += volume =>
         {
             Game.SoundSystem.SetSoundVolume(volume);
-            Game.Settings.SoundVolume = volume;
-            Game.Settings.Save();
+            ClientSettings.SoundVolume = volume;
+            ClientSettings.Save();
         };
 
         MainOptions.OnMusicVolumeChanged += volume =>
         {
             Game.SoundSystem.SetMusicVolume(volume);
-            Game.Settings.MusicVolume = volume;
-            Game.Settings.Save();
+            ClientSettings.MusicVolume = volume;
+            ClientSettings.Save();
         };
 
         // Apply saved volume settings
-        MainOptions.SetSoundVolume(Game.Settings.SoundVolume);
-        MainOptions.SetMusicVolume(Game.Settings.MusicVolume);
-        Game.SoundSystem.SetSoundVolume(Game.Settings.SoundVolume);
-        Game.SoundSystem.SetMusicVolume(Game.Settings.MusicVolume);
+        MainOptions.SetSoundVolume(ClientSettings.SoundVolume);
+        MainOptions.SetMusicVolume(ClientSettings.MusicVolume);
+        Game.SoundSystem.SetSoundVolume(ClientSettings.SoundVolume);
+        Game.SoundSystem.SetMusicVolume(ClientSettings.MusicVolume);
     }
 
     private static void ToggleSubPanel(PrefabPanel panel)

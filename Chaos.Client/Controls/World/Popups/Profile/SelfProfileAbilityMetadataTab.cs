@@ -1,7 +1,10 @@
 #region
+using Chaos.Client.Collections;
 using Chaos.Client.Controls.Components;
 using Chaos.Client.Controls.Generic;
 using Chaos.Client.Data.Models;
+using Chaos.Client.ViewModel;
+using Chaos.Extensions.Common;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 #endregion
@@ -34,11 +37,7 @@ public sealed class SelfProfileAbilityMetadataTab : PrefabPanel
     private readonly AbilityEntryControl[] SpellRows;
     private readonly ScrollBarControl SpellScrollBar;
 
-    private int DataVersion;
-
-    private Func<AbilityMetadataEntry, AbilityIconState>? IconStateResolver;
-    private int RenderedVersion = -1;
-
+    private bool Dirty = true;
     private IReadOnlyList<AbilityMetadataEntry> SkillEntries = [];
     private int SkillScrollOffset;
     private IReadOnlyList<AbilityMetadataEntry> SpellEntries = [];
@@ -49,6 +48,12 @@ public sealed class SelfProfileAbilityMetadataTab : PrefabPanel
     {
         Name = prefabName;
         Visible = false;
+
+        VisibilityChanged += visible =>
+        {
+            if (visible)
+                Dirty = true;
+        };
 
         SpellRect = GetRect("SPELL");
         SkillRect = GetRect("SKILL");
@@ -75,7 +80,7 @@ public sealed class SelfProfileAbilityMetadataTab : PrefabPanel
             v =>
             {
                 SpellScrollOffset = v;
-                DataVersion++;
+                Dirty = true;
             });
 
         SkillScrollBar = CreateScrollBar(
@@ -83,7 +88,7 @@ public sealed class SelfProfileAbilityMetadataTab : PrefabPanel
             v =>
             {
                 SkillScrollOffset = v;
-                DataVersion++;
+                Dirty = true;
             });
     }
 
@@ -102,7 +107,7 @@ public sealed class SelfProfileAbilityMetadataTab : PrefabPanel
         SkillScrollBar.Value = 0;
         SkillScrollBar.TotalItems = 0;
         SkillScrollBar.MaxValue = 0;
-        DataVersion++;
+        Dirty = true;
     }
 
     private AbilityEntryControl[] CreateColumn(Rectangle columnRect)
@@ -146,8 +151,6 @@ public sealed class SelfProfileAbilityMetadataTab : PrefabPanel
     {
         if (!Visible)
             return;
-
-        RefreshRows();
 
         // Hide entry rows so base.Draw() only renders background + scrollbars
         SetRowVisibilityForBaseDraw(false);
@@ -203,16 +206,38 @@ public sealed class SelfProfileAbilityMetadataTab : PrefabPanel
         spriteBatch.Begin(samplerState: GlobalSettings.Sampler);
     }
 
+    private static bool HasPreRequisite(string? name, byte requiredLevel)
+    {
+        if (name is null)
+            return true;
+
+        // Check spell book
+        for (byte i = 1; i <= SpellBook.MAX_SLOTS; i++)
+        {
+            ref readonly var slot = ref WorldState.SpellBook.GetSlot(i);
+
+            if (slot.IsOccupied && slot.Name.EqualsI(name))
+                return true;
+        }
+
+        // Check skill book
+        for (byte i = 1; i <= SkillBook.MAX_SLOTS; i++)
+        {
+            ref readonly var slot = ref WorldState.SkillBook.GetSlot(i);
+
+            if (slot.IsOccupied && slot.Name.EqualsI(name))
+                return true;
+        }
+
+        return false;
+    }
+
     /// <summary>
     ///     Fired when any entry row is clicked.
     /// </summary>
     public event Action<AbilityMetadataEntry>? OnEntryClicked;
 
-    private static void RefreshColumn(
-        AbilityEntryControl[] rows,
-        IReadOnlyList<AbilityMetadataEntry> entries,
-        int scrollOffset,
-        Func<AbilityMetadataEntry, AbilityIconState>? iconStateResolver)
+    private static void RefreshColumn(AbilityEntryControl[] rows, IReadOnlyList<AbilityMetadataEntry> entries, int scrollOffset)
     {
         for (var i = 0; i < rows.Length; i++)
         {
@@ -221,7 +246,7 @@ public sealed class SelfProfileAbilityMetadataTab : PrefabPanel
             if (entryIndex < entries.Count)
             {
                 var entry = entries[entryIndex];
-                var state = iconStateResolver?.Invoke(entry) ?? AbilityIconState.Locked;
+                var state = ResolveIconState(entry);
 
                 rows[i]
                     .SetEntry(entry, state);
@@ -233,30 +258,65 @@ public sealed class SelfProfileAbilityMetadataTab : PrefabPanel
 
     private void RefreshRows()
     {
-        if (RenderedVersion == DataVersion)
+        if (!Dirty)
             return;
 
-        RenderedVersion = DataVersion;
+        Dirty = false;
 
-        RefreshColumn(
-            SpellRows,
-            SpellEntries,
-            SpellScrollOffset,
-            IconStateResolver);
+        RefreshColumn(SpellRows, SpellEntries, SpellScrollOffset);
 
-        RefreshColumn(
-            SkillRows,
-            SkillEntries,
-            SkillScrollOffset,
-            IconStateResolver);
+        RefreshColumn(SkillRows, SkillEntries, SkillScrollOffset);
+    }
+
+    private static AbilityIconState ResolveIconState(AbilityMetadataEntry entry)
+    {
+        // Check if player already knows this ability
+        if (entry.IsSpell)
+            for (byte i = 1; i <= SpellBook.MAX_SLOTS; i++)
+            {
+                ref readonly var slot = ref WorldState.SpellBook.GetSlot(i);
+
+                if (slot.IsOccupied && slot.Name.EqualsI(entry.Name))
+                    return AbilityIconState.Known;
+            }
+        else
+            for (byte i = 1; i <= SkillBook.MAX_SLOTS; i++)
+            {
+                ref readonly var slot = ref WorldState.SkillBook.GetSlot(i);
+
+                if (slot.IsOccupied && slot.Name.EqualsI(entry.Name))
+                    return AbilityIconState.Known;
+            }
+
+        // Check if player meets the requirements to learn it
+        if (WorldState.Attributes.Current is not { } attrs)
+            return AbilityIconState.Locked;
+
+        if (attrs.Level < entry.Level)
+            return AbilityIconState.Locked;
+
+        if ((attrs.Str < entry.Str)
+            || (attrs.Int < entry.Int)
+            || (attrs.Wis < entry.Wis)
+            || (attrs.Dex < entry.Dex)
+            || (attrs.Con < entry.Con))
+            return AbilityIconState.Locked;
+
+        // Check prerequisite abilities
+        if (!HasPreRequisite(entry.PreReq1Name, entry.PreReq1Level))
+            return AbilityIconState.Locked;
+
+        if (!HasPreRequisite(entry.PreReq2Name, entry.PreReq2Level))
+            return AbilityIconState.Locked;
+
+        return AbilityIconState.Learnable;
     }
 
     /// <summary>
     ///     Populates both columns from parsed ability metadata.
     /// </summary>
-    public void SetAbilityMetadata(AbilityMetadata metadata, Func<AbilityMetadataEntry, AbilityIconState> iconStateResolver)
+    public void SetAbilityMetadata(AbilityMetadata metadata)
     {
-        IconStateResolver = iconStateResolver;
         SpellEntries = metadata.Spells;
         SkillEntries = metadata.Skills;
 
@@ -269,8 +329,7 @@ public sealed class SelfProfileAbilityMetadataTab : PrefabPanel
         SkillScrollBar.Value = 0;
         SkillScrollBar.TotalItems = SkillEntries.Count;
         SkillScrollBar.MaxValue = Math.Max(0, SkillEntries.Count - MAX_VISIBLE_ROWS);
-
-        DataVersion++;
+        Dirty = true;
     }
 
     /// <summary>
@@ -291,6 +350,8 @@ public sealed class SelfProfileAbilityMetadataTab : PrefabPanel
     {
         if (!Visible || !Enabled)
             return;
+
+        RefreshRows();
 
         // Update click clip bounds so peek rows ignore clicks in the clipped area
         var sx = ScreenX;
@@ -325,12 +386,12 @@ public sealed class SelfProfileAbilityMetadataTab : PrefabPanel
             {
                 SpellScrollOffset = Math.Clamp(SpellScrollOffset - input.ScrollDelta, 0, SpellEntries.Count - MAX_VISIBLE_ROWS);
                 SpellScrollBar.Value = SpellScrollOffset;
-                DataVersion++;
+                Dirty = true;
             } else if ((mx >= SkillRect.X) && (mx < (SkillRect.X + SkillRect.Width)) && (SkillEntries.Count > MAX_VISIBLE_ROWS))
             {
                 SkillScrollOffset = Math.Clamp(SkillScrollOffset - input.ScrollDelta, 0, SkillEntries.Count - MAX_VISIBLE_ROWS);
                 SkillScrollBar.Value = SkillScrollOffset;
-                DataVersion++;
+                Dirty = true;
             }
         }
     }

@@ -20,103 +20,106 @@ namespace Chaos.Client.Collections;
 /// <summary>
 ///     Tracks all visible entities in the current map. Updated from network packets, read by GameScreen for rendering.
 /// </summary>
-public sealed class WorldState
+public static class WorldState
 {
-    private readonly Dictionary<uint, WorldEntity> Entities = new();
-    private readonly List<WorldEntity> SortBuffer = [];
+    private static readonly Dictionary<uint, WorldEntity> Entities = new();
+    private static readonly List<WorldEntity> SortBuffer = [];
+    private static int SortVersion;
+    private static int LastSortedVersion = -1;
 
     // Cached chant data — loaded once per login, invalidated on save
-    private List<SkillChantEntry>? CachedSkillChants;
-    private List<SpellChantEntry>? CachedSpellChants;
+    private static List<SkillChantEntry>? CachedSkillChants;
+    private static List<SpellChantEntry>? CachedSpellChants;
 
     /// <summary>
     ///     The player's entity ID, assigned by the server.
     /// </summary>
-    public uint PlayerEntityId { get; set; }
+    public static uint PlayerEntityId { get; set; }
 
     /// <summary>
     ///     Active spell/effect animations currently playing in the world.
     /// </summary>
-    public List<ActiveEffect> ActiveEffects { get; } = [];
+    public static List<ActiveEffect> ActiveEffects { get; } = [];
 
     /// <summary>
     ///     Authoritative player attributes (stats, HP/MP, exp, etc.).
     /// </summary>
-    public PlayerAttributes Attributes { get; } = new();
+    public static PlayerAttributes Attributes { get; } = new();
 
     /// <summary>
     ///     Authoritative bulletin board / mail state.
     /// </summary>
-    public Board Board { get; } = new();
+    public static Board Board { get; } = new();
 
     /// <summary>
     ///     Authoritative chat and orange bar message state.
     /// </summary>
-    public Chat Chat { get; } = new();
+    public static Chat Chat { get; } = new();
 
     /// <summary>
     ///     Active creature death dissolve animations.
     /// </summary>
-    public List<DyingEffect> DyingEffects { get; } = [];
+    public static List<DyingEffect> DyingEffects { get; } = [];
 
     /// <summary>
     ///     Authoritative equipment state.
     /// </summary>
-    public Equipment Equipment { get; } = new();
+    public static Equipment Equipment { get; } = new();
 
     /// <summary>
     ///     Authoritative exchange (trade) state.
     /// </summary>
-    public Exchange Exchange { get; } = new();
+    public static Exchange Exchange { get; } = new();
 
     /// <summary>
     ///     Authoritative group/party membership state.
     /// </summary>
-    public GroupState Group { get; } = new();
+    public static GroupState Group { get; } = new();
 
     /// <summary>
     ///     Authoritative group invite state.
     /// </summary>
-    public GroupInvite GroupInvite { get; } = new();
+    public static GroupInvite GroupInvite { get; } = new();
 
     /// <summary>
     ///     Authoritative inventory state with gold tracking.
     /// </summary>
-    public Inventory Inventory { get; } = new();
+    public static Inventory Inventory { get; } = new();
 
     /// <summary>
     ///     Authoritative NPC dialog/menu interaction state.
     /// </summary>
-    public NpcInteraction NpcInteraction { get; } = new();
+    public static NpcInteraction NpcInteraction { get; } = new();
 
     /// <summary>
     ///     Authoritative skill book state with cooldown timers.
     /// </summary>
-    public SkillBook SkillBook { get; } = new();
+    public static SkillBook SkillBook { get; } = new();
 
     /// <summary>
     ///     Authoritative spell book state with cooldown timers.
     /// </summary>
-    public SpellBook SpellBook { get; } = new();
+    public static SpellBook SpellBook { get; } = new();
 
     /// <summary>
     ///     Authoritative server-controlled user option toggles.
     /// </summary>
-    public UserOptions UserOptions { get; } = new();
+    public static UserOptions UserOptions { get; } = new();
 
     /// <summary>
     ///     Authoritative online players list state.
     /// </summary>
-    public WorldList WorldList { get; } = new();
+    public static WorldList WorldList { get; } = new();
 
     /// <summary>
     ///     Adds or updates an aisling entity from a DisplayAisling packet.
     /// </summary>
-    public void AddOrUpdateAisling(DisplayAislingArgs args)
+    public static void AddOrUpdateAisling(DisplayAislingArgs args)
     {
         if (args.IsHidden)
         {
             Entities.Remove(args.Id);
+            SortVersion++;
 
             return;
         }
@@ -131,6 +134,8 @@ public sealed class WorldState
 
             Entities[args.Id] = entity;
         }
+
+        SortVersion++;
 
         entity.Type = ClientEntityType.Aisling;
         entity.TileX = args.X;
@@ -182,7 +187,7 @@ public sealed class WorldState
     /// <summary>
     ///     Adds or updates visible entities (creatures + ground items) from a batch packet.
     /// </summary>
-    public void AddOrUpdateVisibleEntities(DisplayVisibleEntitiesArgs args)
+    public static void AddOrUpdateVisibleEntities(DisplayVisibleEntitiesArgs args)
     {
         foreach (var obj in args.VisibleObjects)
         {
@@ -217,12 +222,14 @@ public sealed class WorldState
                     break;
             }
         }
+
+        SortVersion++;
     }
 
     /// <summary>
     ///     Clears all tracked entities and active effects. Call on map change.
     /// </summary>
-    public void Clear()
+    public static void Clear()
     {
         Entities.Clear();
         ActiveEffects.Clear();
@@ -231,12 +238,13 @@ public sealed class WorldState
             dying.Dispose();
 
         DyingEffects.Clear();
+        SortVersion++;
     }
 
     /// <summary>
     ///     Returns tile positions of all blocking entities (creatures except WalkThrough, and aislings excluding the player).
     /// </summary>
-    public List<IPoint> GetBlockedPoints()
+    public static List<IPoint> GetBlockedPoints()
     {
         var blocked = new List<IPoint>();
 
@@ -257,12 +265,12 @@ public sealed class WorldState
     /// <summary>
     ///     Returns an entity by ID, or null if not tracked.
     /// </summary>
-    public WorldEntity? GetEntity(uint id) => Entities.GetValueOrDefault(id);
+    public static WorldEntity? GetEntity(uint id) => Entities.GetValueOrDefault(id);
 
     /// <summary>
     ///     Returns the first entity at the specified tile, prioritizing creatures/aislings over ground items.
     /// </summary>
-    public WorldEntity? GetEntityAt(int tileX, int tileY)
+    public static WorldEntity? GetEntityAt(int tileX, int tileY)
     {
         WorldEntity? groundItem = null;
 
@@ -284,12 +292,12 @@ public sealed class WorldState
     /// <summary>
     ///     Returns the display name of an entity, or null if not tracked.
     /// </summary>
-    public string? GetEntityName(uint id) => Entities.TryGetValue(id, out var entity) ? entity.Name : null;
+    public static string? GetEntityName(uint id) => Entities.TryGetValue(id, out var entity) ? entity.Name : null;
 
     /// <summary>
     ///     Returns the first ground item at the specified tile, or null.
     /// </summary>
-    public WorldEntity? GetGroundItemAt(int tileX, int tileY)
+    public static WorldEntity? GetGroundItemAt(int tileX, int tileY)
     {
         foreach (var entity in Entities.Values)
             if ((entity.Type == ClientEntityType.GroundItem) && (entity.TileX == tileX) && (entity.TileY == tileY))
@@ -301,14 +309,19 @@ public sealed class WorldState
     /// <summary>
     ///     Returns the player entity, or null if not yet tracked.
     /// </summary>
-    public WorldEntity? GetPlayerEntity() => Entities.GetValueOrDefault(PlayerEntityId);
+    public static WorldEntity? GetPlayerEntity() => Entities.GetValueOrDefault(PlayerEntityId);
 
     /// <summary>
     ///     Returns all entities sorted by depth (TileX + TileY), then by TileX ascending. Reuses an internal buffer to avoid
     ///     per-frame allocation.
     /// </summary>
-    public IReadOnlyList<WorldEntity> GetSortedEntities()
+    public static IReadOnlyList<WorldEntity> GetSortedEntities()
     {
+        if (SortVersion == LastSortedVersion)
+            return SortBuffer;
+
+        LastSortedVersion = SortVersion;
+
         SortBuffer.Clear();
         SortBuffer.AddRange(Entities.Values);
 
@@ -325,7 +338,7 @@ public sealed class WorldState
     /// <summary>
     ///     Handles another entity changing facing direction.
     /// </summary>
-    public void HandleCreatureTurn(uint id, Direction direction)
+    public static void HandleCreatureTurn(uint id, Direction direction)
     {
         if (!Entities.TryGetValue(id, out var entity))
             return;
@@ -336,7 +349,7 @@ public sealed class WorldState
     /// <summary>
     ///     Handles another entity walking from oldPoint in a direction.
     /// </summary>
-    public void HandleCreatureWalk(
+    public static void HandleCreatureWalk(
         uint id,
         int oldX,
         int oldY,
@@ -352,6 +365,8 @@ public sealed class WorldState
         entity.TileY = oldY + dy;
         entity.Direction = direction;
 
+        SortVersion++;
+
         AnimationSystem.StartWalk(
             entity,
             direction,
@@ -362,7 +377,7 @@ public sealed class WorldState
     /// <summary>
     ///     Handles the player's own walk being confirmed by the server.
     /// </summary>
-    public void HandlePlayerWalk(Direction direction, int oldX, int oldY)
+    public static void HandlePlayerWalk(Direction direction, int oldX, int oldY)
     {
         if (!Entities.TryGetValue(PlayerEntityId, out var entity))
             return;
@@ -371,6 +386,7 @@ public sealed class WorldState
         entity.TileX = oldX + dx;
         entity.TileY = oldY + dy;
         entity.Direction = direction;
+        SortVersion++;
 
         AnimationSystem.StartWalk(
             entity,
@@ -383,7 +399,7 @@ public sealed class WorldState
     ///     Returns true if any blocking entity (aisling, non-WalkThrough creature) occupies the tile,
     ///     excluding the specified entity ID (typically the player).
     /// </summary>
-    public bool HasBlockingEntityAt(int tileX, int tileY, uint excludeId)
+    public static bool HasBlockingEntityAt(int tileX, int tileY, uint excludeId)
     {
         foreach (var entity in Entities.Values)
         {
@@ -400,13 +416,13 @@ public sealed class WorldState
     /// <summary>
     ///     Returns true if there is a ground item at the specified tile.
     /// </summary>
-    public bool HasGroundItemAt(int tileX, int tileY) => GetGroundItemAt(tileX, tileY) is not null;
+    public static bool HasGroundItemAt(int tileX, int tileY) => GetGroundItemAt(tileX, tileY) is not null;
 
     /// <summary>
     ///     Invalidates the cached chant data, forcing a reload on the next spell/skill addition. Call after chant editing is
     ///     saved.
     /// </summary>
-    public void InvalidateChantCache()
+    public static void InvalidateChantCache()
     {
         CachedSkillChants = null;
         CachedSpellChants = null;
@@ -416,7 +432,7 @@ public sealed class WorldState
         => (entity.Type == ClientEntityType.Aisling)
            || ((entity.Type == ClientEntityType.Creature) && (entity.CreatureType != CreatureType.WalkThrough));
 
-    private string? LookupSkillChant(string? name)
+    private static string? LookupSkillChant(string? name)
     {
         if (string.IsNullOrEmpty(name) || !DataContext.PlayerData.IsInitialized)
             return null;
@@ -430,7 +446,7 @@ public sealed class WorldState
         return null;
     }
 
-    private string[]? LookupSpellChants(string? name)
+    private static string[]? LookupSpellChants(string? name)
     {
         if (string.IsNullOrEmpty(name) || !DataContext.PlayerData.IsInitialized)
             return null;
@@ -445,10 +461,16 @@ public sealed class WorldState
     }
 
     /// <summary>
+    ///     Marks the entity sort buffer as dirty so the next <see cref="GetSortedEntities" /> call re-sorts. Call when entity
+    ///     positions are modified outside of WorldState methods (e.g. client-side prediction).
+    /// </summary>
+    public static void MarkSortDirty() => SortVersion++;
+
+    /// <summary>
     ///     Re-applies chant data to all occupied skill/spell slots. Call after PlayerData becomes available (first
     ///     DisplayAisling for the player).
     /// </summary>
-    public void ReloadChants()
+    public static void ReloadChants()
     {
         InvalidateChantCache();
 
@@ -491,13 +513,17 @@ public sealed class WorldState
     /// <summary>
     ///     Removes an entity from tracking.
     /// </summary>
-    public void RemoveEntity(uint id) => Entities.Remove(id);
+    public static void RemoveEntity(uint id)
+    {
+        Entities.Remove(id);
+        SortVersion++;
+    }
 
     /// <summary>
     ///     Subscribes to ConnectionManager events and routes them to state mutations.
     ///     Call once at startup after ConnectionManager is constructed.
     /// </summary>
-    public void SubscribeTo(ConnectionManager connection)
+    public static void SubscribeTo(ConnectionManager connection)
     {
         connection.OnAddSkillToPane += args =>
         {
@@ -722,7 +748,7 @@ public sealed class WorldState
     /// <summary>
     ///     Advances all active spell/effect animations and cooldown timers by the given elapsed time.
     /// </summary>
-    public void UpdateEffects(float elapsedMs)
+    public static void UpdateEffects(float elapsedMs)
     {
         SkillBook.Update(elapsedMs);
         SpellBook.Update(elapsedMs);

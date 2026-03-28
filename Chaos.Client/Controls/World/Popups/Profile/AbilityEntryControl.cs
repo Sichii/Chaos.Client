@@ -85,7 +85,7 @@ public sealed class AbilityEntryControl : PrefabPanel
 
         if (LevelLabel is not null)
         {
-            LevelLabel.Text = $"Lv. {entry.Level}";
+            LevelLabel.Text = $"level {entry.Level}";
             LevelLabel.ForegroundColor = new Color(200, 200, 200);
         }
 

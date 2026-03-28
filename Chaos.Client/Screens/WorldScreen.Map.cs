@@ -1,6 +1,8 @@
 #region
+using Chaos.Client.Collections;
 using Chaos.Client.Data;
 using Chaos.Client.Rendering;
+using Chaos.Client.Systems;
 using Chaos.Geometry;
 using Chaos.Geometry.Abstractions;
 using Chaos.Networking.Entities.Server;
@@ -16,7 +18,7 @@ namespace Chaos.Client.Screens;
 public sealed partial class WorldScreen
 {
     #region Map Assembly
-    private void HandleUserId(uint id) => Game.World.PlayerEntityId = id;
+    private void HandleUserId(uint id) => WorldState.PlayerEntityId = id;
 
     private void HandleMapInfo(MapInfoArgs args)
     {
@@ -51,12 +53,13 @@ public sealed partial class WorldScreen
 
     private void ClearTransientState()
     {
-        Game.World.Clear();
+        WorldState.Clear();
         ClearAislingCache();
         Overlays.Clear();
         DebugRenderer.Clear();
         NpcSession.HideAll();
         Pathfinding.Clear();
+        PendingWalks.Clear();
         GroupHighlightedIds.Clear();
         ClearGroupTintCache();
     }
@@ -177,7 +180,7 @@ public sealed partial class WorldScreen
             return false;
 
         // Check entities at the destination tile
-        if (Game.World.HasBlockingEntityAt(tileX, tileY, Game.World.PlayerEntityId))
+        if (WorldState.HasBlockingEntityAt(tileX, tileY, WorldState.PlayerEntityId))
             return false;
 
         return true;
@@ -190,7 +193,29 @@ public sealed partial class WorldScreen
         return DataContext.MapsFiles.GetMapFile(key, width, height);
     }
 
-    private void HandleLocationChanged(int x, int y) => UpdateHuds(h => h.SetCoords(x, y));
+    private void HandleLocationChanged(int x, int y)
+    {
+        UpdateHuds(h => h.SetCoords(x, y));
+
+        var player = WorldState.GetPlayerEntity();
+
+        if (player is null)
+            return;
+
+        // If the server position matches, nothing to reconcile
+        if ((player.TileX == x) && (player.TileY == y))
+            return;
+
+        // Server-authoritative position correction — clear all pending predictions and snap back
+        PendingWalks.Clear();
+        QueuedWalkDirection = null;
+        player.TileX = x;
+        player.TileY = y;
+        WorldState.MarkSortDirty();
+        AnimationSystem.ResetToIdle(player);
+        Pathfinding.Clear();
+        FollowPlayerCamera();
+    }
 
     /// <summary>
     ///     Updates camera position to follow the player entity's visual position, including walk interpolation offset. In
@@ -201,7 +226,7 @@ public sealed partial class WorldScreen
         if (MapFile is null)
             return;
 
-        var player = Game.World.GetPlayerEntity();
+        var player = WorldState.GetPlayerEntity();
 
         if (player is null)
             return;

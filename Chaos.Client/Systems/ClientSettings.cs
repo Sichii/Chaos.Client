@@ -4,34 +4,32 @@ namespace Chaos.Client.Systems;
 ///     Reads and writes the client settings file in the original DarkAges format. File is a line-delimited key-value
 ///     format: "Key : Value" or "Key: Value". Settings file is saved next to the executable as "DarkAges" (no extension).
 /// </summary>
-public sealed class ClientSettings
+public static class ClientSettings
 {
     private const string FILE_NAME = "Darkages.cfg";
-    public bool AutoAcceptGroupInvites { get; set; } = true;
-    public int ChattingMode { get; set; }
-    public bool DoGroundAnimation { get; set; } = true;
-    public int EnableProfileClick { get; set; }
-    public bool GroupOpen { get; set; }
-    public int MusicVolume { get; set; } = 5;
-    public bool RecordNpcChat { get; set; } = true;
-    public int ScrollLevel { get; set; }
+    public static bool AutoAcceptGroupInvites { get; set; } = true;
+    public static int ChattingMode { get; set; }
+    public static bool DoGroundAnimation { get; set; } = true;
+    public static int EnableProfileClick { get; set; }
+    public static bool GroupOpen { get; set; }
+    public static int MusicVolume { get; set; } = 5;
+    public static bool RecordNpcChat { get; set; } = true;
+    public static int ScrollLevel { get; set; }
 
     // Defaults match the original client
-    public int SoundVolume { get; set; } = 5;
-    public int Speed { get; set; } = 100;
-    public bool UseShiftKeyForAltPanels { get; set; } = true;
+    public static int SoundVolume { get; set; } = 5;
+    public static int Speed { get; set; } = 100;
+    public static bool UseShiftKeyForAltPanels { get; set; } = true;
 
     private static string FilePath => Path.Combine(AppContext.BaseDirectory, FILE_NAME);
 
     /// <summary>
-    ///     Loads settings from the DarkAges file. Returns defaults if the file doesn't exist.
+    ///     Loads settings from the DarkAges file into static properties. Uses defaults if the file doesn't exist.
     /// </summary>
-    public static ClientSettings Load()
+    public static void Load()
     {
-        var settings = new ClientSettings();
-
         if (!File.Exists(FilePath))
-            return settings;
+            return;
 
         try
         {
@@ -52,78 +50,76 @@ public sealed class ClientSettings
                 {
                     case "Sound Volume":
                         if (int.TryParse(value, out var sv))
-                            settings.SoundVolume = Math.Clamp(sv, 0, 10);
+                            SoundVolume = Math.Clamp(sv, 0, 10);
 
                         break;
 
                     case "Music Volume":
                         if (int.TryParse(value, out var mv))
-                            settings.MusicVolume = Math.Clamp(mv, 0, 10);
+                            MusicVolume = Math.Clamp(mv, 0, 10);
 
                         break;
 
                     case "doGroundAnimation":
-                        settings.DoGroundAnimation = value == "1";
+                        DoGroundAnimation = value == "1";
 
                         break;
 
                     case "SkillSpellSelectByToggle":
-                        settings.UseShiftKeyForAltPanels = value == "1";
+                        UseShiftKeyForAltPanels = value == "1";
 
                         break;
 
                     case "GroupAnswer":
-                        settings.GroupOpen = value == "1";
+                        GroupOpen = value == "1";
 
                         break;
 
                     case "ScrollLevel":
                         if (int.TryParse(value, out var sl))
-                            settings.ScrollLevel = sl;
+                            ScrollLevel = sl;
 
                         break;
 
                     case "UserClickMode":
                         if (int.TryParse(value, out var ucm))
-                            settings.EnableProfileClick = ucm;
+                            EnableProfileClick = ucm;
 
                         break;
 
                     case "MonsterSayRecordMode":
-                        settings.RecordNpcChat = value == "1";
+                        RecordNpcChat = value == "1";
 
                         break;
 
                     case "GroupObjectOption":
-                        settings.AutoAcceptGroupInvites = value == "1";
+                        AutoAcceptGroupInvites = value == "1";
 
                         break;
 
                     case "Chatting Mode":
                         if (int.TryParse(value, out var cm))
-                            settings.ChattingMode = cm;
+                            ChattingMode = cm;
 
                         break;
 
                     case "Speed":
                         if (int.TryParse(value, out var spd))
-                            settings.Speed = spd;
+                            Speed = spd;
 
                         break;
                 }
             }
         } catch
         {
-            // Corrupted file — return defaults
+            // Corrupted file — use whatever defaults/partial state was already set
         }
-
-        return settings;
     }
 
     /// <summary>
     ///     Saves the current settings to the DarkAges file in the original format.
     /// </summary>
-    public void Save()
+    public static void Save()
     {
         try
         {

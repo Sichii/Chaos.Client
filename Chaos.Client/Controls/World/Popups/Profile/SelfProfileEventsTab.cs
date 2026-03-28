@@ -1,7 +1,9 @@
 #region
+using Chaos.Client.Collections;
 using Chaos.Client.Controls.Components;
 using Chaos.Client.Controls.Generic;
 using Chaos.Client.Data.Models;
+using Chaos.DarkAges.Definitions;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 #endregion
@@ -39,19 +41,26 @@ public sealed class SelfProfileEventsTab : PrefabPanel
     private readonly Rectangle RightRect;
     private readonly EventEntryControl[] RightRows;
     private readonly ScrollBarControl RightScrollBar;
-    private int CurrentPage;
-    private int DataVersion;
-    private int LeftScrollOffset;
-    private int RenderedVersion = -1;
-    private int RightScrollOffset;
 
-    private Func<EventMetadataEntry, EventState>? StateResolver;
+    private BaseClass BaseClass;
+    private HashSet<string> CompletedEventIds = new(StringComparer.OrdinalIgnoreCase);
+    private int CurrentPage;
+    private bool Dirty = true;
+    private bool EnableMasterQuests;
+    private int LeftScrollOffset;
+    private int RightScrollOffset;
 
     public SelfProfileEventsTab(string prefabName)
         : base(prefabName, false)
     {
         Name = prefabName;
         Visible = false;
+
+        VisibilityChanged += visible =>
+        {
+            if (visible)
+                Dirty = true;
+        };
 
         for (var i = 0; i < MAX_DISPLAY_SLOTS; i++)
             DisplaySlots[i] = [];
@@ -81,7 +90,7 @@ public sealed class SelfProfileEventsTab : PrefabPanel
             v =>
             {
                 LeftScrollOffset = v;
-                DataVersion++;
+                Dirty = true;
             });
 
         RightScrollBar = CreateScrollBar(
@@ -89,7 +98,7 @@ public sealed class SelfProfileEventsTab : PrefabPanel
             v =>
             {
                 RightScrollOffset = v;
-                DataVersion++;
+                Dirty = true;
             });
 
         NextButton = CreateButton("NEXT");
@@ -103,7 +112,7 @@ public sealed class SelfProfileEventsTab : PrefabPanel
                     CurrentPage++;
                     LeftScrollOffset = 0;
                     RightScrollOffset = 0;
-                    DataVersion++;
+                    Dirty = true;
                 }
             };
 
@@ -115,7 +124,7 @@ public sealed class SelfProfileEventsTab : PrefabPanel
                     CurrentPage--;
                     LeftScrollOffset = 0;
                     RightScrollOffset = 0;
-                    DataVersion++;
+                    Dirty = true;
                 }
             };
     }
@@ -128,7 +137,7 @@ public sealed class SelfProfileEventsTab : PrefabPanel
         for (var i = 0; i < MAX_DISPLAY_SLOTS; i++)
             DisplaySlots[i] = [];
 
-        StateResolver = null;
+        CompletedEventIds = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         CurrentPage = 0;
         LeftScrollOffset = 0;
         RightScrollOffset = 0;
@@ -138,7 +147,7 @@ public sealed class SelfProfileEventsTab : PrefabPanel
         RightScrollBar.TotalItems = 0;
         RightScrollBar.MaxValue = 0;
         RightScrollBar.Value = 0;
-        DataVersion++;
+        Dirty = true;
     }
 
     private EventEntryControl[] CreateColumn(Rectangle columnRect)
@@ -182,8 +191,6 @@ public sealed class SelfProfileEventsTab : PrefabPanel
     {
         if (!Visible)
             return;
-
-        RefreshRows();
 
         // Hide entry rows so base.Draw() only renders background + scrollbars + buttons
         SetRowVisibilityForBaseDraw(false);
@@ -244,11 +251,7 @@ public sealed class SelfProfileEventsTab : PrefabPanel
     /// </summary>
     public event Action<EventMetadataEntry, EventState>? OnEntryClicked;
 
-    private static void RefreshColumn(
-        EventEntryControl[] rows,
-        IReadOnlyList<EventMetadataEntry> entries,
-        int scrollOffset,
-        Func<EventMetadataEntry, EventState>? stateResolver)
+    private void RefreshColumn(EventEntryControl[] rows, IReadOnlyList<EventMetadataEntry> entries, int scrollOffset)
     {
         for (var i = 0; i < rows.Length; i++)
         {
@@ -257,7 +260,7 @@ public sealed class SelfProfileEventsTab : PrefabPanel
             if (entryIndex < entries.Count)
             {
                 var entry = entries[entryIndex];
-                var state = stateResolver?.Invoke(entry) ?? EventState.Unavailable;
+                var state = ResolveEventState(entry);
 
                 rows[i]
                     .SetEntry(entry, state);
@@ -269,10 +272,10 @@ public sealed class SelfProfileEventsTab : PrefabPanel
 
     private void RefreshRows()
     {
-        if (RenderedVersion == DataVersion)
+        if (!Dirty)
             return;
 
-        RenderedVersion = DataVersion;
+        Dirty = false;
         UpdateScrollBars();
 
         var leftSlot = CurrentPage * COLUMNS_PER_PAGE;
@@ -281,25 +284,69 @@ public sealed class SelfProfileEventsTab : PrefabPanel
         var leftEntries = leftSlot < MAX_DISPLAY_SLOTS ? DisplaySlots[leftSlot] : [];
         var rightEntries = rightSlot < MAX_DISPLAY_SLOTS ? DisplaySlots[rightSlot] : [];
 
-        RefreshColumn(
-            LeftRows,
-            leftEntries,
-            LeftScrollOffset,
-            StateResolver);
+        RefreshColumn(LeftRows, leftEntries, LeftScrollOffset);
 
-        RefreshColumn(
-            RightRows,
-            rightEntries,
-            RightScrollOffset,
-            StateResolver);
+        RefreshColumn(RightRows, rightEntries, RightScrollOffset);
+    }
+
+    private EventState ResolveEventState(EventMetadataEntry entry)
+    {
+        // Completed: player has a legend mark with key matching this event's ID
+        if (!string.IsNullOrEmpty(entry.Id) && CompletedEventIds.Contains(entry.Id))
+            return EventState.Completed;
+
+        var attrs = WorldState.Attributes.Current;
+        var playerLevel = attrs?.Level ?? 1;
+
+        // Derive player's circle from level; master flag overrides to circle 6
+        var playerCircle = EnableMasterQuests
+            ? 6
+            : playerLevel switch
+            {
+                >= 99 => 5,
+                >= 71 => 4,
+                >= 41 => 3,
+                >= 11 => 2,
+                _     => 1
+            };
+
+        // Check qualifying circles — player's circle must be in the list
+        if (!string.IsNullOrEmpty(entry.QualifyingCircles))
+        {
+            var circleChar = (char)('0' + playerCircle);
+
+            if (!entry.QualifyingCircles.Contains(circleChar))
+                return EventState.Unavailable;
+        }
+
+        // Check qualifying classes — player's class must be in the list
+        if (!string.IsNullOrEmpty(entry.QualifyingClasses))
+        {
+            var classChar = (char)('0' + (int)BaseClass);
+
+            if (!entry.QualifyingClasses.Contains(classChar))
+                return EventState.Unavailable;
+        }
+
+        // Check prerequisite event — must be completed
+        if (!string.IsNullOrEmpty(entry.PreRequisiteId) && !CompletedEventIds.Contains(entry.PreRequisiteId))
+            return EventState.Unavailable;
+
+        return EventState.Available;
     }
 
     /// <summary>
     ///     Sets the event entries from parsed metadata, distributed into display slots.
     /// </summary>
-    public void SetEvents(IReadOnlyList<EventMetadataEntry> events, Func<EventMetadataEntry, EventState> stateResolver)
+    public void SetEvents(
+        IReadOnlyList<EventMetadataEntry> events,
+        HashSet<string> completedEventIds,
+        BaseClass baseClass,
+        bool enableMasterQuests)
     {
-        StateResolver = stateResolver;
+        CompletedEventIds = completedEventIds;
+        BaseClass = baseClass;
+        EnableMasterQuests = enableMasterQuests;
 
         for (var i = 0; i < MAX_DISPLAY_SLOTS; i++)
             DisplaySlots[i] = [];
@@ -321,7 +368,7 @@ public sealed class SelfProfileEventsTab : PrefabPanel
         LeftScrollOffset = 0;
         RightScrollOffset = 0;
         UpdateScrollBars();
-        DataVersion++;
+        Dirty = true;
     }
 
     private void SetRowVisibilityForBaseDraw(bool visible)
@@ -339,6 +386,8 @@ public sealed class SelfProfileEventsTab : PrefabPanel
     {
         if (!Visible || !Enabled)
             return;
+
+        RefreshRows();
 
         // Update click clip bounds so peek rows ignore clicks in the clipped area
         var sx = ScreenX;
@@ -378,12 +427,12 @@ public sealed class SelfProfileEventsTab : PrefabPanel
             {
                 LeftScrollOffset = Math.Clamp(LeftScrollOffset - input.ScrollDelta, 0, leftCount - MAX_VISIBLE_ROWS);
                 LeftScrollBar.Value = LeftScrollOffset;
-                DataVersion++;
+                Dirty = true;
             } else if ((mx >= RightRect.X) && (mx < (RightRect.X + RightRect.Width)) && (rightCount > MAX_VISIBLE_ROWS))
             {
                 RightScrollOffset = Math.Clamp(RightScrollOffset - input.ScrollDelta, 0, rightCount - MAX_VISIBLE_ROWS);
                 RightScrollBar.Value = RightScrollOffset;
-                DataVersion++;
+                Dirty = true;
             }
         }
     }

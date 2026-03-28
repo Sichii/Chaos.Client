@@ -146,6 +146,8 @@ public sealed class BoardListControl : PrefabPanel
             Slide.ShowInPlace(this);
     }
 
+    public void SlideClose() => Slide.SlideOut();
+
     public override void Update(GameTime gameTime, InputBuffer input)
     {
         if (!Visible || !Enabled)

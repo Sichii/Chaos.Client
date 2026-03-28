@@ -88,8 +88,6 @@ public sealed class MessageHistoryPanel : ExpandablePanel
         if ((maxLines == 0) || (History.Count == 0))
             return;
 
-        RefreshDisplay();
-
         var baseY = DisplayBounds.Y + DisplayBounds.Height;
 
         for (var i = maxLines - 1; i >= 0; i--)
@@ -162,5 +160,7 @@ public sealed class MessageHistoryPanel : ExpandablePanel
             ScrollOffset = Math.Clamp(ScrollOffset - input.ScrollDelta, 0, History.Count - MaxVisibleLines);
             ScrollBar.Value = ScrollOffset;
         }
+
+        RefreshDisplay();
     }
 }

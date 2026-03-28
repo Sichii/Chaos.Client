@@ -1,4 +1,5 @@
 #region
+using Chaos.Client.Collections;
 using Microsoft.Xna.Framework;
 #endregion
 
@@ -10,11 +11,11 @@ namespace Chaos.Client.ViewModel;
 /// </summary>
 public sealed class Chat
 {
-    private const int MAX_MESSAGES = 200;
-    private const int MAX_HISTORY = 100;
+    private const int MAX_MESSAGES = 1000;
+    private const int MAX_HISTORY = 1000;
 
-    private readonly List<ChatMessage> Messages = [];
-    private readonly List<string> OrangeBarHistory = [];
+    private readonly CircularBuffer<ChatMessage> Messages = new(MAX_MESSAGES);
+    private readonly CircularBuffer<string> OrangeBarHistory = new(MAX_HISTORY);
 
     /// <summary>
     ///     Adds a chat message (public, whisper, group, guild) with the specified color.
@@ -23,10 +24,6 @@ public sealed class Chat
     {
         var msg = new ChatMessage(text, color);
         Messages.Add(msg);
-
-        if (Messages.Count > MAX_MESSAGES)
-            Messages.RemoveAt(0);
-
         MessageAdded?.Invoke(msg);
     }
 
@@ -36,10 +33,6 @@ public sealed class Chat
     public void AddOrangeBarMessage(string text)
     {
         OrangeBarHistory.Add(text);
-
-        if (OrangeBarHistory.Count > MAX_HISTORY)
-            OrangeBarHistory.RemoveAt(0);
-
         OrangeBarMessageAdded?.Invoke(text);
     }
 

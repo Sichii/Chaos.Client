@@ -1,4 +1,5 @@
 #region
+using Chaos.Client.Collections;
 using Chaos.Client.Controls.Components;
 using Chaos.Client.Controls.Generic;
 using Chaos.Client.Controls.World.Hud;
@@ -60,6 +61,7 @@ public sealed partial class WorldScreen : IScreen
     private readonly EntityHighlightState Highlight = new();
     private readonly EntityOverlayManager Overlays = new();
     private readonly PathfindingState Pathfinding = new();
+    private readonly Queue<PendingWalk> PendingWalks = new();
 
     private AbilityDetailControl AbilityDetail = null!;
     private AislingPopupMenu AislingPopup = null!;
@@ -180,22 +182,22 @@ public sealed partial class WorldScreen : IScreen
         Game.Connection.OnServerMessage += HandleServerMessage;
 
         // NPC dialog/menu
-        Game.World.NpcInteraction.DialogChanged += HandleDialogChanged;
-        Game.World.NpcInteraction.MenuChanged += HandleMenuChanged;
+        WorldState.NpcInteraction.DialogChanged += HandleDialogChanged;
+        WorldState.NpcInteraction.MenuChanged += HandleMenuChanged;
 
         // Refresh response
         Game.Connection.OnRefreshResponse += HandleRefreshResponse;
 
-        Game.World.Exchange.AmountRequested += HandleExchangeAmountRequested;
+        WorldState.Exchange.AmountRequested += HandleExchangeAmountRequested;
 
         // Board — subscribe to state events
-        Game.World.Board.PostListChanged += HandleBoardPostListChanged;
-        Game.World.Board.PostViewed += HandleBoardPostViewed;
-        Game.World.Board.BoardListReceived += HandleBoardListReceived;
-        Game.World.Board.ResponseReceived += msg => Game.World.Chat.AddOrangeBarMessage(msg);
+        WorldState.Board.PostListChanged += HandleBoardPostListChanged;
+        WorldState.Board.PostViewed += HandleBoardPostViewed;
+        WorldState.Board.BoardListReceived += HandleBoardListReceived;
+        WorldState.Board.ResponseReceived += msg => WorldState.Chat.AddOrangeBarMessage(msg);
 
         // Group invite — subscribe to state event
-        Game.World.GroupInvite.Received += HandleGroupInviteReceived;
+        WorldState.GroupInvite.Received += HandleGroupInviteReceived;
 
         // Profiles
         Game.Connection.OnEditableProfileRequest += HandleEditableProfileRequest;
@@ -245,12 +247,12 @@ public sealed partial class WorldScreen : IScreen
 
         // Create both HUD layouts — '/' key swaps between them
         // ZIndex=-1 so HUD frames render behind all popup panels
-        SmallHud = new WorldHudControl(Game.World)
+        SmallHud = new WorldHudControl
         {
             ZIndex = -1
         };
 
-        LargeHud = new LargeWorldHudControl(Game.World)
+        LargeHud = new LargeWorldHudControl
         {
             Visible = false,
             ZIndex = -1
@@ -292,13 +294,13 @@ public sealed partial class WorldScreen : IScreen
         var optionsAnchorY = WorldHud.ViewportBounds.Y;
 
         // Initialize client-local settings into UserOptions from persisted config
-        var userOptions = Game.World.UserOptions;
-        userOptions.SetValue(6, Game.Settings.AutoAcceptGroupInvites);
-        userOptions.SetValue(8, Game.Settings.ScrollLevel > 0);
-        userOptions.SetValue(9, Game.Settings.UseShiftKeyForAltPanels);
-        userOptions.SetValue(10, Game.Settings.EnableProfileClick > 0);
-        userOptions.SetValue(11, Game.Settings.RecordNpcChat);
-        userOptions.SetValue(12, Game.Settings.GroupOpen);
+        var userOptions = WorldState.UserOptions;
+        userOptions.SetValue(6, ClientSettings.AutoAcceptGroupInvites);
+        userOptions.SetValue(8, ClientSettings.ScrollLevel > 0);
+        userOptions.SetValue(9, ClientSettings.UseShiftKeyForAltPanels);
+        userOptions.SetValue(10, ClientSettings.EnableProfileClick > 0);
+        userOptions.SetValue(11, ClientSettings.RecordNpcChat);
+        userOptions.SetValue(12, ClientSettings.GroupOpen);
 
         // Route user-initiated toggles to server or local persistence
         userOptions.SettingToggled += (index, value) =>
@@ -312,23 +314,23 @@ public sealed partial class WorldScreen : IScreen
                 switch (index)
                 {
                     case 6:
-                        Game.Settings.AutoAcceptGroupInvites = value;
+                        ClientSettings.AutoAcceptGroupInvites = value;
 
                         break;
                     case 8:
-                        Game.Settings.ScrollLevel = value ? 1 : 0;
+                        ClientSettings.ScrollLevel = value ? 1 : 0;
 
                         break;
                     case 9:
-                        Game.Settings.UseShiftKeyForAltPanels = value;
+                        ClientSettings.UseShiftKeyForAltPanels = value;
 
                         break;
                     case 10:
-                        Game.Settings.EnableProfileClick = value ? 1 : 0;
+                        ClientSettings.EnableProfileClick = value ? 1 : 0;
 
                         break;
                     case 11:
-                        Game.Settings.RecordNpcChat = value;
+                        ClientSettings.RecordNpcChat = value;
 
                         break;
                     case 12:
@@ -338,7 +340,7 @@ public sealed partial class WorldScreen : IScreen
                         return;
                 }
 
-                Game.Settings.Save();
+                ClientSettings.Save();
             }
         };
 
@@ -363,10 +365,10 @@ public sealed partial class WorldScreen : IScreen
 
         HotkeyHelp = new HotkeyHelpControl();
 
-        GroupPanel = new GroupControl(Game.World.Group);
+        GroupPanel = new GroupControl();
         GroupPanel.OnKick += name => Game.Connection.SendGroupInvite(ClientGroupSwitch.TryInvite, name);
 
-        WorldList = new WorldListControl(Game.World.WorldList)
+        WorldList = new WorldListControl
         {
             ZIndex = -2
         };
@@ -379,7 +381,7 @@ public sealed partial class WorldScreen : IScreen
         FriendsList.SetSlideAnchor(optionsAnchorX, optionsAnchorY);
         FriendsList.OnOk += SavePlayerFriendList;
 
-        Exchange = new ExchangeControl(Game.World.Exchange, WorldHud.ViewportBounds);
+        Exchange = new ExchangeControl(WorldHud.ViewportBounds);
 
         GoldDrop = new GoldExchangeControl
         {
@@ -456,7 +458,7 @@ public sealed partial class WorldScreen : IScreen
         WireExchange();
         WireMailControls();
 
-        StatusBook = new SelfProfileTabControl(Game.World.Equipment)
+        StatusBook = new SelfProfileTabControl
         {
             ZIndex = 2
         };
@@ -466,7 +468,10 @@ public sealed partial class WorldScreen : IScreen
 
         StatusBook.OnGroupToggled += () => Game.Connection.ToggleGroup();
 
-        StatusBook.OnAbilityDetailRequested += entry => AbilityDetail.ShowEntry(entry, WorldHud.ViewportBounds);
+        StatusBook.OnAbilityDetailRequested += entry =>
+        {
+            AbilityDetail.ShowEntry(entry, WorldHud.ViewportBounds);
+        };
         StatusBook.OnEventDetailRequested += (entry, state) => EventDetail.ShowEntry(entry, state, WorldHud.ViewportBounds);
 
         AbilityDetail = new AbilityDetailControl
@@ -589,15 +594,15 @@ public sealed partial class WorldScreen : IScreen
         Game.Connection.OnAttributes -= HandleAttributes;
         Game.Connection.OnDisplayPublicMessage -= HandleDisplayPublicMessage;
         Game.Connection.OnServerMessage -= HandleServerMessage;
-        Game.World.NpcInteraction.DialogChanged -= HandleDialogChanged;
-        Game.World.NpcInteraction.MenuChanged -= HandleMenuChanged;
+        WorldState.NpcInteraction.DialogChanged -= HandleDialogChanged;
+        WorldState.NpcInteraction.MenuChanged -= HandleMenuChanged;
         Game.Connection.OnRefreshResponse -= HandleRefreshResponse;
-        Game.World.Exchange.AmountRequested -= HandleExchangeAmountRequested;
-        Game.World.Board.PostListChanged -= HandleBoardPostListChanged;
-        Game.World.Board.PostViewed -= HandleBoardPostViewed;
-        Game.World.Board.BoardListReceived -= HandleBoardListReceived;
-        Game.World.Board.SessionClosed -= HideAllBoardControls;
-        Game.World.GroupInvite.Received -= HandleGroupInviteReceived;
+        WorldState.Exchange.AmountRequested -= HandleExchangeAmountRequested;
+        WorldState.Board.PostListChanged -= HandleBoardPostListChanged;
+        WorldState.Board.PostViewed -= HandleBoardPostViewed;
+        WorldState.Board.BoardListReceived -= HandleBoardListReceived;
+        WorldState.Board.SessionClosed -= HideAllBoardControls;
+        WorldState.GroupInvite.Received -= HandleGroupInviteReceived;
         Game.Connection.OnEditableProfileRequest -= HandleEditableProfileRequest;
         Game.Connection.OnSelfProfile -= HandleSelfProfile;
         Game.Connection.OnOtherProfile -= HandleOtherProfile;
@@ -636,4 +641,11 @@ public sealed partial class WorldScreen : IScreen
         Overlays.Clear();
         DebugRenderer.Clear();
     }
+
+    private readonly record struct PendingWalk(
+        int FromX,
+        int FromY,
+        int ToX,
+        int ToY,
+        Direction Direction);
 }

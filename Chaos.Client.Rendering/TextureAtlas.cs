@@ -1,7 +1,9 @@
 #region
 using System.Collections.Frozen;
+using System.Runtime.InteropServices;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
+using SkiaSharp;
 #endregion
 
 namespace Chaos.Client.Rendering;
@@ -33,6 +35,7 @@ public readonly record struct AtlasRegion(Texture2D Atlas, Rectangle SourceRect)
 /// </summary>
 public sealed class TextureAtlas : IDisposable
 {
+    private const int BYTES_PER_PIXEL = 4;
     private const int DEFAULT_MAX_PAGE_SIZE = 2048;
     private const int MAX_SHELF_ENTRY_SIZE = 512;
 
@@ -106,6 +109,7 @@ public sealed class TextureAtlas : IDisposable
                 key,
                 null,
                 pixels,
+                null,
                 source.Width,
                 source.Height));
     }
@@ -123,6 +127,7 @@ public sealed class TextureAtlas : IDisposable
                 key,
                 null,
                 pixels,
+                null,
                 width,
                 height));
 
@@ -139,6 +144,7 @@ public sealed class TextureAtlas : IDisposable
                 null,
                 key,
                 pixels,
+                null,
                 source.Width,
                 source.Height));
     }
@@ -156,8 +162,70 @@ public sealed class TextureAtlas : IDisposable
                 null,
                 key,
                 pixels,
+                null,
                 width,
                 height));
+
+    /// <summary>
+    ///     Adds an SKImage to be packed into the atlas on the next Build() call. The image's pixels are blitted directly into
+    ///     the atlas page during Build — no intermediate pixel extraction. The caller retains ownership of the image.
+    /// </summary>
+    public void Add(int key, SKImage image)
+        => PendingEntries.Add(
+            new PendingEntry(
+                null,
+                key,
+                null,
+                image,
+                image.Width,
+                image.Height));
+
+    /// <summary>
+    ///     Adds an SKImage with a string key to be packed into the atlas on the next Build() call.
+    /// </summary>
+    public void Add(string key, SKImage image)
+        => PendingEntries.Add(
+            new PendingEntry(
+                key,
+                null,
+                null,
+                image,
+                image.Width,
+                image.Height));
+
+    /// <summary>
+    ///     Writes a pending entry's pixels into the page buffer. Uses direct ReadPixels for SKImage entries (no intermediate
+    ///     allocation) or array copy for Color[] entries.
+    /// </summary>
+    private static void BlitEntry(
+        PendingEntry entry,
+        Color[] pagePixels,
+        int pageWidth,
+        nint basePtr,
+        int pageStride,
+        int destX,
+        int destY)
+    {
+        if (entry.Image is not null)
+        {
+            var byteOffset = (destY * pageWidth + destX) * BYTES_PER_PIXEL;
+
+            var dstInfo = new SKImageInfo(
+                entry.Width,
+                entry.Height,
+                SKColorType.Rgba8888,
+                SKAlphaType.Premul);
+            entry.Image.ReadPixels(dstInfo, basePtr + byteOffset, pageStride);
+        } else if (entry.Pixels is not null)
+            CopyPixels(
+                entry.Pixels,
+                entry.Width,
+                entry.Height,
+                pagePixels,
+                pageWidth,
+                destX,
+                destY);
+    }
 
     /// <summary>
     ///     Builds the atlas page textures from all pending entries. After this call, regions are available via TryGetRegion.
@@ -201,7 +269,6 @@ public sealed class TextureAtlas : IDisposable
             return;
 
         var totalEntries = PendingEntries.Count;
-        var rowsNeeded = (totalEntries + tilesPerRow - 1) / tilesPerRow;
         var tilesPerPage = tilesPerRow * (MaxPageSize / CellHeight);
 
         if (tilesPerPage <= 0)
@@ -221,35 +288,46 @@ public sealed class TextureAtlas : IDisposable
             var pixels = new Color[pageWidth * pageHeight];
             var pageTexture = new Texture2D(Device, pageWidth, pageHeight);
 
-            for (var i = 0; i < pageEntryCount; i++)
+            var handle = GCHandle.Alloc(pixels, GCHandleType.Pinned);
+
+            try
             {
-                var entry = PendingEntries[pageStart + i];
-                var col = i % tilesPerRow;
-                var row = i / tilesPerRow;
-                var destX = col * CellWidth;
-                var destY = row * CellHeight;
+                var basePtr = handle.AddrOfPinnedObject();
+                var pageStride = pageWidth * BYTES_PER_PIXEL;
 
-                CopyPixels(
-                    entry.Pixels,
-                    entry.Width,
-                    entry.Height,
-                    pixels,
-                    pageWidth,
-                    destX,
-                    destY);
+                for (var i = 0; i < pageEntryCount; i++)
+                {
+                    var entry = PendingEntries[pageStart + i];
+                    var col = i % tilesPerRow;
+                    var row = i / tilesPerRow;
+                    var destX = col * CellWidth;
+                    var destY = row * CellHeight;
 
-                var sourceRect = new Rectangle(
-                    destX,
-                    destY,
-                    entry.Width,
-                    entry.Height);
-                var region = new AtlasRegion(pageTexture, sourceRect);
+                    BlitEntry(
+                        entry,
+                        pixels,
+                        pageWidth,
+                        basePtr,
+                        pageStride,
+                        destX,
+                        destY);
 
-                if (entry.StringKey is not null)
-                    BuildRegions[entry.StringKey] = region;
+                    var sourceRect = new Rectangle(
+                        destX,
+                        destY,
+                        entry.Width,
+                        entry.Height);
+                    var region = new AtlasRegion(pageTexture, sourceRect);
 
-                if (entry.IntKey.HasValue)
-                    BuildIntRegions[entry.IntKey.Value] = region;
+                    if (entry.StringKey is not null)
+                        BuildRegions[entry.StringKey] = region;
+
+                    if (entry.IntKey.HasValue)
+                        BuildIntRegions[entry.IntKey.Value] = region;
+                }
+            } finally
+            {
+                handle.Free();
             }
 
             pageTexture.SetData(pixels);
@@ -339,29 +417,40 @@ public sealed class TextureAtlas : IDisposable
         var pixels = new Color[width * height];
         var pageTexture = new Texture2D(Device, width, height);
 
-        foreach ((var entry, var x, var y) in entries)
+        var handle = GCHandle.Alloc(pixels, GCHandleType.Pinned);
+
+        try
         {
-            CopyPixels(
-                entry.Pixels,
-                entry.Width,
-                entry.Height,
-                pixels,
-                width,
-                x,
-                y);
+            var basePtr = handle.AddrOfPinnedObject();
+            var pageStride = width * BYTES_PER_PIXEL;
 
-            var sourceRect = new Rectangle(
-                x,
-                y,
-                entry.Width,
-                entry.Height);
-            var region = new AtlasRegion(pageTexture, sourceRect);
+            foreach ((var entry, var x, var y) in entries)
+            {
+                BlitEntry(
+                    entry,
+                    pixels,
+                    width,
+                    basePtr,
+                    pageStride,
+                    x,
+                    y);
 
-            if (entry.StringKey is not null)
-                BuildRegions[entry.StringKey] = region;
+                var sourceRect = new Rectangle(
+                    x,
+                    y,
+                    entry.Width,
+                    entry.Height);
+                var region = new AtlasRegion(pageTexture, sourceRect);
 
-            if (entry.IntKey.HasValue)
-                BuildIntRegions[entry.IntKey.Value] = region;
+                if (entry.StringKey is not null)
+                    BuildRegions[entry.StringKey] = region;
+
+                if (entry.IntKey.HasValue)
+                    BuildIntRegions[entry.IntKey.Value] = region;
+            }
+        } finally
+        {
+            handle.Free();
         }
 
         pageTexture.SetData(pixels);
@@ -381,7 +470,8 @@ public sealed class TextureAtlas : IDisposable
     private readonly record struct PendingEntry(
         string? StringKey,
         int? IntKey,
-        Color[] Pixels,
+        Color[]? Pixels,
+        SKImage? Image,
         int Width,
         int Height);
 }

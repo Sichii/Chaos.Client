@@ -69,24 +69,16 @@ public sealed class ChaosGame : Game
     public MetaDataManager MetaData { get; }
 
     /// <summary>
-    ///     Client settings loaded from the DarkAges config file.
-    /// </summary>
-    public ClientSettings Settings { get; } = ClientSettings.Load();
-
-    /// <summary>
     ///     Manages sound effect and music playback.
     /// </summary>
     public SoundSystem SoundSystem { get; } = new();
-
-    /// <summary>
-    ///     Tracks all visible entities in the current map.
-    /// </summary>
-    public WorldState World { get; } = new();
 
     public static GraphicsDevice Device => TextureConverter.Device;
 
     public ChaosGame()
     {
+        ClientSettings.Load();
+
         Graphics = new GraphicsDeviceManager(this)
         {
             PreferredBackBufferWidth = VIRTUAL_WIDTH,
@@ -106,9 +98,9 @@ public sealed class ChaosGame : Game
 
         // Wire state events to WorldState at startup so state is tracked
         // even during world entry (before WorldScreen is created)
-        World.SubscribeTo(Connection);
-        Connection.OnDisplayVisibleEntities += args => World.AddOrUpdateVisibleEntities(args);
-        Connection.OnDisplayAisling += args => World.AddOrUpdateAisling(args);
+        WorldState.SubscribeTo(Connection);
+        Connection.OnDisplayVisibleEntities += args => WorldState.AddOrUpdateVisibleEntities(args);
+        Connection.OnDisplayAisling += args => WorldState.AddOrUpdateAisling(args);
 
         // RemoveEntity wired in WorldScreen — it needs to capture the creature sprite for
         // the death dissolve animation before removing the entity from WorldState.
@@ -116,7 +108,7 @@ public sealed class ChaosGame : Game
         Connection.OnRemoveEntity += id =>
         {
             if (Screens.ActiveScreen is not WorldScreen)
-                World.RemoveEntity(id);
+                WorldState.RemoveEntity(id);
         };
 
         Connection.OnCreatureWalk += (
@@ -125,17 +117,17 @@ public sealed class ChaosGame : Game
             oldY,
             dir) =>
         {
-            var entity = World.GetEntity(id);
+            var entity = WorldState.GetEntity(id);
             var walkFrames = entity is not null && (entity.SpriteId > 0) ? CreatureRenderer.GetWalkFrameCount(entity.SpriteId) : null;
 
-            World.HandleCreatureWalk(
+            WorldState.HandleCreatureWalk(
                 id,
                 oldX,
                 oldY,
                 dir,
                 walkFrames);
         };
-        Connection.OnCreatureTurn += (id, dir) => World.HandleCreatureTurn(id, dir);
+        Connection.OnCreatureTurn += (id, dir) => WorldState.HandleCreatureTurn(id, dir);
 
         Window.Title = "Darkages";
         Window.AllowUserResizing = true;

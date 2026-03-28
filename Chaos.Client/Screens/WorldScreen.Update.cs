@@ -1,4 +1,5 @@
 #region
+using Chaos.Client.Collections;
 using Chaos.Client.Controls.Components;
 using Chaos.Client.Systems;
 using Chaos.DarkAges.Definitions;
@@ -31,10 +32,10 @@ public sealed partial class WorldScreen
         MapRenderer.UpdatePaletteCycling(AnimationTick);
 
         // Advance entity animations and active effects
-        var smoothScroll = Game.Settings.ScrollLevel > 0;
-        var player = Game.World.GetPlayerEntity();
+        var smoothScroll = ClientSettings.ScrollLevel > 0;
+        var player = WorldState.GetPlayerEntity();
 
-        foreach (var entity in Game.World.GetSortedEntities())
+        foreach (var entity in WorldState.GetSortedEntities())
         {
             // Update water tile state before animation so swimming idle tick advances
             UpdateEntityWaterState(entity);
@@ -74,7 +75,7 @@ public sealed partial class WorldScreen
             }
         }
 
-        Game.World.UpdateEffects(elapsedMs);
+        WorldState.UpdateEffects(elapsedMs);
 
         // Group highlight auto-expire (1000ms flash)
         if (GroupHighlightedIds.Count > 0)
@@ -112,7 +113,7 @@ public sealed partial class WorldScreen
             if (Pathfinding.Path is { Count: > 0 })
             {
                 // If chasing an entity that no longer exists, stop
-                if (Pathfinding.TargetEntityId.HasValue && Game.World.GetEntity(Pathfinding.TargetEntityId.Value) is null)
+                if (Pathfinding.TargetEntityId.HasValue && WorldState.GetEntity(Pathfinding.TargetEntityId.Value) is null)
                     Pathfinding.Clear();
                 else
                 {
@@ -145,7 +146,7 @@ public sealed partial class WorldScreen
             } else if (Pathfinding.TargetEntityId.HasValue)
             {
                 // Path exhausted with entity target — check if adjacent and assail, or re-pathfind
-                var target = Game.World.GetEntity(Pathfinding.TargetEntityId.Value);
+                var target = WorldState.GetEntity(Pathfinding.TargetEntityId.Value);
 
                 if (target is null)
                     Pathfinding.Clear();
@@ -194,6 +195,48 @@ public sealed partial class WorldScreen
 
         // Camera follows player's visual position (tile + walk interpolation offset)
         FollowPlayerCamera();
+
+        // Toggle hotkeys — processed before overlay blocks so they work when the toggled panel is the active overlay
+        var toggleCloseHandled = false;
+
+        if (!WorldHud.ChatInput.IsFocused && !NpcSession.Visible)
+        {
+            if (input.WasKeyPressed(Keys.Q) && MainOptions.Visible)
+            {
+                SettingsDialog.Hide();
+                MacroMenu.Hide();
+                FriendsList.Hide();
+                MainOptions.SlideClose();
+                toggleCloseHandled = true;
+            } else if (input.WasKeyPressed(Keys.W)
+                       && (BoardList.Visible
+                           || ArticleList.Visible
+                           || ArticleRead.Visible
+                           || ArticleSend.Visible
+                           || MailList.Visible
+                           || MailRead.Visible
+                           || MailSend.Visible))
+            {
+                if (BoardList.Visible)
+                    BoardList.SlideClose();
+                else
+                    WorldState.Board.CloseSession();
+
+                toggleCloseHandled = true;
+            } else if (input.WasKeyPressed(Keys.E) && WorldList.Visible)
+            {
+                WorldList.SlideClose();
+                toggleCloseHandled = true;
+            } else if (input.WasKeyPressed(Keys.R) && SocialStatusPicker.Visible)
+            {
+                SocialStatusPicker.Visible = false;
+
+                if (WorldHud.EmoteButton is not null)
+                    WorldHud.EmoteButton.IsSelected = false;
+
+                toggleCloseHandled = true;
+            }
+        }
 
         // Overlay panels get first priority for input
         if (NpcSession.Visible)
@@ -555,7 +598,13 @@ public sealed partial class WorldScreen
                 WorldHud.ShowTab(shift ? HudTab.ExtendedStats : HudTab.Stats);
             else if (input.WasKeyPressed(Keys.H))
                 WorldHud.ShowTab(HudTab.Tools);
-            else if (input.WasKeyPressed(Keys.R))
+            else if (!toggleCloseHandled && input.WasKeyPressed(Keys.Q))
+                MainOptions.Show();
+            else if (!toggleCloseHandled && input.WasKeyPressed(Keys.W))
+                Game.Connection.SendBoardInteraction(BoardRequestType.BoardList);
+            else if (!toggleCloseHandled && input.WasKeyPressed(Keys.E))
+                Game.Connection.RequestWorldList();
+            else if (!toggleCloseHandled && input.WasKeyPressed(Keys.R))
                 ToggleSocialStatusPicker();
 
             // Tab — toggle tab map overlay
@@ -659,9 +708,7 @@ public sealed partial class WorldScreen
                 // Alt+click on self — open self profile
                 else if (input.IsKeyHeld(Keys.LeftAlt) || input.IsKeyHeld(Keys.RightAlt))
                 {
-                    var altEntity = GetEntityAtScreen(input.MouseX, input.MouseY);
-
-                    if (altEntity is not null && (altEntity.Id == Game.Connection.AislingId))
+                    if (hoverEntity is not null && (hoverEntity.Id == Game.Connection.AislingId))
                     {
                         SelfProfileRequested = true;
                         Game.Connection.RequestSelfProfile();
@@ -738,11 +785,12 @@ public sealed partial class WorldScreen
             Overlays.Update(
                 gameTime,
                 input,
-                Game.World,
                 Camera,
                 MapFile.Height);
 
-        // Player silhouette is pre-rendered at the start of Draw
+        // Darkness overlay state — must update before Draw
+        if (DarknessRenderer.IsActive)
+            DarknessRenderer.Update(Camera, WorldHud.ViewportBounds);
     }
 
     /// <summary>

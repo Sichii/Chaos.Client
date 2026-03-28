@@ -7,18 +7,24 @@ using DALib.Drawing;
 using DALib.Extensions;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
+using SkiaSharp;
 #endregion
 
 namespace Chaos.Client.Rendering;
 
 public sealed class MapRenderer : IDisposable
 {
+    private readonly Dictionary<int, SKImage> BgImageCache = new();
+    private readonly Lock BgImageCacheLock = new();
     private readonly Dictionary<int, Texture2D> BgTextureCache = new();
+    private readonly Dictionary<int, SKImage> FgImageCache = new();
+    private readonly Lock FgImageCacheLock = new();
     private readonly Dictionary<int, Texture2D> FgTextureCache = new();
     private readonly byte[] SotpData = DataContext.Tiles.SotpData;
 
     private TextureAtlas? BgAtlas;
     private PaletteCyclingManager? CyclingManager;
+    private TextureAtlas? FgAtlas;
 
     /// <summary>
     ///     Extra tile margin derived from the tallest foreground tile on the current map. Used by callers to expand visible
@@ -30,22 +36,32 @@ public sealed class MapRenderer : IDisposable
     {
         BgAtlas?.Dispose();
         BgAtlas = null;
+        FgAtlas?.Dispose();
+        FgAtlas = null;
         CyclingManager?.Dispose();
         CyclingManager = null;
 
         foreach (var texture in BgTextureCache.Values)
             texture.Dispose();
 
+        foreach (var image in BgImageCache.Values)
+            image.Dispose();
+
         foreach (var texture in FgTextureCache.Values)
             texture.Dispose();
 
+        foreach (var image in FgImageCache.Values)
+            image.Dispose();
+
         BgTextureCache.Clear();
+        BgImageCache.Clear();
         FgTextureCache.Clear();
+        FgImageCache.Clear();
     }
 
     private void BuildBgAtlas(GraphicsDevice device)
     {
-        if (BgTextureCache.Count == 0)
+        if (BgImageCache.Count == 0)
             return;
 
         var atlas = new TextureAtlas(
@@ -54,18 +70,39 @@ public sealed class MapRenderer : IDisposable
             CONSTANTS.TILE_WIDTH,
             CONSTANTS.TILE_HEIGHT);
 
-        foreach ((var tileId, var texture) in BgTextureCache)
-            atlas.Add(tileId, texture);
+        foreach ((var tileId, var image) in BgImageCache)
+            atlas.Add(tileId, image);
 
         atlas.Build();
 
-        // Dispose individual textures — the atlas owns the pixel data now
-        foreach (var texture in BgTextureCache.Values)
-            texture.Dispose();
+        // Dispose source images — atlas has consumed their pixels
+        foreach (var image in BgImageCache.Values)
+            image.Dispose();
 
-        BgTextureCache.Clear();
+        BgImageCache.Clear();
 
         BgAtlas = atlas;
+    }
+
+    private void BuildFgAtlas(GraphicsDevice device)
+    {
+        if (FgImageCache.Count == 0)
+            return;
+
+        var atlas = new TextureAtlas(device, PackingMode.Shelf);
+
+        foreach ((var tileId, var image) in FgImageCache)
+            atlas.Add(tileId, image);
+
+        atlas.Build();
+
+        // Dispose source images — atlas has consumed their pixels
+        foreach (var image in FgImageCache.Values)
+            image.Dispose();
+
+        FgImageCache.Clear();
+
+        FgAtlas = atlas;
     }
 
     /// <summary>
@@ -137,7 +174,13 @@ public sealed class MapRenderer : IDisposable
                 // Prefer atlas path — all bg tiles in a single texture enables SpriteBatch batching
                 if (BgAtlas is not null)
                 {
-                    var region = BgAtlas.TryGetRegion(bgIndex);
+                    AtlasRegion? region;
+
+                    // Cycling tiles have pre-baked variants in the atlas — use the current step's region
+                    if (CyclingManager is not null && CyclingManager.BgOverrides.TryGetValue(bgIndex, out var cyclingRegion))
+                        region = cyclingRegion;
+                    else
+                        region = BgAtlas.TryGetRegion(bgIndex);
 
                     if (region.HasValue)
                     {
@@ -183,26 +226,14 @@ public sealed class MapRenderer : IDisposable
                 tile.LeftForeground,
                 DataContext.Tiles.GetFgAnimation(tile.LeftForeground),
                 animationTick);
-            var lfgTexture = GetOrCreateFgTexture(lfgTileId);
 
-            if (lfgTexture is not null)
-            {
-                var lfgWorldY = worldPos.Y + CONSTANTS.HALF_TILE_HEIGHT * 2 - lfgTexture.Height;
-                var lfgScreenPos = camera.WorldToScreen(new Vector2(worldPos.X, lfgWorldY));
-
-                if (IsOnScreen(lfgScreenPos, lfgTexture, camera))
-                {
-                    var screenBlend = IsTileScreenBlend(lfgTileId);
-
-                    if (screenBlend)
-                        device.BlendState = BlendStates.Screen;
-
-                    spriteBatch.Draw(lfgTexture, lfgScreenPos, Color.White);
-
-                    if (screenBlend)
-                        device.BlendState = BlendState.AlphaBlend;
-                }
-            }
+            DrawSingleFgTile(
+                spriteBatch,
+                device,
+                camera,
+                lfgTileId,
+                worldPos.X,
+                worldPos.Y);
         }
 
         // Right foreground
@@ -212,27 +243,87 @@ public sealed class MapRenderer : IDisposable
                 tile.RightForeground,
                 DataContext.Tiles.GetFgAnimation(tile.RightForeground),
                 animationTick);
-            var rfgTexture = GetOrCreateFgTexture(rfgTileId);
 
-            if (rfgTexture is not null)
+            DrawSingleFgTile(
+                spriteBatch,
+                device,
+                camera,
+                rfgTileId,
+                worldPos.X + CONSTANTS.HALF_TILE_WIDTH,
+                worldPos.Y);
+        }
+    }
+
+    private void DrawSingleFgTile(
+        SpriteBatch spriteBatch,
+        GraphicsDevice device,
+        Camera camera,
+        int tileId,
+        float worldX,
+        float worldY)
+    {
+        // Try atlas path (cycling override → atlas → fallback)
+        AtlasRegion? region = null;
+
+        if (CyclingManager is not null && CyclingManager.FgOverrides.TryGetValue(tileId, out var fgCyclingRegion))
+            region = fgCyclingRegion;
+        else if (FgAtlas is not null)
+            region = FgAtlas.TryGetRegion(tileId);
+
+        if (region.HasValue)
+        {
+            var rect = region.Value.SourceRect;
+            var fgWorldY = worldY + CONSTANTS.HALF_TILE_HEIGHT * 2 - rect.Height;
+            var screenPos = camera.WorldToScreen(new Vector2(worldX, fgWorldY));
+
+            if (IsOnScreen(
+                    screenPos,
+                    rect.Width,
+                    rect.Height,
+                    camera))
             {
-                var rfgWorldX = worldPos.X + CONSTANTS.HALF_TILE_WIDTH;
-                var rfgWorldY = worldPos.Y + CONSTANTS.HALF_TILE_HEIGHT * 2 - rfgTexture.Height;
-                var rfgScreenPos = camera.WorldToScreen(new Vector2(rfgWorldX, rfgWorldY));
+                var screenBlend = IsTileScreenBlend(tileId);
 
-                if (IsOnScreen(rfgScreenPos, rfgTexture, camera))
-                {
-                    var screenBlend = IsTileScreenBlend(rfgTileId);
+                if (screenBlend)
+                    device.BlendState = BlendStates.Screen;
 
-                    if (screenBlend)
-                        device.BlendState = BlendStates.Screen;
+                spriteBatch.Draw(
+                    region.Value.Atlas,
+                    screenPos,
+                    rect,
+                    Color.White);
 
-                    spriteBatch.Draw(rfgTexture, rfgScreenPos, Color.White);
-
-                    if (screenBlend)
-                        device.BlendState = BlendState.AlphaBlend;
-                }
+                if (screenBlend)
+                    device.BlendState = BlendState.AlphaBlend;
             }
+
+            return;
+        }
+
+        // Fallback to individual texture
+        var texture = GetOrCreateFgTexture(tileId);
+
+        if (texture is null)
+            return;
+
+        var fallbackWorldY = worldY + CONSTANTS.HALF_TILE_HEIGHT * 2 - texture.Height;
+        var fallbackScreenPos = camera.WorldToScreen(new Vector2(worldX, fallbackWorldY));
+
+        if (IsOnScreen(
+                fallbackScreenPos,
+                texture.Width,
+                texture.Height,
+                camera))
+        {
+            var screenBlend = IsTileScreenBlend(tileId);
+
+            if (screenBlend)
+                device.BlendState = BlendStates.Screen;
+
+            spriteBatch.Draw(texture, fallbackScreenPos, Color.White);
+
+            if (screenBlend)
+                device.BlendState = BlendState.AlphaBlend;
         }
     }
 
@@ -270,10 +361,14 @@ public sealed class MapRenderer : IDisposable
         return texture;
     }
 
-    private static bool IsOnScreen(Vector2 screenPos, Texture2D texture, Camera camera)
-        => ((screenPos.X + texture.Width) > 0)
+    private static bool IsOnScreen(
+        Vector2 screenPos,
+        int width,
+        int height,
+        Camera camera)
+        => ((screenPos.X + width) > 0)
            && (screenPos.X < camera.ViewportWidth)
-           && ((screenPos.Y + texture.Height) > 0)
+           && ((screenPos.Y + height) > 0)
            && (screenPos.Y < camera.ViewportHeight);
 
     private bool IsTileScreenBlend(int tileId)
@@ -287,49 +382,36 @@ public sealed class MapRenderer : IDisposable
     }
 
     /// <summary>
-    ///     Preloads all unique tile textures used by the map into GPU caches. Computes the foreground extra margin from the
-    ///     tallest foreground tile. Builds a background tile atlas for batched rendering.
+    ///     Preloads all unique tile pixel data used by the map. Background and foreground tiles are rendered in parallel on
+    ///     the CPU then packed into texture atlases (one GPU upload per page). Archive reads are sequential (not thread-safe).
     /// </summary>
     public void PreloadMapTiles(GraphicsDevice device, MapFile mapFile)
     {
-        var maxFgHeight = 0;
+        var uniqueBgTileIds = new HashSet<int>();
+        var uniqueFgTileIds = new HashSet<int>();
 
+        // Phase 1: Scan map to collect unique tile IDs (cheap, sequential)
         for (var y = 0; y < mapFile.Height; y++)
         {
             for (var x = 0; x < mapFile.Width; x++)
             {
                 var tile = mapFile.Tiles[x, y];
 
-                // Background
-                var bgIndex = tile.Background;
+                if (tile.Background > 0)
+                    uniqueBgTileIds.Add(tile.Background);
 
-                if (bgIndex > 0)
-                    GetOrCreateBgTexture(bgIndex);
-
-                // Left foreground
                 if (tile.LeftForeground.IsRenderedTileIndex())
-                {
-                    var lfgTexture = GetOrCreateFgTexture(tile.LeftForeground);
+                    uniqueFgTileIds.Add(tile.LeftForeground);
 
-                    if (lfgTexture is not null && (lfgTexture.Height > maxFgHeight))
-                        maxFgHeight = lfgTexture.Height;
-                }
-
-                // Right foreground
                 if (tile.RightForeground.IsRenderedTileIndex())
-                {
-                    var rfgTexture = GetOrCreateFgTexture(tile.RightForeground);
-
-                    if (rfgTexture is not null && (rfgTexture.Height > maxFgHeight))
-                        maxFgHeight = rfgTexture.Height;
-                }
+                    uniqueFgTileIds.Add(tile.RightForeground);
             }
         }
 
-        // Expand animated BG tiles: load all frames in each animation sequence into the cache
+        // Expand animated BG tiles: add all animation frame IDs to the set
         var bgAnimEntries = new HashSet<TileAnimationEntry>(ReferenceEqualityComparer.Instance);
 
-        foreach (var bgId in BgTextureCache.Keys.ToArray())
+        foreach (var bgId in uniqueBgTileIds.ToArray())
         {
             var anim = DataContext.Tiles.GetBgAnimation(bgId);
 
@@ -337,13 +419,13 @@ public sealed class MapRenderer : IDisposable
                 continue;
 
             foreach (var frameTileId in anim.TileSequence)
-                GetOrCreateBgTexture(frameTileId);
+                uniqueBgTileIds.Add(frameTileId);
         }
 
-        // Expand animated FG tiles: load all frames, track max height for culling margin
+        // Expand animated FG tiles: add all animation frame IDs to the set
         var fgAnimEntries = new HashSet<TileAnimationEntry>(ReferenceEqualityComparer.Instance);
 
-        foreach (var fgId in FgTextureCache.Keys.ToArray())
+        foreach (var fgId in uniqueFgTileIds.ToArray())
         {
             var anim = DataContext.Tiles.GetFgAnimation(fgId);
 
@@ -351,23 +433,76 @@ public sealed class MapRenderer : IDisposable
                 continue;
 
             foreach (var frameTileId in anim.TileSequence)
-            {
-                var fgTexture = GetOrCreateFgTexture(frameTileId);
+                uniqueFgTileIds.Add(frameTileId);
+        }
 
-                if (fgTexture is not null && (fgTexture.Height > maxFgHeight))
-                    maxFgHeight = fgTexture.Height;
-            }
+        // Phase 2: Read tile data from archives sequentially (archive streams are not thread-safe)
+        var bgTileData = new Dictionary<int, (Tile Tile, Palette Palette)>();
+
+        foreach (var tileId in uniqueBgTileIds)
+        {
+            var palettized = DataContext.Tiles.GetBackgroundTile(tileId);
+
+            if (palettized is not null)
+                bgTileData[tileId] = (palettized.Entity, palettized.Palette);
+        }
+
+        var fgTileData = new Dictionary<int, (HpfFile Hpf, Palette Palette)>();
+        var maxFgHeight = 0;
+
+        foreach (var tileId in uniqueFgTileIds)
+        {
+            var palettized = DataContext.Tiles.GetForegroundTile(tileId);
+
+            if (palettized is null)
+                continue;
+
+            fgTileData[tileId] = (palettized.Entity, palettized.Palette);
+
+            if (palettized.Entity.PixelHeight > maxFgHeight)
+                maxFgHeight = palettized.Entity.PixelHeight;
         }
 
         // Convert max pixel height to tile rows: each tile row = 14px
         ForegroundExtraMargin = (int)MathF.Ceiling(maxFgHeight / (float)CONSTANTS.HALF_TILE_HEIGHT);
 
-        // Build background tile atlas from all preloaded tiles (includes animation frames)
-        BuildBgAtlas(device);
+        // Phase 3: Render all tiles in parallel (CPU-only, no archive access)
+        Parallel.ForEach(
+            bgTileData,
+            kvp =>
+            {
+                var image = Graphics.RenderTile(kvp.Value.Tile, kvp.Value.Palette);
 
-        // Initialize palette cycling for animated environmental effects (water shimmer, etc.)
+                using (BgImageCacheLock.EnterScope())
+                    BgImageCache[kvp.Key] = image;
+            });
+
+        Parallel.ForEach(
+            fgTileData,
+            kvp =>
+            {
+                var image = Graphics.RenderImage(kvp.Value.Hpf, kvp.Value.Palette);
+
+                using (FgImageCacheLock.EnterScope())
+                    FgImageCache[kvp.Key] = image;
+            });
+
+        // Pre-render palette cycling variants before atlas build
         CyclingManager = new PaletteCyclingManager();
-        CyclingManager.Initialize(mapFile, BgAtlas, FgTextureCache);
+
+        CyclingManager.PrepareVariants(
+            mapFile,
+            BgImageCache,
+            BgImageCacheLock,
+            FgImageCache,
+            FgImageCacheLock);
+
+        // Build atlases from all preloaded pixel data (includes base + cycling variant frames)
+        BuildBgAtlas(device);
+        BuildFgAtlas(device);
+
+        // Resolve cycling variant regions from the built atlases
+        CyclingManager.ResolveRegions(BgAtlas, FgAtlas);
     }
 
     /// <summary>

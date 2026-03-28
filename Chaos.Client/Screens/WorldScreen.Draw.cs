@@ -1,4 +1,6 @@
 #region
+using System.Buffers;
+using Chaos.Client.Collections;
 using Chaos.Client.Controls.Generic;
 using Chaos.Client.Controls.World.Hud.Panel;
 using Chaos.Client.Data;
@@ -18,19 +20,22 @@ public sealed partial class WorldScreen
 {
     public void Draw(SpriteBatch spriteBatch, GameTime gameTime)
     {
+        // Sort once per frame — cached via dirty flag, reused by all draw sub-passes
+        var sortedEntities = WorldState.GetSortedEntities();
+
         // Pre-composite transparent aislings into per-entity RTs before world drawing
         if (MapFile is not null && MapPreloaded)
         {
             SilhouetteRenderer.Clear();
 
-            var player = Game.World.GetPlayerEntity();
+            var player = WorldState.GetPlayerEntity();
 
             // Collect silhouette entries (any entity type)
             if (player is not null)
                 SilhouetteRenderer.AddSilhouette(new SilhouetteRenderer.SilhouetteEntry(player));
 
             // Collect transparent aisling entries (need per-entity compositing for uniform alpha)
-            foreach (var entity in Game.World.GetSortedEntities())
+            foreach (var entity in sortedEntities)
                 if ((entity.Type == ClientEntityType.Aisling) && entity.IsTransparent)
                     SilhouetteRenderer.AddTransparent(
                         entity,
@@ -80,29 +85,27 @@ public sealed partial class WorldScreen
                 ScissorRasterizerState,
                 null,
                 transform);
-            DrawForegroundAndEntities(spriteBatch);
+            DrawForegroundAndEntities(spriteBatch, sortedEntities);
             SilhouetteRenderer.DrawSilhouettes(spriteBatch);
 
             Overlays.Draw(
                 spriteBatch,
                 Camera,
                 MapFile.Height,
-                Game.World.GetSortedEntities(),
+                sortedEntities,
                 Highlight.ShowTintHighlight,
                 Highlight.HoveredEntityId,
-                Game.World.PlayerEntityId);
+                WorldState.PlayerEntityId);
             spriteBatch.End();
 
             // Darkness overlay — drawn over the world in screen space (no camera transform)
             if (DarknessRenderer.IsActive)
             {
-                var viewport = WorldHud.ViewportBounds;
-                DarknessRenderer.Update(Camera, viewport);
-
                 spriteBatch.Begin(
                     blendState: BlendState.NonPremultiplied,
                     samplerState: GlobalSettings.Sampler,
                     rasterizerState: ScissorRasterizerState);
+                var viewport = WorldHud.ViewportBounds;
                 DarknessRenderer.Draw(spriteBatch, viewport);
                 spriteBatch.End();
             }
@@ -127,8 +130,8 @@ public sealed partial class WorldScreen
                     Camera,
                     MapFile,
                     MapRenderer.ForegroundExtraMargin,
-                    Game.World.GetSortedEntities(),
-                    Game.World.GetPlayerEntity(),
+                    sortedEntities,
+                    WorldState.GetPlayerEntity(),
                     EntityHitBoxes,
                     Game.Input.MouseX,
                     Game.Input.MouseY,
@@ -142,7 +145,7 @@ public sealed partial class WorldScreen
         if (TabMapVisible && MapFile is not null)
         {
             var viewport = WorldHud.ViewportBounds;
-            var player = Game.World.GetPlayerEntity();
+            var player = WorldState.GetPlayerEntity();
             var px = player?.TileX ?? 0;
             var py = player?.TileY ?? 0;
 
@@ -152,8 +155,8 @@ public sealed partial class WorldScreen
                 viewport,
                 px,
                 py,
-                Game.World.GetSortedEntities(),
-                Game.World.PlayerEntityId);
+                sortedEntities,
+                WorldState.PlayerEntityId);
         }
 
         // Pass 2: UI overlay — full screen, no transform
@@ -206,14 +209,12 @@ public sealed partial class WorldScreen
     ///     order: ground items → aislings → creatures → ground effects → entity effects → foreground tiles. Within each
     ///     category, entities draw in list order (arrival order — later arrivals on top).
     /// </summary>
-    private void DrawForegroundAndEntities(SpriteBatch spriteBatch)
+    private void DrawForegroundAndEntities(SpriteBatch spriteBatch, IReadOnlyList<WorldEntity> sortedEntities)
     {
         if (MapFile is null)
             return;
 
         EntityHitBoxes.Clear();
-
-        var sortedEntities = Game.World.GetSortedEntities();
 
         (var fgMinX, var fgMinY, var fgMaxX, var fgMaxY) = Camera.GetVisibleTileBounds(
             MapFile.Width,
@@ -285,7 +286,7 @@ public sealed partial class WorldScreen
         if (MapFile is null)
             return;
 
-        foreach (var dying in Game.World.DyingEffects)
+        foreach (var dying in WorldState.DyingEffects)
         {
             if (dying.IsComplete || ((dying.TileX + dying.TileY) != depth))
                 continue;
@@ -320,7 +321,7 @@ public sealed partial class WorldScreen
 
     private void DrawGroundEffectsAtDepth(SpriteBatch spriteBatch, int depth)
     {
-        foreach (var effect in Game.World.ActiveEffects)
+        foreach (var effect in WorldState.ActiveEffects)
         {
             if (effect.TargetEntityId.HasValue || effect.IsComplete)
                 continue;
@@ -664,41 +665,48 @@ public sealed partial class WorldScreen
         var tintTop = BODY_CENTER_Y - paintHeight;
         var startRow = Math.Clamp(tintTop, 0, texture.Height);
         var pixelCount = texture.Width * texture.Height;
-        var pixels = new Color[pixelCount];
-        texture.GetData(pixels);
+        var pixels = ArrayPool<Color>.Shared.Rent(pixelCount);
 
-        var tintR = tintColor.R;
-        var tintG = tintColor.G;
-        var tintB = tintColor.B;
-        var alpha = tintColor.A / 255f;
-
-        for (var y = startRow; y < texture.Height; y++)
+        try
         {
-            var rowStart = y * texture.Width;
+            texture.GetData(pixels, 0, pixelCount);
 
-            for (var x = 0; x < texture.Width; x++)
+            var tintR = tintColor.R;
+            var tintG = tintColor.G;
+            var tintB = tintColor.B;
+            var alpha = tintColor.A / 255f;
+
+            for (var y = startRow; y < texture.Height; y++)
             {
-                var i = rowStart + x;
-                var pixel = pixels[i];
+                var rowStart = y * texture.Width;
 
-                if (pixel.A == 0)
-                    continue;
+                for (var x = 0; x < texture.Width; x++)
+                {
+                    var i = rowStart + x;
+                    var pixel = pixels[i];
 
-                // Unpremultiply, lerp toward tint color, re-premultiply
-                var a = pixel.A / 255f;
-                var r = (byte)(pixel.R / a * (1 - alpha) + tintR * alpha);
-                var g = (byte)(pixel.G / a * (1 - alpha) + tintG * alpha);
-                var b = (byte)(pixel.B / a * (1 - alpha) + tintB * alpha);
+                    if (pixel.A == 0)
+                        continue;
 
-                pixels[i] = new Color(
-                    (byte)(r * a),
-                    (byte)(g * a),
-                    (byte)(b * a),
-                    pixel.A);
+                    // Unpremultiply, lerp toward tint color, re-premultiply
+                    var a = pixel.A / 255f;
+                    var r = (byte)(pixel.R / a * (1 - alpha) + tintR * alpha);
+                    var g = (byte)(pixel.G / a * (1 - alpha) + tintG * alpha);
+                    var b = (byte)(pixel.B / a * (1 - alpha) + tintB * alpha);
+
+                    pixels[i] = new Color(
+                        (byte)(r * a),
+                        (byte)(g * a),
+                        (byte)(b * a),
+                        pixel.A);
+                }
             }
-        }
 
-        texture.SetData(pixels);
+            texture.SetData(pixels, 0, pixelCount);
+        } finally
+        {
+            ArrayPool<Color>.Shared.Return(pixels);
+        }
     }
 
     /// <summary>
@@ -749,7 +757,7 @@ public sealed partial class WorldScreen
         var tileCenterX = tileWorldPos.X + DaLibConstants.HALF_TILE_WIDTH;
         var tileCenterY = tileWorldPos.Y + DaLibConstants.HALF_TILE_HEIGHT;
 
-        foreach (var effect in Game.World.ActiveEffects)
+        foreach (var effect in WorldState.ActiveEffects)
         {
             if ((effect.TargetEntityId != entity.Id) || effect.IsComplete)
                 continue;

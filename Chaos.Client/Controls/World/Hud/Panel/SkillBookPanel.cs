@@ -1,8 +1,8 @@
 #region
+using Chaos.Client.Collections;
 using Chaos.Client.Controls.World.Hud.Panel.Slots;
 using Chaos.Client.Data.Models;
 using Chaos.Client.Rendering;
-using Chaos.Client.ViewModel;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 #endregion
@@ -16,11 +16,9 @@ namespace Chaos.Client.Controls.World.Hud.Panel;
 public sealed class SkillBookPanel : PanelBase
 {
     private const int MAX_SLOTS = 89;
-    private readonly SkillBook SkillBook;
 
     public SkillBookPanel(
         ControlPrefabSet hudPrefabSet,
-        SkillBook skillBook,
         bool secondary = false,
         Texture2D? background = null,
         int normalVisibleSlots = DEFAULT_VISIBLE_SLOTS)
@@ -33,9 +31,8 @@ public sealed class SkillBookPanel : PanelBase
             normalVisibleSlots: normalVisibleSlots)
     {
         Name = secondary ? "SkillBookAlt" : "SkillBook";
-        SkillBook = skillBook;
-        SkillBook.SlotChanged += OnSlotChanged;
-        SkillBook.Cleared += OnCleared;
+        WorldState.SkillBook.SlotChanged += OnSlotChanged;
+        WorldState.SkillBook.Cleared += OnCleared;
     }
 
     protected override PanelSlot CreateSlot(byte slotNumber, string name, CooldownStyle cooldownStyle)
@@ -48,8 +45,8 @@ public sealed class SkillBookPanel : PanelBase
 
     public override void Dispose()
     {
-        SkillBook.SlotChanged -= OnSlotChanged;
-        SkillBook.Cleared -= OnCleared;
+        WorldState.SkillBook.SlotChanged -= OnSlotChanged;
+        WorldState.SkillBook.Cleared -= OnCleared;
 
         foreach (var slot in Slots)
         {
@@ -89,7 +86,7 @@ public sealed class SkillBookPanel : PanelBase
         if (control is null)
             return;
 
-        var data = SkillBook.GetSlot(slot);
+        var data = WorldState.SkillBook.GetSlot(slot);
 
         // Dispose old cooldown textures — sprite may have changed
         control.CooldownTexture?.Dispose();
@@ -137,11 +134,11 @@ public sealed class SkillBookPanel : PanelBase
         {
             var slot = (byte)(i + SlotOffset + 1);
             var control = Slots[i];
-            var cooldownPercent = SkillBook.GetCooldownPercent(slot);
+            var cooldownPercent = WorldState.SkillBook.GetCooldownPercent(slot);
 
             if ((cooldownPercent > 0) && control.NormalTexture is not null)
             {
-                var data = SkillBook.GetSlot(slot);
+                var data = WorldState.SkillBook.GetSlot(slot);
 
                 if (data.IsOccupied)
                 {

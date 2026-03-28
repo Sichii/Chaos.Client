@@ -48,12 +48,6 @@ public abstract class ExpandablePanel : UIPanel
 
         if (IsExpanded && ExpandedBackground is not null)
         {
-            if (ChildOrderDirty)
-            {
-                Children.Sort((a, b) => a.ZIndex.CompareTo(b.ZIndex));
-                ChildOrderDirty = false;
-            }
-
             AtlasHelper.Draw(
                 spriteBatch,
                 ExpandedBackground,

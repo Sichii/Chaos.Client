@@ -48,12 +48,6 @@ public class UIPanel : UIElement
 
         base.Draw(spriteBatch);
 
-        if (ChildOrderDirty)
-        {
-            Children.Sort(ZIndexComparison);
-            ChildOrderDirty = false;
-        }
-
         if (Background is not null)
             AtlasHelper.Draw(
                 spriteBatch,
@@ -100,6 +94,12 @@ public class UIPanel : UIElement
     {
         if (!Visible || !Enabled)
             return;
+
+        if (ChildOrderDirty)
+        {
+            Children.Sort(ZIndexComparison);
+            ChildOrderDirty = false;
+        }
 
         // Snapshot to avoid collection-modified during enumeration
         // (e.g. button click handlers that add/remove children)

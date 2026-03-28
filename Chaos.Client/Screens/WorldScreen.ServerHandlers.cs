@@ -1,6 +1,6 @@
 #region
+using Chaos.Client.Collections;
 using Chaos.Client.Data;
-using Chaos.Client.Data.Models;
 using Chaos.Client.Data.Utilities;
 using Chaos.Client.Extensions;
 using Chaos.Client.Models;
@@ -38,11 +38,11 @@ public sealed partial class WorldScreen
             LoadPlayerFamilyList();
             LoadPlayerFriendList();
             LoadPlayerMacros();
-            Game.World.ReloadChants();
+            WorldState.ReloadChants();
         }
 
         // Check for idle animation ("04") frames on this aisling's body
-        var entity = Game.World.GetEntity(args.Id);
+        var entity = WorldState.GetEntity(args.Id);
 
         if (entity?.Appearance is { } appearance)
         {
@@ -57,7 +57,7 @@ public sealed partial class WorldScreen
     private void HandleRemoveEntity(uint id)
     {
         // Capture creature sprite for death dissolve before removing from WorldState
-        var entity = Game.World.GetEntity(id);
+        var entity = WorldState.GetEntity(id);
 
         if (entity is { Type: ClientEntityType.Creature })
             CreateDyingEffect(entity);
@@ -66,14 +66,14 @@ public sealed partial class WorldScreen
         if (AislingCache.Remove(id, out var removed))
             removed.Texture?.Dispose();
 
-        // Clean up cached name tag texture
-        Overlays.RemoveNameTag(id);
+        // Clean up all overlay caches (name tag, chat bubble, health bar, chant)
+        Overlays.RemoveEntity(id);
 
         // Clean up cached debug label texture
         DebugRenderer.RemoveEntity(id);
 
         // Remove entity from WorldState (ChaosGame skips removal when WorldScreen is active)
-        Game.World.RemoveEntity(id);
+        WorldState.RemoveEntity(id);
     }
 
     private void CreateDyingEffect(WorldEntity entity)
@@ -105,7 +105,7 @@ public sealed partial class WorldScreen
             frame.Top,
             flip);
 
-        Game.World.DyingEffects.Add(dyingEffect);
+        WorldState.DyingEffects.Add(dyingEffect);
     }
 
     // --- Movement ---
@@ -125,9 +125,9 @@ public sealed partial class WorldScreen
             return;
 
         // Swimming check — if on a water tile and don't have the "swimming" skill, block movement
-        if (player.IsOnSwimmingTile && !IsGameMaster && !Game.World.SkillBook.HasSkillByName("swimming"))
+        if (player.IsOnSwimmingTile && !IsGameMaster && !WorldState.SkillBook.HasSkillByName("swimming"))
         {
-            Game.World.Chat.AddMessage("You need to learn how to swim.", Color.White);
+            WorldState.Chat.AddMessage("You need to learn how to swim.", Color.White);
 
             return;
         }
@@ -138,9 +138,19 @@ public sealed partial class WorldScreen
 
         Game.Connection.Walk(direction);
 
+        // Record prediction for server reconciliation
+        PendingWalks.Enqueue(
+            new PendingWalk(
+                player.TileX,
+                player.TileY,
+                newX,
+                newY,
+                direction));
+
         // Predict position locally
         player.TileX = newX;
         player.TileY = newY;
+        WorldState.MarkSortDirty();
 
         var walkFrames = player.UsesCreatureWalkTiming ? Game.CreatureRenderer.GetWalkFrameCount(player.SpriteId) : null;
 
@@ -155,9 +165,7 @@ public sealed partial class WorldScreen
 
     private void HandleClientWalkResponse(Direction direction, int oldX, int oldY)
     {
-        // Server confirmation — position was already predicted locally by PredictAndWalk.
-        // Reconcile if the server position differs from our prediction.
-        var player = Game.World.GetPlayerEntity();
+        var player = WorldState.GetPlayerEntity();
 
         if (player is null)
             return;
@@ -166,14 +174,35 @@ public sealed partial class WorldScreen
         var serverX = oldX + dx;
         var serverY = oldY + dy;
 
-        // If prediction was wrong (e.g. server denied the walk), snap to server position and cancel pathfinding
-        if ((player.TileX != serverX) || (player.TileY != serverY))
+        // Check if the server confirmation matches our oldest pending prediction
+        if (PendingWalks.TryPeek(out var pending) && (pending.FromX == oldX) && (pending.FromY == oldY) && (pending.Direction == direction))
         {
-            player.TileX = serverX;
-            player.TileY = serverY;
-            UpdateHuds(h => h.SetCoords(serverX, serverY));
-            Pathfinding.Clear();
+            // Prediction confirmed — discard it
+            PendingWalks.Dequeue();
+
+            return;
         }
+
+        // Mismatch — server sent a walk we didn't predict. Clear all pending predictions,
+        // rubberband to the server's source position, and play a walk to the destination.
+        PendingWalks.Clear();
+        QueuedWalkDirection = null;
+
+        player.TileX = serverX;
+        player.TileY = serverY;
+        WorldState.MarkSortDirty();
+
+        var walkFrames = player.UsesCreatureWalkTiming ? Game.CreatureRenderer.GetWalkFrameCount(player.SpriteId) : null;
+
+        AnimationSystem.StartWalk(
+            player,
+            direction,
+            player.UsesCreatureWalkTiming,
+            true,
+            walkFrames);
+
+        UpdateHuds(h => h.SetCoords(serverX, serverY));
+        Pathfinding.Clear();
     }
 
     // --- Attributes ---
@@ -186,7 +215,7 @@ public sealed partial class WorldScreen
 
     private void HandleDisplayPublicMessage(DisplayPublicMessageArgs args)
     {
-        var entityExists = Game.World.GetEntity(args.SourceId) is not null;
+        var entityExists = WorldState.GetEntity(args.SourceId) is not null;
 
         if (args.PublicMessageType == PublicMessageType.Chant)
         {
@@ -202,7 +231,7 @@ public sealed partial class WorldScreen
             _                       => Color.White
         };
 
-        Game.World.Chat.AddMessage(args.Message, color);
+        WorldState.Chat.AddMessage(args.Message, color);
 
         if (!entityExists)
             return;
@@ -216,17 +245,17 @@ public sealed partial class WorldScreen
         switch (args.ServerMessageType)
         {
             case ServerMessageType.Whisper:
-                Game.World.Chat.AddMessage(args.Message, new Color(100, 149, 237));
+                WorldState.Chat.AddMessage(args.Message, new Color(100, 149, 237));
 
                 break;
 
             case ServerMessageType.GroupChat:
-                Game.World.Chat.AddMessage(args.Message, new Color(154, 205, 50));
+                WorldState.Chat.AddMessage(args.Message, new Color(154, 205, 50));
 
                 break;
 
             case ServerMessageType.GuildChat:
-                Game.World.Chat.AddMessage(args.Message, new Color(128, 128, 0));
+                WorldState.Chat.AddMessage(args.Message, new Color(128, 128, 0));
 
                 break;
 
@@ -236,7 +265,7 @@ public sealed partial class WorldScreen
                  or ServerMessageType.OrangeBar3
                  or ServerMessageType.AdminMessage
                  or ServerMessageType.OrangeBar5:
-                Game.World.Chat.AddOrangeBarMessage(args.Message);
+                WorldState.Chat.AddOrangeBarMessage(args.Message);
 
                 break;
 
@@ -271,7 +300,7 @@ public sealed partial class WorldScreen
                 break;
 
             default:
-                Game.World.Chat.AddOrangeBarMessage(args.Message);
+                WorldState.Chat.AddOrangeBarMessage(args.Message);
 
                 break;
         }
@@ -331,14 +360,14 @@ public sealed partial class WorldScreen
 
         // Server settings: use the full formatted text as the display name (includes :ON/:OFF)
         SettingsDialog.SetSettingName(optionIndex, entry.TrimEnd());
-        Game.World.UserOptions.SetValue(optionIndex, isOn);
+        WorldState.UserOptions.SetValue(optionIndex, isOn);
     }
 
     // --- NPC dialog / menu ---
 
     private void HandleDialogChanged()
     {
-        var dialog = Game.World.NpcInteraction.CurrentDialog;
+        var dialog = WorldState.NpcInteraction.CurrentDialog;
 
         if (dialog is null || (dialog.DialogType == DialogType.CloseDialog))
         {
@@ -353,7 +382,7 @@ public sealed partial class WorldScreen
 
     private void HandleMenuChanged()
     {
-        var menu = Game.World.NpcInteraction.CurrentMenu;
+        var menu = WorldState.NpcInteraction.CurrentMenu;
 
         if (menu is null)
             return;
@@ -364,8 +393,15 @@ public sealed partial class WorldScreen
 
     private void RenderNpcSessionPortrait()
     {
-        // Phase 1: If ShouldIllustrate, try full-art illustration SPF from NPCIllust metadata + npcbase.dat
-        if (NpcSession.ShouldIllustrate && !string.IsNullOrEmpty(NpcSession.NpcName))
+        if (!NpcSession.ShouldIllustrate)
+        {
+            NpcSession.SetPortrait(null, false);
+
+            return;
+        }
+
+        // Phase 1: Try full-art illustration SPF from NPCIllust metadata + npcbase.dat
+        if (!string.IsNullOrEmpty(NpcSession.NpcName))
         {
             var illustTexture = TryLoadNpcIllustration(NpcSession.NpcName);
 
@@ -455,12 +491,12 @@ public sealed partial class WorldScreen
 
     private void HandleBoardListReceived()
     {
-        var boards = Game.World.Board.AvailableBoards;
+        var boards = WorldState.Board.AvailableBoards;
 
         if (boards is null or { Count: 0 })
             return;
 
-        Game.World.Board.OpenSession();
+        WorldState.Board.OpenSession();
 
         BoardList.ShowBoards(
             boards.Select(b => (b.BoardId, b.Name))
@@ -469,7 +505,7 @@ public sealed partial class WorldScreen
 
     private void HandleBoardPostListChanged()
     {
-        var board = Game.World.Board;
+        var board = WorldState.Board;
         var posts = board.Posts.ToList();
 
         if (board.IsPublicBoard)
@@ -498,12 +534,12 @@ public sealed partial class WorldScreen
 
     private void HandleBoardPostViewed()
     {
-        var post = Game.World.Board.CurrentPost;
+        var post = WorldState.Board.CurrentPost;
 
         if (post is not { } p)
             return;
 
-        var board = Game.World.Board;
+        var board = WorldState.Board;
 
         HideAllBoardControls();
 
@@ -538,7 +574,7 @@ public sealed partial class WorldScreen
 
     private void HandleGroupInviteReceived()
     {
-        var invite = Game.World.GroupInvite.Current;
+        var invite = WorldState.GroupInvite.Current;
 
         if (invite is null)
             return;
@@ -549,7 +585,7 @@ public sealed partial class WorldScreen
         {
             case ServerGroupSwitch.Invite:
             {
-                Game.World.Chat.AddOrangeBarMessage($"{sourceName} invites you to join a group.");
+                WorldState.Chat.AddOrangeBarMessage($"{sourceName} invites you to join a group.");
 
                 var vp = WorldHud.ViewportBounds;
                 var menuX = vp.X + vp.Width / 2;
@@ -566,7 +602,7 @@ public sealed partial class WorldScreen
 
             case ServerGroupSwitch.RequestToJoin:
             {
-                Game.World.Chat.AddOrangeBarMessage($"{sourceName} wants to join your group.");
+                WorldState.Chat.AddOrangeBarMessage($"{sourceName} wants to join your group.");
 
                 var vp = WorldHud.ViewportBounds;
                 var menuX = vp.X + vp.Width / 2;
@@ -583,7 +619,7 @@ public sealed partial class WorldScreen
 
             case ServerGroupSwitch.ShowGroupBox:
             {
-                Game.World.Chat.AddOrangeBarMessage($"{sourceName} has an open group box.");
+                WorldState.Chat.AddOrangeBarMessage($"{sourceName} has an open group box.");
 
                 break;
             }
@@ -658,7 +694,7 @@ public sealed partial class WorldScreen
         var abilityMetadata = DataContext.MetaFiles.GetAbilityMetadata((byte)args.BaseClass);
 
         if (abilityMetadata is not null)
-            StatusBook.SetAbilityMetadata(abilityMetadata, ResolveAbilityIconState);
+            StatusBook.SetAbilityMetadata(abilityMetadata);
         else
             StatusBook.ClearSkills();
 
@@ -675,11 +711,9 @@ public sealed partial class WorldScreen
 
             StatusBook.SetEvents(
                 eventMetadata,
-                entry => ResolveEventState(
-                    entry,
-                    completedEventIds,
-                    args.BaseClass,
-                    args.EnableMasterQuestMetaData));
+                completedEventIds,
+                args.BaseClass,
+                args.EnableMasterQuestMetaData);
         } else
             StatusBook.ClearEvents();
 
@@ -688,30 +722,30 @@ public sealed partial class WorldScreen
         LoadPlayerFamilyList();
 
         // Paperdoll — render the player's full aisling at south-facing idle
-        var playerEntity = Game.World.GetPlayerEntity();
+        var playerEntity = WorldState.GetPlayerEntity();
 
         if (playerEntity?.Appearance is { } appearance)
             StatusBook.SetPaperdoll(Game.AislingRenderer, in appearance);
 
         // Group open state — server is source of truth, sync all UI
         StatusBook.SetGroupOpen(args.GroupOpen);
-        Game.World.UserOptions.SetValue(12, args.GroupOpen);
+        WorldState.UserOptions.SetValue(12, args.GroupOpen);
 
         // Group members — parse GroupString into state, UI subscribes via event
         if (!string.IsNullOrEmpty(args.GroupString))
         {
             if (args.GroupString.StartsWithI(GROUP_MEMBERS_PREFIX))
-                Game.World.Group.ParseAndSet(args.GroupString);
+                WorldState.Group.ParseAndSet(args.GroupString);
             else if (args.GroupString.StartsWithI(SPOUSE_PREFIX))
             {
                 var spouseName = args.GroupString[SPOUSE_PREFIX.Length..]
                                      .Trim();
                 StatusBook.SetFamilyInfo(args.Name, spouseName);
-                Game.World.Group.Clear();
+                WorldState.Group.Clear();
             } else
-                Game.World.Group.Clear();
+                WorldState.Group.Clear();
         } else
-            Game.World.Group.Clear();
+            WorldState.Group.Clear();
 
         if (GroupHighlightRequested)
         {
@@ -729,14 +763,14 @@ public sealed partial class WorldScreen
         GroupHighlightedIds.Clear();
         ClearGroupTintCache();
 
-        var members = Game.World.Group.Members;
+        var members = WorldState.Group.Members;
 
         if (members.Count == 0)
             return;
 
         var memberSet = new HashSet<string>(members, StringComparer.OrdinalIgnoreCase);
 
-        foreach (var entity in Game.World.GetSortedEntities())
+        foreach (var entity in WorldState.GetSortedEntities())
         {
             if (entity.Type != ClientEntityType.Aisling)
                 continue;
@@ -753,7 +787,7 @@ public sealed partial class WorldScreen
     {
         StatusBook.RefreshEquipment();
 
-        if (Game.World.Attributes.Current is { } attrs)
+        if (WorldState.Attributes.Current is { } attrs)
             StatusBook.UpdateEquipmentStats(
                 attrs.Str,
                 attrs.Int,
@@ -764,134 +798,6 @@ public sealed partial class WorldScreen
 
         StatusBook.SwitchTab(StatusBookTab.Equipment);
         StatusBook.Show();
-    }
-
-    private AbilityIconState ResolveAbilityIconState(AbilityMetadataEntry entry)
-    {
-        var world = Game.World;
-
-        // Check if player already knows this ability
-        if (entry.IsSpell)
-            for (byte i = 1; i <= SpellBook.MAX_SLOTS; i++)
-            {
-                ref readonly var slot = ref world.SpellBook.GetSlot(i);
-
-                if (slot.IsOccupied && string.Equals(slot.Name, entry.Name, StringComparison.OrdinalIgnoreCase))
-                    return AbilityIconState.Known;
-            }
-        else
-            for (byte i = 1; i <= SkillBook.MAX_SLOTS; i++)
-            {
-                ref readonly var slot = ref world.SkillBook.GetSlot(i);
-
-                if (slot.IsOccupied && string.Equals(slot.Name, entry.Name, StringComparison.OrdinalIgnoreCase))
-                    return AbilityIconState.Known;
-            }
-
-        // Check if player meets the requirements to learn it
-        if (world.Attributes.Current is not { } attrs)
-            return AbilityIconState.Locked;
-
-        if (attrs.Level < entry.Level)
-            return AbilityIconState.Locked;
-
-        if ((attrs.Str < entry.Str)
-            || (attrs.Int < entry.Int)
-            || (attrs.Wis < entry.Wis)
-            || (attrs.Dex < entry.Dex)
-            || (attrs.Con < entry.Con))
-            return AbilityIconState.Locked;
-
-        // Check prerequisite abilities
-        if (!HasPreRequisite(entry.PreReq1Name, entry.PreReq1Level))
-            return AbilityIconState.Locked;
-
-        if (!HasPreRequisite(entry.PreReq2Name, entry.PreReq2Level))
-            return AbilityIconState.Locked;
-
-        return AbilityIconState.Learnable;
-    }
-
-    private bool HasPreRequisite(string? name, byte requiredLevel)
-    {
-        if (name is null)
-            return true;
-
-        var world = Game.World;
-
-        // Check spell book
-        for (byte i = 1; i <= SpellBook.MAX_SLOTS; i++)
-        {
-            ref readonly var slot = ref world.SpellBook.GetSlot(i);
-
-            if (slot.IsOccupied && string.Equals(slot.Name, name, StringComparison.OrdinalIgnoreCase))
-                return true;
-        }
-
-        // Check skill book
-        for (byte i = 1; i <= SkillBook.MAX_SLOTS; i++)
-        {
-            ref readonly var slot = ref world.SkillBook.GetSlot(i);
-
-            if (slot.IsOccupied && string.Equals(slot.Name, name, StringComparison.OrdinalIgnoreCase))
-                return true;
-        }
-
-        return false;
-    }
-
-    private EventState ResolveEventState(
-        EventMetadataEntry entry,
-        HashSet<string> completedEventIds,
-        BaseClass baseClass,
-        bool enableMasterQuests)
-    {
-        // Completed: player has a legend mark with key matching this event's ID
-        if (!string.IsNullOrEmpty(entry.Id) && completedEventIds.Contains(entry.Id))
-            return EventState.Completed;
-
-        var attrs = Game.World.Attributes.Current;
-        var playerLevel = attrs?.Level ?? 1;
-
-        // Derive player's circle from level; master flag overrides to circle 6
-        var playerCircle = enableMasterQuests
-            ? 6
-            : playerLevel switch
-            {
-                >= 99 => 5,
-                >= 71 => 4,
-                >= 41 => 3,
-                >= 11 => 2,
-                _     => 1
-            };
-
-        /*//the original client probably does something like this
-        if (playerCircle == 6)
-            return EventState.Unavailable;*/
-
-        // Check qualifying circles — player's circle must be in the list
-        if (!string.IsNullOrEmpty(entry.QualifyingCircles))
-        {
-            var circleChar = (char)('0' + playerCircle);
-
-            if (!entry.QualifyingCircles.Contains(circleChar))
-                return EventState.Unavailable;
-        }
-
-        // Check qualifying classes — player's class must be in the list
-        if (!string.IsNullOrEmpty(entry.QualifyingClasses))
-        {
-            var classChar = (char)('0' + (int)baseClass);
-
-            if (!entry.QualifyingClasses.Contains(classChar))
-                return EventState.Unavailable;
-        }
-
-        // Check prerequisite event — must be completed
-        if (!string.IsNullOrEmpty(entry.PreRequisiteId) && !completedEventIds.Contains(entry.PreRequisiteId))
-            return EventState.Unavailable;
-
-        return EventState.Available;
     }
 
     private void HandleOtherProfile(OtherProfileArgs args)
@@ -919,7 +825,7 @@ public sealed partial class WorldScreen
 
     private void HandleBodyAnimation(BodyAnimationArgs args)
     {
-        var entity = Game.World.GetEntity(args.SourceId);
+        var entity = WorldState.GetEntity(args.SourceId);
 
         if (entity is null)
             return;
@@ -1012,9 +918,9 @@ public sealed partial class WorldScreen
 
         // Cancel any existing effect on the same entity — only one effect per entity at a time
         if (targetEntityId.HasValue)
-            Game.World.ActiveEffects.RemoveAll(e => e.TargetEntityId == targetEntityId);
+            WorldState.ActiveEffects.RemoveAll(e => e.TargetEntityId == targetEntityId);
 
-        Game.World.ActiveEffects.Add(
+        WorldState.ActiveEffects.Add(
             new ActiveEffect
             {
                 EffectId = effectId,

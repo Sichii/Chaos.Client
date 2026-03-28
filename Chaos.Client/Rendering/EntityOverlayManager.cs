@@ -135,7 +135,9 @@ public sealed class EntityOverlayManager
         {
             var entity = sortedEntities[i];
 
-            if (entity.Type != ClientEntityType.Aisling)
+            var isMerchant = (entity.Type == ClientEntityType.Creature) && (entity.NameTagStyle == NameTagStyle.NeutralHover);
+
+            if ((entity.Type != ClientEntityType.Aisling) && !isMerchant)
                 continue;
 
             if (string.IsNullOrEmpty(entity.Name))
@@ -151,7 +153,8 @@ public sealed class EntityOverlayManager
             var nameColor = entity.NameTagStyle switch
             {
                 NameTagStyle.Hostile       => new Color(255, 128, 0),
-                NameTagStyle.FriendlyHover => Color.LimeGreen,
+                _ when isMerchant          => new Color(123, 166, 247),
+                NameTagStyle.FriendlyHover => new Color(123, 166, 247),
                 _                          => Color.White
             };
 
@@ -188,6 +191,20 @@ public sealed class EntityOverlayManager
     }
 
     /// <summary>
+    ///     Removes all overlays for a given entity (name tag, chat bubble, health bar, chant). Call when an entity is removed
+    ///     from the world.
+    /// </summary>
+    public void RemoveEntity(uint entityId)
+    {
+        NameTagCache.Remove(entityId);
+        RemoveChatBubble(entityId);
+        RemoveChantOverlay(entityId);
+
+        if (HealthBars.Remove(entityId, out var bar))
+            bar.Dispose();
+    }
+
+    /// <summary>
     ///     Removes a single entity's cached name tag. Call when an entity is removed from the world.
     /// </summary>
     public void RemoveNameTag(uint entityId) => NameTagCache.Remove(entityId);
@@ -198,28 +215,24 @@ public sealed class EntityOverlayManager
     public void Update(
         GameTime gameTime,
         InputBuffer input,
-        WorldState world,
         Camera camera,
         int mapHeight)
     {
         UpdateChatBubbles(
             gameTime,
             input,
-            world,
             camera,
             mapHeight);
 
         UpdateChantOverlays(
             gameTime,
             input,
-            world,
             camera,
             mapHeight);
 
         UpdateHealthBars(
             gameTime,
             input,
-            world,
             camera,
             mapHeight);
     }
@@ -227,7 +240,6 @@ public sealed class EntityOverlayManager
     private void UpdateChantOverlays(
         GameTime gameTime,
         InputBuffer input,
-        WorldState world,
         Camera camera,
         int mapHeight)
     {
@@ -244,10 +256,14 @@ public sealed class EntityOverlayManager
                 continue;
             }
 
-            var entity = world.GetEntity(entityId);
+            var entity = WorldState.GetEntity(entityId);
 
             if (entity is null)
+            {
+                (expired ??= []).Add(entityId);
+
                 continue;
+            }
 
             var tileWorld = Camera.TileToWorld(entity.TileX, entity.TileY, mapHeight);
             var tileCenterX = tileWorld.X + DaLibConstants.HALF_TILE_WIDTH;
@@ -276,7 +292,6 @@ public sealed class EntityOverlayManager
     private void UpdateChatBubbles(
         GameTime gameTime,
         InputBuffer input,
-        WorldState world,
         Camera camera,
         int mapHeight)
     {
@@ -293,10 +308,14 @@ public sealed class EntityOverlayManager
                 continue;
             }
 
-            var entity = world.GetEntity(entityId);
+            var entity = WorldState.GetEntity(entityId);
 
             if (entity is null)
+            {
+                (expired ??= []).Add(entityId);
+
                 continue;
+            }
 
             var tileWorld = Camera.TileToWorld(entity.TileX, entity.TileY, mapHeight);
             var tileCenterX = tileWorld.X + DaLibConstants.HALF_TILE_WIDTH;
@@ -325,7 +344,6 @@ public sealed class EntityOverlayManager
     private void UpdateHealthBars(
         GameTime gameTime,
         InputBuffer input,
-        WorldState world,
         Camera camera,
         int mapHeight)
     {
@@ -342,7 +360,7 @@ public sealed class EntityOverlayManager
                 continue;
             }
 
-            var entity = world.GetEntity(entityId);
+            var entity = WorldState.GetEntity(entityId);
 
             if (entity is null)
             {

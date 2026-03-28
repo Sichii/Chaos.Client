@@ -1,4 +1,5 @@
 #region
+using Chaos.Client.Collections;
 using Chaos.Client.Controls.Components;
 using Chaos.Client.Rendering;
 using Chaos.Client.ViewModel;
@@ -25,17 +26,17 @@ public sealed class GroupControl : PrefabPanel
     private const int QUIT_BTN_WIDTH = 30;
     private const int QUIT_BTN_HEIGHT = 20;
 
-    private readonly GroupState GroupState;
     private readonly UILabel?[] MemberLabels = new UILabel?[MAX_MEMBERS];
     private readonly UIButton[] QuitButtons = new UIButton[MAX_MEMBERS];
     private bool Dirty;
 
+    private GroupChangedHandler GroupChangedHandler { get; }
+
     public UIButton? OkButton { get; }
 
-    public GroupControl(GroupState groupState)
+    public GroupControl()
         : base("_ngcdlg0", false)
     {
-        GroupState = groupState;
         Name = "Group";
         Visible = false;
 
@@ -98,7 +99,7 @@ public sealed class GroupControl : PrefabPanel
 
             quitButton.OnClick += () =>
             {
-                var members = GroupState.Members;
+                var members = WorldState.Group.Members;
 
                 if (memberIndex < members.Count)
                     OnKick?.Invoke(members[memberIndex]);
@@ -108,17 +109,22 @@ public sealed class GroupControl : PrefabPanel
             AddChild(quitButton);
         }
 
-        GroupState.Changed += () => Dirty = true;
+        GroupChangedHandler = () => Dirty = true;
+        WorldState.Group.Changed += GroupChangedHandler;
         Dirty = true;
+    }
+
+    public override void Dispose()
+    {
+        WorldState.Group.Changed -= GroupChangedHandler;
+
+        base.Dispose();
     }
 
     public override void Draw(SpriteBatch spriteBatch)
     {
         if (!Visible)
             return;
-
-        if (Dirty)
-            Refresh();
 
         base.Draw(spriteBatch);
     }
@@ -132,10 +138,10 @@ public sealed class GroupControl : PrefabPanel
     private void Refresh()
     {
         Dirty = false;
-        var members = GroupState.Members;
-        var leaderName = GroupState.LeaderName;
-        var isLeader = GroupState.IsLeader;
-        var playerName = GroupState.PlayerName;
+        var members = WorldState.Group.Members;
+        var leaderName = WorldState.Group.LeaderName;
+        var isLeader = WorldState.Group.IsLeader;
+        var playerName = WorldState.Group.PlayerName;
 
         var cache = UiRenderer.Instance!;
         var normalTexture = cache.GetPrefabTexture("_ngcdlg0", "B_BTN0", 0);
@@ -167,6 +173,9 @@ public sealed class GroupControl : PrefabPanel
     {
         if (!Visible || !Enabled)
             return;
+
+        if (Dirty)
+            Refresh();
 
         if (input.WasKeyPressed(Keys.Escape))
         {

@@ -93,7 +93,7 @@ public sealed class WorldHudControl : PrefabPanel, IWorldHud
     // Viewport — the area where the game world renders
     public Rectangle ViewportBounds { get; }
 
-    public WorldHudControl(WorldState world, string prefabName = "_nbk_s")
+    public WorldHudControl(string prefabName = "_nbk_s")
         : base(prefabName, false)
     {
         Name = "GameHud";
@@ -237,20 +237,16 @@ public sealed class WorldHudControl : PrefabPanel, IWorldHud
 
         // Orange bar — created before tab panels (MessageHistoryPanel needs its history list),
         // but added as child after so it draws on top
-        OrangeBar = new OrangeBarControl(PrefabSet, world.Chat);
+        OrangeBar = new OrangeBarControl(PrefabSet);
 
         // Tab panels — shared center-bottom area
-        CreateTabPanels(
-            world,
-            invBgTexture,
-            invBgExpandedTexture,
-            livingBgTexture);
+        CreateTabPanels(invBgTexture, invBgExpandedTexture, livingBgTexture);
 
         // Orange bar drawn after tab panels so it renders on top
         AddChild(OrangeBar);
 
         // Subscribe to attributes changes for HP/MP/weight/stats
-        AttributesState = world.Attributes;
+        AttributesState = WorldState.Attributes;
         AttributesState.Changed += OnAttributesChanged;
 
         if (AttributesState.Current is not null)
@@ -331,48 +327,32 @@ public sealed class WorldHudControl : PrefabPanel, IWorldHud
                 newBtn.IsSelected = true;
     }
 
-    private void CreateTabPanels(
-        WorldState world,
-        Texture2D? invBgTexture,
-        Texture2D? invBgExpandedTexture,
-        Texture2D? livingBgTexture)
+    private void CreateTabPanels(Texture2D? invBgTexture, Texture2D? invBgExpandedTexture, Texture2D? livingBgTexture)
     {
         // Tab panels are placed at InventoryBounds (absolute screen position from InventoryRect control).
         var tabRect = InventoryBounds;
 
         // Inventory (A)
-        Inventory = new InventoryPanel(
-            PrefabSet,
-            world.Inventory,
-            invBgTexture,
-            invBgExpandedTexture);
+        Inventory = new InventoryPanel(PrefabSet, invBgTexture, invBgExpandedTexture);
         RegisterTab(HudTab.Inventory, Inventory, tabRect);
 
         // Skills (S) / Skills Alt (Shift+S)
-        SkillBook = new SkillBookPanel(PrefabSet, world.SkillBook, background: invBgTexture);
+        SkillBook = new SkillBookPanel(PrefabSet, background: invBgTexture);
 
-        SkillBookAlt = new SkillBookPanel(
-            PrefabSet,
-            world.SkillBook,
-            true,
-            invBgTexture);
+        SkillBookAlt = new SkillBookPanel(PrefabSet, true, invBgTexture);
         RegisterTab(HudTab.Skills, SkillBook, tabRect);
         RegisterTab(HudTab.SkillsAlt, SkillBookAlt, tabRect);
 
         // Spells (D) / Spells Alt (Shift+D)
-        SpellBook = new SpellBookPanel(PrefabSet, world.SpellBook, background: invBgTexture);
+        SpellBook = new SpellBookPanel(PrefabSet, background: invBgTexture);
 
-        SpellBookAlt = new SpellBookPanel(
-            PrefabSet,
-            world.SpellBook,
-            true,
-            invBgTexture);
+        SpellBookAlt = new SpellBookPanel(PrefabSet, true, invBgTexture);
         RegisterTab(HudTab.Spells, SpellBook, tabRect);
         RegisterTab(HudTab.SpellsAlt, SpellBookAlt, tabRect);
 
         // Chat (F)
         var chatDisplayBounds = GetRect("ChattingRect");
-        ChatDisplay = new ChatPanel(chatDisplayBounds, tabRect, world.Chat);
+        ChatDisplay = new ChatPanel(chatDisplayBounds, tabRect);
         RegisterTab(HudTab.Chat, ChatDisplay, tabRect);
 
         // Stats (G) / Extended Stats (Shift+G) — both load from _nstatus prefab
@@ -388,7 +368,7 @@ public sealed class WorldHudControl : PrefabPanel, IWorldHud
         // Message History (Shift+F) — displays orange bar messages in a tab panel
         var msgHistoryBounds = GetRect("ChattingRect");
 
-        var msgHistoryPanel = new MessageHistoryPanel(msgHistoryBounds, tabRect, world.Chat.GetOrangeBarHistory());
+        var msgHistoryPanel = new MessageHistoryPanel(msgHistoryBounds, tabRect, WorldState.Chat.GetOrangeBarHistory());
         RegisterTab(HudTab.MessageHistory, msgHistoryPanel, tabRect);
 
         // Wire tab button clicks: BTN_INV0=A, BTN_INV1=S, BTN_INV2=D, BTN_INV3=F, BTN_INV4=G, BTN_INV5=H

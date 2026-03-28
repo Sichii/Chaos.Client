@@ -1,44 +1,44 @@
 #region
+using System.Collections.Frozen;
 using Chaos.Client.Data;
 using DALib.Data;
-using DALib.Definitions;
 using DALib.Drawing;
 using DALib.Extensions;
-using Microsoft.Xna.Framework;
-using Microsoft.Xna.Framework.Graphics;
+using DALib.Utility;
+using SkiaSharp;
 #endregion
 
 namespace Chaos.Client.Rendering;
 
 public sealed class PaletteCyclingManager : IDisposable
 {
-    private readonly Dictionary<int, CyclingSlot> BgSlots = new();
-    private readonly Dictionary<int, Color[][]> BgVariants = new();
-    private readonly Dictionary<int, CyclingSlot> FgSlots = new();
-    private readonly Dictionary<int, Texture2D[]> FgVariants = new();
-    private TextureAtlas? BgAtlas;
-    private Dictionary<int, Texture2D>? FgCache;
+    private const int VARIANT_KEY_STEP_MULTIPLIER = 256;
+    private FrozenDictionary<int, CyclingSlot> BgSlots = FrozenDictionary<int, CyclingSlot>.Empty;
+    private FrozenDictionary<int, AtlasRegion[]> BgVariantRegions = FrozenDictionary<int, AtlasRegion[]>.Empty;
+    private FrozenDictionary<int, CyclingSlot> FgSlots = FrozenDictionary<int, CyclingSlot>.Empty;
+    private FrozenDictionary<int, AtlasRegion[]> FgVariantRegions = FrozenDictionary<int, AtlasRegion[]>.Empty;
     private int LastTick;
+
+    /// <summary>
+    ///     Current atlas region overrides for cycling background tiles. Keyed by tile ID, updated each cycle advance. Checked
+    ///     by MapRenderer before the default atlas lookup.
+    /// </summary>
+    public Dictionary<int, AtlasRegion> BgOverrides { get; } = new();
+
+    /// <summary>
+    ///     Current atlas region overrides for cycling foreground tiles. Keyed by tile ID, updated each cycle advance. Checked
+    ///     by MapRenderer before the default atlas lookup.
+    /// </summary>
+    public Dictionary<int, AtlasRegion> FgOverrides { get; } = new();
 
     public void Dispose()
     {
-        // Remove cycling fg tiles from shared cache to prevent double-dispose by MapRenderer
-        if (FgCache is not null)
-            foreach (var tileId in FgVariants.Keys)
-                FgCache.Remove(tileId);
-
-        foreach (var variants in FgVariants.Values)
-        {
-            foreach (var texture in variants)
-                texture.Dispose();
-        }
-
-        FgVariants.Clear();
-        BgVariants.Clear();
-        BgSlots.Clear();
-        FgSlots.Clear();
-        BgAtlas = null;
-        FgCache = null;
+        BgVariantRegions = FrozenDictionary<int, AtlasRegion[]>.Empty;
+        FgVariantRegions = FrozenDictionary<int, AtlasRegion[]>.Empty;
+        BgOverrides.Clear();
+        FgOverrides.Clear();
+        BgSlots = FrozenDictionary<int, CyclingSlot>.Empty;
+        FgSlots = FrozenDictionary<int, CyclingSlot>.Empty;
     }
 
     private static bool AdvanceSlot(CyclingSlot slot)
@@ -66,6 +66,8 @@ public sealed class PaletteCyclingManager : IDisposable
 
         return result;
     }
+
+    private static int EncodeVariantKey(int tileId, int step) => -(tileId * VARIANT_KEY_STEP_MULTIPLIER + step);
 
     private static void ExpandAnimatedTiles(
         Func<int, TileAnimationEntry?> getAnimation,
@@ -102,11 +104,19 @@ public sealed class PaletteCyclingManager : IDisposable
         return a;
     }
 
-    public void Initialize(MapFile mapFile, TextureAtlas? bgAtlas, Dictionary<int, Texture2D> fgCache)
-    {
-        BgAtlas = bgAtlas;
-        FgCache = fgCache;
+    private static int Lcm(int a, int b) => a / Gcd(a, b) * b;
 
+    /// <summary>
+    ///     Phase 1: Scans the map for cycling tiles, pre-renders all step variants as SKImages and adds them to the respective
+    ///     image caches (which feed the atlas builds). Must be called BEFORE atlases are built.
+    /// </summary>
+    public void PrepareVariants(
+        MapFile mapFile,
+        Dictionary<int, SKImage> bgImageCache,
+        Lock bgImageCacheLock,
+        Dictionary<int, SKImage> fgImageCache,
+        Lock fgImageCacheLock)
+    {
         var bgLookup = DataContext.Tiles.BackgroundPaletteLookup;
         var fgLookup = DataContext.Tiles.ForegroundPaletteLookup;
 
@@ -147,14 +157,43 @@ public sealed class PaletteCyclingManager : IDisposable
         ExpandAnimatedTiles(DataContext.Tiles.GetBgAnimation, registeredBg, bgTilesByPalette);
         ExpandAnimatedTiles(DataContext.Tiles.GetFgAnimation, registeredFg, fgTilesByPalette);
 
-        PreRenderBgVariants(bgLookup, bgTilesByPalette);
-        PreRenderFgVariants(fgLookup, fgTilesByPalette);
+        var bgSlots = new Dictionary<int, CyclingSlot>();
+        var fgSlots = new Dictionary<int, CyclingSlot>();
+
+        PreRenderVariantsToCache(
+            bgLookup,
+            bgTilesByPalette,
+            bgImageCache,
+            bgImageCacheLock,
+            bgSlots,
+            static tileId => DataContext.Tiles.GetBackgroundTile(tileId),
+            static (entity, palette) => Graphics.RenderTile(entity, palette));
+
+        PreRenderVariantsToCache(
+            fgLookup,
+            fgTilesByPalette,
+            fgImageCache,
+            fgImageCacheLock,
+            fgSlots,
+            static tileId => DataContext.Tiles.GetForegroundTile(tileId),
+            static (entity, palette) => Graphics.RenderImage(entity, palette));
+
+        BgSlots = bgSlots.ToFrozenDictionary();
+        FgSlots = fgSlots.ToFrozenDictionary();
     }
 
-    private static int Lcm(int a, int b) => a / Gcd(a, b) * b;
-
-    private void PreRenderBgVariants(PaletteLookup lookup, Dictionary<int, List<int>> tilesByPalette)
+    private static void PreRenderVariantsToCache<T>(
+        PaletteLookup lookup,
+        Dictionary<int, List<int>> tilesByPalette,
+        Dictionary<int, SKImage> imageCache,
+        Lock imageCacheLock,
+        Dictionary<int, CyclingSlot> slots,
+        Func<int, Palettized<T>?> getTile,
+        Func<T, Palette, SKImage> render)
     {
+        // Collect all render work items: (encodedKey, entity, cycledPalette) — each is independent
+        var workItems = new List<(int EncodedKey, T Entity, Palette CycledPalette)>();
+
         foreach ((var paletteNumber, var tileIds) in tilesByPalette)
         {
             if (tileIds.Count == 0)
@@ -171,113 +210,104 @@ public sealed class PaletteCyclingManager : IDisposable
             var totalSteps = ComputeTotalSteps(cycling);
             var period = cycling[0].Period;
 
-            var tiles = new Dictionary<int, Tile>();
+            var entities = new Dictionary<int, T>();
 
             foreach (var tileId in tileIds)
             {
-                var palettized = DataContext.Tiles.GetBackgroundTile(tileId);
+                var palettized = getTile(tileId);
 
                 if (palettized is not null)
-                    tiles[tileId] = palettized.Entity;
+                    entities[tileId] = palettized.Entity;
             }
 
-            for (var step = 0; step < totalSteps; step++)
+            // Step 0 is the base tile already in imageCache — only add steps 1..N-1 as variants
+            for (var step = 1; step < totalSteps; step++)
             {
                 var cycledPalette = originalPalette;
 
                 foreach (var entry in cycling)
                     cycledPalette = cycledPalette.Cycle((byte)entry.StartIndex, (byte)entry.EndIndex, step);
 
-                foreach ((var tileId, var tile) in tiles)
-                {
-                    if (!BgVariants.TryGetValue(tileId, out var variants))
-                    {
-                        variants = new Color[totalSteps][];
-                        BgVariants[tileId] = variants;
-                    }
-
-                    using var image = Graphics.RenderTile(tile, cycledPalette);
-                    using var texture = TextureConverter.ToTexture2D(image);
-
-                    var buffer = new Color[CONSTANTS.TILE_WIDTH * CONSTANTS.TILE_HEIGHT];
-                    texture.GetData(buffer);
-                    variants[step] = buffer;
-                }
+                foreach ((var tileId, var entity) in entities)
+                    workItems.Add((EncodeVariantKey(tileId, step), entity, cycledPalette));
             }
 
-            BgSlots[paletteNumber] = new CyclingSlot
+            slots[paletteNumber] = new CyclingSlot
             {
                 TotalSteps = totalSteps,
                 Period = period,
                 TileIds = [.. tileIds]
             };
         }
+
+        // Render all variants in parallel (CPU-only, thread-safe)
+        Parallel.ForEach(
+            workItems,
+            item =>
+            {
+                var image = render(item.Entity, item.CycledPalette);
+
+                using (imageCacheLock.EnterScope())
+                    imageCache[item.EncodedKey] = image;
+            });
     }
 
-    private void PreRenderFgVariants(PaletteLookup lookup, Dictionary<int, List<int>> tilesByPalette)
+    /// <summary>
+    ///     Phase 2: Resolves atlas regions for all pre-rendered variants. Must be called AFTER atlases are built.
+    /// </summary>
+    public void ResolveRegions(TextureAtlas? bgAtlas, TextureAtlas? fgAtlas)
     {
-        foreach ((var paletteNumber, var tileIds) in tilesByPalette)
+        if (bgAtlas is not null)
+            BgVariantRegions = ResolveVariantRegions(bgAtlas, BgSlots, BgOverrides);
+
+        if (fgAtlas is not null)
+            FgVariantRegions = ResolveVariantRegions(fgAtlas, FgSlots, FgOverrides);
+    }
+
+    private static FrozenDictionary<int, AtlasRegion[]> ResolveVariantRegions(
+        TextureAtlas atlas,
+        FrozenDictionary<int, CyclingSlot> slots,
+        Dictionary<int, AtlasRegion> overrides)
+    {
+        var variantRegions = new Dictionary<int, AtlasRegion[]>();
+
+        foreach ((_, var slot) in slots)
         {
-            if (tileIds.Count == 0)
-                continue;
-
-            var cycling = lookup.Table.GetCyclingEntries(paletteNumber);
-
-            if (cycling is null)
-                continue;
-
-            if (!lookup.Palettes.TryGetValue(paletteNumber, out var originalPalette))
-                continue;
-
-            var totalSteps = ComputeTotalSteps(cycling);
-            var period = cycling[0].Period;
-
-            var hpfFiles = new Dictionary<int, HpfFile>();
-
-            foreach (var tileId in tileIds)
+            foreach (var tileId in slot.TileIds)
             {
-                var palettized = DataContext.Tiles.GetForegroundTile(tileId);
+                var baseRegion = atlas.TryGetRegion(tileId);
 
-                if (palettized is not null)
-                    hpfFiles[tileId] = palettized.Entity;
-            }
+                if (!baseRegion.HasValue)
+                    continue;
 
-            for (var step = 0; step < totalSteps; step++)
-            {
-                var cycledPalette = originalPalette;
+                var regions = new AtlasRegion[slot.TotalSteps];
+                regions[0] = baseRegion.Value;
 
-                foreach (var entry in cycling)
-                    cycledPalette = cycledPalette.Cycle((byte)entry.StartIndex, (byte)entry.EndIndex, step);
+                var allResolved = true;
 
-                foreach ((var tileId, var hpf) in hpfFiles)
+                for (var step = 1; step < slot.TotalSteps; step++)
                 {
-                    if (!FgVariants.TryGetValue(tileId, out var variants))
+                    var variantRegion = atlas.TryGetRegion(EncodeVariantKey(tileId, step));
+
+                    if (!variantRegion.HasValue)
                     {
-                        variants = new Texture2D[totalSteps];
-                        FgVariants[tileId] = variants;
+                        allResolved = false;
+
+                        break;
                     }
 
-                    using var image = Graphics.RenderImage(hpf, cycledPalette);
-                    variants[step] = TextureConverter.ToTexture2D(image);
+                    regions[step] = variantRegion.Value;
                 }
+
+                if (!allResolved)
+                    continue;
+
+                variantRegions[tileId] = regions;
+                overrides[tileId] = regions[0];
             }
-
-            // Replace original textures in cache with step-0 variants (visually identical, now owned by us)
-            foreach (var tileId in hpfFiles.Keys)
-            {
-                if (FgCache!.TryGetValue(tileId, out var original))
-                    original.Dispose();
-
-                FgCache[tileId] = FgVariants[tileId][0];
-            }
-
-            FgSlots[paletteNumber] = new CyclingSlot
-            {
-                TotalSteps = totalSteps,
-                Period = period,
-                TileIds = [.. tileIds]
-            };
         }
+
+        return variantRegions.ToFrozenDictionary();
     }
 
     private static void TryRegisterTile(
@@ -315,32 +345,20 @@ public sealed class PaletteCyclingManager : IDisposable
 
         LastTick = animationTick;
 
+        // BG path: swap atlas region pointers — zero GPU work
         foreach ((_, var slot) in BgSlots)
         {
             if (!AdvanceSlot(slot))
                 continue;
 
-            if (BgAtlas is null)
-                continue;
-
             foreach (var tileId in slot.TileIds)
             {
-                if (!BgVariants.TryGetValue(tileId, out var variants))
-                    continue;
-
-                var region = BgAtlas.TryGetRegion(tileId);
-
-                if (region.HasValue)
-                    region.Value.Atlas.SetData(
-                        0,
-                        region.Value.SourceRect,
-                        variants[slot.CurrentStep],
-                        0,
-                        CONSTANTS.TILE_WIDTH * CONSTANTS.TILE_HEIGHT);
+                if (BgVariantRegions.TryGetValue(tileId, out var regions))
+                    BgOverrides[tileId] = regions[slot.CurrentStep];
             }
         }
 
-        // Fg path: zero GPU work, just swap cached texture pointers
+        // FG path: swap atlas region pointers — zero GPU work
         foreach ((_, var slot) in FgSlots)
         {
             if (!AdvanceSlot(slot))
@@ -348,10 +366,8 @@ public sealed class PaletteCyclingManager : IDisposable
 
             foreach (var tileId in slot.TileIds)
             {
-                if (!FgVariants.TryGetValue(tileId, out var variants))
-                    continue;
-
-                FgCache![tileId] = variants[slot.CurrentStep];
+                if (FgVariantRegions.TryGetValue(tileId, out var regions))
+                    FgOverrides[tileId] = regions[slot.CurrentStep];
             }
         }
     }

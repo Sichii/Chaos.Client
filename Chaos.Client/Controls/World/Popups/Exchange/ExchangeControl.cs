@@ -1,6 +1,6 @@
 #region
+using Chaos.Client.Collections;
 using Chaos.Client.Controls.Components;
-using Chaos.Client.ViewModel;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Input;
 #endregion
@@ -15,7 +15,6 @@ public sealed class ExchangeControl : PrefabPanel
 {
     private const int MAX_ITEMS_PER_SIDE = 4;
     private const int ITEM_ROW_HEIGHT = 36;
-    private readonly ViewModel.Exchange ExchangeState;
     private readonly Rectangle MyExchangeRect;
     private readonly UILabel? MyIdLabel;
 
@@ -37,14 +36,13 @@ public sealed class ExchangeControl : PrefabPanel
     public UIButton? CancelButton { get; }
     public UIButton? OkButton { get; }
 
-    public uint OtherUserId => ExchangeState.OtherUserId;
+    public uint OtherUserId => WorldState.Exchange.OtherUserId;
 
-    public ExchangeControl(ViewModel.Exchange exchange, Rectangle viewportBounds)
+    public ExchangeControl(Rectangle viewportBounds)
         : base("_nexch")
     {
         Name = "Exchange";
         Visible = false;
-        ExchangeState = exchange;
         ViewportBounds = viewportBounds;
 
         OkButton = CreateButton("OK");
@@ -74,11 +72,11 @@ public sealed class ExchangeControl : PrefabPanel
         CreateItemControls(YourItems, YourExchangeRect);
 
         // Subscribe to state events
-        ExchangeState.Started += OnExchangeStarted;
-        ExchangeState.ItemAdded += OnExchangeItemAdded;
-        ExchangeState.GoldSet += OnExchangeGoldSet;
-        ExchangeState.OtherAccepted += OnExchangeOtherAccepted;
-        ExchangeState.Closed += OnExchangeClosed;
+        WorldState.Exchange.Started += OnExchangeStarted;
+        WorldState.Exchange.ItemAdded += OnExchangeItemAdded;
+        WorldState.Exchange.GoldSet += OnExchangeGoldSet;
+        WorldState.Exchange.OtherAccepted += OnExchangeOtherAccepted;
+        WorldState.Exchange.Closed += OnExchangeClosed;
     }
 
     private void ClearAllItems()
@@ -109,11 +107,11 @@ public sealed class ExchangeControl : PrefabPanel
 
     public override void Dispose()
     {
-        ExchangeState.Started -= OnExchangeStarted;
-        ExchangeState.ItemAdded -= OnExchangeItemAdded;
-        ExchangeState.GoldSet -= OnExchangeGoldSet;
-        ExchangeState.OtherAccepted -= OnExchangeOtherAccepted;
-        ExchangeState.Closed -= OnExchangeClosed;
+        WorldState.Exchange.Started -= OnExchangeStarted;
+        WorldState.Exchange.ItemAdded -= OnExchangeItemAdded;
+        WorldState.Exchange.GoldSet -= OnExchangeGoldSet;
+        WorldState.Exchange.OtherAccepted -= OnExchangeOtherAccepted;
+        WorldState.Exchange.Closed -= OnExchangeClosed;
 
         base.Dispose();
     }
@@ -133,7 +131,7 @@ public sealed class ExchangeControl : PrefabPanel
 
     private void OnExchangeGoldSet(bool rightSide)
     {
-        var amount = rightSide ? ExchangeState.OtherGold : ExchangeState.MyGold;
+        var amount = rightSide ? WorldState.Exchange.OtherGold : WorldState.Exchange.MyGold;
         var label = rightSide ? YourMoneyLabel : MyMoneyLabel;
         label?.Text = amount.ToString("N0");
     }
@@ -143,7 +141,7 @@ public sealed class ExchangeControl : PrefabPanel
         if (index >= MAX_ITEMS_PER_SIDE)
             return;
 
-        var data = ExchangeState.GetItem(rightSide, index);
+        var data = WorldState.Exchange.GetItem(rightSide, index);
 
         if (data.HasValue)
         {
@@ -161,7 +159,7 @@ public sealed class ExchangeControl : PrefabPanel
         ClearAllItems();
 
         MyIdLabel?.Text = PlayerName;
-        YourIdLabel?.Text = ExchangeState.OtherUserName;
+        YourIdLabel?.Text = WorldState.Exchange.OtherUserName;
         MyMoneyLabel?.Text = "0";
         YourMoneyLabel?.Text = "0";
         YourAckImage?.Visible = false;

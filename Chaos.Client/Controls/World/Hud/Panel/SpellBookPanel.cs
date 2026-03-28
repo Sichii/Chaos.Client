@@ -1,8 +1,8 @@
 #region
+using Chaos.Client.Collections;
 using Chaos.Client.Controls.World.Hud.Panel.Slots;
 using Chaos.Client.Data.Models;
 using Chaos.Client.Rendering;
-using Chaos.Client.ViewModel;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 #endregion
@@ -16,11 +16,9 @@ namespace Chaos.Client.Controls.World.Hud.Panel;
 public sealed class SpellBookPanel : PanelBase
 {
     private const int MAX_SLOTS = 89;
-    private readonly SpellBook SpellBook;
 
     public SpellBookPanel(
         ControlPrefabSet hudPrefabSet,
-        SpellBook spellBook,
         bool secondary = false,
         Texture2D? background = null,
         int normalVisibleSlots = DEFAULT_VISIBLE_SLOTS)
@@ -33,9 +31,8 @@ public sealed class SpellBookPanel : PanelBase
             normalVisibleSlots: normalVisibleSlots)
     {
         Name = secondary ? "SpellBookAlt" : "SpellBook";
-        SpellBook = spellBook;
-        SpellBook.SlotChanged += OnSlotChanged;
-        SpellBook.Cleared += OnCleared;
+        WorldState.SpellBook.SlotChanged += OnSlotChanged;
+        WorldState.SpellBook.Cleared += OnCleared;
     }
 
     protected override PanelSlot CreateSlot(byte slotNumber, string name, CooldownStyle cooldownStyle)
@@ -48,8 +45,8 @@ public sealed class SpellBookPanel : PanelBase
 
     public override void Dispose()
     {
-        SpellBook.SlotChanged -= OnSlotChanged;
-        SpellBook.Cleared -= OnCleared;
+        WorldState.SpellBook.SlotChanged -= OnSlotChanged;
+        WorldState.SpellBook.Cleared -= OnCleared;
 
         foreach (var slot in Slots)
         {
@@ -85,7 +82,7 @@ public sealed class SpellBookPanel : PanelBase
         if (control is null)
             return;
 
-        var data = SpellBook.GetSlot(slot);
+        var data = WorldState.SpellBook.GetSlot(slot);
 
         // Dispose old textures — sprite may have changed
         control.CooldownTexture?.Dispose();
@@ -136,11 +133,11 @@ public sealed class SpellBookPanel : PanelBase
         {
             var slot = (byte)(i + SlotOffset + 1);
             var control = Slots[i];
-            var isOnCooldown = SpellBook.IsOnCooldown(slot);
+            var isOnCooldown = WorldState.SpellBook.IsOnCooldown(slot);
 
             if (isOnCooldown && control.CooldownTexture is null && control.NormalTexture is not null)
             {
-                var data = SpellBook.GetSlot(slot);
+                var data = WorldState.SpellBook.GetSlot(slot);
 
                 if (data.IsOccupied)
                     control.CooldownTexture = RenderTintedIcon(data.Sprite);

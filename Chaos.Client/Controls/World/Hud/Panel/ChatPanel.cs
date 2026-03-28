@@ -1,4 +1,5 @@
 #region
+using Chaos.Client.Collections;
 using Chaos.Client.Controls.Components;
 using Chaos.Client.Controls.Generic;
 using Chaos.Client.Rendering;
@@ -18,7 +19,6 @@ public sealed class ChatPanel : ExpandablePanel
     private const int MAX_CHAT_LINES = 200;
     private const int GLYPH_HEIGHT = 12;
     private readonly List<ChatLine> ChatLog = [];
-    private readonly Chat ChatState;
     private readonly TextElement[] Lines;
     private readonly Rectangle NormalDisplayBounds;
     private readonly ScrollBarControl ScrollBar;
@@ -30,12 +30,11 @@ public sealed class ChatPanel : ExpandablePanel
     private int RenderedVersion = -1;
     private int ScrollOffset;
 
-    public ChatPanel(Rectangle displayBounds, Rectangle panelBounds, Chat chat)
+    public ChatPanel(Rectangle displayBounds, Rectangle panelBounds)
     {
         Name = "Chat";
         NormalDisplayBounds = displayBounds;
         DisplayBounds = displayBounds;
-        ChatState = chat;
 
         Background = UiRenderer.Instance!.GetSpfTexture("_nchatbk.spf");
 
@@ -63,7 +62,7 @@ public sealed class ChatPanel : ExpandablePanel
         };
 
         AddChild(ScrollBar);
-        ChatState.MessageAdded += OnMessageAdded;
+        WorldState.Chat.MessageAdded += OnMessageAdded;
     }
 
     private void AddMessage(string text, Color color)
@@ -116,7 +115,7 @@ public sealed class ChatPanel : ExpandablePanel
 
     public override void Dispose()
     {
-        ChatState.MessageAdded -= OnMessageAdded;
+        WorldState.Chat.MessageAdded -= OnMessageAdded;
 
         base.Dispose();
     }
@@ -133,8 +132,6 @@ public sealed class ChatPanel : ExpandablePanel
 
         if ((maxLines == 0) || (ChatLog.Count == 0))
             return;
-
-        RefreshDisplay();
 
         var baseY = DisplayBounds.Y + DisplayBounds.Height;
 
@@ -202,6 +199,8 @@ public sealed class ChatPanel : ExpandablePanel
             ScrollBar.Value = ScrollOffset;
             LogVersion++;
         }
+
+        RefreshDisplay();
     }
 
     private record struct ChatLine(string Text, Color Color);

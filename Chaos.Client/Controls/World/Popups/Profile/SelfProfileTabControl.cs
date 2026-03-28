@@ -1,10 +1,10 @@
 #region
+using Chaos.Client.Collections;
 using Chaos.Client.Controls.Components;
 using Chaos.Client.Data;
 using Chaos.Client.Data.Models;
 using Chaos.Client.Models;
 using Chaos.Client.Rendering;
-using Chaos.Client.ViewModel;
 using Chaos.DarkAges.Definitions;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Input;
@@ -33,7 +33,6 @@ public sealed class SelfProfileTabControl : PrefabPanel
 
     private readonly Rectangle ContentRect;
 
-    private readonly Equipment EquipmentState;
     private readonly UIButton?[] TabButtons = new UIButton?[TAB_COUNT];
     private readonly Dictionary<StatusBookTab, PrefabPanel?> TabPages = new();
 
@@ -41,14 +40,13 @@ public sealed class SelfProfileTabControl : PrefabPanel
 
     public UIButton? CloseButton { get; }
 
-    public SelfProfileTabControl(Equipment equipment)
+    public SelfProfileTabControl()
         : base("_nui", false)
     {
         Name = "StatusBook";
         Visible = false;
-        EquipmentState = equipment;
-        EquipmentState.SlotChanged += OnEquipmentSlotChanged;
-        EquipmentState.SlotCleared += OnEquipmentSlotCleared;
+        WorldState.Equipment.SlotChanged += OnEquipmentSlotChanged;
+        WorldState.Equipment.SlotCleared += OnEquipmentSlotCleared;
         X = 0;
         Y = 0;
 
@@ -172,8 +170,8 @@ public sealed class SelfProfileTabControl : PrefabPanel
 
     public override void Dispose()
     {
-        EquipmentState.SlotChanged -= OnEquipmentSlotChanged;
-        EquipmentState.SlotCleared -= OnEquipmentSlotCleared;
+        WorldState.Equipment.SlotChanged -= OnEquipmentSlotChanged;
+        WorldState.Equipment.SlotCleared -= OnEquipmentSlotCleared;
 
         base.Dispose();
     }
@@ -263,10 +261,18 @@ public sealed class SelfProfileTabControl : PrefabPanel
     /// <summary>
     ///     Sets the event/quest entries on the Events tab page.
     /// </summary>
-    public void SetEvents(IReadOnlyList<EventMetadataEntry> events, Func<EventMetadataEntry, EventState> stateResolver)
+    public void SetEvents(
+        IReadOnlyList<EventMetadataEntry> events,
+        HashSet<string> completedEventIds,
+        BaseClass baseClass,
+        bool enableMasterQuests)
     {
         if (GetOrCreatePage<SelfProfileEventsTab>(StatusBookTab.Events) is { } page)
-            page.SetEvents(events, stateResolver);
+            page.SetEvents(
+                events,
+                completedEventIds,
+                baseClass,
+                enableMasterQuests);
     }
 
     /// <summary>
@@ -318,7 +324,7 @@ public sealed class SelfProfileTabControl : PrefabPanel
     #region Equipment API
     private void OnEquipmentSlotChanged(EquipmentSlot slot)
     {
-        var data = EquipmentState.GetSlot(slot);
+        var data = WorldState.Equipment.GetSlot(slot);
 
         if (data is null)
             return;
@@ -348,7 +354,7 @@ public sealed class SelfProfileTabControl : PrefabPanel
 
         equipPage.ClearAllSlots();
 
-        foreach ((var slot, var info) in EquipmentState.GetAll())
+        foreach ((var slot, var info) in WorldState.Equipment.GetAll())
             equipPage.SetSlot(slot, info.Sprite, info.Name);
     }
 
@@ -454,10 +460,10 @@ public sealed class SelfProfileTabControl : PrefabPanel
     /// <summary>
     ///     Populates the Skills tab with parsed ability metadata.
     /// </summary>
-    public void SetAbilityMetadata(AbilityMetadata metadata, Func<AbilityMetadataEntry, AbilityIconState> iconStateResolver)
+    public void SetAbilityMetadata(AbilityMetadata metadata)
     {
         if (GetOrCreatePage<SelfProfileAbilityMetadataTab>(StatusBookTab.Skills) is { } page)
-            page.SetAbilityMetadata(metadata, iconStateResolver);
+            page.SetAbilityMetadata(metadata);
     }
 
     /// <summary>

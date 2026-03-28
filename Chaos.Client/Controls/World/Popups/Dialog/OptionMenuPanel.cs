@@ -10,59 +10,72 @@ using Microsoft.Xna.Framework.Input;
 namespace Chaos.Client.Controls.World.Popups.Dialog;
 
 /// <summary>
-///     Floating option menu panel for NPC dialog/menu interactions. Displays a list of clickable text options with a
-///     9-slice frame background, centered on screen. Used for DialogMenu, CreatureMenu, Menu, and MenuWithArgs interaction
-///     types.
+///     Floating option menu panel for NPC dialog/menu interactions. DlgBack2.spf tiled background with nd_f01–f08_1
+///     decorative frame and nd_n00/01/02 3-slice option row stripes. Dynamic width, right-aligned and bottom-anchored
+///     above the dialog bar. Used for DialogMenu, CreatureMenu, Menu, and MenuWithArgs.
 /// </summary>
 public sealed class OptionMenuPanel : UIPanel
 {
-    private const int PANEL_WIDTH = 426;
-    private const int ROW_HEIGHT = 18;
-    private const int CONTENT_PADDING_TOP = 6;
-    private const int CONTENT_PADDING_BOTTOM = 28;
-    private const int BTN_HEIGHT = 22;
-    private const int BTN_GAP = 4;
-
-    // Content area horizontal bounds from lnpcd2 template
-    private const int CONTENT_LEFT = 13;
-    private const int CONTENT_RIGHT = 413;
-    private const int CONTENT_WIDTH = CONTENT_RIGHT - CONTENT_LEFT;
-
-    // Clickable text area inset from lnpcd2 TextMenuButton template
-    private const int TEXT_LEFT = 20;
-    private const int TEXT_RIGHT = 406;
-    private const int TEXT_WIDTH = TEXT_RIGHT - TEXT_LEFT;
-    private const int TEXT_ROW_HEIGHT = 14;
-
-    // OK button template rect from lnpcd2 Btn1 (relative to panel)
+    private const int MIN_STRIPE_WIDTH = 185;
+    private const int ROW_HEIGHT = 13;
+    private const int STRIPE_GAP = 5;
+    private const int TEXT_PADDING_H = 10;
     private const int BTN_WIDTH = 61;
+    private const int BTN_HEIGHT = 22;
 
-    // 9-slice piece names in Setoa.dat (with .spf extension for archive lookup)
-    private static readonly string[] FRAME_SPF_NAMES =
-    [
-        "nd_f01.spf", // 0: top-left corner
-        "nd_f02.spf", // 1: top edge
-        "nd_f03.spf", // 2: top-right corner
-        "nd_f04.spf", // 3: left edge
-        "nd_f05.spf", // 4: center fill
-        "nd_f06.spf", // 5: right edge
-        "nd_f07.spf", // 6: bottom-left corner
-        "nd_f08.spf", // 7: bottom edge
-        "nd_f08_1.spf" // 8: bottom-right corner
-    ];
+    // Frame corner dimensions (for drawing corners)
+    private const int CORNER_TL_W = 31;
+    private const int CORNER_TL_H = 24;
+    private const int CORNER_TR_W = 31;
+    private const int CORNER_BL_H = 47;
+    private const int CORNER_BR_W = 31;
+    private const int CORNER_BR_H = 47;
 
-    private readonly Texture2D?[] FrameTextures = new Texture2D?[9];
+    // Border thickness from edge tiles (content measured from inside of these)
+    private const int BORDER_TOP = 6; // nd_f05 height
+    private const int BORDER_LEFT = 13; // nd_f06 width
+    private const int BORDER_RIGHT = 31; // nd_f07 width
+    private const int BORDER_BOTTOM = 47; // nd_f08/nd_f08_1 height
+
+    // Content padding from inside of border to stripes
+    private const int CONTENT_PADDING_TOP = 2;
+    private const int CONTENT_PADDING_BOTTOM = -16;
+    private const int CONTENT_PADDING_LEFT = 7;
+    private const int CONTENT_PADDING_RIGHT = -11;
+
+    // Bottom of panel aligns with top of the dialog bottom bar
+    private const int BOTTOM_ANCHOR_Y = 372;
+
     private readonly UIButton? OkButton;
-    private readonly List<OptionEntry> Options = [];
-    private bool FrameTexturesLoaded;
-    private int HoveredIndex = -1;
+    private readonly List<OptionLabel> OptionLabels = [];
+    private Texture2D? BackgroundTile; // DlgBack2.spf
+    private Texture2D? CornerBL; // nd_f03 (31x47)
+    private Texture2D? CornerBR; // nd_f04 (31x47)
+
+    // Frame textures: corners, edges, background
+    private Texture2D? CornerTL; // nd_f01 (31x24)
+    private Texture2D? CornerTR; // nd_f02 (31x24)
+    private Texture2D? EdgeBottomOk; // nd_f08 (18x47) tile horizontally behind OK
+    private Texture2D? EdgeBottomRivets; // nd_f08_1 (18x47) tile horizontally — gold rivets
+    private Texture2D? EdgeLeft; // nd_f06 (13x18) tile vertically
+    private Texture2D? EdgeRight; // nd_f07 (31x18) tile vertically
+    private Texture2D? EdgeTop; // nd_f05 (18x6) tile horizontally
+
+    // 3-slice stripe pieces
+    private Texture2D? StripeLeft;
+    private Texture2D? StripeLeftOn;
+    private Texture2D? StripeMid;
+    private Texture2D? StripeMidOn;
+    private Texture2D? StripeRight;
+    private Texture2D? StripeRightOn;
+    private bool TexturesLoaded;
 
     public OptionMenuPanel()
     {
         Name = "OptionMenu";
         Visible = false;
 
-        // Create OK button from lnpcd2 prefab Btn1 (_nbtn.spf frames 3-5)
+        // Create OK button from lnpcd2 prefab Btn1 — shown but disabled in option menus
         var prefabSet = DataContext.UserControls.Get("lnpcd2");
 
         if (prefabSet?.Contains("Btn1") == true)
@@ -76,12 +89,24 @@ public sealed class OptionMenuPanel : UIPanel
                 Width = BTN_WIDTH,
                 Height = BTN_HEIGHT,
                 NormalTexture = btnPrefab.Images.Count > 0 ? cache.GetPrefabTexture("lnpcd2", "Btn1", 0) : null,
-                PressedTexture = btnPrefab.Images.Count > 1 ? cache.GetPrefabTexture("lnpcd2", "Btn1", 1) : null
+                PressedTexture = btnPrefab.Images.Count > 1 ? cache.GetPrefabTexture("lnpcd2", "Btn1", 1) : null,
+                DisabledTexture = cache.GetSpfTexture("_nbtn.spf", 5),
+                Enabled = false
             };
 
-            OkButton.OnClick += () => OnClose?.Invoke();
             AddChild(OkButton);
         }
+    }
+
+    private void ClearOptionLabels()
+    {
+        foreach (var label in OptionLabels)
+        {
+            Children.Remove(label);
+            label.Dispose();
+        }
+
+        OptionLabels.Clear();
     }
 
     public override void Draw(SpriteBatch spriteBatch)
@@ -89,231 +114,233 @@ public sealed class OptionMenuPanel : UIPanel
         if (!Visible)
             return;
 
-        EnsureFrameTextures();
+        EnsureTextures();
 
         var sx = ScreenX;
         var sy = ScreenY;
+        var w = Width;
+        var h = Height;
 
-        // Draw the 9-slice frame filling the panel bounds
-        DrawNineSlice(
-            spriteBatch,
-            sx,
-            sy,
-            Width,
-            Height);
+        // 1. Tile DlgBack2.spf across entire panel as background fill
+        if (BackgroundTile is not null)
+            TileTexture(
+                spriteBatch,
+                BackgroundTile,
+                sx,
+                sy,
+                w,
+                h);
 
-        // Draw option text rows
-        var optionStartY = sy + CONTENT_PADDING_TOP;
+        // 2. Frame edges (tiled between corners)
+        if (EdgeTop is not null)
+            TileTexture(
+                spriteBatch,
+                EdgeTop,
+                sx + CORNER_TL_W,
+                sy,
+                w - CORNER_TL_W - CORNER_TR_W,
+                EdgeTop.Height);
 
-        for (var i = 0; i < Options.Count; i++)
-        {
-            var rowY = optionStartY + i * ROW_HEIGHT;
-            var option = Options[i];
+        if (EdgeLeft is not null)
+            TileTexture(
+                spriteBatch,
+                EdgeLeft,
+                sx,
+                sy + CORNER_TL_H,
+                EdgeLeft.Width,
+                h - CORNER_TL_H - CORNER_BL_H);
 
-            var color = i == HoveredIndex ? Color.Yellow : Color.White;
+        if (EdgeRight is not null)
+            TileTexture(
+                spriteBatch,
+                EdgeRight,
+                sx + w - EdgeRight.Width,
+                sy + CORNER_TL_H,
+                EdgeRight.Width,
+                h - CORNER_TL_H - CORNER_BR_H);
 
-            option.TextCache.Update(option.Text, color);
+        // Bottom edge: rivets on the left, plain background behind the OK button on the right
+        // Give 4px margin before the button so rivets don't butt up against it
+        var okAreaStart = (OkButton?.X ?? w - CORNER_BR_W) - 4;
+        var rivetsWidth = okAreaStart - CORNER_TL_W;
+        var okAreaWidth = w - CORNER_BR_W - okAreaStart;
 
-            option.TextCache.Draw(spriteBatch, new Vector2(sx + TEXT_LEFT, rowY + (ROW_HEIGHT - TextRenderer.CHAR_HEIGHT) / 2));
-        }
+        if (EdgeBottomRivets is not null && (rivetsWidth > 0))
+            TileTexture(
+                spriteBatch,
+                EdgeBottomRivets,
+                sx + CORNER_TL_W,
+                sy + h - BORDER_BOTTOM,
+                rivetsWidth,
+                EdgeBottomRivets.Height);
 
-        // Draw children (OK button)
+        if (EdgeBottomOk is not null && (okAreaWidth > 0))
+            TileTexture(
+                spriteBatch,
+                EdgeBottomOk,
+                sx + okAreaStart,
+                sy + h - BORDER_BOTTOM,
+                okAreaWidth,
+                EdgeBottomOk.Height);
+
+        // 3. Corners (drawn last to cover edge overlap)
+        if (CornerTL is not null)
+            AtlasHelper.Draw(
+                spriteBatch,
+                CornerTL,
+                new Vector2(sx, sy),
+                Color.White);
+
+        if (CornerTR is not null)
+            AtlasHelper.Draw(
+                spriteBatch,
+                CornerTR,
+                new Vector2(sx + w - CORNER_TR_W, sy),
+                Color.White);
+
+        if (CornerBL is not null)
+            AtlasHelper.Draw(
+                spriteBatch,
+                CornerBL,
+                new Vector2(sx, sy + h - CORNER_BL_H),
+                Color.White);
+
+        if (CornerBR is not null)
+            AtlasHelper.Draw(
+                spriteBatch,
+                CornerBR,
+                new Vector2(sx + w - CORNER_BR_W, sy + h - CORNER_BR_H),
+                Color.White);
+
+        // 4. Children: option labels + OK button
         base.Draw(spriteBatch);
     }
 
-    private void DrawNineSlice(
-        SpriteBatch spriteBatch,
-        int x,
-        int y,
-        int width,
-        int height)
+    private void EnsureTextures()
     {
-        var topLeft = FrameTextures[0];
-        var topEdge = FrameTextures[1];
-        var topRight = FrameTextures[2];
-        var leftEdge = FrameTextures[3];
-        var center = FrameTextures[4];
-        var rightEdge = FrameTextures[5];
-        var bottomLeft = FrameTextures[6];
-        var bottomEdge = FrameTextures[7];
-        var bottomRight = FrameTextures[8];
-
-        // Corner dimensions (use actual texture sizes for accurate tiling)
-        var tlW = topLeft?.Width ?? 0;
-        var tlH = topLeft?.Height ?? 0;
-        var trW = topRight?.Width ?? 0;
-        var trH = topRight?.Height ?? 0;
-        var blW = bottomLeft?.Width ?? 0;
-        var blH = bottomLeft?.Height ?? 0;
-        var brW = bottomRight?.Width ?? 0;
-        var brH = bottomRight?.Height ?? 0;
-
-        // Edge widths/heights
-        var leftW = leftEdge?.Width ?? 0;
-        var rightW = rightEdge?.Width ?? 0;
-        var topH = topEdge?.Height ?? 0;
-        var bottomH = bottomEdge?.Height ?? 0;
-
-        // Inner area
-        var innerX = x + tlW;
-        var innerY = y + tlH;
-        var innerW = width - tlW - trW;
-        var innerH = height - tlH - blH;
-
-        // Center fill — tile to cover the inner area
-        if (center is not null)
-            TileTexture(
-                spriteBatch,
-                center,
-                innerX,
-                innerY,
-                innerW,
-                innerH);
-
-        // Top edge — tile horizontally between corners
-        if (topEdge is not null)
-            TileTexture(
-                spriteBatch,
-                topEdge,
-                x + tlW,
-                y,
-                width - tlW - trW,
-                topH);
-
-        // Bottom edge — tile horizontally between corners
-        if (bottomEdge is not null)
-            TileTexture(
-                spriteBatch,
-                bottomEdge,
-                x + blW,
-                y + height - bottomH,
-                width - blW - brW,
-                bottomH);
-
-        // Left edge — tile vertically between corners
-        if (leftEdge is not null)
-            TileTexture(
-                spriteBatch,
-                leftEdge,
-                x,
-                y + tlH,
-                leftW,
-                height - tlH - blH);
-
-        // Right edge — tile vertically between corners
-        if (rightEdge is not null)
-            TileTexture(
-                spriteBatch,
-                rightEdge,
-                x + width - rightW,
-                y + trH,
-                rightW,
-                height - trH - brH);
-
-        // Corners
-        if (topLeft is not null)
-            AtlasHelper.Draw(
-                spriteBatch,
-                topLeft,
-                new Vector2(x, y),
-                Color.White);
-
-        if (topRight is not null)
-            AtlasHelper.Draw(
-                spriteBatch,
-                topRight,
-                new Vector2(x + width - trW, y),
-                Color.White);
-
-        if (bottomLeft is not null)
-            AtlasHelper.Draw(
-                spriteBatch,
-                bottomLeft,
-                new Vector2(x, y + height - blH),
-                Color.White);
-
-        if (bottomRight is not null)
-            AtlasHelper.Draw(
-                spriteBatch,
-                bottomRight,
-                new Vector2(x + width - brW, y + height - brH),
-                Color.White);
-    }
-
-    private void EnsureFrameTextures()
-    {
-        if (FrameTexturesLoaded)
+        if (TexturesLoaded)
             return;
 
-        FrameTexturesLoaded = true;
+        TexturesLoaded = true;
         var renderer = UiRenderer.Instance;
 
         if (renderer is null)
             return;
 
-        for (var i = 0; i < FRAME_SPF_NAMES.Length; i++)
-            FrameTextures[i] = renderer.GetSpfTexture(FRAME_SPF_NAMES[i]);
+        // Frame pieces
+        CornerTL = renderer.GetSpfTexture("nd_f01.spf");
+        CornerTR = renderer.GetSpfTexture("nd_f02.spf");
+        CornerBL = renderer.GetSpfTexture("nd_f03.spf");
+        CornerBR = renderer.GetSpfTexture("nd_f04.spf");
+        EdgeTop = renderer.GetSpfTexture("nd_f05.spf");
+        EdgeLeft = renderer.GetSpfTexture("nd_f06.spf");
+        EdgeRight = renderer.GetSpfTexture("nd_f07.spf");
+        EdgeBottomOk = renderer.GetSpfTexture("nd_f08.spf");
+        EdgeBottomRivets = renderer.GetSpfTexture("nd_f08_1.spf");
+
+        // Background fill
+        BackgroundTile = renderer.GetSpfTexture("DlgBack2.spf");
+
+        // 3-slice stripe pieces
+        StripeLeft = renderer.GetSpfTexture("nd_n00.spf");
+        StripeMid = renderer.GetSpfTexture("nd_n01.spf");
+        StripeRight = renderer.GetSpfTexture("nd_n02.spf");
+        StripeLeftOn = renderer.GetSpfTexture("nd_n00on.spf");
+        StripeMidOn = renderer.GetSpfTexture("nd_n01on.spf");
+        StripeRightOn = renderer.GetSpfTexture("nd_n02on.spf");
     }
 
-    /// <summary>
-    ///     Returns the pursuit ID for the option at the given index, or 0 if out of range.
-    /// </summary>
     public ushort GetOptionPursuitId(int index)
     {
-        if ((index < 0) || (index >= Options.Count))
+        if ((index < 0) || (index >= OptionLabels.Count))
             return 0;
 
-        return Options[index].PursuitId;
+        return OptionLabels[index].PursuitId;
     }
 
     public void Hide()
     {
         Visible = false;
-        Options.Clear();
-        HoveredIndex = -1;
+        ClearOptionLabels();
     }
 
     public event Action? OnClose;
 
     public event Action<int>? OnOptionSelected;
 
-    /// <summary>
-    ///     Shows the option menu with the given list of text/pursuit pairs. Computes panel size from option count and centers
-    ///     on screen.
-    /// </summary>
     public void ShowOptions(IReadOnlyList<(string Text, ushort Pursuit)> options)
     {
-        Options.Clear();
-        HoveredIndex = -1;
+        ClearOptionLabels();
+        EnsureTextures();
 
-        foreach ((var text, var pursuit) in options)
-            Options.Add(new OptionEntry(text, pursuit));
+        var capLeftW = StripeLeft?.Width ?? 11;
+        var capRightW = StripeRight?.Width ?? 11;
 
-        // Dynamic sizing
-        var totalContentHeight = Options.Count * ROW_HEIGHT;
-        var panelHeight = CONTENT_PADDING_TOP + totalContentHeight + CONTENT_PADDING_BOTTOM + BTN_HEIGHT + BTN_GAP;
+        // Dynamic width from longest option text
+        var maxTextWidth = 0;
 
-        Width = PANEL_WIDTH;
-        Height = panelHeight;
+        foreach ((var text, _) in options)
+        {
+            var textWidth = TextRenderer.MeasureWidth(text);
 
-        // Center on screen
-        X = (ChaosGame.VIRTUAL_WIDTH - Width) / 2;
-        Y = (ChaosGame.VIRTUAL_HEIGHT - Height) / 2;
+            if (textWidth > maxTextWidth)
+                maxTextWidth = textWidth;
+        }
 
-        // Position OK button at bottom-right of content area
+        var stripeWidth = maxTextWidth + TEXT_PADDING_H * 2;
+        stripeWidth = Math.Max(stripeWidth, MIN_STRIPE_WIDTH);
+
+        var stripeLeft = BORDER_LEFT + CONTENT_PADDING_LEFT;
+        var stripeRight = BORDER_RIGHT + CONTENT_PADDING_RIGHT;
+
+        Width = stripeWidth + stripeLeft + stripeRight;
+
+        // Dynamic height: top border + padding + stripes + padding + bottom border
+        var stripesHeight = options.Count * (ROW_HEIGHT + STRIPE_GAP) - STRIPE_GAP;
+        Height = BORDER_TOP + CONTENT_PADDING_TOP + stripesHeight + CONTENT_PADDING_BOTTOM + BORDER_BOTTOM;
+
+        // Right-aligned, bottom-anchored above dialog bar
+        X = ChaosGame.VIRTUAL_WIDTH - Width;
+        Y = BOTTOM_ANCHOR_Y - Height;
+
+        // Create option label children
+        for (var i = 0; i < options.Count; i++)
+        {
+            (var text, var pursuit) = options[i];
+            var index = i;
+
+            var label = new OptionLabel(
+                text,
+                pursuit,
+                StripeLeft,
+                StripeMid,
+                StripeRight,
+                StripeLeftOn,
+                StripeMidOn,
+                StripeRightOn)
+            {
+                Name = $"Option_{i}",
+                X = BORDER_LEFT + CONTENT_PADDING_LEFT,
+                Y = BORDER_TOP + CONTENT_PADDING_TOP + i * (ROW_HEIGHT + STRIPE_GAP),
+                Width = stripeWidth,
+                Height = ROW_HEIGHT
+            };
+
+            label.OnClick += () => OnOptionSelected?.Invoke(index);
+            OptionLabels.Add(label);
+            AddChild(label);
+        }
+
+        // OK button: 20px from right outer edge, 4px from bottom outer edge, shown as disabled
         if (OkButton is not null)
         {
-            OkButton.X = CONTENT_RIGHT - BTN_WIDTH;
-            OkButton.Y = Height - BTN_HEIGHT - (CONTENT_PADDING_BOTTOM - BTN_HEIGHT) / 2;
+            OkButton.X = Width - BTN_WIDTH - 20;
+            OkButton.Y = Height - BTN_HEIGHT - 3;
         }
 
         Visible = true;
     }
 
-    /// <summary>
-    ///     Tiles a texture to fill a rectangular area. Draws full copies where possible and clips the final row/column via
-    ///     source rectangles.
-    /// </summary>
     private static void TileTexture(
         SpriteBatch spriteBatch,
         Texture2D texture,
@@ -362,7 +389,6 @@ public sealed class OptionMenuPanel : UIPanel
         if (!Visible || !Enabled)
             return;
 
-        // Escape dismisses the menu
         if (input.WasKeyPressed(Keys.Escape))
         {
             Hide();
@@ -371,47 +397,109 @@ public sealed class OptionMenuPanel : UIPanel
             return;
         }
 
-        // Mouse hover tracking over option rows
-        HoveredIndex = -1;
-
-        if (Options.Count > 0)
-        {
-            var localX = input.MouseX - ScreenX;
-            var localY = input.MouseY - ScreenY;
-            var optionStartY = CONTENT_PADDING_TOP;
-
-            if ((localX >= TEXT_LEFT) && (localX < TEXT_RIGHT))
-                for (var i = 0; i < Options.Count; i++)
-                {
-                    var rowTop = optionStartY + i * ROW_HEIGHT;
-                    var rowBottom = rowTop + ROW_HEIGHT;
-
-                    if ((localY >= rowTop) && (localY < rowBottom))
-                    {
-                        HoveredIndex = i;
-
-                        break;
-                    }
-                }
-        }
-
-        // Click selects option
-        if (input.WasLeftButtonPressed && (HoveredIndex >= 0))
-            OnOptionSelected?.Invoke(HoveredIndex);
-
         base.Update(gameTime, input);
     }
 
-    private sealed record OptionEntry(string Text, ushort PursuitId)
+    /// <summary>
+    ///     A single clickable text option. Draws a 3-slice dark stripe background (nd_n00 left + nd_n01 tiled + nd_n02 right)
+    ///     with centered text.
+    /// </summary>
+    private sealed class OptionLabel : UIElement
     {
-        public TextElement TextCache { get; } = CreateTextElement(Text);
+        private readonly Texture2D? StripeLeft;
+        private readonly Texture2D? StripeLeftOn;
+        private readonly Texture2D? StripeMid;
+        private readonly Texture2D? StripeMidOn;
+        private readonly Texture2D? StripeRight;
+        private readonly Texture2D? StripeRightOn;
+        private readonly TextElement TextCache = new();
+        private readonly int TextWidth;
+        private bool IsHovered;
+        public ushort PursuitId { get; }
+        public string Text { get; }
 
-        private static TextElement CreateTextElement(string text)
+        public OptionLabel(
+            string text,
+            ushort pursuitId,
+            Texture2D? stripeLeft,
+            Texture2D? stripeMid,
+            Texture2D? stripeRight,
+            Texture2D? stripeLeftOn,
+            Texture2D? stripeMidOn,
+            Texture2D? stripeRightOn)
         {
-            var element = new TextElement();
-            element.Update(text, Color.White);
+            Text = text;
+            PursuitId = pursuitId;
+            StripeLeft = stripeLeft;
+            StripeMid = stripeMid;
+            StripeRight = stripeRight;
+            StripeLeftOn = stripeLeftOn;
+            StripeMidOn = stripeMidOn;
+            StripeRightOn = stripeRightOn;
+            TextWidth = TextRenderer.MeasureWidth(text);
+            TextCache.Update(text, Color.White);
+        }
 
-            return element;
+        public override void Draw(SpriteBatch spriteBatch)
+        {
+            if (!Visible)
+                return;
+
+            var sx = ScreenX;
+            var sy = ScreenY;
+
+            // Draw 3-slice stripe background
+            var left = IsHovered ? StripeLeftOn ?? StripeLeft : StripeLeft;
+            var mid = IsHovered ? StripeMidOn ?? StripeMid : StripeMid;
+            var right = IsHovered ? StripeRightOn ?? StripeRight : StripeRight;
+
+            var leftW = left?.Width ?? 0;
+            var rightW = right?.Width ?? 0;
+            var midWidth = Width - leftW - rightW;
+
+            if (left is not null)
+                AtlasHelper.Draw(
+                    spriteBatch,
+                    left,
+                    new Vector2(sx, sy),
+                    Color.White);
+
+            if (mid is not null)
+                TileTexture(
+                    spriteBatch,
+                    mid,
+                    sx + leftW,
+                    sy,
+                    midWidth,
+                    mid.Height);
+
+            if (right is not null)
+                AtlasHelper.Draw(
+                    spriteBatch,
+                    right,
+                    new Vector2(sx + Width - rightW, sy),
+                    Color.White);
+
+            // Centered text on top
+            TextCache.Update(Text, Color.White);
+
+            var textX = sx + (Width - TextWidth) / 2;
+            var textY = sy + (Height - TextRenderer.CHAR_HEIGHT) / 2 + 1;
+
+            TextCache.Draw(spriteBatch, new Vector2(textX, textY));
+        }
+
+        public event Action? OnClick;
+
+        public override void Update(GameTime gameTime, InputBuffer input)
+        {
+            if (!Visible || !Enabled)
+                return;
+
+            IsHovered = ContainsPoint(input.MouseX, input.MouseY);
+
+            if (input.WasLeftButtonPressed && IsHovered)
+                OnClick?.Invoke();
         }
     }
 }

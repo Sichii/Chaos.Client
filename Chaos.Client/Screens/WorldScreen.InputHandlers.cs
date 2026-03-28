@@ -1,4 +1,5 @@
 #region
+using Chaos.Client.Collections;
 using Chaos.Client.Controls.World.Hud.Panel;
 using Chaos.Client.Controls.World.Hud.Panel.Slots;
 using Chaos.Client.Data;
@@ -63,7 +64,7 @@ public sealed partial class WorldScreen
 
         // Check if dropped on an entity (give item/gold to NPC/player) — skip self (drop on ground instead)
         (var tileX, var tileY) = ScreenToTile(mouseX, mouseY);
-        var entity = Game.World.GetEntityAt(tileX, tileY);
+        var entity = WorldState.GetEntityAt(tileX, tileY);
 
         var droppedOnEntity = entity is not null
                               && entity.Type is ClientEntityType.Aisling or ClientEntityType.Creature
@@ -86,7 +87,7 @@ public sealed partial class WorldScreen
         }
 
         // Stackable items — prompt for count before dropping
-        var invSlot = Game.World.Inventory.GetSlot(slot);
+        var invSlot = WorldState.Inventory.GetSlot(slot);
 
         if (invSlot.Stackable)
         {
@@ -158,7 +159,7 @@ public sealed partial class WorldScreen
                 // NoTarget with lines: begin chant sequence targeting self
                 CastingSystem.BeginTargeting(spellSlot);
 
-                var player = Game.World.GetPlayerEntity();
+                var player = WorldState.GetPlayerEntity();
 
                 CastingSystem.SelectTarget(
                     Game.Connection.AislingId,
@@ -385,11 +386,11 @@ public sealed partial class WorldScreen
             }
 
             SaveSpellChants();
-            Game.World.ReloadChants();
+            WorldState.ReloadChants();
         } else
         {
             SaveSkillChants();
-            Game.World.ReloadChants();
+            WorldState.ReloadChants();
         }
     }
 
@@ -532,13 +533,13 @@ public sealed partial class WorldScreen
             var hitbox = EntityHitBoxes[i];
 
             if (hitbox.ScreenRect.Contains(mouseX, mouseY))
-                return Game.World.GetEntity(hitbox.EntityId);
+                return WorldState.GetEntity(hitbox.EntityId);
         }
 
         // Fallback: tile-based lookup for ground items
         (var tileX, var tileY) = ScreenToTile(mouseX, mouseY);
 
-        return Game.World.GetGroundItemAt(tileX, tileY);
+        return WorldState.GetGroundItemAt(tileX, tileY);
     }
 
     private (int TileX, int TileY) ScreenToTile(int mouseX, int mouseY)
@@ -552,7 +553,7 @@ public sealed partial class WorldScreen
 
     private void TryPickupItem()
     {
-        var player = Game.World.GetPlayerEntity();
+        var player = WorldState.GetPlayerEntity();
 
         if (player is null)
             return;
@@ -563,7 +564,7 @@ public sealed partial class WorldScreen
             return;
 
         // First try the player's own tile
-        if (Game.World.HasGroundItemAt(player.TileX, player.TileY))
+        if (WorldState.HasGroundItemAt(player.TileX, player.TileY))
         {
             Game.Connection.PickupItem(player.TileX, player.TileY, slot);
 
@@ -575,7 +576,7 @@ public sealed partial class WorldScreen
         var frontX = player.TileX + dx;
         var frontY = player.TileY + dy;
 
-        if (Game.World.HasGroundItemAt(frontX, frontY))
+        if (WorldState.HasGroundItemAt(frontX, frontY))
             Game.Connection.PickupItem(frontX, frontY, slot);
     }
 
@@ -600,22 +601,28 @@ public sealed partial class WorldScreen
 
         if (isDoubleClick)
         {
-            // Double-click: interact with entities
-            var entity = Game.World.GetEntityAt(tileX, tileY);
+            // Double-click: interact with entities (use hitbox detection, not tile lookup)
+            var entity = GetEntityAtScreen(mouseX, mouseY);
 
             if (entity is not null)
             {
                 if (entity.Type == ClientEntityType.GroundItem)
                 {
                     var firstEmptySlot = Game.Connection.GetFirstEmptyInventorySlot();
-                    Game.Connection.PickupItem(tileX, tileY, firstEmptySlot);
+                    Game.Connection.PickupItem(entity.TileX, entity.TileY, firstEmptySlot);
                 } else
                     Game.Connection.ClickEntity(entity.Id);
             }
-        } else if (TileHasForeground(tileX, tileY))
+        } else
+        {
+            // Single click: check for entity at hitbox first, then tile interaction
+            var entity = GetEntityAtScreen(mouseX, mouseY);
 
-            // Single click: tile interaction (doors, reactor tiles) — only if foreground exists
-            Game.Connection.ClickTile(tileX, tileY);
+            if (entity is not null && entity.Type is ClientEntityType.Aisling or ClientEntityType.Creature)
+                Game.Connection.ClickEntity(entity.Id);
+            else if (TileHasForeground(tileX, tileY))
+                Game.Connection.ClickTile(tileX, tileY);
+        }
     }
 
     private void HandleCtrlClick(int mouseX, int mouseY)
@@ -631,9 +638,7 @@ public sealed partial class WorldScreen
             || (mouseY >= (viewport.Y + viewport.Height)))
             return;
 
-        (var tileX, var tileY) = ScreenToTile(mouseX, mouseY);
-
-        var entity = Game.World.GetEntityAt(tileX, tileY);
+        var entity = GetEntityAtScreen(mouseX, mouseY);
 
         if (entity is null)
             return;
@@ -666,7 +671,7 @@ public sealed partial class WorldScreen
             || (mouseY >= (viewport.Y + viewport.Height)))
             return;
 
-        var player = Game.World.GetPlayerEntity();
+        var player = WorldState.GetPlayerEntity();
 
         if (player is null)
             return;
@@ -691,7 +696,7 @@ public sealed partial class WorldScreen
         // Double right-click on entity — follow and assail
         if (isDoubleRightClick)
         {
-            var entity = Game.World.GetEntityAt(tileX, tileY);
+            var entity = WorldState.GetEntityAt(tileX, tileY);
 
             if (entity is not null && entity.Type is ClientEntityType.Aisling or ClientEntityType.Creature)
             {
@@ -718,7 +723,7 @@ public sealed partial class WorldScreen
             player.TileY,
             tileX,
             tileY,
-            Game.World.GetBlockedPoints());
+            WorldState.GetBlockedPoints());
     }
 
     private void PathfindToEntity(WorldEntity player, WorldEntity target)
@@ -732,7 +737,7 @@ public sealed partial class WorldScreen
             player.TileY,
             target.TileX,
             target.TileY,
-            Game.World.GetBlockedPoints(),
+            WorldState.GetBlockedPoints(),
             out var alreadyAdjacent);
 
         if (alreadyAdjacent)

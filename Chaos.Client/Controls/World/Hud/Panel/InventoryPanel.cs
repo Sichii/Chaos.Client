@@ -1,4 +1,5 @@
 #region
+using Chaos.Client.Collections;
 using Chaos.Client.Controls.World.Hud.Panel.Slots;
 using Chaos.Client.Data.Models;
 using Chaos.Client.Rendering;
@@ -20,11 +21,9 @@ public sealed class InventoryPanel : PanelBase
     private const int EXPANDED_SLOTS = 5 * COLUMNS;
 
     private readonly PanelSlot GoldSlot;
-    private readonly Inventory InventoryState;
 
     public InventoryPanel(
         ControlPrefabSet hudPrefabSet,
-        Inventory inventory,
         Texture2D? background = null,
         Texture2D? expandedBackground = null,
         int normalVisibleSlots = DEFAULT_VISIBLE_SLOTS)
@@ -37,7 +36,6 @@ public sealed class InventoryPanel : PanelBase
             normalVisibleSlots: normalVisibleSlots)
     {
         Name = "Inventory";
-        InventoryState = inventory;
 
         ConfigureExpand(expandedBackground ?? UiRenderer.Instance!.GetSpfTexture("_ninv5.spf"), EXPANDED_SLOTS);
 
@@ -52,7 +50,7 @@ public sealed class InventoryPanel : PanelBase
             ZIndex = 1
         };
 
-        GoldSlot.SlotName = $"Gold( {inventory.Gold} )";
+        GoldSlot.SlotName = $"Gold( {WorldState.Inventory.Gold} )";
         GoldSlot.OnDragStart += OnDragStarted;
         AddChild(GoldSlot);
 
@@ -60,16 +58,16 @@ public sealed class InventoryPanel : PanelBase
         PositionGoldSlot(normalVisibleSlots - 1);
 
         // Subscribe to state events
-        InventoryState.SlotChanged += OnSlotChanged;
-        InventoryState.GoldChanged += OnGoldChanged;
-        InventoryState.Cleared += OnCleared;
+        WorldState.Inventory.SlotChanged += OnSlotChanged;
+        WorldState.Inventory.GoldChanged += OnGoldChanged;
+        WorldState.Inventory.Cleared += OnCleared;
     }
 
     public override void Dispose()
     {
-        InventoryState.SlotChanged -= OnSlotChanged;
-        InventoryState.GoldChanged -= OnGoldChanged;
-        InventoryState.Cleared -= OnCleared;
+        WorldState.Inventory.SlotChanged -= OnSlotChanged;
+        WorldState.Inventory.GoldChanged -= OnGoldChanged;
+        WorldState.Inventory.Cleared -= OnCleared;
 
         base.Dispose();
     }
@@ -94,7 +92,7 @@ public sealed class InventoryPanel : PanelBase
         }
     }
 
-    private void OnGoldChanged() => GoldSlot.SlotName = $"Gold( {InventoryState.Gold} )";
+    private void OnGoldChanged() => GoldSlot.SlotName = $"Gold( {WorldState.Inventory.Gold} )";
 
     private void OnSlotChanged(byte slot)
     {
@@ -103,7 +101,7 @@ public sealed class InventoryPanel : PanelBase
         if (control is null)
             return;
 
-        var data = InventoryState.GetSlot(slot);
+        var data = WorldState.Inventory.GetSlot(slot);
 
         if (data.IsOccupied)
         {

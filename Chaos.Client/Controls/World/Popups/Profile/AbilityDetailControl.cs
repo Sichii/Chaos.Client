@@ -1,7 +1,10 @@
 #region
+using Chaos.Client.Collections;
 using Chaos.Client.Controls.Components;
 using Chaos.Client.Data.Models;
 using Chaos.Client.Rendering;
+using Chaos.Client.ViewModel;
+using Chaos.Extensions.Common;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Input;
 #endregion
@@ -14,6 +17,7 @@ namespace Chaos.Client.Controls.World.Popups.Profile;
 /// </summary>
 public sealed class AbilityDetailControl : PrefabPanel
 {
+    private static readonly Color UnmetColor = new(206, 0, 16);
     private readonly UILabel? ConLabel;
     private readonly UILabel? DescLabel;
     private readonly UILabel? DexLabel;
@@ -53,8 +57,36 @@ public sealed class AbilityDetailControl : PrefabPanel
         if (name is null)
             return string.Empty;
 
-        return level > 0 ? $"{name} Lv. {level}" : name;
+        return $"{name} {level}";
     }
+
+    private static bool HasPreRequisite(string? name, byte requiredLevel)
+    {
+        if (name is null)
+            return true;
+
+        for (byte i = 1; i <= SpellBook.MAX_SLOTS; i++)
+        {
+            ref readonly var slot = ref WorldState.SpellBook.GetSlot(i);
+
+            if (slot.IsOccupied && slot.Name.EqualsI(name))
+                return true;
+        }
+
+        for (byte i = 1; i <= SkillBook.MAX_SLOTS; i++)
+        {
+            ref readonly var slot = ref WorldState.SkillBook.GetSlot(i);
+
+            if (slot.IsOccupied && slot.Name.EqualsI(name))
+                return true;
+        }
+
+        return false;
+    }
+
+    private static Color RequirementColor(int required, int? current) => current >= required ? Color.White : UnmetColor;
+
+    private static Color RequirementColor(bool met) => met ? Color.White : UnmetColor;
 
     /// <summary>
     ///     Populates and shows the detail view for the given ability entry.
@@ -64,32 +96,58 @@ public sealed class AbilityDetailControl : PrefabPanel
         X = viewport.X + (viewport.Width - Width) / 2;
         Y = viewport.Y + (viewport.Height - Height) / 2;
 
+        var attrs = WorldState.Attributes.Current;
+
         if (NameLabel is not null)
             NameLabel.Text = entry.Name;
 
         if (LevelLabel is not null)
-            LevelLabel.Text = entry.Level.ToString();
+        {
+            LevelLabel.Text = $"level {entry.Level}";
+            LevelLabel.ForegroundColor = RequirementColor(entry.Level, attrs?.Level);
+        }
 
         if (StrLabel is not null)
+        {
             StrLabel.Text = entry.Str.ToString();
+            StrLabel.ForegroundColor = RequirementColor(entry.Str, attrs?.Str);
+        }
 
         if (IntLabel is not null)
+        {
             IntLabel.Text = entry.Int.ToString();
+            IntLabel.ForegroundColor = RequirementColor(entry.Int, attrs?.Int);
+        }
 
         if (WisLabel is not null)
+        {
             WisLabel.Text = entry.Wis.ToString();
+            WisLabel.ForegroundColor = RequirementColor(entry.Wis, attrs?.Wis);
+        }
 
         if (ConLabel is not null)
+        {
             ConLabel.Text = entry.Con.ToString();
+            ConLabel.ForegroundColor = RequirementColor(entry.Con, attrs?.Con);
+        }
 
         if (DexLabel is not null)
+        {
             DexLabel.Text = entry.Dex.ToString();
+            DexLabel.ForegroundColor = RequirementColor(entry.Dex, attrs?.Dex);
+        }
 
         if (Sub1Label is not null)
+        {
             Sub1Label.Text = FormatPreReq(entry.PreReq1Name, entry.PreReq1Level);
+            Sub1Label.ForegroundColor = RequirementColor(HasPreRequisite(entry.PreReq1Name, entry.PreReq1Level));
+        }
 
         if (Sub2Label is not null)
+        {
             Sub2Label.Text = FormatPreReq(entry.PreReq2Name, entry.PreReq2Level);
+            Sub2Label.ForegroundColor = RequirementColor(HasPreRequisite(entry.PreReq2Name, entry.PreReq2Level));
+        }
 
         if (DescLabel is not null)
             DescLabel.Text = entry.Description;

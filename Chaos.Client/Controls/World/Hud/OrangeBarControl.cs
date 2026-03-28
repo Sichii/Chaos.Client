@@ -1,8 +1,8 @@
 #region
+using Chaos.Client.Collections;
 using Chaos.Client.Controls.Components;
 using Chaos.Client.Data.Models;
 using Chaos.Client.Rendering;
-using Chaos.Client.ViewModel;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 #endregion
@@ -17,7 +17,6 @@ public sealed class OrangeBarControl : UIElement
 {
     private const int MAX_EXPAND_LINES = 10;
     private const int GLYPH_HEIGHT = 12;
-    private readonly Chat ChatState;
     private readonly TextElement[] Lines;
     private readonly Texture2D? PaneBg;
 
@@ -28,9 +27,8 @@ public sealed class OrangeBarControl : UIElement
 
     public bool IsDragging { get; private set; }
 
-    public OrangeBarControl(ControlPrefabSet hudPrefabSet, Chat chat)
+    public OrangeBarControl(ControlPrefabSet hudPrefabSet)
     {
-        ChatState = chat;
         Name = "OrangeBar";
 
         TextBounds = PrefabPanel.GetRect(hudPrefabSet, "SystemMessage");
@@ -106,7 +104,7 @@ public sealed class OrangeBarControl : UIElement
             Color.White);
 
         // History text — newest at bottom, older above
-        var history = ChatState.GetOrangeBarHistory();
+        var history = WorldState.Chat.GetOrangeBarHistory();
 
         if (history.Count > 0)
         {

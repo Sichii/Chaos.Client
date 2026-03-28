@@ -1,4 +1,5 @@
 #region
+using Chaos.Client.Collections;
 using Chaos.Client.Controls.Components;
 using Chaos.Client.Controls.Generic;
 using Chaos.Client.Models;
@@ -38,7 +39,6 @@ public sealed class WorldListControl : PrefabPanel
 
     private readonly Rectangle UsersListRect;
 
-    private readonly ViewModel.WorldList WorldListState;
     private int ActiveTab;
 
     // Player data
@@ -53,7 +53,7 @@ public sealed class WorldListControl : PrefabPanel
 
     public string PlayerName { get; set; } = string.Empty;
 
-    public WorldListControl(ViewModel.WorldList worldList)
+    public WorldListControl()
         : base("_nusers", false)
     {
         Name = "WorldList";
@@ -187,8 +187,7 @@ public sealed class WorldListControl : PrefabPanel
         if (closeButton is not null)
             closeButton.OnClick += () => Slide.SlideOut();
 
-        WorldListState = worldList;
-        WorldListState.Changed += OnWorldListChanged;
+        WorldState.WorldList.Changed += OnWorldListChanged;
     }
 
     private void ApplyFilter()
@@ -249,7 +248,7 @@ public sealed class WorldListControl : PrefabPanel
 
     public override void Dispose()
     {
-        WorldListState.Changed -= OnWorldListChanged;
+        WorldState.WorldList.Changed -= OnWorldListChanged;
 
         foreach (var icon in StatusIcons)
             icon?.Dispose();
@@ -300,7 +299,7 @@ public sealed class WorldListControl : PrefabPanel
 
     public event Action? OnClose;
 
-    private void OnWorldListChanged() => Show(WorldListState.Entries, WorldListState.TotalOnline, PlayerName);
+    private void OnWorldListChanged() => Show(WorldState.WorldList.Entries, WorldState.WorldList.TotalOnline, PlayerName);
 
     private void RefreshRowEntries()
     {
@@ -356,6 +355,8 @@ public sealed class WorldListControl : PrefabPanel
         if (!Visible)
             Slide.SlideIn(this);
     }
+
+    public void SlideClose() => Slide.SlideOut();
 
     public override void Update(GameTime gameTime, InputBuffer input)
     {

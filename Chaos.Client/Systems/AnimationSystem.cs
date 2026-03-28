@@ -19,6 +19,7 @@ public static class AnimationSystem
     private const float DEFAULT_WALK_FRAME_MS = 114;
     private const float REMOTE_AISLING_WALK_FRAME_MS = 100f;
     private const float CREATURE_WALK_FRAME_MS = 100f;
+    private const float MORPHED_AISLING_WALK_FRAME_MS = 75f;
     private const float MIN_WALK_DURATION_MS = 75f;
 
     // The server's AnimationSpeed value × 10 = total animation duration in ms.
@@ -51,7 +52,7 @@ public static class AnimationSystem
         entity.AnimFrameCount = frameCount;
 
         entity.AnimFrameIntervalMs = isCreature
-            ? CREATURE_WALK_FRAME_MS
+            ? entity.Type == ClientEntityType.Aisling ? MORPHED_AISLING_WALK_FRAME_MS : CREATURE_WALK_FRAME_MS
             : isLocalPlayer
                 ? DEFAULT_WALK_FRAME_MS
                 : REMOTE_AISLING_WALK_FRAME_MS;
@@ -290,7 +291,7 @@ public static class AnimationSystem
                 if (framesPerDir == 0)
                     return GetCreatureIdleFrame(entity, in info);
 
-                var mappedFrame = MapFrameIndex(entity.AnimFrameIndex, DEFAULT_WALK_FRAMES, framesPerDir);
+                var mappedFrame = MapFrameIndex(entity.AnimFrameIndex, entity.AnimFrameCount, framesPerDir);
 
                 // Single-direction sprite: reuse base frames for all directions
                 var walkOffset = (info.WalkFrameIndex + framesPerDir + mappedFrame) >= info.TotalFrameCount ? 0 : framesPerDir;

@@ -1,6 +1,7 @@
 #region
 using Chaos.Client.Controls.Components;
 using Chaos.Client.Networking;
+using Chaos.Client.Rendering;
 using Chaos.DarkAges.Definitions;
 using Chaos.Networking.Entities.Server;
 using Microsoft.Xna.Framework;
@@ -18,27 +19,37 @@ namespace Chaos.Client.Controls.World.Popups.Dialog;
 /// </summary>
 public sealed class NpcSessionControl : PrefabPanel
 {
+    // Scroll arrow buttons for dialog text overflow (nd_arw.spf)
+    private const float ARROW_ANIM_INTERVAL = 0.5f;
+
     // Container controls from lnpcd prefab
     private readonly UIButton? CloseButton;
-    private readonly TextElement DialogText = new();
     private readonly DialogTextEntryPanel DialogTextEntry;
+    private readonly UILabel DialogTextLabel;
     private readonly MenuTextEntryPanel MenuTextEntry;
     private readonly MerchantBrowserPanel MerchantBrowser;
     private readonly UIButton? NextButton;
 
     private readonly UILabel? NpcNameLabel;
+    private readonly UIImage? NpcTileImage;
 
     // Sub-panels (Layer 2 content)
     private readonly OptionMenuPanel OptionMenu;
     private readonly Rectangle PortraitRect;
     private readonly UIButton? PreviousButton;
     private readonly ProtectedEntryPanel ProtectedEntry;
-    private readonly Rectangle TextRect;
+    private readonly UIButton? ScrollDownButton;
+    private readonly Texture2D?[] ScrollDownFrames = new Texture2D?[2];
+    private readonly UIButton? ScrollUpButton;
+    private readonly Texture2D?[] ScrollUpFrames = new Texture2D?[2];
     private readonly UIButton? TopButton;
+    private bool ArrowAnimFrame;
+    private float ArrowAnimTimer;
     private bool OwnsPortraitTexture;
 
     // Portrait texture
     private Texture2D? PortraitTexture;
+    private int ScrollLine;
     public DialogType? CurrentDialogType { get; private set; }
     public MenuType? CurrentMenuType { get; private set; }
     public ushort DialogId { get; private set; }
@@ -63,20 +74,74 @@ public sealed class NpcSessionControl : PrefabPanel
         X = 0;
         Y = 0;
 
-        // Container buttons
+        // Background images (drawn first — buttons must be added after to render on top)
+        CreateImage("MessageDialog"); // nd_talk.spf — bottom dialog bar
+        NpcTileImage = CreateImage("NPCTile"); // nd_npcbg.spf — portrait background
+
+        // Container buttons (added after images so they draw on top)
         CloseButton = CreateButton("CloseBtn");
         NextButton = CreateButton("NextBtn");
         PreviousButton = CreateButton("PrevBtn");
         TopButton = CreateButton("TopBtn");
 
-        // Background images
-        CreateImage("MessageDialog"); // nd_talk.spf — bottom dialog bar
-        CreateImage("NPCTile"); // nd_npcbg.spf — portrait background
+        // Scroll arrow buttons for dialog text overflow (nd_arw.spf: 0-1 = up, 2-3 = down)
+        var uiCache = UiRenderer.Instance!;
+        ScrollUpFrames[0] = uiCache.GetSpfTexture("nd_arw.spf");
+        ScrollUpFrames[1] = uiCache.GetSpfTexture("nd_arw.spf", 1);
+        ScrollDownFrames[0] = uiCache.GetSpfTexture("nd_arw.spf", 2);
+        ScrollDownFrames[1] = uiCache.GetSpfTexture("nd_arw.spf", 3);
+        var upArrowTexture = ScrollUpFrames[0]!;
+        var downArrowTexture = ScrollDownFrames[0]!;
+
+        if (CloseButton is not null)
+        {
+            ScrollDownButton = new UIButton
+            {
+                Name = "ScrollDown",
+                NormalTexture = downArrowTexture,
+                X = CloseButton.X + CloseButton.Width - downArrowTexture.Width - 3,
+                Y = CloseButton.Y - downArrowTexture.Height - 1,
+                Width = downArrowTexture.Width,
+                Height = downArrowTexture.Height,
+                Visible = false
+            };
+
+            ScrollUpButton = new UIButton
+            {
+                Name = "ScrollUp",
+                NormalTexture = upArrowTexture,
+                X = ScrollDownButton.X - 3,
+                Y = ScrollDownButton.Y - upArrowTexture.Height - 27,
+                Width = upArrowTexture.Width,
+                Height = upArrowTexture.Height,
+                Visible = false
+            };
+
+            AddChild(ScrollDownButton);
+            AddChild(ScrollUpButton);
+
+            ScrollDownButton.OnClick += () => ScrollText(1);
+            ScrollUpButton.OnClick += () => ScrollText(-1);
+        }
 
         // Layout rects
         NpcNameLabel = CreateLabel("Name");
-        TextRect = GetRect("Text");
         PortraitRect = GetRect("NPCTile");
+
+        // Dialog text label — word-wrapped, shifted up 10px from prefab rect
+        var textRect = GetRect("Text");
+
+        DialogTextLabel = new UILabel
+        {
+            X = textRect.X,
+            Y = textRect.Y + 1,
+            Width = textRect.Width,
+            Height = 3 * TextRenderer.CHAR_HEIGHT + 2,
+            WordWrap = true,
+            ForegroundColor = Color.White
+        };
+
+        AddChild(DialogTextLabel);
 
         // Wire container button events
         if (CloseButton is not null)
@@ -179,24 +244,22 @@ public sealed class NpcSessionControl : PrefabPanel
         var sx = ScreenX;
         var sy = ScreenY;
 
-        // Draw portrait centered in NPCTile rect
-        if (PortraitTexture is not null && (PortraitRect != Rectangle.Empty))
+        if (PortraitTexture is not null)
         {
-            var portraitX = sx + PortraitRect.X + (PortraitRect.Width - PortraitTexture.Width) / 2;
-            var portraitY = sy + PortraitRect.Y + (PortraitRect.Height - PortraitTexture.Height) / 2;
+            if (ShouldIllustrate)
+            {
+                // NPCIllustration: left-aligned, bottom edge sits on top of the bottom bar (y=372)
+                var illustY = 372 - PortraitTexture.Height;
+                spriteBatch.Draw(PortraitTexture, new Vector2(0, illustY), Color.White);
+            } else if (PortraitRect != Rectangle.Empty)
+            {
+                // Creature/item sprite: centered in NPCTile rect
+                var portraitX = sx + PortraitRect.X + (PortraitRect.Width - PortraitTexture.Width) / 2;
+                var portraitY = sy + PortraitRect.Y + (PortraitRect.Height - PortraitTexture.Height) / 2;
 
-            spriteBatch.Draw(PortraitTexture, new Vector2(portraitX, portraitY), Color.White);
+                spriteBatch.Draw(PortraitTexture, new Vector2(portraitX, portraitY), Color.White);
+            }
         }
-
-        // Draw dialog text (for Normal dialog type)
-        if (TextRect != Rectangle.Empty)
-            DialogText.Draw(
-                spriteBatch,
-                new Rectangle(
-                    sx + TextRect.X,
-                    sy + TextRect.Y,
-                    TextRect.Width,
-                    TextRect.Height));
     }
 
     /// <summary>
@@ -236,7 +299,10 @@ public sealed class NpcSessionControl : PrefabPanel
         MenuTextEntry.Hide();
         MerchantBrowser.Hide();
         ProtectedEntry.Hide();
-        DialogText.Update(string.Empty, Color.White);
+        ScrollLine = 0;
+        DialogTextLabel.ScrollOffset = 0;
+        DialogTextLabel.Text = string.Empty;
+        UpdateScrollButtons();
     }
 
     private void HideNavigationButtons()
@@ -277,29 +343,38 @@ public sealed class NpcSessionControl : PrefabPanel
     public event Action<string, string>? OnProtectedSubmit;
     public event Action<string>? OnTextSubmit;
 
+    private void ScrollText(int direction)
+    {
+        var totalLines = DialogTextLabel.ContentHeight / TextRenderer.CHAR_HEIGHT;
+        var innerH = DialogTextLabel.Height - DialogTextLabel.PaddingTop * 2;
+        var visibleLines = innerH / TextRenderer.CHAR_HEIGHT;
+        var maxScroll = Math.Max(0, totalLines - visibleLines);
+
+        ScrollLine = Math.Clamp(ScrollLine + direction, 0, maxScroll);
+        DialogTextLabel.ScrollOffset = ScrollLine * TextRenderer.CHAR_HEIGHT;
+
+        UpdateScrollButtons();
+    }
+
     private void SetDialogText(string? text)
     {
-        if (text is null)
-        {
-            DialogText.Update(string.Empty, Color.White);
-
-            return;
-        }
-
-        DialogText.UpdateWrapped(text, TextRect.Width, Color.White);
+        ScrollLine = 0;
+        DialogTextLabel.ScrollOffset = 0;
+        DialogTextLabel.Text = text ?? string.Empty;
+        UpdateScrollButtons();
     }
 
     private void SetNavigationButtons(bool hasNext, bool hasPrevious)
     {
         if (NextButton is not null)
         {
-            NextButton.Visible = hasNext;
+            NextButton.Visible = true;
             NextButton.Enabled = hasNext;
         }
 
         if (PreviousButton is not null)
         {
-            PreviousButton.Visible = hasPrevious;
+            PreviousButton.Visible = true;
             PreviousButton.Enabled = hasPrevious;
         }
 
@@ -325,6 +400,10 @@ public sealed class NpcSessionControl : PrefabPanel
         DisposePortrait();
         PortraitTexture = texture;
         OwnsPortraitTexture = ownsTexture;
+
+        // Show the NPCTile background only for sprite portraits (not illustrations, not when hidden)
+        if (NpcTileImage is not null)
+            NpcTileImage.Visible = texture is not null && !ownsTexture;
     }
 
     /// <summary>
@@ -357,8 +436,15 @@ public sealed class NpcSessionControl : PrefabPanel
 
             case DialogType.DialogMenu:
             case DialogType.CreatureMenu:
-                // Option list sub-panel
-                HideNavigationButtons();
+                // Option list sub-panel — dialog text in bottom bar, prev/next per server, close visible, top hidden
+                SetDialogText(args.Text);
+                SetNavigationButtons(args.HasNextButton, args.HasPreviousButton);
+
+                if (TopButton is not null)
+                {
+                    TopButton.Visible = false;
+                    TopButton.Enabled = false;
+                }
 
                 if (args.Options is not null)
                 {
@@ -394,7 +480,10 @@ public sealed class NpcSessionControl : PrefabPanel
         }
 
         if (NpcNameLabel is not null)
+        {
             NpcNameLabel.Text = args.Name ?? string.Empty;
+            NpcNameLabel.ForegroundColor = new Color(0, 255, 0);
+        }
 
         Show();
     }
@@ -458,7 +547,10 @@ public sealed class NpcSessionControl : PrefabPanel
         }
 
         if (NpcNameLabel is not null)
+        {
             NpcNameLabel.Text = args.Name ?? string.Empty;
+            NpcNameLabel.ForegroundColor = new Color(0, 255, 0);
+        }
 
         Show();
     }
@@ -479,6 +571,59 @@ public sealed class NpcSessionControl : PrefabPanel
             return;
         }
 
+        // Animate scroll arrow buttons (flip frames every 500ms)
+        var anyArrowVisible = ScrollUpButton is { Visible: true } || ScrollDownButton is { Visible: true };
+
+        if (anyArrowVisible)
+        {
+            ArrowAnimTimer += (float)gameTime.ElapsedGameTime.TotalSeconds;
+
+            if (ArrowAnimTimer >= ARROW_ANIM_INTERVAL)
+            {
+                ArrowAnimTimer -= ARROW_ANIM_INTERVAL;
+                ArrowAnimFrame = !ArrowAnimFrame;
+                var frameIndex = ArrowAnimFrame ? 1 : 0;
+
+                if (ScrollUpButton is { Visible: true })
+                    ScrollUpButton.NormalTexture = ScrollUpFrames[frameIndex];
+
+                if (ScrollDownButton is { Visible: true })
+                    ScrollDownButton.NormalTexture = ScrollDownFrames[frameIndex];
+            }
+        }
+
         base.Update(gameTime, input);
+    }
+
+    private void UpdateScrollButtons()
+    {
+        var totalLines = DialogTextLabel.ContentHeight / TextRenderer.CHAR_HEIGHT;
+        var innerH = DialogTextLabel.Height - DialogTextLabel.PaddingTop * 2;
+        var visibleLines = innerH / TextRenderer.CHAR_HEIGHT;
+
+        if (totalLines <= visibleLines)
+        {
+            if (ScrollUpButton is not null)
+                ScrollUpButton.Visible = false;
+
+            if (ScrollDownButton is not null)
+                ScrollDownButton.Visible = false;
+
+            return;
+        }
+
+        var maxScroll = totalLines - visibleLines;
+
+        if (ScrollUpButton is not null)
+        {
+            ScrollUpButton.Visible = ScrollLine > 0;
+            ScrollUpButton.Enabled = ScrollLine > 0;
+        }
+
+        if (ScrollDownButton is not null)
+        {
+            ScrollDownButton.Visible = ScrollLine < maxScroll;
+            ScrollDownButton.Enabled = ScrollLine < maxScroll;
+        }
     }
 }
