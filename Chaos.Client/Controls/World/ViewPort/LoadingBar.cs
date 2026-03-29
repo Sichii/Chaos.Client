@@ -1,8 +1,6 @@
 #region
 using Chaos.Client.Controls.Components;
 using Chaos.Client.Rendering;
-using Microsoft.Xna.Framework;
-using Microsoft.Xna.Framework.Graphics;
 #endregion
 
 namespace Chaos.Client.Controls.World.ViewPort;
@@ -13,13 +11,8 @@ namespace Chaos.Client.Controls.World.ViewPort;
 /// </summary>
 public class LoadingBar : PrefabPanel
 {
-    private readonly Texture2D? BarEndTexture;
-    private readonly Texture2D? BarFillTexture;
-    private readonly int BarMaxWidth;
-    private readonly Texture2D? BarStartTexture;
-    private readonly int BarY;
-
-    private float Progress;
+    private readonly UIImage? EndCap;
+    private readonly UIProgressBar? FillBar;
 
     public LoadingBar()
         : base("_nload")
@@ -27,78 +20,65 @@ public class LoadingBar : PrefabPanel
         Name = "Loading";
         Visible = false;
 
-        // Load progress bar segments from SPF files (not part of the prefab)
         var cache = UiRenderer.Instance!;
-        BarStartTexture = cache.GetSpfTexture("_nloadb0.spf");
-        BarFillTexture = cache.GetSpfTexture("_nloadb1.spf");
-        BarEndTexture = cache.GetSpfTexture("_nloadb2.spf");
+        var startTexture = cache.GetSpfTexture("_nloadb0.spf");
+        var fillTexture = cache.GetSpfTexture("_nloadb1.spf");
+        var endTexture = cache.GetSpfTexture("_nloadb2.spf");
 
-        // Position the progress bar at the bottom third of the panel
-        var barStartHeight = BarStartTexture?.Height ?? 0;
-        BarY = Height - barStartHeight - 20;
-        BarMaxWidth = Width - 40;
-    }
+        var barY = Height - (startTexture?.Height ?? 0) - 20;
+        var barX = 20;
 
-    public override void Draw(SpriteBatch spriteBatch)
-    {
-        if (!Visible)
-            return;
+        if (startTexture is not null)
+            AddChild(
+                new UIImage
+                {
+                    Texture = startTexture,
+                    X = barX,
+                    Y = barY
+                });
 
-        base.Draw(spriteBatch);
-
-        if (BarStartTexture is null || BarFillTexture is null || BarEndTexture is null)
-            return;
-
-        if (Progress <= 0f)
-            return;
-
-        var sx = ScreenX;
-        var sy = ScreenY;
-        var barStartX = sx + 20;
-        var barDrawY = sy + BarY;
-
-        var startWidth = BarStartTexture.Width;
-        var endWidth = BarEndTexture.Width;
-        var fillWidth = BarFillTexture.Width;
-        var totalFillableWidth = BarMaxWidth - startWidth - endWidth;
-        var filledWidth = (int)(totalFillableWidth * Progress);
-
-        // Start cap
-        spriteBatch.Draw(BarStartTexture, new Vector2(barStartX, barDrawY), Color.White);
-
-        // Fill tiles
-        var fillX = barStartX + startWidth;
-
-        for (var drawn = 0; drawn < filledWidth; drawn += fillWidth)
+        if (fillTexture is not null)
         {
-            var remaining = filledWidth - drawn;
-            var drawWidth = Math.Min(fillWidth, remaining);
+            FillBar = new UIProgressBar
+            {
+                X = barX + (startTexture?.Width ?? 0),
+                Y = barY,
+                Width = fillTexture.Width,
+                Height = fillTexture.Height,
+                FillTexture = fillTexture
+            };
 
-            spriteBatch.Draw(
-                BarFillTexture,
-                new Rectangle(
-                    fillX + drawn,
-                    barDrawY,
-                    drawWidth,
-                    BarFillTexture.Height),
-                new Rectangle(
-                    0,
-                    0,
-                    drawWidth,
-                    BarFillTexture.Height),
-                Color.White);
+            AddChild(FillBar);
         }
 
-        // End cap (only at 100% or near-complete)
-        if (Progress >= 0.99f)
-            spriteBatch.Draw(BarEndTexture, new Vector2(fillX + filledWidth, barDrawY), Color.White);
+        if (endTexture is not null)
+        {
+            EndCap = new UIImage
+            {
+                Texture = endTexture,
+                X = barX + (startTexture?.Width ?? 0) + (fillTexture?.Width ?? 0),
+                Y = barY,
+                Visible = false
+            };
+
+            AddChild(EndCap);
+        }
     }
 
-    public void SetProgress(float progress) => Progress = Math.Clamp(progress, 0f, 1f);
+    public void SetProgress(float progress)
+    {
+        progress = Math.Clamp(progress, 0f, 1f);
+
+        if (FillBar is not null)
+            FillBar.Percent = progress;
+
+        if (EndCap is not null)
+            EndCap.Visible = progress >= 1f;
+    }
 
     public void Show(float initialProgress = 0f)
     {
-        Progress = Math.Clamp(initialProgress, 0f, 1f);
+        SetProgress(initialProgress);
         Visible = true;
     }
 }

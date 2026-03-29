@@ -310,6 +310,8 @@ public sealed class ChaosGame : Game
         PacketBuffer.Clear();
         Connection.ProcessPackets(PacketBuffer);
 
+        SoundSystem.Update();
+
         Screens.Update(gameTime);
 
         base.Update(gameTime);

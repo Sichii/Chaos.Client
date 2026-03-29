@@ -21,6 +21,12 @@ public sealed class TileRepository
     private TilesetView Tileset = TilesetView.FromArchive("tilea", DatArchives.Seo);
     private bool UseSnowTileset;
 
+    public PaletteLookup BackgroundPaletteLookup { get; } = PaletteLookup.FromArchive("mpt", DatArchives.Seo)
+                                                                         .Freeze();
+
+    public PaletteLookup ForegroundPaletteLookup { get; } = PaletteLookup.FromArchive("stc", DatArchives.Ia)
+                                                                         .Freeze();
+
     /// <summary>
     ///     Ground tile attributes parsed from gndattr.tbl in seo.dat. Maps background tile IDs to their ground attributes
     ///     (color tint, walk-blocking, foreground height override).
@@ -36,12 +42,6 @@ public sealed class TileRepository
         ? sotpEntry.ToSpan()
                    .ToArray()
         : [];
-
-    public PaletteLookup BackgroundPaletteLookup { get; } = PaletteLookup.FromArchive("mpt", DatArchives.Seo)
-                                                                         .Freeze();
-
-    public PaletteLookup ForegroundPaletteLookup { get; } = PaletteLookup.FromArchive("stc", DatArchives.Ia)
-                                                                         .Freeze();
 
     public Palettized<Tile>? GetBackgroundTile(int tileId)
     {
@@ -59,14 +59,14 @@ public sealed class TileRepository
 
     public TileAnimationEntry? GetFgAnimation(int tileId) => FgAnimations.TryGetEntry(tileId, out var entry) ? entry : null;
 
-    public Palettized<HpfFile>? GetForegroundTile(int tileId)
+    public Palettized<CompressedHpfFile>? GetForegroundTile(int tileId)
     {
         if (!DatArchives.Ia.TryGetValue($"stc{tileId:D5}.hpf", out var entry))
             return null;
 
-        return new Palettized<HpfFile>
+        return new Palettized<CompressedHpfFile>
         {
-            Entity = HpfFile.FromEntry(entry),
+            Entity = CompressedHpfFile.FromEntry(entry),
             Palette = ForegroundPaletteLookup.GetPaletteForId(tileId + 1)
         };
     }

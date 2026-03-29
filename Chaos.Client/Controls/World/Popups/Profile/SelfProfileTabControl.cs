@@ -437,6 +437,31 @@ public sealed class SelfProfileTabControl : PrefabPanel
         return equipPage?.ContainsEquipmentSlotPoint(screenX, screenY) ?? false;
     }
 
+    /// <summary>
+    ///     Gets the current profile text from the equipment tab's editable text box.
+    /// </summary>
+    public string GetProfileText()
+    {
+        var equipPage = GetOrCreateEquipmentPage();
+
+        return equipPage?.ProfileText ?? string.Empty;
+    }
+
+    /// <summary>
+    ///     Sets the profile text on the equipment tab's editable text box.
+    /// </summary>
+    public void SetProfileText(string text)
+    {
+        var equipPage = GetOrCreateEquipmentPage();
+
+        equipPage?.SetProfileText(text);
+    }
+
+    /// <summary>
+    ///     Fired when the profile text is edited by the user.
+    /// </summary>
+    public event Action<string>? OnProfileTextChanged;
+
     private SelfProfileEquipmentTab? GetOrCreateEquipmentPage()
     {
         if (TabPages.TryGetValue(StatusBookTab.Equipment, out var page) && page is SelfProfileEquipmentTab existing)

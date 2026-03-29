@@ -19,6 +19,8 @@ public sealed class SoundSystem : IDisposable
     private SoundEffect? MusicEffect;
     private SoundEffectInstance? MusicInstance;
     private float MusicVolume = 0.75f;
+    private int PendingMusicId;
+    private Task<(byte[] PcmBytes, int SampleRate, AudioChannels Channels)?>? PendingMusicLoad;
     private float Volume = 0.75f;
 
     /// <inheritdoc />
@@ -30,6 +32,32 @@ public sealed class SoundSystem : IDisposable
             sfx?.Dispose();
 
         SoundCache.Clear();
+    }
+
+    private static (byte[] PcmBytes, int SampleRate, AudioChannels Channels)? DecodeMusicFile(string path)
+    {
+        try
+        {
+            using var musStream = File.OpenRead(path);
+            using var mp3Reader = new Mp3FileReader(musStream);
+            using var pcmStream = WaveFormatConversionStream.CreatePcmStream(mp3Reader);
+
+            using var ms = new MemoryStream();
+            pcmStream.CopyTo(ms);
+
+            var pcmBytes = ms.ToArray();
+
+            if (pcmBytes.Length == 0)
+                return null;
+
+            var format = pcmStream.WaveFormat;
+            var channels = format.Channels == 1 ? AudioChannels.Mono : AudioChannels.Stereo;
+
+            return (pcmBytes, format.SampleRate, channels);
+        } catch
+        {
+            return null;
+        }
     }
 
     private void EvictOldest()
@@ -75,8 +103,8 @@ public sealed class SoundSystem : IDisposable
     }
 
     /// <summary>
-    ///     Plays background music by ID. Loads MP3 from music directory, decodes to PCM, loops continuously.
-    ///     musicId 0 stops playback.
+    ///     Plays background music by ID. Kicks off async MP3 decode — call <see cref="Update" /> each frame to start playback
+    ///     when ready. musicId 0 stops playback.
     /// </summary>
     public void PlayMusic(int musicId)
     {
@@ -88,38 +116,14 @@ public sealed class SoundSystem : IDisposable
         if (musicId == 0)
             return;
 
-        try
-        {
-            var path = Path.Combine(DataContext.DataPath, "music", $"{musicId}.mus");
+        var path = Path.Combine(DataContext.DataPath, "music", $"{musicId}.mus");
 
-            if (!File.Exists(path))
-                return;
+        if (!File.Exists(path))
+            return;
 
-            using var musStream = File.OpenRead(path);
-            using var mp3Reader = new Mp3FileReader(musStream);
-            using var pcmStream = WaveFormatConversionStream.CreatePcmStream(mp3Reader);
+        PendingMusicId = musicId;
 
-            using var ms = new MemoryStream();
-            pcmStream.CopyTo(ms);
-
-            var pcmBytes = ms.ToArray();
-
-            if (pcmBytes.Length == 0)
-                return;
-
-            var format = pcmStream.WaveFormat;
-
-            MusicEffect = new SoundEffect(pcmBytes, format.SampleRate, format.Channels == 1 ? AudioChannels.Mono : AudioChannels.Stereo);
-
-            MusicInstance = MusicEffect.CreateInstance();
-            MusicInstance.IsLooped = true;
-            MusicInstance.Volume = MusicVolume;
-            MusicInstance.Play();
-            CurrentMusicId = musicId;
-        } catch
-        {
-            StopMusic();
-        }
+        PendingMusicLoad = Task.Run(() => DecodeMusicFile(path));
     }
 
     /// <summary>
@@ -164,6 +168,7 @@ public sealed class SoundSystem : IDisposable
     public void StopMusic()
     {
         CurrentMusicId = -1;
+        PendingMusicLoad = null;
 
         if (MusicInstance is not null)
         {
@@ -176,6 +181,36 @@ public sealed class SoundSystem : IDisposable
         {
             MusicEffect.Dispose();
             MusicEffect = null;
+        }
+    }
+
+    /// <summary>
+    ///     Pumps pending async music loads. Call once per frame from the game loop.
+    /// </summary>
+    public void Update()
+    {
+        if (PendingMusicLoad is not { IsCompleted: true })
+            return;
+
+        var result = PendingMusicLoad.Result;
+        PendingMusicLoad = null;
+
+        if (result is null)
+            return;
+
+        (var pcmBytes, var sampleRate, var channels) = result.Value;
+
+        try
+        {
+            MusicEffect = new SoundEffect(pcmBytes, sampleRate, channels);
+            MusicInstance = MusicEffect.CreateInstance();
+            MusicInstance.IsLooped = true;
+            MusicInstance.Volume = MusicVolume;
+            MusicInstance.Play();
+            CurrentMusicId = PendingMusicId;
+        } catch
+        {
+            StopMusic();
         }
     }
 }

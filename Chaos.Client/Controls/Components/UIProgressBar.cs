@@ -7,10 +7,11 @@ using Microsoft.Xna.Framework.Graphics;
 namespace Chaos.Client.Controls.Components;
 
 /// <summary>
-///     A progress bar that displays a 0-1 percentage. Supports two rendering modes:
+///     A progress bar that displays a 0-1 percentage. Supports three rendering modes:
 ///     <list type="bullet">
-///         <item>Color fill — draws a filled rectangle scaled by <see cref="Percent" />. Set <see cref="FillColor" />.</item>
 ///         <item>Frame-based — selects a frame from a texture array by <see cref="Percent" />. Pass frames to constructor.</item>
+///         <item>Texture-clip — reveals a single <see cref="FillTexture" /> left-to-right by <see cref="Percent" />.</item>
+///         <item>Color fill — draws a filled rectangle scaled by <see cref="Percent" />. Set <see cref="FillColor" />.</item>
 ///     </list>
 /// </summary>
 public sealed class UIProgressBar : UIElement
@@ -22,6 +23,11 @@ public sealed class UIProgressBar : UIElement
     ///     The fill color for color-fill mode. Null = no color fill drawn.
     /// </summary>
     public Color? FillColor { get; set; }
+
+    /// <summary>
+    ///     A single texture revealed left-to-right by <see cref="Percent" />. Not disposed by this control.
+    /// </summary>
+    public Texture2D? FillTexture { get; set; }
 
     /// <summary>
     ///     Fill percentage from 0.0 to 1.0.
@@ -61,6 +67,26 @@ public sealed class UIProgressBar : UIElement
                 Frames[CurrentFrame],
                 new Vector2(ScreenX, ScreenY),
                 Color.White);
+
+            return;
+        }
+
+        // Texture-clip rendering — reveals a single texture left-to-right
+        if (FillTexture is not null)
+        {
+            var clipWidth = (int)(FillTexture.Width * Math.Clamp(Percent, 0f, 1f));
+
+            if (clipWidth > 0)
+                AtlasHelper.Draw(
+                    spriteBatch,
+                    FillTexture,
+                    new Vector2(ScreenX, ScreenY),
+                    new Rectangle(
+                        0,
+                        0,
+                        clipWidth,
+                        FillTexture.Height),
+                    Color.White);
 
             return;
         }

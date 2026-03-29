@@ -764,6 +764,17 @@ public sealed class ConnectionManager : IDisposable
     }
 
     /// <summary>
+    ///     Sends a map data request to the server, requesting tile data for the current map.
+    /// </summary>
+    public void RequestMapData()
+    {
+        if (State != ConnectionState.World)
+            return;
+
+        Client.Send(new MapDataRequestArgs());
+    }
+
+    /// <summary>
     ///     Requests the full login notice (EULA) from the login server.
     /// </summary>
     public void RequestNotice()

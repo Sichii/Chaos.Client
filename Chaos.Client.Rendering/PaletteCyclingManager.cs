@@ -176,7 +176,7 @@ public sealed class PaletteCyclingManager : IDisposable
             fgImageCacheLock,
             fgSlots,
             static tileId => DataContext.Tiles.GetForegroundTile(tileId),
-            static (entity, palette) => Graphics.RenderImage(entity, palette));
+            static (entity, palette) => Graphics.RenderImage(entity.Decompress(), palette));
 
         BgSlots = bgSlots.ToFrozenDictionary();
         FgSlots = fgSlots.ToFrozenDictionary();

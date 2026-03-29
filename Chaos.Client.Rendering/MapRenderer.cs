@@ -1,5 +1,6 @@
 #region
 using Chaos.Client.Data;
+using Chaos.Client.Data.Models;
 using Chaos.Client.Rendering.Definitions;
 using DALib.Data;
 using DALib.Definitions;
@@ -354,7 +355,7 @@ public sealed class MapRenderer : IDisposable
         if (palettized is null)
             return null;
 
-        using var image = Graphics.RenderImage(palettized.Entity, palettized.Palette);
+        using var image = Graphics.RenderImage(palettized.Entity.Decompress(), palettized.Palette);
         var texture = TextureConverter.ToTexture2D(image);
         FgTextureCache[tileId] = texture;
 
@@ -385,7 +386,7 @@ public sealed class MapRenderer : IDisposable
     ///     Preloads all unique tile pixel data used by the map. Background and foreground tiles are rendered in parallel on
     ///     the CPU then packed into texture atlases (one GPU upload per page). Archive reads are sequential (not thread-safe).
     /// </summary>
-    public void PreloadMapTiles(GraphicsDevice device, MapFile mapFile)
+    public void PreloadMapTiles(GraphicsDevice device, MapFile mapFile, Action<float>? onProgress = null)
     {
         var uniqueBgTileIds = new HashSet<int>();
         var uniqueFgTileIds = new HashSet<int>();
@@ -436,7 +437,9 @@ public sealed class MapRenderer : IDisposable
                 uniqueFgTileIds.Add(frameTileId);
         }
 
-        // Phase 2: Read tile data from archives sequentially (archive streams are not thread-safe)
+        onProgress?.Invoke(0.1f);
+
+        // Phase 2a: Read bg tile data from archives sequentially (archive streams are not thread-safe)
         var bgTileData = new Dictionary<int, (Tile Tile, Palette Palette)>();
 
         foreach (var tileId in uniqueBgTileIds)
@@ -447,26 +450,20 @@ public sealed class MapRenderer : IDisposable
                 bgTileData[tileId] = (palettized.Entity, palettized.Palette);
         }
 
-        var fgTileData = new Dictionary<int, (HpfFile Hpf, Palette Palette)>();
-        var maxFgHeight = 0;
+        // Phase 2b: Read compressed fg tile data from archives sequentially (not thread-safe)
+        var compressedFgData = new Dictionary<int, (CompressedHpfFile Compressed, Palette Palette)>();
 
         foreach (var tileId in uniqueFgTileIds)
         {
             var palettized = DataContext.Tiles.GetForegroundTile(tileId);
 
-            if (palettized is null)
-                continue;
-
-            fgTileData[tileId] = (palettized.Entity, palettized.Palette);
-
-            if (palettized.Entity.PixelHeight > maxFgHeight)
-                maxFgHeight = palettized.Entity.PixelHeight;
+            if (palettized is not null)
+                compressedFgData[tileId] = (palettized.Entity, palettized.Palette);
         }
 
-        // Convert max pixel height to tile rows: each tile row = 14px
-        ForegroundExtraMargin = (int)MathF.Ceiling(maxFgHeight / (float)CONSTANTS.HALF_TILE_HEIGHT);
+        onProgress?.Invoke(0.4f);
 
-        // Phase 3: Render all tiles in parallel (CPU-only, no archive access)
+        // Phase 3: Decompress + render all tiles in parallel (CPU-only, no archive access)
         Parallel.ForEach(
             bgTileData,
             kvp =>
@@ -477,15 +474,28 @@ public sealed class MapRenderer : IDisposable
                     BgImageCache[kvp.Key] = image;
             });
 
+        var maxFgHeight = 0;
+
         Parallel.ForEach(
-            fgTileData,
+            compressedFgData,
             kvp =>
             {
-                var image = Graphics.RenderImage(kvp.Value.Hpf, kvp.Value.Palette);
+                var hpf = kvp.Value.Compressed.Decompress();
+                var image = Graphics.RenderImage(hpf, kvp.Value.Palette);
 
                 using (FgImageCacheLock.EnterScope())
+                {
                     FgImageCache[kvp.Key] = image;
+
+                    if (hpf.PixelHeight > maxFgHeight)
+                        maxFgHeight = hpf.PixelHeight;
+                }
             });
+
+        onProgress?.Invoke(0.7f);
+
+        // Convert max pixel height to tile rows: each tile row = 14px
+        ForegroundExtraMargin = (int)MathF.Ceiling(maxFgHeight / (float)CONSTANTS.HALF_TILE_HEIGHT);
 
         // Pre-render palette cycling variants before atlas build
         CyclingManager = new PaletteCyclingManager();
@@ -497,12 +507,16 @@ public sealed class MapRenderer : IDisposable
             FgImageCache,
             FgImageCacheLock);
 
+        onProgress?.Invoke(0.85f);
+
         // Build atlases from all preloaded pixel data (includes base + cycling variant frames)
         BuildBgAtlas(device);
         BuildFgAtlas(device);
 
         // Resolve cycling variant regions from the built atlases
         CyclingManager.ResolveRegions(BgAtlas, FgAtlas);
+
+        onProgress?.Invoke(1f);
     }
 
     /// <summary>

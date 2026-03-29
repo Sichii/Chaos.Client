@@ -25,6 +25,14 @@ public sealed partial class WorldScreen
 
         var input = Game.Input;
         input.Suppressed = false;
+
+        if (DisconnectPopup.Visible)
+        {
+            DisconnectPopup.Update(gameTime, input);
+
+            return;
+        }
+
         var elapsedMs = (float)gameTime.ElapsedGameTime.TotalMilliseconds;
 
         // Global tile animation tick — 100ms resolution (matches tile animation table format)

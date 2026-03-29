@@ -628,14 +628,7 @@ public sealed partial class WorldScreen
 
     // --- Profiles ---
 
-    private void HandleEditableProfileRequest()
-    {
-        var name = Game.Connection.AislingName;
-        var portrait = LoadPortraitFile(name);
-        var profileText = LoadProfileText(name);
-
-        Game.Connection.SendEditableProfile(portrait, profileText);
-    }
+    private void HandleEditableProfileRequest() => Game.Connection.SendEditableProfile(PlayerPortrait, StatusBook.GetProfileText());
 
     private static byte[] LoadPortraitFile(string name)
     {
@@ -663,6 +656,17 @@ public sealed partial class WorldScreen
         var profilePath = Path.Combine(GlobalSettings.DataPath, $"{name}.txt");
 
         return File.Exists(profilePath) ? File.ReadAllText(profilePath) : string.Empty;
+    }
+
+    private void SaveProfileText(string text)
+    {
+        var name = Game.Connection.AislingName;
+
+        if (string.IsNullOrEmpty(name))
+            return;
+
+        var profilePath = Path.Combine(GlobalSettings.DataPath, $"{name}.txt");
+        File.WriteAllText(profilePath, text);
     }
 
     private void HandleSelfProfile(SelfProfileArgs args)
@@ -810,15 +814,7 @@ public sealed partial class WorldScreen
                             m.Key))
                         .ToList();
 
-        OtherProfile.Show(
-            args.Name,
-            args.DisplayClass,
-            args.GuildName,
-            args.GuildRank,
-            args.Title,
-            args.GroupOpen,
-            marks,
-            args.ProfileText);
+        OtherProfile.Show(args, marks, Game.AislingRenderer);
     }
 
     // --- Animations / effects / sound ---
@@ -988,8 +984,6 @@ public sealed partial class WorldScreen
         MapPreloaded = false;
         QueuedWalkDirection = null;
         Pathfinding.Clear();
-
-        Game.SoundSystem.StopMusic();
         WorldMap.HideMap();
     }
 
@@ -1035,7 +1029,16 @@ public sealed partial class WorldScreen
         // Server redirected us back to login (e.g., after logout)
         // State transitions go World → Connecting → Login, so just check for Login arrival
         if (newState == ConnectionState.Login)
+        {
+            RedirectInProgress = false;
             PendingLoginSwitch = true;
+
+            return;
+        }
+
+        // Unexpected disconnect — show reconnect prompt (skip if this is part of a redirect sequence)
+        if ((newState == ConnectionState.Disconnected) && !RedirectInProgress)
+            DisconnectPopup.Show("Connection lost.");
     }
 
     // --- Helpers ---

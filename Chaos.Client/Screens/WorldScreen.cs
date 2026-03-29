@@ -72,6 +72,7 @@ public sealed partial class WorldScreen : IScreen
     private ArticleSendControl ArticleSend = null!;
 
     // Board/mail controls — 7 instances for 7 prefabs
+    private bool AwaitingMapData;
     private BoardListControl BoardList = null!;
     private Camera Camera = null!;
     private ChantEditControl ChantEdit = null!;
@@ -82,6 +83,7 @@ public sealed partial class WorldScreen : IScreen
     private DarknessRenderer DarknessRenderer = null!;
     private OkPopupMessageControl DeleteConfirm = null!;
     private GraphicsDevice Device = null!;
+    private OkPopupMessageControl DisconnectPopup = null!;
 
     // Event detail popup (from Events tab)
     private EventDetailControl EventDetail = null!;
@@ -112,6 +114,7 @@ public sealed partial class WorldScreen : IScreen
     private MailSendControl MailSend = null!;
     private MainOptionsControl MainOptions = null!;
     private MapFile? MapFile;
+    private MapLoadingBar MapLoading = null!;
     private Pathfinder? MapPathfinder;
     private bool MapPreloaded;
     private MapRenderer MapRenderer = null!;
@@ -119,10 +122,12 @@ public sealed partial class WorldScreen : IScreen
     // Overlay panels (rendered on top of HUD)
     private NotepadControl Notepad = null!;
     private NpcSessionControl NpcSession = null!;
-    private OtherProfileControl OtherProfile = null!;
+    private OtherProfileTabControl OtherProfile = null!;
     private Action? PendingDeleteAction;
     private bool PendingLoginSwitch;
+    private byte[] PlayerPortrait = [];
     private Direction? QueuedWalkDirection;
+    private bool RedirectInProgress;
     private TileClickTracker RightClickTracker = new();
     private RasterizerState ScissorRasterizerState = null!;
 
@@ -213,9 +218,10 @@ public sealed partial class WorldScreen : IScreen
         // Map transitions
         Game.Connection.OnMapChangePending += HandleMapChangePending;
 
-        // Logout
+        // Logout / disconnect
         Game.Connection.OnExitResponse += HandleExitResponse;
         Game.Connection.StateChanged += HandleStateChanged;
+        Game.Connection.OnRedirectReceived += _ => RedirectInProgress = true;
 
         // Health bars
         Game.Connection.OnHealthBar += HandleHealthBar;
@@ -446,6 +452,18 @@ public sealed partial class WorldScreen : IScreen
         };
         DeleteConfirm = new OkPopupMessageControl(true);
 
+        DisconnectPopup = new OkPopupMessageControl(true)
+        {
+            ZIndex = 10
+        };
+
+        DisconnectPopup.OnOk += () =>
+        {
+            DisconnectPopup.Hide();
+            Game.Screens.Switch(new LobbyLoginScreen());
+        };
+        DisconnectPopup.OnCancel += () => Game.Exit();
+
         var boardViewport = WorldHud.ViewportBounds;
         BoardList.SetViewportBounds(boardViewport);
         ArticleList.SetViewportBounds(boardViewport);
@@ -465,6 +483,7 @@ public sealed partial class WorldScreen : IScreen
 
         StatusBook.OnUnequip += slot => Game.Connection.Unequip(slot);
         StatusBook.OnClose += SavePlayerFamilyList;
+        StatusBook.OnClose += () => SaveProfileText(StatusBook.GetProfileText());
 
         StatusBook.OnGroupToggled += () => Game.Connection.ToggleGroup();
 
@@ -503,7 +522,7 @@ public sealed partial class WorldScreen : IScreen
         };
         Notepad.OnSave += (slot, text) => Game.Connection.SendSetNotepad(slot, text);
 
-        OtherProfile = new OtherProfileControl
+        OtherProfile = new OtherProfileTabControl
         {
             ZIndex = 2
         };
@@ -518,6 +537,13 @@ public sealed partial class WorldScreen : IScreen
         {
             ZIndex = 2
         };
+
+        MapLoading = new MapLoadingBar
+        {
+            ZIndex = 5
+        };
+        MapLoading.X = viewport.X + (viewport.Width - MapLoading.Width) / 2;
+        MapLoading.Y = viewport.Y + (viewport.Height - MapLoading.Height) / 2;
 
         AislingPopup = new AislingPopupMenu
         {
@@ -572,12 +598,19 @@ public sealed partial class WorldScreen : IScreen
         Root.AddChild(SocialStatusPicker);
         Root.AddChild(AislingPopup);
         Root.AddChild(ContextMenu);
+        Root.AddChild(MapLoading);
+        Root.AddChild(DisconnectPopup);
 
         WireHudPanels(SmallHud);
         WireHudPanels(LargeHud);
 
         // Build UI atlas after all HUD controls are constructed
         UiRenderer.Instance?.BuildAtlas();
+
+        // Load local portrait and profile text from file
+        var playerName = Game.Connection.AislingName;
+        PlayerPortrait = LoadPortraitFile(playerName);
+        StatusBook.SetProfileText(LoadProfileText(playerName));
     }
 
     /// <inheritdoc />

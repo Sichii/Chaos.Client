@@ -7,6 +7,7 @@ using Chaos.Geometry;
 using Chaos.Geometry.Abstractions;
 using Chaos.Networking.Entities.Server;
 using Chaos.Pathfinding;
+using DALib.Cryptography;
 using DALib.Data;
 using DALib.Extensions;
 using Pathfinder = Chaos.Pathfinding.Pathfinder;
@@ -34,9 +35,24 @@ public sealed partial class WorldScreen
         // New map — dispose old caches, load fresh MapFile from local files
         MapRenderer.Dispose();
         MapRenderer = new MapRenderer();
-        MapFile = LoadMapFile(args.MapId, args.Width, args.Height);
+
+        MapFile = LoadMapFile(
+            args.MapId,
+            args.Width,
+            args.Height,
+            args.CheckSum);
         MapPreloaded = false;
+        AwaitingMapData = false;
         CurrentMapId = args.MapId;
+        MapLoading.Show();
+
+        // Local file missing, corrupt, or checksum mismatch — request from server
+        if (MapFile is null)
+        {
+            MapFile = new MapFile(args.Width, args.Height);
+            AwaitingMapData = true;
+            Game.Connection.RequestMapData();
+        }
 
         // Clear entity + renderer caches for the new map
         ClearTransientState();
@@ -92,21 +108,39 @@ public sealed partial class WorldScreen
                 RightForeground = rightForeground
             };
         }
+
+        // Last row received — save to disk and finalize
+        if (AwaitingMapData && (y >= (MapFile.Height - 1)))
+        {
+            AwaitingMapData = false;
+            SaveMapFile(CurrentMapId);
+            FinalizeMapLoad();
+        }
     }
 
     private void HandleMapLoadComplete()
+    {
+        // When awaiting server map data, ignore this — FinalizeMapLoad will be called from HandleMapData
+        if (AwaitingMapData)
+            return;
+
+        FinalizeMapLoad();
+    }
+
+    private void FinalizeMapLoad()
     {
         if (MapFile is null)
             return;
 
         if (!MapPreloaded)
         {
-            MapRenderer.PreloadMapTiles(Device, MapFile);
+            MapRenderer.PreloadMapTiles(Device, MapFile, MapLoading.SetProgress);
             TabMapRenderer.Generate(Device, MapFile);
             MapPathfinder = BuildPathfinder(MapFile);
             MapPreloaded = true;
         }
 
+        MapLoading.Hide();
         FollowPlayerCamera();
     }
 
@@ -186,11 +220,58 @@ public sealed partial class WorldScreen
         return true;
     }
 
-    private static MapFile? LoadMapFile(int mapId, int width, int height)
+    private static MapFile? LoadMapFile(
+        int mapId,
+        int width,
+        int height,
+        ushort serverCheckSum)
     {
-        var key = $"lod{mapId}";
+        var path = Path.Combine(DataContext.DataPath, "maps", $"lod{mapId}.map");
 
-        return DataContext.MapsFiles.GetMapFile(key, width, height);
+        if (!File.Exists(path))
+            return null;
+
+        try
+        {
+            var fileBytes = File.ReadAllBytes(path);
+
+            if (fileBytes.Length != (width * height * 6))
+                return null;
+
+            if (CRC16.Calculate(fileBytes) != serverCheckSum)
+                return null;
+
+            // Parse in-place — file format is LE int16 x3 per tile, y-major x-minor
+            var mapFile = new MapFile(width, height);
+            var index = 0;
+
+            for (var y = 0; y < height; y++)
+                for (var x = 0; x < width; x++)
+                {
+                    var background = (short)(fileBytes[index] | (fileBytes[index + 1] << 8));
+                    var leftForeground = (short)(fileBytes[index + 2] | (fileBytes[index + 3] << 8));
+                    var rightForeground = (short)(fileBytes[index + 4] | (fileBytes[index + 5] << 8));
+                    index += 6;
+
+                    mapFile.Tiles[x, y] = new MapTile
+                    {
+                        Background = background,
+                        LeftForeground = leftForeground,
+                        RightForeground = rightForeground
+                    };
+                }
+
+            return mapFile;
+        } catch
+        {
+            return null;
+        }
+    }
+
+    private void SaveMapFile(int mapId)
+    {
+        var path = Path.Combine(DataContext.DataPath, "maps", $"lod{mapId}.map");
+        MapFile!.Save(path);
     }
 
     private void HandleLocationChanged(int x, int y)
