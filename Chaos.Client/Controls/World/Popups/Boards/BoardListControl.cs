@@ -1,6 +1,7 @@
 #region
 using Chaos.Client.Controls.Components;
 using Chaos.Client.Controls.Generic;
+using Chaos.Client.Extensions;
 using Chaos.Client.Utilities;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
@@ -72,7 +73,7 @@ public sealed class BoardListControl : PrefabPanel
 
         ScrollBar = new ScrollBarControl
         {
-            X = BoardListRect.Right - ScrollBarControl.DEFAULT_WIDTH,
+            X = BoardListRect.AlignRight(ScrollBarControl.DEFAULT_WIDTH),
             Y = BoardListRect.Y,
             Height = BoardListRect.Height
         };

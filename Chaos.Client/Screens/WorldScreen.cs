@@ -12,6 +12,7 @@ using Chaos.Client.Controls.World.Popups.Options;
 using Chaos.Client.Controls.World.Popups.Profile;
 using Chaos.Client.Controls.World.Popups.WorldList;
 using Chaos.Client.Controls.World.ViewPort;
+using Chaos.Client.Extensions;
 using Chaos.Client.Models;
 using Chaos.Client.Rendering;
 using Chaos.Client.Systems;
@@ -542,8 +543,7 @@ public sealed partial class WorldScreen : IScreen
         {
             ZIndex = 5
         };
-        MapLoading.X = viewport.X + (viewport.Width - MapLoading.Width) / 2;
-        MapLoading.Y = viewport.Y + (viewport.Height - MapLoading.Height) / 2;
+        MapLoading.CenterIn(viewport);
 
         AislingPopup = new AislingPopupMenu
         {

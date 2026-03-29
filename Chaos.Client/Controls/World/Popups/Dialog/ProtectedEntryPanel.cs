@@ -1,6 +1,7 @@
 #region
 using Chaos.Client.Controls.Components;
 using Chaos.Client.Data;
+using Chaos.Client.Extensions;
 using Chaos.Client.Rendering;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
@@ -37,8 +38,7 @@ public sealed class ProtectedEntryPanel : UIPanel
 
         Width = PANEL_WIDTH;
         Height = PANEL_HEIGHT;
-        X = (ChaosGame.VIRTUAL_WIDTH - Width) / 2;
-        Y = (ChaosGame.VIRTUAL_HEIGHT - Height) / 2;
+        this.CenterOnScreen();
 
         IdLabelText.Update("I   D   : ", Color.White);
         PasswordLabelText.Update("Password: ", Color.White);

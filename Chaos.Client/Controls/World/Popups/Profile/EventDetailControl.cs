@@ -1,6 +1,7 @@
 #region
 using Chaos.Client.Controls.Components;
 using Chaos.Client.Data.Models;
+using Chaos.Client.Extensions;
 using Chaos.Client.Rendering;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Input;
@@ -47,8 +48,7 @@ public sealed class EventDetailControl : PrefabPanel
     /// </summary>
     public void ShowEntry(EventMetadataEntry entry, EventState state, Rectangle viewport)
     {
-        X = viewport.X + (viewport.Width - Width) / 2;
-        Y = viewport.Y + (viewport.Height - Height) / 2;
+        this.CenterIn(viewport);
 
         if (NameLabel is not null)
             NameLabel.Text = entry.Title;

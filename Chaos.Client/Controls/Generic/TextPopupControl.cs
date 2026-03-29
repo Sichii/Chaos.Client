@@ -1,5 +1,6 @@
 #region
 using Chaos.Client.Controls.Components;
+using Chaos.Client.Extensions;
 using Chaos.Client.Rendering;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
@@ -151,8 +152,7 @@ public sealed class TextPopupControl : UIPanel
         Width = Math.Clamp(contentWidth + PADDING * 2, MIN_WIDTH, MAX_WIDTH);
         Height = Math.Clamp(contentHeight + PADDING * 2, MIN_HEIGHT, MAX_HEIGHT);
 
-        X = (640 - Width) / 2;
-        Y = (480 - Height) / 2;
+        this.CenterOnScreen();
 
         BackgroundColor = new Color(
             20,

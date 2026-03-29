@@ -1,13 +1,70 @@
 #region
+using System.Collections.Concurrent;
+using System.Collections.Frozen;
+using System.IO.Compression;
+using System.Text;
 using Chaos.Client.Data.Models;
 using DALib.Data;
+using DALib.Extensions;
 #endregion
 
 namespace Chaos.Client.Data.Repositories;
 
 public sealed class MetaFileRepository
 {
+    private static readonly Encoding KoreanEncoding = Encoding.GetEncoding(949);
+
+    private static readonly FileStreamOptions ReadOptions = new()
+    {
+        Access = FileAccess.Read,
+        Mode = FileMode.Open,
+        Options = FileOptions.SequentialScan,
+        Share = FileShare.ReadWrite
+    };
+
     private readonly string MetaFileDirectory = Path.Combine(DataContext.DataPath, "metafile");
+    private FrozenDictionary<int, ushort>? ItemIndex;
+
+    /// <summary>
+    ///     Builds the item name hash → file number index by scanning all ItemInfo files. Call once after metadata sync
+    ///     completes.
+    /// </summary>
+    public void BuildItemIndex()
+    {
+        var index = new ConcurrentDictionary<int, ushort>();
+
+        if (!Directory.Exists(MetaFileDirectory))
+        {
+            ItemIndex = index.ToFrozenDictionary();
+
+            return;
+        }
+
+        var files = Directory.GetFiles(MetaFileDirectory)
+                             .Select(f => (Path: f, Name: Path.GetFileName(f)))
+                             .Where(f => f.Name.StartsWith("ItemInfo", StringComparison.OrdinalIgnoreCase))
+                             .Select(f => (f.Path, Parsed: ushort.TryParse(f.Name.AsSpan("ItemInfo".Length), out var n), Number: n))
+                             .Where(f => f.Parsed)
+                             .ToArray();
+
+        Parallel.ForEach(
+            files,
+            file =>
+            {
+                try
+                {
+                    var metaFile = MetaFile.FromFile(file.Path, true);
+
+                    foreach (var entry in metaFile)
+                        index.TryAdd(StringComparer.OrdinalIgnoreCase.GetHashCode(entry.Key), file.Number);
+                } catch
+                {
+                    // Skip corrupt files
+                }
+            });
+
+        ItemIndex = index.ToFrozenDictionary();
+    }
 
     /// <summary>
     ///     Loads a raw MetaFile from disk by name.
@@ -55,7 +112,7 @@ public sealed class MetaFileRepository
         {
             var fileName = Path.GetFileName(filePath);
 
-            if (fileName is null || !fileName.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
+            if (!fileName.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
                 continue;
 
             try
@@ -76,9 +133,55 @@ public sealed class MetaFileRepository
     public IReadOnlyList<EventMetadataEntry> GetEventMetadata() => EventMetadataEntry.ParseAll(GetAll("SEvent"));
 
     /// <summary>
-    ///     Loads and parses all item metadata (ItemInfo0, ItemInfo1, ...).
+    ///     Looks up item metadata for one or more items in parallel. Groups items by file number
+    ///     so each file is loaded at most once. Returns a dictionary of found items keyed by name.
     /// </summary>
-    public IReadOnlyList<ItemMetadataEntry> GetItemMetadata() => ItemMetadataEntry.ParseAll(GetAll("ItemInfo"));
+    public IDictionary<string, ItemMetadataEntry> GetItemMetadata(params ReadOnlySpan<string> itemNames)
+    {
+        if (ItemIndex is null || (itemNames.Length == 0))
+            return new Dictionary<string, ItemMetadataEntry>(StringComparer.OrdinalIgnoreCase);
+
+        // Group requested names by file number
+        var fileGroups = new Dictionary<ushort, HashSet<string>>();
+
+        foreach (var name in itemNames)
+        {
+            var hash = StringComparer.OrdinalIgnoreCase.GetHashCode(name);
+
+            if (!ItemIndex.TryGetValue(hash, out var fileNumber))
+                continue;
+
+            if (!fileGroups.TryGetValue(fileNumber, out var names))
+            {
+                names = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                fileGroups[fileNumber] = names;
+            }
+
+            names.Add(name);
+        }
+
+        var results = new ConcurrentDictionary<string, ItemMetadataEntry>(StringComparer.OrdinalIgnoreCase);
+
+        Parallel.ForEach(
+            fileGroups,
+            group =>
+            {
+                var filePath = Path.Combine(MetaFileDirectory, $"ItemInfo{group.Key}");
+
+                if (!File.Exists(filePath))
+                    return;
+
+                try
+                {
+                    ScanFile(filePath, group.Value, results);
+                } catch
+                {
+                    // Skip corrupt files
+                }
+            });
+
+        return results;
+    }
 
     /// <summary>
     ///     Loads and parses the "Light" metadata file.
@@ -117,5 +220,49 @@ public sealed class MetaFileRepository
             return null;
 
         return NpcIllustrationMetadata.Parse(metaFile);
+    }
+
+    /// <summary>
+    ///     Scans a single MetaFile for entries matching the requested names. Skips non-matching entries without allocating
+    ///     property strings. Stops early when all names are found.
+    /// </summary>
+    private static void ScanFile(string filePath, HashSet<string> names, ConcurrentDictionary<string, ItemMetadataEntry> results)
+    {
+        using var stream = File.Open(filePath, ReadOptions);
+        using var decompressor = new ZLibStream(stream, CompressionMode.Decompress);
+        using var reader = new BinaryReader(decompressor, KoreanEncoding, true);
+
+        var remaining = names.Count;
+        var entryCount = reader.ReadUInt16(true);
+
+        for (var i = 0; i < entryCount; i++)
+        {
+            var entryName = reader.ReadString8(KoreanEncoding);
+            var propertyCount = reader.ReadUInt16(true);
+
+            if (!names.Contains(entryName))
+            {
+                for (var j = 0; j < propertyCount; j++)
+                {
+                    var propLength = reader.ReadUInt16(true);
+                    reader.ReadBytes(propLength);
+                }
+
+                continue;
+            }
+
+            var properties = new string[propertyCount];
+
+            for (var j = 0; j < propertyCount; j++)
+                properties[j] = reader.ReadString16(KoreanEncoding, true);
+
+            var parsed = ItemMetadataEntry.ParseEntry(entryName, properties);
+
+            if (parsed is not null)
+                results.TryAdd(entryName, parsed);
+
+            if (--remaining == 0)
+                return;
+        }
     }
 }

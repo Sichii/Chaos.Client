@@ -6,6 +6,7 @@ using Chaos.Client.Extensions;
 using Chaos.Client.Models;
 using Chaos.Client.Networking;
 using Chaos.Client.Rendering;
+using Chaos.Client.Rendering.Models;
 using Chaos.Client.Systems;
 using Chaos.Client.ViewModel;
 using Chaos.DarkAges.Definitions;
@@ -369,6 +370,8 @@ public sealed partial class WorldScreen
     {
         var dialog = WorldState.NpcInteraction.CurrentDialog;
 
+        Console.WriteLine($"[Dialog] Type={dialog?.DialogType}");
+
         if (dialog is null || (dialog.DialogType == DialogType.CloseDialog))
         {
             NpcSession.HideAll();
@@ -383,6 +386,8 @@ public sealed partial class WorldScreen
     private void HandleMenuChanged()
     {
         var menu = WorldState.NpcInteraction.CurrentMenu;
+
+        Console.WriteLine($"[Menu] Type={menu?.MenuType}");
 
         if (menu is null)
             return;
@@ -421,14 +426,33 @@ public sealed partial class WorldScreen
             return;
         }
 
-        var portrait = NpcSession.SourceEntityType switch
+        switch (NpcSession.SourceEntityType)
         {
-            EntityType.Creature => RenderCreaturePortrait(NpcSession.PortraitSpriteId),
-            EntityType.Item     => RenderItemPortrait(NpcSession.PortraitSpriteId, NpcSession.PortraitColor),
-            _                   => null
-        };
+            case EntityType.Creature:
+            {
+                var frame = RenderCreaturePortrait(NpcSession.PortraitSpriteId);
 
-        NpcSession.SetPortrait(portrait, false);
+                if (frame is not null)
+                    NpcSession.SetPortrait(frame.Value);
+                else
+                    NpcSession.SetPortrait(null, false);
+
+                break;
+            }
+
+            case EntityType.Item:
+            {
+                var sprite = Game.ItemRenderer.GetSprite(NpcSession.PortraitSpriteId, (byte)NpcSession.PortraitColor);
+                NpcSession.SetPortrait(sprite?.Texture, false);
+
+                break;
+            }
+
+            default:
+                NpcSession.SetPortrait(null, false);
+
+                break;
+        }
     }
 
     /// <summary>
@@ -458,20 +482,17 @@ public sealed partial class WorldScreen
         return TextureConverter.ToTexture2D(image);
     }
 
-    private Texture2D? RenderCreaturePortrait(ushort spriteId)
+    private SpriteFrame? RenderCreaturePortrait(ushort spriteId)
     {
-        var animInfo = Game.CreatureRenderer.GetAnimInfo(spriteId);
+        var info = Game.CreatureRenderer.GetAnimInfo(spriteId);
 
-        if (animInfo is null)
+        if (info is null)
             return null;
 
-        return Game.CreatureRenderer.GetFrame(spriteId, animInfo.Value.StandingFrameIndex)
-                   ?.Texture;
-    }
+        (var frameIndex, _) = AnimationSystem.GetCreatureIdleFrame(info.Value, Direction.Down);
 
-    private Texture2D? RenderItemPortrait(ushort spriteId, DisplayColor color)
-        => Game.ItemRenderer.GetSprite(spriteId, (byte)color)
-               ?.Texture;
+        return Game.CreatureRenderer.GetFrame(spriteId, frameIndex);
+    }
 
     private void HandleRefreshResponse()
         =>
@@ -1001,7 +1022,11 @@ public sealed partial class WorldScreen
 
     private void HandleLightLevel(LightLevelArgs args) => DarknessRenderer.OnLightLevel(args);
 
-    private void HandleMetaDataSyncComplete() => DarknessRenderer.ReloadMetadata();
+    private void HandleMetaDataSyncComplete()
+    {
+        DarknessRenderer.ReloadMetadata();
+        DataContext.MetaFiles.BuildItemIndex();
+    }
 
     // --- Notepad ---
 

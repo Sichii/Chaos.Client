@@ -41,6 +41,7 @@ public static class Pathfinder
         int targetX,
         int targetY,
         IReadOnlyCollection<IPoint> blockedPoints,
+        bool ignoreWalls,
         out bool alreadyAdjacent)
     {
         alreadyAdjacent = false;
@@ -84,6 +85,7 @@ public static class Pathfinder
                 new PathOptions
                 {
                     BlockedPoints = blockedPoints,
+                    IgnoreWalls = ignoreWalls,
                     LimitRadius = null
                 });
 
@@ -103,7 +105,8 @@ public static class Pathfinder
         int fromY,
         int toX,
         int toY,
-        IReadOnlyCollection<IPoint> blockedPoints)
+        IReadOnlyCollection<IPoint> blockedPoints,
+        bool ignoreWalls)
     {
         var path = pathfinder.FindPath(
             new Point(fromX, fromY),
@@ -111,6 +114,7 @@ public static class Pathfinder
             new PathOptions
             {
                 BlockedPoints = blockedPoints,
+                IgnoreWalls = ignoreWalls,
                 LimitRadius = null
             });
 

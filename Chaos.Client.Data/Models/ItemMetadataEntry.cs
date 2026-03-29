@@ -26,25 +26,40 @@ public sealed record ItemMetadataEntry
         foreach (var metaFile in metaFiles)
             foreach (var entry in metaFile)
             {
-                if (entry.Properties.Count < 5)
-                    continue;
+                var parsed = ParseEntry(entry);
 
-                int.TryParse(entry.Properties[0], out var level);
-                byte.TryParse(entry.Properties[1], out var cls);
-                int.TryParse(entry.Properties[2], out var weight);
-
-                items.Add(
-                    new ItemMetadataEntry
-                    {
-                        Name = entry.Key,
-                        Level = level,
-                        Class = cls,
-                        Weight = weight,
-                        Category = entry.Properties[3],
-                        Description = entry.Properties[4]
-                    });
+                if (parsed is not null)
+                    items.Add(parsed);
             }
 
         return items;
+    }
+
+    /// <summary>
+    ///     Parses a single MetaFileEntry into an ItemMetadataEntry. Returns null if the entry has insufficient properties.
+    /// </summary>
+    public static ItemMetadataEntry? ParseEntry(MetaFileEntry entry) => ParseEntry(entry.Key, entry.Properties);
+
+    /// <summary>
+    ///     Parses item metadata from a name and property list. Returns null if there are fewer than 5 properties.
+    /// </summary>
+    public static ItemMetadataEntry? ParseEntry(string name, IReadOnlyList<string> properties)
+    {
+        if (properties.Count < 5)
+            return null;
+
+        int.TryParse(properties[0], out var level);
+        byte.TryParse(properties[1], out var cls);
+        int.TryParse(properties[2], out var weight);
+
+        return new ItemMetadataEntry
+        {
+            Name = name,
+            Level = level,
+            Class = cls,
+            Weight = weight,
+            Category = properties[3],
+            Description = properties[4]
+        };
     }
 }

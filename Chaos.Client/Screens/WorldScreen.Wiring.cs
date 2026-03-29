@@ -4,6 +4,7 @@ using Chaos.Client.Controls.Components;
 using Chaos.Client.Controls.World.Hud;
 using Chaos.Client.Controls.World.Hud.Panel;
 using Chaos.Client.Controls.World.Popups.Options;
+using Chaos.Client.Extensions;
 using Chaos.Client.Rendering;
 using Chaos.Client.Systems;
 using Chaos.DarkAges.Definitions;
@@ -230,7 +231,7 @@ public sealed partial class WorldScreen
         } else
         {
             // Fallback positioning when no emote button exists
-            SocialStatusPicker.X = viewport.X + (viewport.Width - SocialStatusPicker.Width) / 2;
+            SocialStatusPicker.CenterHorizontallyIn(viewport);
             SocialStatusPicker.Y = viewport.Y + viewport.Height - SocialStatusPicker.Height;
         }
 

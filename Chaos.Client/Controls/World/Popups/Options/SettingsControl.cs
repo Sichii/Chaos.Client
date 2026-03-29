@@ -1,5 +1,6 @@
 #region
 using Chaos.Client.Controls.Components;
+using Chaos.Client.Extensions;
 using Chaos.Client.Rendering;
 using Chaos.Client.Utilities;
 using Chaos.Client.ViewModel;
@@ -180,7 +181,7 @@ public sealed class SettingsControl : PrefabPanel
     /// </summary>
     public override void Show()
     {
-        X = (640 - Width) / 2;
+        this.CenterHorizontallyOnScreen();
         Y = 0;
         Visible = true;
         SlideMode = false;

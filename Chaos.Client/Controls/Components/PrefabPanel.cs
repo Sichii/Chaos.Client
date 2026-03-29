@@ -1,6 +1,7 @@
 #region
 using Chaos.Client.Data;
 using Chaos.Client.Data.Models;
+using Chaos.Client.Extensions;
 using Chaos.Client.Rendering;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
@@ -35,9 +36,12 @@ public abstract class PrefabPanel : UIPanel
             var anchorLeft = (int)anchorRect.Left;
             var anchorTop = (int)anchorRect.Top;
 
-            X = (anchorLeft != 0) || (anchorTop != 0) ? anchorLeft : (ChaosGame.VIRTUAL_WIDTH - Width) / 2;
-
-            Y = (anchorLeft != 0) || (anchorTop != 0) ? anchorTop : (ChaosGame.VIRTUAL_HEIGHT - Height) / 2;
+            if ((anchorLeft != 0) || (anchorTop != 0))
+            {
+                X = anchorLeft;
+                Y = anchorTop;
+            } else
+                this.CenterOnScreen();
         }
 
         if (anchor.Images.Count > 0)

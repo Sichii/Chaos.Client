@@ -1,6 +1,7 @@
 #region
 using Chaos.Client.Controls.Components;
 using Chaos.Client.Data;
+using Chaos.Client.Extensions;
 using Chaos.Client.Rendering;
 using Chaos.Client.Utilities;
 using Microsoft.Xna.Framework;
@@ -63,8 +64,7 @@ public sealed class OkPopupMessageControl : UIPanel
 
         Width = totalWidth;
         Height = totalHeight;
-        X = (ChaosGame.VIRTUAL_WIDTH - Width) / 2;
-        Y = (ChaosGame.VIRTUAL_HEIGHT - Height) / 2;
+        this.CenterOnScreen();
         Background = TextureConverter.ToTexture2D(composite);
 
         // OK button (butt001.epf — frame indices for OK)

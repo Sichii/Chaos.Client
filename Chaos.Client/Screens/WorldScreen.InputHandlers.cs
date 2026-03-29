@@ -73,7 +73,7 @@ public sealed partial class WorldScreen
         // Gold bag (slot 0) — show the gold amount popup
         if (slot == 0)
         {
-            GoldDrop.Y = viewport.Y + (viewport.Height - GoldDrop.Height) / 2;
+            GoldDrop.CenterVerticallyIn(viewport);
             GoldDrop.ShowForTarget(droppedOnEntity ? entity!.Id : null, tileX, tileY);
 
             return;
@@ -723,7 +723,8 @@ public sealed partial class WorldScreen
             player.TileY,
             tileX,
             tileY,
-            WorldState.GetBlockedPoints());
+            IsGameMaster ? [] : WorldState.GetBlockedPoints(),
+            IsGameMaster);
     }
 
     private void PathfindToEntity(WorldEntity player, WorldEntity target)
@@ -737,7 +738,8 @@ public sealed partial class WorldScreen
             player.TileY,
             target.TileX,
             target.TileY,
-            WorldState.GetBlockedPoints(),
+            IsGameMaster ? [] : WorldState.GetBlockedPoints(),
+            IsGameMaster,
             out var alreadyAdjacent);
 
         if (alreadyAdjacent)

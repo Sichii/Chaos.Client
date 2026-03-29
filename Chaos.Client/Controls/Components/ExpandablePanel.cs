@@ -1,4 +1,5 @@
 #region
+using Chaos.Client.Controls.Generic;
 using Chaos.Client.Rendering;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
@@ -56,7 +57,10 @@ public abstract class ExpandablePanel : UIPanel
 
             foreach (var child in Children)
                 if (child.Visible)
+                {
                     child.Draw(spriteBatch);
+                    DebugOverlay.DrawElement(spriteBatch, child);
+                }
 
             return;
         }

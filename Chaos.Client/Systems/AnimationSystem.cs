@@ -524,6 +524,31 @@ public static class AnimationSystem
     }
 
     /// <summary>
+    ///     Returns the first idle frame index and flip flag for a creature sprite facing the given direction. Does not require
+    ///     a WorldEntity — suitable for portraits, previews, and other static rendering.
+    /// </summary>
+    public static (int FrameIndex, bool Flip) GetCreatureIdleFrame(in CreatureAnimInfo info, Direction direction)
+    {
+        var baseIndex = info.StandingFrameCount > 0 ? info.StandingFrameIndex : info.WalkFrameIndex;
+
+        var dirOffset = info.StandingFrameCount > 0
+            ? info.OptionalAnimationFrameCount > 0 ? info.OptionalAnimationFrameCount : info.StandingFrameCount
+            : info.WalkFrameCount;
+
+        if ((baseIndex + dirOffset) >= info.TotalFrameCount)
+            dirOffset = 0;
+
+        return direction switch
+        {
+            Direction.Up    => (baseIndex, false),
+            Direction.Right => (baseIndex + dirOffset, false),
+            Direction.Down  => (baseIndex + dirOffset, true),
+            Direction.Left  => (baseIndex, true),
+            _               => (baseIndex, false)
+        };
+    }
+
+    /// <summary>
     ///     Computes the starting visual offset for a walk animation. The entity has already moved to the new tile; this offset
     ///     places it visually at the old position, then lerps to zero.
     /// </summary>

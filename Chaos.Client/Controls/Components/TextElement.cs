@@ -1,4 +1,5 @@
 #region
+using Chaos.Client.Extensions;
 using Chaos.Client.Rendering;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
@@ -61,12 +62,12 @@ public sealed class TextElement
 
         var x = Alignment switch
         {
-            TextAlignment.Center => bounds.X + (bounds.Width - Width) / 2,
-            TextAlignment.Right  => bounds.X + bounds.Width - Width,
+            TextAlignment.Center => bounds.CenterX(Width),
+            TextAlignment.Right  => bounds.AlignRight(Width),
             _                    => bounds.X
         };
 
-        var y = bounds.Y + (bounds.Height - Height) / 2;
+        var y = bounds.CenterY(Height);
 
         Draw(spriteBatch, new Vector2(x, y));
     }

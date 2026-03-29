@@ -28,15 +28,25 @@ public class UIButton : UIElement
     public Texture2D? SelectedTexture { get; set; }
 
     private Texture2D? ActiveTexture
-        => IsSelected && SelectedTexture is not null
-            ? SelectedTexture
-            : !Enabled && DisabledTexture is not null
-                ? DisabledTexture
-                : Enabled && IsPressed && PressedTexture is not null
-                    ? PressedTexture
-                    : Enabled && IsHovered && HoverTexture is not null
-                        ? HoverTexture
-                        : NormalTexture;
+    {
+        get
+        {
+            if (!Enabled && DisabledTexture is not null)
+                return DisabledTexture;
+
+            if (IsSelected && SelectedTexture is not null)
+                return SelectedTexture;
+
+            // ReSharper disable once ConvertIfStatementToSwitchStatement
+            if (Enabled && IsPressed && PressedTexture is not null)
+                return PressedTexture;
+
+            if (Enabled && IsHovered && HoverTexture is not null)
+                return HoverTexture;
+
+            return NormalTexture;
+        }
+    }
 
     public override void Dispose()
     {

@@ -62,6 +62,20 @@ public abstract class UIElement : IDisposable
         }
     }
 
+    public Rectangle Bounds
+        => new(
+            X,
+            Y,
+            Width,
+            Height);
+
+    public Rectangle ScreenBounds
+        => new(
+            ScreenX,
+            ScreenY,
+            Width,
+            Height);
+
     // ReSharper disable once FunctionRecursiveOnAllPaths
     public int ScreenX => (Parent?.ScreenX ?? 0) + X;
 

@@ -2,6 +2,7 @@
 using Chaos.Client.Controls.Components;
 using Chaos.Client.Networking;
 using Chaos.Client.Rendering;
+using Chaos.Client.Rendering.Models;
 using Chaos.DarkAges.Definitions;
 using Chaos.Networking.Entities.Server;
 using Microsoft.Xna.Framework;
@@ -46,8 +47,9 @@ public sealed class NpcSessionControl : PrefabPanel
     private bool ArrowAnimFrame;
     private float ArrowAnimTimer;
     private bool OwnsPortraitTexture;
+    private SpriteFrame? PortraitSpriteFrame;
 
-    // Portrait texture
+    // Portrait texture (owned illustration or cached sprite frame)
     private Texture2D? PortraitTexture;
     private int ScrollLine;
     public DialogType? CurrentDialogType { get; private set; }
@@ -74,7 +76,10 @@ public sealed class NpcSessionControl : PrefabPanel
         X = 0;
         Y = 0;
 
-        // Background images (drawn first — buttons must be added after to render on top)
+        // Darkness gradient (behind everything else in the dialog)
+        AddChild(new AlphaScreenPane());
+
+        // Background images (drawn after gradient so they render on top of it)
         CreateImage("MessageDialog"); // nd_talk.spf — bottom dialog bar
         NpcTileImage = CreateImage("NPCTile"); // nd_npcbg.spf — portrait background
 
@@ -246,18 +251,31 @@ public sealed class NpcSessionControl : PrefabPanel
 
         if (PortraitTexture is not null)
         {
-            if (ShouldIllustrate)
+            if (OwnsPortraitTexture)
             {
                 // NPCIllustration: left-aligned, bottom edge sits on top of the bottom bar (y=372)
                 var illustY = 372 - PortraitTexture.Height;
                 spriteBatch.Draw(PortraitTexture, new Vector2(0, illustY), Color.White);
             } else if (PortraitRect != Rectangle.Empty)
             {
-                // Creature/item sprite: centered in NPCTile rect
-                var portraitX = sx + PortraitRect.X + (PortraitRect.Width - PortraitTexture.Width) / 2;
-                var portraitY = sy + PortraitRect.Y + (PortraitRect.Height - PortraitTexture.Height) / 2;
+                // Creature/item sprite: center the sprite's visual anchor in the NPCTile rect
+                var rectCenterX = sx + PortraitRect.X + PortraitRect.Width / 2;
+                var rectCenterY = sy + PortraitRect.Y + PortraitRect.Height / 2;
 
-                spriteBatch.Draw(PortraitTexture, new Vector2(portraitX, portraitY), Color.White);
+                if (PortraitSpriteFrame is { } frame)
+                {
+                    // Center the non-transparent area: content starts at (Left, Top) within the texture
+                    var drawX = rectCenterX - (PortraitTexture.Width + frame.Left) / 2;
+                    var drawY = rectCenterY - (PortraitTexture.Height + frame.Top) / 2;
+
+                    spriteBatch.Draw(PortraitTexture, new Vector2(drawX, drawY), Color.White);
+                } else
+
+                    // No frame metadata — naive center
+                    spriteBatch.Draw(
+                        PortraitTexture,
+                        new Vector2(rectCenterX - PortraitTexture.Width / 2, rectCenterY - PortraitTexture.Height / 2),
+                        Color.White);
             }
         }
     }
@@ -399,11 +417,23 @@ public sealed class NpcSessionControl : PrefabPanel
     {
         DisposePortrait();
         PortraitTexture = texture;
+        PortraitSpriteFrame = null;
         OwnsPortraitTexture = ownsTexture;
 
         // Show the NPCTile background only for sprite portraits (not illustrations, not when hidden)
         if (NpcTileImage is not null)
             NpcTileImage.Visible = texture is not null && !ownsTexture;
+    }
+
+    public void SetPortrait(SpriteFrame spriteFrame)
+    {
+        DisposePortrait();
+        PortraitTexture = spriteFrame.Texture;
+        PortraitSpriteFrame = spriteFrame;
+        OwnsPortraitTexture = false;
+
+        if (NpcTileImage is not null)
+            NpcTileImage.Visible = true;
     }
 
     /// <summary>
@@ -446,7 +476,7 @@ public sealed class NpcSessionControl : PrefabPanel
                     TopButton.Enabled = false;
                 }
 
-                if (args.Options is not null)
+                if (args.Options is not null && (args.Options.Count > 0))
                 {
                     var options = args.Options
                                       .Select(o => (o, (ushort)0))
@@ -507,12 +537,13 @@ public sealed class NpcSessionControl : PrefabPanel
 
         HideAllSubPanels();
         HideNavigationButtons();
+        SetDialogText(args.Text);
 
         switch (args.MenuType)
         {
             case MenuType.Menu:
             case MenuType.MenuWithArgs:
-                if (args.Options is not null)
+                if (args.Options is not null && (args.Options.Count > 0))
                 {
                     var options = args.Options
                                       .Select(o => (o.Text, o.Pursuit))

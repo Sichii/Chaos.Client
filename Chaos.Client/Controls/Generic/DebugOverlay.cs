@@ -24,7 +24,6 @@ public static class DebugOverlay
     private static readonly float[] FrameTimeHistory = new float[FRAME_TIME_HISTORY];
     private static readonly Stopwatch FrameStopwatch = new();
     private static readonly Dictionary<UIElement, TextElement> TextElementCache = new();
-    private static readonly List<(TextElement Text, Vector2 Position)> TextElementPositions = [];
     private static TextElement[]? StatsTextElement;
     private static int FrameTimeIndex;
     private static int LastGen0Count;
@@ -68,40 +67,16 @@ public static class DebugOverlay
     private static void ClearCaches()
     {
         TextElementCache.Clear();
-        TextElementPositions.Clear();
         StatsTextElement = null;
     }
 
-    public static void Draw(SpriteBatch spriteBatch, UIPanel root)
+    /// <summary>
+    ///     Draws the debug border and label for a single element. Called inline from UIPanel.Draw after each child draws, so
+    ///     debug overlays respect the natural z-order of controls.
+    /// </summary>
+    public static void DrawElement(SpriteBatch spriteBatch, UIElement element)
     {
-        if (!IsActive)
-            return;
-
-        TextElementPositions.Clear();
-
-        spriteBatch.Begin(samplerState: GlobalSettings.Sampler);
-
-        // Phase 1: all pixel-texture draws (borders, rects, graph bars) — batches into minimal GPU calls
-        foreach (var child in root.Children)
-            DrawElementGeometry(spriteBatch, child);
-
-        DrawPerformanceStatsGeometry(spriteBatch);
-
-        // Phase 2: all text draws — each unique texture breaks the batch, but no pixel interruptions
-        foreach ((var text, var pos) in TextElementPositions)
-            text.Draw(spriteBatch, pos);
-
-        DrawPerformanceStatsText(spriteBatch);
-
-        spriteBatch.End();
-
-        // Capture how many draws the debug overlay itself added
-        DebugDrawCount = ChaosGame.Device.Metrics.DrawCount - SnappedDrawCount;
-    }
-
-    private static void DrawElementGeometry(SpriteBatch spriteBatch, UIElement element)
-    {
-        if (!element.Visible)
+        if (!IsActive || !element.Visible)
             return;
 
         var sx = element.ScreenX;
@@ -116,66 +91,59 @@ public static class DebugOverlay
             h = bgPanel.Background.Height;
         }
 
-        if ((w > 0) && (h > 0))
+        if ((w <= 0) || (h <= 0))
+            return;
+
+        var color = element switch
         {
-            var color = element switch
-            {
-                UIButton  => Color.Lime,
-                UITextBox => Color.Cyan,
-                UILabel   => Color.Yellow,
-                UIImage   => Color.Magenta,
-                UIPanel   => Color.Red,
-                _         => Color.White
-            };
+            UIButton  => Color.Lime,
+            UITextBox => Color.Cyan,
+            UILabel   => Color.Yellow,
+            UIImage   => Color.Magenta,
+            UIPanel   => Color.Red,
+            _         => Color.White
+        };
 
-            var borderColor = color * 0.8f;
+        UIElement.DrawBorder(
+            spriteBatch,
+            new Rectangle(
+                sx,
+                sy,
+                w,
+                h),
+            color * 0.8f);
 
-            UIElement.DrawBorder(
-                spriteBatch,
-                new Rectangle(
-                    sx,
-                    sy,
-                    w,
-                    h),
-                borderColor);
+        var name = element.Name.Length > 0
+            ? element.Name
+            : element.GetType()
+                     .Name;
 
-            // Prepare cached label and accumulate for deferred text draw
-            var name = element.Name.Length > 0
-                ? element.Name
-                : element.GetType()
-                         .Name;
-
-            if (!TextElementCache.TryGetValue(element, out var cachedTextElement))
-            {
-                cachedTextElement = new TextElement();
-                TextElementCache[element] = cachedTextElement;
-            }
-
-            cachedTextElement.Update(name, color);
-
-            if (cachedTextElement.HasContent)
-            {
-                var tw = cachedTextElement.Width;
-                var th = cachedTextElement.Height;
-                var tx = sx + (w - tw) / 2;
-                var ty = sy + (h - th) / 2;
-
-                UIElement.DrawRect(
-                    spriteBatch,
-                    new Rectangle(
-                        tx - 1,
-                        ty - 1,
-                        tw + 2,
-                        th + 2),
-                    Color.Black * 0.66f);
-
-                TextElementPositions.Add((cachedTextElement, new Vector2(tx, ty)));
-            }
+        if (!TextElementCache.TryGetValue(element, out var cachedTextElement))
+        {
+            cachedTextElement = new TextElement();
+            TextElementCache[element] = cachedTextElement;
         }
 
-        if (element is UIPanel panel)
-            foreach (var child in panel.Children)
-                DrawElementGeometry(spriteBatch, child);
+        cachedTextElement.Update(name, color);
+
+        if (cachedTextElement.HasContent)
+        {
+            var tw = cachedTextElement.Width;
+            var th = cachedTextElement.Height;
+            var tx = sx + (w - tw) / 2;
+            var ty = sy + (h - th) / 2;
+
+            UIElement.DrawRect(
+                spriteBatch,
+                new Rectangle(
+                    tx - 1,
+                    ty - 1,
+                    tw + 2,
+                    th + 2),
+                Color.Black * 0.66f);
+
+            cachedTextElement.Draw(spriteBatch, new Vector2(tx, ty));
+        }
     }
 
     private static void DrawFrameTimeGraph(SpriteBatch spriteBatch)
@@ -320,6 +288,24 @@ public static class DebugOverlay
                 y += StatsTextElement[i].Height + 1;
             }
         }
+    }
+
+    /// <summary>
+    ///     Draws performance stats (frame time graph, GC, heap). Called as a separate top-level pass.
+    /// </summary>
+    public static void DrawStats(SpriteBatch spriteBatch)
+    {
+        if (!IsActive)
+            return;
+
+        spriteBatch.Begin(samplerState: GlobalSettings.Sampler);
+
+        DrawPerformanceStatsGeometry(spriteBatch);
+        DrawPerformanceStatsText(spriteBatch);
+
+        spriteBatch.End();
+
+        DebugDrawCount = ChaosGame.Device.Metrics.DrawCount - SnappedDrawCount;
     }
 
     /// <summary>

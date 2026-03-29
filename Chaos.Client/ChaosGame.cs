@@ -141,8 +141,8 @@ public sealed class ChaosGame : Game
         GraphicsDevice.Clear(Color.Black);
         Screens.Draw(SpriteBatch, gameTime);
 
-        if (DebugOverlay.IsActive && Screens.ActiveScreen?.Root is { } root)
-            DebugOverlay.Draw(SpriteBatch, root);
+        if (DebugOverlay.IsActive)
+            DebugOverlay.DrawStats(SpriteBatch);
 
         // Custom cursor — drawn in virtual space so it aligns with game content
         if (CursorTexture is not null)

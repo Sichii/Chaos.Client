@@ -1,5 +1,6 @@
 #region
 using Chaos.Client.Controls.Components;
+using Chaos.Client.Extensions;
 using Chaos.Client.Utilities;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
@@ -184,7 +185,7 @@ public sealed class MacroMenuControl : PrefabPanel
     /// </summary>
     public override void Show()
     {
-        X = (640 - Width) / 2;
+        this.CenterHorizontallyOnScreen();
         Y = 0;
         Visible = true;
         SlideMode = false;

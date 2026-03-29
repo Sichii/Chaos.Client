@@ -37,6 +37,11 @@ public sealed class OrangeBarControl : UIElement
         if (hudPrefabSet.Contains("SystemMessagePane"))
             PaneBg = UiRenderer.Instance!.GetPrefabTexture(hudPrefabSet.Name, "SystemMessagePane", 0);
 
+        X = WrapBounds.X;
+        Y = WrapBounds.Y;
+        Width = WrapBounds.Width;
+        Height = WrapBounds.Height;
+
         Lines = new TextElement[MAX_EXPAND_LINES];
 
         for (var i = 0; i < MAX_EXPAND_LINES; i++)

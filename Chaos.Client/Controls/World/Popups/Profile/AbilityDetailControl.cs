@@ -2,6 +2,7 @@
 using Chaos.Client.Collections;
 using Chaos.Client.Controls.Components;
 using Chaos.Client.Data.Models;
+using Chaos.Client.Extensions;
 using Chaos.Client.Rendering;
 using Chaos.Client.ViewModel;
 using Chaos.Extensions.Common;
@@ -93,8 +94,7 @@ public sealed class AbilityDetailControl : PrefabPanel
     /// </summary>
     public void ShowEntry(AbilityMetadataEntry entry, Rectangle viewport)
     {
-        X = viewport.X + (viewport.Width - Width) / 2;
-        Y = viewport.Y + (viewport.Height - Height) / 2;
+        this.CenterIn(viewport);
 
         var attrs = WorldState.Attributes.Current;
 

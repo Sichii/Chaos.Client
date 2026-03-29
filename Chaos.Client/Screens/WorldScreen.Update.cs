@@ -4,6 +4,7 @@ using Chaos.Client.Controls.Components;
 using Chaos.Client.Systems;
 using Chaos.DarkAges.Definitions;
 using Chaos.Geometry.Abstractions.Definitions;
+using Chaos.Networking.Entities.Server;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Input;
 using Pathfinder = Chaos.Client.Systems.Pathfinder;
@@ -13,6 +14,27 @@ namespace Chaos.Client.Screens;
 
 public sealed partial class WorldScreen
 {
+    private static readonly string[] TEST_NAMES =
+    [
+        "Dar",
+        "Mundane",
+        "Riona",
+        "Cian",
+        "Devlin",
+        "Erin",
+        "Fiona"
+    ];
+
+    private static readonly string[] TEST_TEXTS =
+    [
+        "Hello adventurer, what brings you here today?",
+        "The darkness grows stronger in the west...",
+        "Would you like to hear a tale of old?",
+        "I have wares if you have coin.",
+        "Be careful out there, the wolves are restless.",
+        "Welcome to my shop! Take a look around."
+    ];
+
     public void Update(GameTime gameTime)
     {
         if (PendingLoginSwitch)
@@ -663,6 +685,10 @@ public sealed partial class WorldScreen
             if (input.WasKeyPressed(Keys.F10))
                 FriendsList.Show();
 
+            // F11 — debug dialog test
+            if (input.WasKeyPressed(Keys.F11))
+                FireTestDialog();
+
             // / — swap HUD layout (small ↔ large)
             if (input.WasKeyPressed(Keys.OemQuestion) && !shift)
                 SwapHudLayout();
@@ -816,5 +842,27 @@ public sealed partial class WorldScreen
                 best = panel;
 
         return best;
+    }
+
+    private void FireTestDialog()
+    {
+        var rng = Random.Shared;
+
+        var args = new DisplayDialogArgs
+        {
+            DialogType = DialogType.Normal,
+            EntityType = EntityType.Creature,
+            Name = TEST_NAMES[rng.Next(TEST_NAMES.Length)],
+            Text = TEST_TEXTS[rng.Next(TEST_TEXTS.Length)],
+            Sprite = (ushort)rng.Next(19, 45),
+            HasNextButton = rng.Next(2) == 1,
+            HasPreviousButton = rng.Next(2) == 1,
+            ShouldIllustrate = rng.Next(2) == 1,
+            PursuitId = (ushort)rng.Next(1, 100),
+            DialogId = (ushort)rng.Next(1, 100),
+            SourceId = (uint)rng.Next(1, 1000)
+        };
+
+        WorldState.NpcInteraction.ShowDialog(args);
     }
 }

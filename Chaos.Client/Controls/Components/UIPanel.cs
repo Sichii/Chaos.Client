@@ -1,4 +1,5 @@
 #region
+using Chaos.Client.Controls.Generic;
 using Chaos.Client.Rendering;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
@@ -57,7 +58,10 @@ public class UIPanel : UIElement
 
         foreach (var child in Children)
             if (child.Visible)
+            {
                 child.Draw(spriteBatch);
+                DebugOverlay.DrawElement(spriteBatch, child);
+            }
     }
 
     public T? FindChild<T>(string name) where T: UIElement

@@ -1,5 +1,6 @@
 #region
 using Chaos.Client.Controls.Components;
+using Chaos.Client.Extensions;
 using Chaos.Client.Rendering;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
@@ -139,8 +140,7 @@ public sealed class NotepadControl : UIPanel
         Width = Math.Clamp(textAreaWidth + PADDING * 2 + SCROLLBAR_WIDTH, MIN_WIDTH, MAX_WIDTH);
         Height = Math.Clamp(textAreaHeight + PADDING * 2 + BUTTON_AREA_HEIGHT, MIN_HEIGHT, MAX_HEIGHT);
 
-        X = (ChaosGame.VIRTUAL_WIDTH - Width) / 2;
-        Y = (ChaosGame.VIRTUAL_HEIGHT - Height) / 2;
+        this.CenterOnScreen();
 
         ScrollOffset = 0;
         BackgroundColor = BackgroundFill;
@@ -306,8 +306,8 @@ public sealed class NotepadControl : UIPanel
 
         if (labelCache.HasContent)
         {
-            var textX = bx + (buttonRect.Width - labelCache.Width) / 2;
-            var textY = by + (buttonRect.Height - labelCache.Height) / 2;
+            var textX = rect.CenterX(labelCache.Width);
+            var textY = rect.CenterY(labelCache.Height);
             labelCache.Draw(spriteBatch, new Vector2(textX, textY));
         }
     }
