@@ -392,7 +392,7 @@ public sealed partial class WorldScreen
         if (menu is null)
             return;
 
-        NpcSession.ShowMenu(menu, Game.Connection);
+        NpcSession.ShowMenu(menu);
         RenderNpcSessionPortrait();
     }
 

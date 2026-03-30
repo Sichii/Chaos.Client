@@ -1,8 +1,5 @@
 #region
 using Chaos.Client.Controls.Components;
-using Chaos.Client.Data;
-using Chaos.Client.Extensions;
-using Chaos.Client.Rendering;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using Microsoft.Xna.Framework.Input;
@@ -11,34 +8,35 @@ using Microsoft.Xna.Framework.Input;
 namespace Chaos.Client.Controls.World.Popups.Dialog;
 
 /// <summary>
-///     Dual-field ID/password entry sub-panel for DialogType.Protected (9). Based on lnpcnid control file layout from the
-///     original client. Displays a prompt, an ID field, a password field (masked input), and OK button.
+///     Dual-field ID/password entry sub-panel for DialogType.Protected (9). Uses the shared ornate frame with manual layout
+///     for prompt, ID field, password field (masked), and OK button. Right-aligned, bottom-anchored above the dialog bar.
 /// </summary>
-public sealed class ProtectedEntryPanel : UIPanel
+public sealed class ProtectedEntryPanel : FramedDialogPanel
 {
+    private const int BOTTOM_ANCHOR_Y = 372;
     private const int PANEL_WIDTH = 426;
-    private const int PANEL_HEIGHT = 160;
-    private const int PADDING = 13;
-    private const int LABEL_HEIGHT = 16;
+    private const int PANEL_HEIGHT = 130;
+    private const int PADDING_LEFT = 23;
+    private const int LABEL_WIDTH = 90;
     private const int FIELD_HEIGHT = 20;
     private const int ROW_GAP = 6;
-    private const int LABEL_WIDTH = 90;
-    private readonly UITextBox IdField;
 
+    private readonly UITextBox IdField;
     private readonly TextElement IdLabelText = new();
-    private readonly UIButton? OkButton;
     private readonly UITextBox PasswordField;
     private readonly TextElement PasswordLabelText = new();
     private readonly TextElement PrologText = new();
 
     public ProtectedEntryPanel()
+        : base("lnpcd2", false)
     {
         Name = "ProtectedEntry";
         Visible = false;
 
         Width = PANEL_WIDTH;
         Height = PANEL_HEIGHT;
-        this.CenterOnScreen();
+        X = ChaosGame.VIRTUAL_WIDTH - Width;
+        Y = BOTTOM_ANCHOR_Y - Height;
 
         IdLabelText.Update("I   D   : ", Color.White);
         PasswordLabelText.Update("Password: ", Color.White);
@@ -47,17 +45,13 @@ public sealed class ProtectedEntryPanel : UIPanel
         IdField = new UITextBox
         {
             Name = "IdField",
-            X = PADDING + LABEL_WIDTH,
+            X = PADDING_LEFT + LABEL_WIDTH,
             Y = 36,
-            Width = PANEL_WIDTH - PADDING * 2 - LABEL_WIDTH,
+            Width = PANEL_WIDTH - PADDING_LEFT * 2 - LABEL_WIDTH,
             Height = FIELD_HEIGHT,
             MaxLength = 50,
-            ForegroundColor = Color.White,
-            FocusedBackgroundColor = new Color(
-                0,
-                0,
-                0,
-                120)
+            ForegroundColor = Color.Black,
+            FocusedBackgroundColor = Color.White
         };
 
         AddChild(IdField);
@@ -66,65 +60,26 @@ public sealed class ProtectedEntryPanel : UIPanel
         PasswordField = new UITextBox
         {
             Name = "PwField",
-            X = PADDING + LABEL_WIDTH,
+            X = PADDING_LEFT + LABEL_WIDTH,
             Y = 36 + FIELD_HEIGHT + ROW_GAP,
-            Width = PANEL_WIDTH - PADDING * 2 - LABEL_WIDTH,
+            Width = PANEL_WIDTH - PADDING_LEFT * 2 - LABEL_WIDTH,
             Height = FIELD_HEIGHT,
             MaxLength = 50,
             IsMasked = true,
-            ForegroundColor = Color.White,
-            FocusedBackgroundColor = new Color(
-                0,
-                0,
-                0,
-                120)
+            ForegroundColor = Color.Black,
+            FocusedBackgroundColor = Color.White
         };
 
         AddChild(PasswordField);
 
-        // Try to load Btn1 from lnpcnid prefab if available, otherwise create manually
-        try
+        OkButton = CreateButton("Btn1");
+
+        if (OkButton is not null)
         {
-            var prefab = DataContext.UserControls.Get("lnpcnid");
-
-            if (prefab?.Contains("Btn1") == true)
-            {
-                var btnPrefab = prefab["Btn1"];
-                var rect = btnPrefab.Control.Rect;
-
-                if (rect is not null)
-                {
-                    var r = rect.Value;
-                    var cache = UiRenderer.Instance!;
-
-                    OkButton = new UIButton
-                    {
-                        Name = "Btn1",
-                        X = (int)r.Left,
-                        Y = (int)r.Top,
-                        Width = (int)r.Width,
-                        Height = (int)r.Height,
-                        NormalTexture = btnPrefab.Images.Count > 0 ? cache.GetPrefabTexture("lnpcnid", "Btn1", 0) : null,
-                        PressedTexture = btnPrefab.Images.Count > 1 ? cache.GetPrefabTexture("lnpcnid", "Btn1", 1) : null
-                    };
-                }
-            }
-        } catch
-        {
-            // lnpcnid prefab not in archives — create button manually
+            OkButton.X = Width - 61 - 20;
+            OkButton.Y = Height - 22 - 3;
+            OkButton.OnClick += HandleSubmit;
         }
-
-        OkButton ??= new UIButton
-        {
-            Name = "Btn1",
-            X = PANEL_WIDTH - PADDING - 61,
-            Y = PANEL_HEIGHT - 26,
-            Width = 61,
-            Height = 22
-        };
-
-        OkButton.OnClick += HandleSubmit;
-        AddChild(OkButton);
     }
 
     public override void Draw(SpriteBatch spriteBatch)
@@ -132,28 +87,16 @@ public sealed class ProtectedEntryPanel : UIPanel
         if (!Visible)
             return;
 
-        // Draw dark background
-        DrawRect(
-            spriteBatch,
-            new Rectangle(
-                ScreenX,
-                ScreenY,
-                Width,
-                Height),
-            new Color(
-                20,
-                20,
-                30,
-                220));
-
-        // Prolog text
-        PrologText.Draw(spriteBatch, new Vector2(ScreenX + PADDING, ScreenY + 10));
-
-        // Labels
-        IdLabelText.Draw(spriteBatch, new Vector2(ScreenX + PADDING, ScreenY + 38));
-        PasswordLabelText.Draw(spriteBatch, new Vector2(ScreenX + PADDING, ScreenY + 38 + FIELD_HEIGHT + ROW_GAP));
-
+        // Frame + children drawn by base
         base.Draw(spriteBatch);
+
+        // Labels drawn manually on top
+        var sx = ScreenX;
+        var sy = ScreenY;
+
+        PrologText.Draw(spriteBatch, new Vector2(sx + PADDING_LEFT, sy + 12));
+        IdLabelText.Draw(spriteBatch, new Vector2(sx + PADDING_LEFT, sy + 38));
+        PasswordLabelText.Draw(spriteBatch, new Vector2(sx + PADDING_LEFT, sy + 38 + FIELD_HEIGHT + ROW_GAP));
     }
 
     private void HandleSubmit()
@@ -165,11 +108,11 @@ public sealed class ProtectedEntryPanel : UIPanel
             OnProtectedSubmit?.Invoke(id, password);
     }
 
-    public void Hide()
+    public override void Hide()
     {
         IdField.IsFocused = false;
         PasswordField.IsFocused = false;
-        Visible = false;
+        base.Hide();
     }
 
     public event Action? OnClose;
@@ -187,7 +130,7 @@ public sealed class ProtectedEntryPanel : UIPanel
         PasswordField.Text = string.Empty;
         PasswordField.CursorPosition = 0;
 
-        Visible = true;
+        Show();
     }
 
     public override void Update(GameTime gameTime, InputBuffer input)

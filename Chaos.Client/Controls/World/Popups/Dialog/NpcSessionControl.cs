@@ -1,6 +1,5 @@
 #region
 using Chaos.Client.Controls.Components;
-using Chaos.Client.Networking;
 using Chaos.Client.Rendering;
 using Chaos.Client.Rendering.Models;
 using Chaos.DarkAges.Definitions;
@@ -57,6 +56,9 @@ public sealed class NpcSessionControl : PrefabPanel
     public ushort DialogId { get; private set; }
     public bool IsDialogOpcode { get; private set; }
 
+    // Menu args echoed back for MenuWithArgs
+    public string? MenuArgs { get; private set; }
+
     // Portrait metadata for rendering by WorldScreen
     public string? NpcName { get; private set; }
     public DisplayColor PortraitColor { get; private set; }
@@ -67,6 +69,10 @@ public sealed class NpcSessionControl : PrefabPanel
     // Session state
     public EntityType SourceEntityType { get; private set; }
     public uint? SourceId { get; private set; }
+
+    // Speak dialog: prompt prefix and epilog suffix for the Say broadcast
+    public string? SpeakEpilog { get; private set; }
+    public string? SpeakPrompt { get; private set; }
 
     public NpcSessionControl()
         : base("lnpcd", false)
@@ -244,39 +250,57 @@ public sealed class NpcSessionControl : PrefabPanel
         if (!Visible)
             return;
 
-        base.Draw(spriteBatch);
+        // 1. Background
+        if (Background is not null)
+            AtlasHelper.Draw(
+                spriteBatch,
+                Background,
+                new Vector2(ScreenX, ScreenY),
+                Color.White);
 
-        var sx = ScreenX;
-        var sy = ScreenY;
+        // 2. Base-layer children (alpha pane, bottom bar, portrait bg, buttons, labels)
+        foreach (var child in Children)
+            if (child.Visible && child is not FramedDialogPanel)
+                child.Draw(spriteBatch);
 
-        if (PortraitTexture is not null)
+        // 3. Portrait — on top of base layer, behind sub-panels
+        DrawPortrait(spriteBatch);
+
+        // 4. Sub-panels — always in front of portrait
+        foreach (var child in Children)
+            if (child.Visible && child is FramedDialogPanel)
+                child.Draw(spriteBatch);
+    }
+
+    private void DrawPortrait(SpriteBatch spriteBatch)
+    {
+        if (PortraitTexture is null)
+            return;
+
+        if (OwnsPortraitTexture)
         {
-            if (OwnsPortraitTexture)
+            // NPCIllustration: left-aligned, bottom edge sits on top of the bottom bar (y=372)
+            var illustY = 372 - PortraitTexture.Height;
+            spriteBatch.Draw(PortraitTexture, new Vector2(0, illustY), Color.White);
+        } else if (PortraitRect != Rectangle.Empty)
+        {
+            // Creature/item sprite: center the sprite's visual anchor in the NPCTile rect
+            var sx = ScreenX;
+            var sy = ScreenY;
+            var rectCenterX = sx + PortraitRect.X + PortraitRect.Width / 2;
+            var rectCenterY = sy + PortraitRect.Y + PortraitRect.Height / 2;
+
+            if (PortraitSpriteFrame is { } frame)
             {
-                // NPCIllustration: left-aligned, bottom edge sits on top of the bottom bar (y=372)
-                var illustY = 372 - PortraitTexture.Height;
-                spriteBatch.Draw(PortraitTexture, new Vector2(0, illustY), Color.White);
-            } else if (PortraitRect != Rectangle.Empty)
-            {
-                // Creature/item sprite: center the sprite's visual anchor in the NPCTile rect
-                var rectCenterX = sx + PortraitRect.X + PortraitRect.Width / 2;
-                var rectCenterY = sy + PortraitRect.Y + PortraitRect.Height / 2;
+                var drawX = rectCenterX - (PortraitTexture.Width + frame.Left) / 2;
+                var drawY = rectCenterY - (PortraitTexture.Height + frame.Top) / 2;
 
-                if (PortraitSpriteFrame is { } frame)
-                {
-                    // Center the non-transparent area: content starts at (Left, Top) within the texture
-                    var drawX = rectCenterX - (PortraitTexture.Width + frame.Left) / 2;
-                    var drawY = rectCenterY - (PortraitTexture.Height + frame.Top) / 2;
-
-                    spriteBatch.Draw(PortraitTexture, new Vector2(drawX, drawY), Color.White);
-                } else
-
-                    // No frame metadata — naive center
-                    spriteBatch.Draw(
-                        PortraitTexture,
-                        new Vector2(rectCenterX - PortraitTexture.Width / 2, rectCenterY - PortraitTexture.Height / 2),
-                        Color.White);
-            }
+                spriteBatch.Draw(PortraitTexture, new Vector2(drawX, drawY), Color.White);
+            } else
+                spriteBatch.Draw(
+                    PortraitTexture,
+                    new Vector2(rectCenterX - PortraitTexture.Width / 2, rectCenterY - PortraitTexture.Height / 2),
+                    Color.White);
         }
     }
 
@@ -349,8 +373,6 @@ public sealed class NpcSessionControl : PrefabPanel
             TopButton.Enabled = false;
         }
     }
-
-    private bool IsNormalDialogActive() => IsDialogOpcode && CurrentDialogType is DialogType.Normal;
 
     // Events — WorldScreen.Wiring subscribes to these
     public event Action? OnClose;
@@ -441,6 +463,13 @@ public sealed class NpcSessionControl : PrefabPanel
     /// </summary>
     public void ShowDialog(DisplayDialogArgs args)
     {
+        if (args.DialogType is DialogType.CloseDialog)
+        {
+            HideAll();
+
+            return;
+        }
+
         IsDialogOpcode = true;
         CurrentDialogType = args.DialogType;
         CurrentMenuType = null;
@@ -454,22 +483,19 @@ public sealed class NpcSessionControl : PrefabPanel
         ShouldIllustrate = args.ShouldIllustrate;
 
         HideAllSubPanels();
+        SetDialogText(args.Text);
+        SetNavigationButtons(args.HasNextButton, args.HasPreviousButton);
+        MenuArgs = null;
+        SpeakPrompt = null;
+        SpeakEpilog = null;
 
         switch (args.DialogType)
         {
             case DialogType.Normal:
-                // Container-only: show text + navigation buttons
-                SetDialogText(args.Text);
-                SetNavigationButtons(args.HasNextButton, args.HasPreviousButton);
-
                 break;
 
             case DialogType.DialogMenu:
             case DialogType.CreatureMenu:
-                // Option list sub-panel — dialog text in bottom bar, prev/next per server, close visible, top hidden
-                SetDialogText(args.Text);
-                SetNavigationButtons(args.HasNextButton, args.HasPreviousButton);
-
                 if (TopButton is not null)
                 {
                     TopButton.Visible = false;
@@ -488,18 +514,22 @@ public sealed class NpcSessionControl : PrefabPanel
 
             case DialogType.TextEntry:
             case DialogType.Speak:
-                // Text entry sub-panel (lnpcd4)
                 HideNavigationButtons();
 
-                DialogTextEntry.ShowTextEntry(
-                    args.TextBoxPrompt ?? args.Text ?? string.Empty,
-                    (byte)(args.TextBoxLength ?? 255),
-                    string.Empty);
+                var prompt = args.TextBoxPrompt ?? string.Empty;
+                var epilog = string.Empty;
+
+                if (args.DialogType is DialogType.Speak)
+                {
+                    SpeakPrompt = prompt;
+                    SpeakEpilog = epilog;
+                }
+
+                DialogTextEntry.ShowTextEntry(prompt, (byte)(args.TextBoxLength ?? 255), epilog);
 
                 break;
 
             case DialogType.Protected:
-                // Dual ID/password entry sub-panel
                 HideNavigationButtons();
                 ProtectedEntry.ShowProtected(args.Text ?? string.Empty);
 
@@ -521,7 +551,7 @@ public sealed class NpcSessionControl : PrefabPanel
     /// <summary>
     ///     Shows the container for a DisplayMenu packet (opcode 0x2F).
     /// </summary>
-    public void ShowMenu(DisplayMenuArgs args, ConnectionManager connection)
+    public void ShowMenu(DisplayMenuArgs args)
     {
         IsDialogOpcode = false;
         CurrentDialogType = null;
@@ -535,6 +565,7 @@ public sealed class NpcSessionControl : PrefabPanel
         PortraitColor = args.Color;
         ShouldIllustrate = args.ShouldIllustrate;
 
+        MenuArgs = args.Args;
         HideAllSubPanels();
         HideNavigationButtons();
         SetDialogText(args.Text);
@@ -569,7 +600,19 @@ public sealed class NpcSessionControl : PrefabPanel
             case MenuType.ShowSpells:
             case MenuType.ShowPlayerSkills:
             case MenuType.ShowPlayerSpells:
-                MerchantBrowser.ShowMerchant(args, connection);
+                MerchantBrowser.ShowMerchant(args);
+
+                if (CloseButton is not null)
+                {
+                    CloseButton.Visible = true;
+                    CloseButton.Enabled = true;
+                }
+
+                if (TopButton is not null)
+                {
+                    TopButton.Visible = true;
+                    TopButton.Enabled = true;
+                }
 
                 break;
 
@@ -591,10 +634,8 @@ public sealed class NpcSessionControl : PrefabPanel
         if (!Visible || !Enabled)
             return;
 
-        // Escape closes everything — only if no sub-panel handled it first
-        // Sub-panels handle Escape internally and fire OnClose which calls HideAll
-        // For Normal dialog (no sub-panel), we handle Escape here
-        if (input.WasKeyPressed(Keys.Escape) && IsNormalDialogActive())
+        // Escape closes the entire NPC session
+        if (input.WasKeyPressed(Keys.Escape))
         {
             HideAll();
             OnClose?.Invoke();

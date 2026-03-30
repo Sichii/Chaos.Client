@@ -82,7 +82,15 @@ public sealed partial class WorldScreen
             else
             {
                 var pursuitId = NpcSession.GetOptionPursuitId(optionIndex);
-                Game.Connection.SendMenuResponse(NpcSession.SourceEntityType, sourceId, pursuitId);
+
+                if (NpcSession.MenuArgs is not null)
+                    Game.Connection.SendMenuResponse(
+                        NpcSession.SourceEntityType,
+                        sourceId,
+                        pursuitId,
+                        args: [NpcSession.MenuArgs]);
+                else
+                    Game.Connection.SendMenuResponse(NpcSession.SourceEntityType, sourceId, pursuitId);
             }
         };
 
@@ -92,6 +100,22 @@ public sealed partial class WorldScreen
                 return;
 
             if (NpcSession.IsDialogOpcode)
+            {
+                // Speak: broadcast the combined prompt + input + epilog as a public Say first
+                if (NpcSession.CurrentDialogType is DialogType.Speak)
+                {
+                    var sayParts = new[]
+                    {
+                        NpcSession.SpeakPrompt,
+                        text,
+                        NpcSession.SpeakEpilog
+                    };
+
+                    var sayText = string.Join(" ", sayParts.Where(s => !string.IsNullOrEmpty(s)));
+
+                    Game.Connection.SendPublicMessage(sayText);
+                }
+
                 Game.Connection.SendDialogResponse(
                     NpcSession.SourceEntityType,
                     sourceId,
@@ -99,7 +123,7 @@ public sealed partial class WorldScreen
                     (ushort)(NpcSession.DialogId + 1),
                     DialogArgsType.TextResponse,
                     args: [text]);
-            else
+            } else
             {
                 // Include previous args for TextEntryWithArgs
                 var prevArgs = NpcSession.GetMenuTextPreviousArgs();

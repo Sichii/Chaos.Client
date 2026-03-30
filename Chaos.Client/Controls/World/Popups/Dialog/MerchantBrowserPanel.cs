@@ -1,7 +1,8 @@
 #region
+using Chaos.Client.Collections;
 using Chaos.Client.Controls.Components;
-using Chaos.Client.Networking;
 using Chaos.Client.Rendering;
+using Chaos.Client.ViewModel;
 using Chaos.DarkAges.Definitions;
 using Chaos.Networking.Entities.Server;
 using Microsoft.Xna.Framework;
@@ -29,11 +30,12 @@ public sealed class MerchantBrowserPanel : PrefabPanel
     private readonly UILabel? DescWeightLabel;
     private readonly List<MerchantEntry> Entries = [];
     private readonly int ItemsPerPage;
+
+    private readonly MerchantListingPanel[] Listings;
     private readonly UILabel? MoneyLabel;
     private readonly UILabel? PageLabel;
 
     private int CurrentPage;
-    private int HoveredIndex = -1;
     private int SelectedIndex = -1;
     private int TotalPages;
 
@@ -83,6 +85,26 @@ public sealed class MerchantBrowserPanel : PrefabPanel
         ContentRect = GetRect("Content");
         ItemsPerPage = ContentRect.Height > 0 ? ContentRect.Height / ROW_HEIGHT : 4;
 
+        // Create listing panels as children for each visible row slot
+        Listings = new MerchantListingPanel[ItemsPerPage];
+
+        for (var i = 0; i < ItemsPerPage; i++)
+        {
+            var listing = new MerchantListingPanel
+            {
+                X = ContentRect.X,
+                Y = ContentRect.Y + i * ROW_HEIGHT,
+                Width = ContentRect.Width,
+                Height = ROW_HEIGHT,
+                Visible = false
+            };
+
+            var rowIndex = i;
+            listing.OnClick += () => HandleListingClick(rowIndex);
+            Listings[i] = listing;
+            AddChild(listing);
+        }
+
         DescClassLabel = CreateLabel("DescClass");
         DescLevelLabel = CreateLabel("DescLevel");
         DescWeightLabel = CreateLabel("DescWeight");
@@ -104,84 +126,12 @@ public sealed class MerchantBrowserPanel : PrefabPanel
     {
         Entries.Clear();
         SelectedIndex = -1;
-        HoveredIndex = -1;
-    }
 
-    public override void Draw(SpriteBatch spriteBatch)
-    {
-        if (!Visible)
-            return;
-
-        base.Draw(spriteBatch);
-
-        var sx = ScreenX;
-        var sy = ScreenY;
-
-        // Draw visible entries for the current page
-        var pageStart = CurrentPage * ItemsPerPage;
-        var pageEnd = Math.Min(pageStart + ItemsPerPage, Entries.Count);
-
-        for (var i = pageStart; i < pageEnd; i++)
+        foreach (var listing in Listings)
         {
-            var entry = Entries[i];
-            var rowIndex = i - pageStart;
-            var rowY = ContentRect.Y + rowIndex * ROW_HEIGHT;
-
-            // Highlight hovered/selected row
-            if (i == SelectedIndex)
-                DrawRect(
-                    spriteBatch,
-                    new Rectangle(
-                        sx + ContentRect.X,
-                        sy + rowY,
-                        ContentRect.Width,
-                        ROW_HEIGHT),
-                    new Color(
-                        80,
-                        80,
-                        120,
-                        100));
-            else if (i == HoveredIndex)
-                DrawRect(
-                    spriteBatch,
-                    new Rectangle(
-                        sx + ContentRect.X,
-                        sy + rowY,
-                        ContentRect.Width,
-                        ROW_HEIGHT),
-                    new Color(
-                        60,
-                        60,
-                        90,
-                        60));
-
-            // Draw icon
-            if (entry.Icon is not null)
-            {
-                var iconY = rowY + (ROW_HEIGHT - ICON_SIZE) / 2;
-
-                spriteBatch.Draw(
-                    entry.Icon,
-                    new Rectangle(
-                        sx + ContentRect.X + 4,
-                        sy + iconY,
-                        ICON_SIZE,
-                        ICON_SIZE),
-                    Color.White);
-            }
-
-            // Draw name text vertically centered with the icon
-            var textColor = i == SelectedIndex
-                ? Color.Yellow
-                : i == HoveredIndex
-                    ? Color.LightGoldenrodYellow
-                    : Color.White;
-
-            entry.Body.Update(entry.Name, textColor);
-
-            var textX = sx + ContentRect.X + 4 + ICON_SIZE + ICON_TEXT_GAP;
-            var textY = sy + rowY + (ROW_HEIGHT - TextRenderer.CHAR_HEIGHT) / 2;
-            entry.Body.Draw(spriteBatch, new Vector2(textX, textY));
+            listing.ClearEntry();
+            listing.IsSelected = false;
+            listing.Visible = false;
         }
     }
 
@@ -205,6 +155,23 @@ public sealed class MerchantBrowserPanel : PrefabPanel
             return null;
 
         return Entries[index].Slot;
+    }
+
+    private void HandleListingClick(int rowIndex)
+    {
+        var absoluteIndex = CurrentPage * ItemsPerPage + rowIndex;
+
+        if (absoluteIndex >= Entries.Count)
+            return;
+
+        if (absoluteIndex == SelectedIndex)
+            OnItemSelected?.Invoke(SelectedIndex);
+        else
+        {
+            SelectedIndex = absoluteIndex;
+            ShowDetails(SelectedIndex);
+            UpdateListingStates();
+        }
     }
 
     public override void Hide()
@@ -235,51 +202,63 @@ public sealed class MerchantBrowserPanel : PrefabPanel
         }
     }
 
-    private void PopulatePlayerItems(DisplayMenuArgs args, ConnectionManager connection)
+    private void PopulatePlayerItems(DisplayMenuArgs args)
     {
         if (args.Slots is null)
             return;
 
         foreach (var slot in args.Slots)
         {
-            if (!connection.InventorySlots.TryGetValue(slot, out var slotInfo))
+            ref readonly var slotData = ref WorldState.Inventory.GetSlot(slot);
+
+            if (!slotData.IsOccupied)
                 continue;
 
-            var icon = UiRenderer.Instance!.GetItemIcon(slotInfo.Sprite);
+            var icon = UiRenderer.Instance!.GetItemIcon(slotData.Sprite);
 
             Entries.Add(
                 new MerchantEntry(
-                    slotInfo.Name,
+                    slotData.Name ?? string.Empty,
                     icon,
                     0,
                     slot));
         }
     }
 
-    private void PopulatePlayerSkills(ConnectionManager connection)
+    private void PopulatePlayerSkills()
     {
-        foreach ((var slot, (var sprite, var name)) in connection.SkillSlots)
+        for (byte slot = 1; slot <= SkillBook.MAX_SLOTS; slot++)
         {
-            var icon = UiRenderer.Instance!.GetSkillIcon(sprite);
+            ref readonly var slotData = ref WorldState.SkillBook.GetSlot(slot);
+
+            if (!slotData.IsOccupied)
+                continue;
+
+            var icon = UiRenderer.Instance!.GetSkillIcon(slotData.Sprite);
 
             Entries.Add(
                 new MerchantEntry(
-                    name,
+                    slotData.Name ?? string.Empty,
                     icon,
                     0,
                     slot));
         }
     }
 
-    private void PopulatePlayerSpells(ConnectionManager connection)
+    private void PopulatePlayerSpells()
     {
-        foreach ((var slot, var spellInfo) in connection.SpellSlots)
+        for (byte slot = 1; slot <= SpellBook.MAX_SLOTS; slot++)
         {
-            var icon = UiRenderer.Instance!.GetSpellIcon(spellInfo.Sprite);
+            ref readonly var slotData = ref WorldState.SpellBook.GetSlot(slot);
+
+            if (!slotData.IsOccupied)
+                continue;
+
+            var icon = UiRenderer.Instance!.GetSpellIcon(slotData.Sprite);
 
             Entries.Add(
                 new MerchantEntry(
-                    spellInfo.PanelName,
+                    slotData.Name ?? string.Empty,
                     icon,
                     0,
                     slot));
@@ -350,14 +329,13 @@ public sealed class MerchantBrowserPanel : PrefabPanel
     /// <summary>
     ///     Shows the merchant panel for a DisplayMenuArgs with one of the 6 merchant menu types.
     /// </summary>
-    public void ShowMerchant(DisplayMenuArgs args, ConnectionManager connection)
+    public void ShowMerchant(DisplayMenuArgs args)
     {
         CurrentMenuType = args.MenuType;
 
         ClearEntries();
         CurrentPage = 0;
         SelectedIndex = -1;
-        HoveredIndex = -1;
 
         switch (args.MenuType)
         {
@@ -367,7 +345,7 @@ public sealed class MerchantBrowserPanel : PrefabPanel
                 break;
 
             case MenuType.ShowPlayerItems:
-                PopulatePlayerItems(args, connection);
+                PopulatePlayerItems(args);
 
                 break;
 
@@ -382,12 +360,12 @@ public sealed class MerchantBrowserPanel : PrefabPanel
                 break;
 
             case MenuType.ShowPlayerSkills:
-                PopulatePlayerSkills(connection);
+                PopulatePlayerSkills();
 
                 break;
 
             case MenuType.ShowPlayerSpells:
-                PopulatePlayerSpells(connection);
+                PopulatePlayerSpells();
 
                 break;
         }
@@ -404,45 +382,31 @@ public sealed class MerchantBrowserPanel : PrefabPanel
         if (!Visible || !Enabled)
             return;
 
-        // Hover tracking over visible rows
-        HoveredIndex = -1;
-        var pageStart = CurrentPage * ItemsPerPage;
-        var pageEnd = Math.Min(pageStart + ItemsPerPage, Entries.Count);
-        var visibleCount = pageEnd - pageStart;
-
-        for (var i = 0; i < visibleCount; i++)
-        {
-            var rowY = ContentRect.Y + i * ROW_HEIGHT;
-            var sx = ScreenX + ContentRect.X;
-            var sy = ScreenY + rowY;
-
-            if ((input.MouseX >= sx)
-                && (input.MouseX < (sx + ContentRect.Width))
-                && (input.MouseY >= sy)
-                && (input.MouseY < (sy + ROW_HEIGHT)))
-            {
-                HoveredIndex = pageStart + i;
-
-                break;
-            }
-        }
-
-        // Click handling: first click selects and shows details, second click on same entry confirms
-        if (input.WasLeftButtonPressed && (HoveredIndex >= 0))
-        {
-            if (HoveredIndex == SelectedIndex)
-
-                // Second click on already-selected entry — confirm selection
-                OnItemSelected?.Invoke(SelectedIndex);
-            else
-            {
-                // First click — select and show details
-                SelectedIndex = HoveredIndex;
-                ShowDetails(SelectedIndex);
-            }
-        }
-
         base.Update(gameTime, input);
+    }
+
+    private void UpdateListingStates()
+    {
+        var pageStart = CurrentPage * ItemsPerPage;
+
+        for (var i = 0; i < Listings.Length; i++)
+        {
+            var absoluteIndex = pageStart + i;
+            var listing = Listings[i];
+
+            if (absoluteIndex < Entries.Count)
+            {
+                var entry = Entries[absoluteIndex];
+                listing.SetEntry(entry.Icon, entry.Name);
+                listing.IsSelected = absoluteIndex == SelectedIndex;
+                listing.Visible = true;
+            } else
+            {
+                listing.ClearEntry();
+                listing.IsSelected = false;
+                listing.Visible = false;
+            }
+        }
     }
 
     private void UpdatePageDisplay()
@@ -454,26 +418,121 @@ public sealed class MerchantBrowserPanel : PrefabPanel
 
         if (PageNextButton is not null)
             PageNextButton.Visible = CurrentPage < (TotalPages - 1);
+
+        UpdateListingStates();
     }
 
-    private sealed class MerchantEntry(
-        string name,
-        Texture2D? icon,
-        int cost,
-        byte slot)
+    private sealed record MerchantEntry(
+        string Name,
+        Texture2D? Icon,
+        int Cost,
+        byte Slot);
+
+    /// <summary>
+    ///     A single row in the merchant listing. Renders a centered icon and name text, with highlight states for hover and
+    ///     selection.
+    /// </summary>
+    private sealed class MerchantListingPanel : UIPanel
     {
-        public TextElement Body { get; } = Create(name);
-        public int Cost { get; } = cost;
-        public Texture2D? Icon { get; } = icon;
-        public byte Slot { get; } = slot;
-        public string Name => Body.Text;
+        private static readonly Color SELECTED_COLOR = new(
+            80,
+            80,
+            120,
+            100);
 
-        private static TextElement Create(string name)
+        private static readonly Color HOVERED_COLOR = new(
+            60,
+            60,
+            90,
+            60);
+
+        private readonly CenteredIcon IconImage;
+        private readonly UILabel NameLabel;
+        private bool IsHovered;
+        public bool IsSelected { get; set; }
+
+        public MerchantListingPanel()
         {
-            var element = new TextElement();
-            element.Update(name, Color.White);
+            IconImage = new CenteredIcon
+            {
+                X = 4,
+                Y = 0,
+                Width = ICON_SIZE,
+                Height = ROW_HEIGHT
+            };
 
-            return element;
+            NameLabel = new UILabel
+            {
+                X = 4 + ICON_SIZE + ICON_TEXT_GAP,
+                Y = (ROW_HEIGHT - TextRenderer.CHAR_HEIGHT) / 2,
+                Width = 200,
+                Height = TextRenderer.CHAR_HEIGHT,
+                ForegroundColor = Color.White
+            };
+
+            AddChild(IconImage);
+            AddChild(NameLabel);
+        }
+
+        public void ClearEntry()
+        {
+            IconImage.Texture = null;
+            NameLabel.Text = string.Empty;
+        }
+
+        public override void Draw(SpriteBatch spriteBatch)
+        {
+            if (!Visible)
+                return;
+
+            // Highlight background
+            if (IsSelected)
+                DrawRect(
+                    spriteBatch,
+                    new Rectangle(
+                        ScreenX,
+                        ScreenY,
+                        Width,
+                        Height),
+                    SELECTED_COLOR);
+            else if (IsHovered)
+                DrawRect(
+                    spriteBatch,
+                    new Rectangle(
+                        ScreenX,
+                        ScreenY,
+                        Width,
+                        Height),
+                    HOVERED_COLOR);
+
+            NameLabel.ForegroundColor = IsSelected
+                ? Color.Yellow
+                : IsHovered
+                    ? Color.LightGoldenrodYellow
+                    : Color.White;
+
+            base.Draw(spriteBatch);
+        }
+
+        public event Action? OnClick;
+
+        public void SetEntry(Texture2D? icon, string name)
+        {
+            IconImage.Texture = icon;
+            NameLabel.Text = name;
+        }
+
+        public override void Update(GameTime gameTime, InputBuffer input)
+        {
+            if (!Visible || !Enabled)
+                return;
+
+            IsHovered = ContainsPoint(input.MouseX, input.MouseY);
+
+            if (IsHovered && input.WasLeftButtonPressed)
+                OnClick?.Invoke();
+
+            base.Update(gameTime, input);
         }
     }
 }

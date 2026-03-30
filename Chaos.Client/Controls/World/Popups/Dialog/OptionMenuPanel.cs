@@ -1,6 +1,5 @@
 #region
 using Chaos.Client.Controls.Components;
-using Chaos.Client.Data;
 using Chaos.Client.Rendering;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
@@ -10,11 +9,11 @@ using Microsoft.Xna.Framework.Input;
 namespace Chaos.Client.Controls.World.Popups.Dialog;
 
 /// <summary>
-///     Floating option menu panel for NPC dialog/menu interactions. DlgBack2.spf tiled background with nd_f01–f08_1
-///     decorative frame and nd_n00/01/02 3-slice option row stripes. Dynamic width, right-aligned and bottom-anchored
-///     above the dialog bar. Used for DialogMenu, CreatureMenu, Menu, and MenuWithArgs.
+///     Floating option menu panel for NPC dialog/menu interactions. Uses the shared ornate frame with nd_n00/01/02 3-slice
+///     option row stripes. Dynamic width, right-aligned and bottom-anchored above the dialog bar. Used for DialogMenu,
+///     CreatureMenu, Menu, and MenuWithArgs.
 /// </summary>
-public sealed class OptionMenuPanel : UIPanel
+public sealed class OptionMenuPanel : FramedDialogPanel
 {
     private const int MIN_STRIPE_WIDTH = 185;
     private const int ROW_HEIGHT = 13;
@@ -23,19 +22,11 @@ public sealed class OptionMenuPanel : UIPanel
     private const int BTN_WIDTH = 61;
     private const int BTN_HEIGHT = 22;
 
-    // Frame corner dimensions (for drawing corners)
-    private const int CORNER_TL_W = 31;
-    private const int CORNER_TL_H = 24;
-    private const int CORNER_TR_W = 31;
-    private const int CORNER_BL_H = 47;
-    private const int CORNER_BR_W = 31;
-    private const int CORNER_BR_H = 47;
-
     // Border thickness from edge tiles (content measured from inside of these)
-    private const int BORDER_TOP = 6; // nd_f05 height
-    private const int BORDER_LEFT = 13; // nd_f06 width
-    private const int BORDER_RIGHT = 31; // nd_f07 width
-    private const int BORDER_BOTTOM = 47; // nd_f08/nd_f08_1 height
+    private const int BORDER_TOP = 6;
+    private const int BORDER_LEFT = 13;
+    private const int BORDER_RIGHT = 31;
+    private const int BORDER_BOTTOM = 47;
 
     // Content padding from inside of border to stripes
     private const int CONTENT_PADDING_TOP = 2;
@@ -46,20 +37,7 @@ public sealed class OptionMenuPanel : UIPanel
     // Bottom of panel aligns with top of the dialog bottom bar
     private const int BOTTOM_ANCHOR_Y = 372;
 
-    private readonly UIButton? OkButton;
     private readonly List<OptionLabel> OptionLabels = [];
-    private Texture2D? BackgroundTile; // DlgBack2.spf
-    private Texture2D? CornerBL; // nd_f03 (31x47)
-    private Texture2D? CornerBR; // nd_f04 (31x47)
-
-    // Frame textures: corners, edges, background
-    private Texture2D? CornerTL; // nd_f01 (31x24)
-    private Texture2D? CornerTR; // nd_f02 (31x24)
-    private Texture2D? EdgeBottomOk; // nd_f08 (18x47) tile horizontally behind OK
-    private Texture2D? EdgeBottomRivets; // nd_f08_1 (18x47) tile horizontally — gold rivets
-    private Texture2D? EdgeLeft; // nd_f06 (13x18) tile vertically
-    private Texture2D? EdgeRight; // nd_f07 (31x18) tile vertically
-    private Texture2D? EdgeTop; // nd_f05 (18x6) tile horizontally
 
     // 3-slice stripe pieces
     private Texture2D? StripeLeft;
@@ -68,33 +46,20 @@ public sealed class OptionMenuPanel : UIPanel
     private Texture2D? StripeMidOn;
     private Texture2D? StripeRight;
     private Texture2D? StripeRightOn;
-    private bool TexturesLoaded;
+    private bool StripesLoaded;
 
     public OptionMenuPanel()
+        : base("lnpcd2", false)
     {
         Name = "OptionMenu";
         Visible = false;
 
-        // Create OK button from lnpcd2 prefab Btn1 — shown but disabled in option menus
-        var prefabSet = DataContext.UserControls.Get("lnpcd2");
+        OkButton = CreateButton("Btn1");
 
-        if (prefabSet?.Contains("Btn1") == true)
+        if (OkButton is not null)
         {
-            var btnPrefab = prefabSet["Btn1"];
-            var cache = UiRenderer.Instance!;
-
-            OkButton = new UIButton
-            {
-                Name = "Btn1",
-                Width = BTN_WIDTH,
-                Height = BTN_HEIGHT,
-                NormalTexture = btnPrefab.Images.Count > 0 ? cache.GetPrefabTexture("lnpcd2", "Btn1", 0) : null,
-                PressedTexture = btnPrefab.Images.Count > 1 ? cache.GetPrefabTexture("lnpcd2", "Btn1", 1) : null,
-                DisabledTexture = cache.GetSpfTexture("_nbtn.spf", 5),
-                Enabled = false
-            };
-
-            AddChild(OkButton);
+            OkButton.DisabledTexture = UiRenderer.Instance!.GetSpfTexture("_nbtn.spf", 5);
+            OkButton.Enabled = false;
         }
     }
 
@@ -114,134 +79,23 @@ public sealed class OptionMenuPanel : UIPanel
         if (!Visible)
             return;
 
-        EnsureTextures();
+        EnsureStripeTextures();
 
-        var sx = ScreenX;
-        var sy = ScreenY;
-        var w = Width;
-        var h = Height;
-
-        // 1. Tile DlgBack2.spf across entire panel as background fill
-        if (BackgroundTile is not null)
-            TileTexture(
-                spriteBatch,
-                BackgroundTile,
-                sx,
-                sy,
-                w,
-                h);
-
-        // 2. Frame edges (tiled between corners)
-        if (EdgeTop is not null)
-            TileTexture(
-                spriteBatch,
-                EdgeTop,
-                sx + CORNER_TL_W,
-                sy,
-                w - CORNER_TL_W - CORNER_TR_W,
-                EdgeTop.Height);
-
-        if (EdgeLeft is not null)
-            TileTexture(
-                spriteBatch,
-                EdgeLeft,
-                sx,
-                sy + CORNER_TL_H,
-                EdgeLeft.Width,
-                h - CORNER_TL_H - CORNER_BL_H);
-
-        if (EdgeRight is not null)
-            TileTexture(
-                spriteBatch,
-                EdgeRight,
-                sx + w - EdgeRight.Width,
-                sy + CORNER_TL_H,
-                EdgeRight.Width,
-                h - CORNER_TL_H - CORNER_BR_H);
-
-        // Bottom edge: rivets on the left, plain background behind the OK button on the right
-        // Give 4px margin before the button so rivets don't butt up against it
-        var okAreaStart = (OkButton?.X ?? w - CORNER_BR_W) - 4;
-        var rivetsWidth = okAreaStart - CORNER_TL_W;
-        var okAreaWidth = w - CORNER_BR_W - okAreaStart;
-
-        if (EdgeBottomRivets is not null && (rivetsWidth > 0))
-            TileTexture(
-                spriteBatch,
-                EdgeBottomRivets,
-                sx + CORNER_TL_W,
-                sy + h - BORDER_BOTTOM,
-                rivetsWidth,
-                EdgeBottomRivets.Height);
-
-        if (EdgeBottomOk is not null && (okAreaWidth > 0))
-            TileTexture(
-                spriteBatch,
-                EdgeBottomOk,
-                sx + okAreaStart,
-                sy + h - BORDER_BOTTOM,
-                okAreaWidth,
-                EdgeBottomOk.Height);
-
-        // 3. Corners (drawn last to cover edge overlap)
-        if (CornerTL is not null)
-            AtlasHelper.Draw(
-                spriteBatch,
-                CornerTL,
-                new Vector2(sx, sy),
-                Color.White);
-
-        if (CornerTR is not null)
-            AtlasHelper.Draw(
-                spriteBatch,
-                CornerTR,
-                new Vector2(sx + w - CORNER_TR_W, sy),
-                Color.White);
-
-        if (CornerBL is not null)
-            AtlasHelper.Draw(
-                spriteBatch,
-                CornerBL,
-                new Vector2(sx, sy + h - CORNER_BL_H),
-                Color.White);
-
-        if (CornerBR is not null)
-            AtlasHelper.Draw(
-                spriteBatch,
-                CornerBR,
-                new Vector2(sx + w - CORNER_BR_W, sy + h - CORNER_BR_H),
-                Color.White);
-
-        // 4. Children: option labels + OK button
+        // Frame + children drawn by base
         base.Draw(spriteBatch);
     }
 
-    private void EnsureTextures()
+    private void EnsureStripeTextures()
     {
-        if (TexturesLoaded)
+        if (StripesLoaded)
             return;
 
-        TexturesLoaded = true;
+        StripesLoaded = true;
         var renderer = UiRenderer.Instance;
 
         if (renderer is null)
             return;
 
-        // Frame pieces
-        CornerTL = renderer.GetSpfTexture("nd_f01.spf");
-        CornerTR = renderer.GetSpfTexture("nd_f02.spf");
-        CornerBL = renderer.GetSpfTexture("nd_f03.spf");
-        CornerBR = renderer.GetSpfTexture("nd_f04.spf");
-        EdgeTop = renderer.GetSpfTexture("nd_f05.spf");
-        EdgeLeft = renderer.GetSpfTexture("nd_f06.spf");
-        EdgeRight = renderer.GetSpfTexture("nd_f07.spf");
-        EdgeBottomOk = renderer.GetSpfTexture("nd_f08.spf");
-        EdgeBottomRivets = renderer.GetSpfTexture("nd_f08_1.spf");
-
-        // Background fill
-        BackgroundTile = renderer.GetSpfTexture("DlgBack2.spf");
-
-        // 3-slice stripe pieces
         StripeLeft = renderer.GetSpfTexture("nd_n00.spf");
         StripeMid = renderer.GetSpfTexture("nd_n01.spf");
         StripeRight = renderer.GetSpfTexture("nd_n02.spf");
@@ -258,10 +112,10 @@ public sealed class OptionMenuPanel : UIPanel
         return OptionLabels[index].PursuitId;
     }
 
-    public void Hide()
+    public override void Hide()
     {
-        Visible = false;
         ClearOptionLabels();
+        base.Hide();
     }
 
     public event Action? OnClose;
@@ -271,7 +125,7 @@ public sealed class OptionMenuPanel : UIPanel
     public void ShowOptions(IReadOnlyList<(string Text, ushort Pursuit)> options)
     {
         ClearOptionLabels();
-        EnsureTextures();
+        EnsureStripeTextures();
 
         var capLeftW = StripeLeft?.Width ?? 11;
         var capRightW = StripeRight?.Width ?? 11;
@@ -339,49 +193,6 @@ public sealed class OptionMenuPanel : UIPanel
         }
 
         Visible = true;
-    }
-
-    private static void TileTexture(
-        SpriteBatch spriteBatch,
-        Texture2D texture,
-        int x,
-        int y,
-        int width,
-        int height)
-    {
-        if ((width <= 0) || (height <= 0))
-            return;
-
-        var texW = texture.Width;
-        var texH = texture.Height;
-
-        for (var ty = 0; ty < height; ty += texH)
-        {
-            var drawH = Math.Min(texH, height - ty);
-
-            for (var tx = 0; tx < width; tx += texW)
-            {
-                var drawW = Math.Min(texW, width - tx);
-
-                if ((drawW == texW) && (drawH == texH))
-                    AtlasHelper.Draw(
-                        spriteBatch,
-                        texture,
-                        new Vector2(x + tx, y + ty),
-                        Color.White);
-                else
-                    AtlasHelper.Draw(
-                        spriteBatch,
-                        texture,
-                        new Vector2(x + tx, y + ty),
-                        new Rectangle(
-                            0,
-                            0,
-                            drawW,
-                            drawH),
-                        Color.White);
-            }
-        }
     }
 
     public override void Update(GameTime gameTime, InputBuffer input)

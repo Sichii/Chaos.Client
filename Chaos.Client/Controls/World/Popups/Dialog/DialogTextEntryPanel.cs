@@ -7,21 +7,26 @@ using Microsoft.Xna.Framework.Input;
 namespace Chaos.Client.Controls.World.Popups.Dialog;
 
 /// <summary>
-///     Text entry sub-panel using the lnpcd4 prefab. Displays a prompt (Prolog) above a text input field, optional text
-///     below (Epilog), and an OK button. Used for DialogType.TextEntry (4) and DialogType.Speak (5).
+///     Text entry sub-panel using the lnpcd4 prefab inside the shared ornate frame. Displays a prompt (Prolog) above a
+///     text input field, optional text below (Epilog), and an OK button. Used for DialogType.TextEntry (4) and
+///     DialogType.Speak (5).
 /// </summary>
-public sealed class DialogTextEntryPanel : PrefabPanel
+public sealed class DialogTextEntryPanel : FramedDialogPanel
 {
+    private const int BOTTOM_ANCHOR_Y = 372;
     private readonly UILabel? EpilogLabel;
-    private readonly UIButton? OkButton;
     private readonly UILabel? PrologLabel;
     private readonly UITextBox? TextInput;
 
     public DialogTextEntryPanel()
-        : base("lnpcd4")
+        : base("lnpcd4", false)
     {
         Name = "DialogTextEntry";
         Visible = false;
+
+        // Right-aligned, bottom-anchored above dialog bar (same position as option menu)
+        X = ChaosGame.VIRTUAL_WIDTH - Width;
+        Y = BOTTOM_ANCHOR_Y - Height;
 
         PrologLabel = CreateLabel("Prolog");
         TextInput = CreateTextBox("TextInput", 255);
@@ -33,13 +38,8 @@ public sealed class DialogTextEntryPanel : PrefabPanel
 
         if (TextInput is not null)
         {
-            TextInput.ForegroundColor = Color.White;
-
-            TextInput.FocusedBackgroundColor = new Color(
-                0,
-                0,
-                0,
-                120);
+            TextInput.ForegroundColor = Color.Black;
+            TextInput.FocusedBackgroundColor = Color.White;
         }
     }
 

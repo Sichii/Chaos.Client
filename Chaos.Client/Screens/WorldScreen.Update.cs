@@ -35,6 +35,20 @@ public sealed partial class WorldScreen
         "Welcome to my shop! Take a look around."
     ];
 
+    private static readonly string[] TEST_OPTIONS =
+    [
+        "Buy supplies",
+        "Sell items",
+        "Ask about the dungeon",
+        "Request a quest",
+        "Learn a skill",
+        "Hear a rumor",
+        "Trade gems",
+        "Repair equipment",
+        "Check the board",
+        "Say goodbye"
+    ];
+
     public void Update(GameTime gameTime)
     {
         if (PendingLoginSwitch)
@@ -847,22 +861,35 @@ public sealed partial class WorldScreen
     private void FireTestDialog()
     {
         var rng = Random.Shared;
+        var itemCount = rng.Next(1, 15);
 
-        var args = new DisplayDialogArgs
+        var items = new List<ItemInfo>();
+
+        for (var i = 0; i < itemCount; i++)
+            items.Add(
+                new ItemInfo
+                {
+                    Name = TEST_NAMES[rng.Next(TEST_NAMES.Length)],
+                    Sprite = (ushort)rng.Next(1, 300),
+                    Color = (DisplayColor)rng.Next(0, 15),
+                    Cost = rng.Next(100, 500000),
+                    Slot = (byte)i
+                });
+
+        var args = new DisplayMenuArgs
         {
-            DialogType = DialogType.Normal,
+            MenuType = MenuType.ShowItems,
             EntityType = EntityType.Creature,
             Name = TEST_NAMES[rng.Next(TEST_NAMES.Length)],
-            Text = TEST_TEXTS[rng.Next(TEST_TEXTS.Length)],
+            Text = "What would you like to buy?",
+            Color = DisplayColor.Default,
             Sprite = (ushort)rng.Next(19, 45),
-            HasNextButton = rng.Next(2) == 1,
-            HasPreviousButton = rng.Next(2) == 1,
             ShouldIllustrate = rng.Next(2) == 1,
             PursuitId = (ushort)rng.Next(1, 100),
-            DialogId = (ushort)rng.Next(1, 100),
-            SourceId = (uint)rng.Next(1, 1000)
+            SourceId = (uint)rng.Next(1, 1000),
+            Items = items
         };
 
-        WorldState.NpcInteraction.ShowDialog(args);
+        WorldState.NpcInteraction.ShowMenu(args);
     }
 }
