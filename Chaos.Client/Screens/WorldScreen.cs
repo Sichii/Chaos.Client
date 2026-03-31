@@ -568,8 +568,8 @@ public sealed partial class WorldScreen : IScreen
         };
         Root.AddChild(SmallHud);
         Root.AddChild(LargeHud);
-        Root.AddChild(ItemTooltip);
         Root.AddChild(NpcSession);
+        Root.AddChild(ItemTooltip);
         Root.AddChild(MainOptions);
         Root.AddChild(SettingsDialog);
         Root.AddChild(MacroMenu);

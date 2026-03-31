@@ -1555,7 +1555,7 @@ public sealed class ConnectionManager : IDisposable
         // Map tile data is fully loaded — ideal time for a full collection while the loading screen is still up
         GC.Collect(
             2,
-            GCCollectionMode.Optimized,
+            GCCollectionMode.Aggressive,
             true,
             true);
 

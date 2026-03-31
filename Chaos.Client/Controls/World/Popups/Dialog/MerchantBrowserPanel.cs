@@ -1,6 +1,7 @@
 #region
 using Chaos.Client.Collections;
 using Chaos.Client.Controls.Components;
+using Chaos.Client.Data;
 using Chaos.Client.Rendering;
 using Chaos.Client.ViewModel;
 using Chaos.DarkAges.Definitions;
@@ -14,29 +15,41 @@ namespace Chaos.Client.Controls.World.Popups.Dialog;
 /// <summary>
 ///     Merchant/shop/trainer browser panel using the lnpcd3 prefab. Handles the 6 merchant menu types: ShowItems (buy),
 ///     ShowPlayerItems (sell), ShowSkills, ShowSpells, ShowPlayerSkills, ShowPlayerSpells. Displays an icon+name list in
-///     the Content area, item details on the right side, and page navigation. Owned by NpcSessionControl which handles
-///     Escape, close, and response dispatch.
+///     the Content area, item details on the right side, category tabs, and page navigation. Owned by NpcSessionControl
+///     which handles Escape, close, and response dispatch.
 /// </summary>
 public sealed class MerchantBrowserPanel : PrefabPanel
 {
     private const int ICON_SIZE = 32;
+    private const int MAX_COMBINED_CHARS = 32;
     private const int ROW_HEIGHT = 40;
     private const int ICON_TEXT_GAP = 8;
+    private const int MAX_VISIBLE_TABS = 4;
+    private const int TAB_WIDTH = 60;
+    private const int TAB_HEIGHT = 16;
+    private const int TAB_START_X = 165;
+    private const int TAB_START_Y = 34;
 
+    private readonly List<string> Categories = [];
     private readonly Rectangle ContentRect;
     private readonly UILabel? DescClassLabel;
     private readonly UILabel? DescLevelLabel;
     private readonly UILabel? DescTextLabel;
     private readonly UILabel? DescWeightLabel;
     private readonly List<MerchantEntry> Entries = [];
+    private readonly List<int> FilteredIndices = [];
     private readonly int ItemsPerPage;
 
     private readonly MerchantListingPanel[] Listings;
     private readonly UILabel? MoneyLabel;
     private readonly UILabel? PageLabel;
+    private readonly MerchantTab[] Tabs;
 
     private int CurrentPage;
+    private int HoveredRow = -1;
+    private int SelectedCategoryIndex;
     private int SelectedIndex = -1;
+    private int TabWindowStart;
     private int TotalPages;
 
     public MenuType CurrentMenuType { get; private set; }
@@ -48,10 +61,14 @@ public sealed class MerchantBrowserPanel : PrefabPanel
     public UIButton? TabPrevButton { get; }
 
     public MerchantBrowserPanel()
-        : base("lnpcd3")
+        : base("lnpcd3", false)
     {
         Name = "MerchantBrowser";
         Visible = false;
+
+        // Right-aligned, bottom-anchored above dialog bar (same as other dialog sub-panels)
+        X = ChaosGame.VIRTUAL_WIDTH - Width;
+        Y = 372 - Height;
 
         CloseButton = CreateButton("Btn1");
         PagePrevButton = CreateButton("PagePrev");
@@ -82,6 +99,58 @@ public sealed class MerchantBrowserPanel : PrefabPanel
                 }
             };
 
+        if (TabPrevButton is not null)
+        {
+            TabPrevButton.DisabledTexture = UiRenderer.Instance!.GetSpfTexture("nd_mcp.spf", 2);
+
+            TabPrevButton.OnClick += () =>
+            {
+                if (TabWindowStart > 0)
+                {
+                    TabWindowStart--;
+                    UpdateTabDisplay();
+                }
+            };
+        }
+
+        if (TabNextButton is not null)
+        {
+            TabNextButton.DisabledTexture = UiRenderer.Instance!.GetSpfTexture("nd_mcn.spf", 2);
+
+            TabNextButton.OnClick += () =>
+            {
+                if ((TabWindowStart + MAX_VISIBLE_TABS) < Categories.Count)
+                {
+                    TabWindowStart++;
+                    UpdateTabDisplay();
+                }
+            };
+        }
+
+        // Create category tabs
+        var uiCache = UiRenderer.Instance!;
+        var tabNormal = uiCache.GetSpfTexture("nd_mtab.spf");
+        var tabSelected = uiCache.GetSpfTexture("nd_mtab.spf", 1);
+
+        Tabs = new MerchantTab[MAX_VISIBLE_TABS];
+
+        for (var i = 0; i < MAX_VISIBLE_TABS; i++)
+        {
+            var tab = new MerchantTab(tabNormal, tabSelected)
+            {
+                X = TAB_START_X + i * TAB_WIDTH,
+                Y = TAB_START_Y,
+                Width = TAB_WIDTH,
+                Height = TAB_HEIGHT,
+                Visible = false
+            };
+
+            var tabIndex = i;
+            tab.OnClick += () => HandleTabClick(tabIndex);
+            Tabs[i] = tab;
+            AddChild(tab);
+        }
+
         ContentRect = GetRect("Content");
         ItemsPerPage = ContentRect.Height > 0 ? ContentRect.Height / ROW_HEIGHT : 4;
 
@@ -90,7 +159,7 @@ public sealed class MerchantBrowserPanel : PrefabPanel
 
         for (var i = 0; i < ItemsPerPage; i++)
         {
-            var listing = new MerchantListingPanel
+            var listing = new MerchantListingPanel(ContentRect.Width)
             {
                 X = ContentRect.X,
                 Y = ContentRect.Y + i * ROW_HEIGHT,
@@ -109,13 +178,70 @@ public sealed class MerchantBrowserPanel : PrefabPanel
         DescLevelLabel = CreateLabel("DescLevel");
         DescWeightLabel = CreateLabel("DescWeight");
         DescTextLabel = CreateLabel("DescText");
+
+        if (DescTextLabel is not null)
+            DescTextLabel.WordWrap = true;
         MoneyLabel = CreateLabel("Money", TextAlignment.Right);
         PageLabel = CreateLabel("Page", TextAlignment.Center);
     }
 
+    private void BuildCategories()
+    {
+        Categories.Clear();
+        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        foreach (var entry in Entries)
+        {
+            var category = entry.Category.Length > 0 ? entry.Category : "other";
+
+            if (seen.Add(category))
+                Categories.Add(category);
+        }
+
+        // Sort alphabetically, but keep "Other" at the end
+        Categories.Sort((a, b) =>
+        {
+            var aIsOther = a.Equals("Other", StringComparison.OrdinalIgnoreCase);
+            var bIsOther = b.Equals("Other", StringComparison.OrdinalIgnoreCase);
+
+            if (aIsOther && !bIsOther)
+                return 1;
+
+            if (!aIsOther && bIsOther)
+                return -1;
+
+            return string.Compare(a, b, StringComparison.OrdinalIgnoreCase);
+        });
+    }
+
+    private void BuildFilteredIndices()
+    {
+        FilteredIndices.Clear();
+
+        if (Categories.Count == 0)
+        {
+            for (var i = 0; i < Entries.Count; i++)
+                FilteredIndices.Add(i);
+
+            return;
+        }
+
+        var selectedCategory = Categories[SelectedCategoryIndex];
+        var isOther = selectedCategory.Equals("Other", StringComparison.OrdinalIgnoreCase);
+
+        for (var i = 0; i < Entries.Count; i++)
+        {
+            var entryCategory = Entries[i].Category;
+
+            if (isOther && (entryCategory.Length == 0))
+                FilteredIndices.Add(i);
+            else if (entryCategory.Equals(selectedCategory, StringComparison.OrdinalIgnoreCase))
+                FilteredIndices.Add(i);
+        }
+    }
+
     private void ClearDetails()
     {
-        MoneyLabel?.Text = string.Empty;
         DescClassLabel?.Text = string.Empty;
         DescLevelLabel?.Text = string.Empty;
         DescWeightLabel?.Text = string.Empty;
@@ -125,7 +251,11 @@ public sealed class MerchantBrowserPanel : PrefabPanel
     private void ClearEntries()
     {
         Entries.Clear();
+        FilteredIndices.Clear();
+        Categories.Clear();
         SelectedIndex = -1;
+        SelectedCategoryIndex = 0;
+        TabWindowStart = 0;
 
         foreach (var listing in Listings)
         {
@@ -133,6 +263,9 @@ public sealed class MerchantBrowserPanel : PrefabPanel
             listing.IsSelected = false;
             listing.Visible = false;
         }
+
+        foreach (var tab in Tabs)
+            tab.Visible = false;
     }
 
     /// <summary>
@@ -159,29 +292,71 @@ public sealed class MerchantBrowserPanel : PrefabPanel
 
     private void HandleListingClick(int rowIndex)
     {
-        var absoluteIndex = CurrentPage * ItemsPerPage + rowIndex;
+        var filteredPosition = CurrentPage * ItemsPerPage + rowIndex;
 
-        if (absoluteIndex >= Entries.Count)
+        if (filteredPosition >= FilteredIndices.Count)
             return;
+
+        var absoluteIndex = FilteredIndices[filteredPosition];
 
         if (absoluteIndex == SelectedIndex)
             OnItemSelected?.Invoke(SelectedIndex);
         else
         {
             SelectedIndex = absoluteIndex;
-            ShowDetails(SelectedIndex);
+            ShowDetails(absoluteIndex);
             UpdateListingStates();
+
+            if (CloseButton is not null)
+                CloseButton.Enabled = true;
         }
+    }
+
+    private void HandleTabClick(int slotIndex)
+    {
+        var visibleCount = Math.Min(MAX_VISIBLE_TABS, Categories.Count - TabWindowStart);
+        var offset = MAX_VISIBLE_TABS - visibleCount;
+
+        if (slotIndex < offset)
+            return;
+
+        var categoryIndex = TabWindowStart + (slotIndex - offset);
+
+        if ((categoryIndex >= Categories.Count) || (categoryIndex == SelectedCategoryIndex))
+            return;
+
+        SelectedCategoryIndex = categoryIndex;
+        SelectedIndex = -1;
+        CurrentPage = 0;
+        HoveredRow = -1;
+
+        BuildFilteredIndices();
+        TotalPages = FilteredIndices.Count > 0 ? (FilteredIndices.Count + ItemsPerPage - 1) / ItemsPerPage : 1;
+
+        UpdateTabDisplay();
+        UpdatePageDisplay();
+        ClearDetails();
+
+        if (CloseButton is not null)
+            CloseButton.Enabled = false;
     }
 
     public override void Hide()
     {
+        if (HoveredRow >= 0)
+        {
+            HoveredRow = -1;
+            OnItemHoverExit?.Invoke();
+        }
+
         Visible = false;
         ClearEntries();
         ClearDetails();
     }
 
     public event Action? OnClose;
+    public event Action<string>? OnItemHoverEnter;
+    public event Action? OnItemHoverExit;
     public event Action<int>? OnItemSelected;
 
     private void PopulateItems(DisplayMenuArgs args)
@@ -189,16 +364,30 @@ public sealed class MerchantBrowserPanel : PrefabPanel
         if (args.Items is null)
             return;
 
-        foreach (var item in args.Items)
+        var itemList = args.Items as IList<ItemInfo> ?? args.Items.ToList();
+        var names = new string[itemList.Count];
+
+        for (var i = 0; i < itemList.Count; i++)
+            names[i] = itemList[i].Name;
+
+        var metadata = DataContext.MetaFiles.GetItemMetadata(names);
+
+        foreach (var item in itemList)
         {
             var icon = UiRenderer.Instance!.GetItemIcon(item.Sprite, item.Color);
+            metadata.TryGetValue(item.Name, out var meta);
 
             Entries.Add(
                 new MerchantEntry(
                     item.Name,
                     icon,
                     item.Cost ?? 0,
-                    item.Slot));
+                    item.Slot,
+                    meta?.Category ?? string.Empty,
+                    meta?.Description ?? string.Empty,
+                    meta?.Level,
+                    meta?.Class,
+                    meta?.Weight));
         }
     }
 
@@ -207,6 +396,19 @@ public sealed class MerchantBrowserPanel : PrefabPanel
         if (args.Slots is null)
             return;
 
+        // Collect names for metadata batch lookup
+        var names = new List<string>();
+
+        foreach (var slot in args.Slots)
+        {
+            ref readonly var slotData = ref WorldState.Inventory.GetSlot(slot);
+
+            if (slotData.IsOccupied && slotData.Name is not null)
+                names.Add(slotData.Name);
+        }
+
+        var metadata = DataContext.MetaFiles.GetItemMetadata(names.ToArray());
+
         foreach (var slot in args.Slots)
         {
             ref readonly var slotData = ref WorldState.Inventory.GetSlot(slot);
@@ -214,14 +416,21 @@ public sealed class MerchantBrowserPanel : PrefabPanel
             if (!slotData.IsOccupied)
                 continue;
 
+            var name = slotData.Name ?? string.Empty;
             var icon = UiRenderer.Instance!.GetItemIcon(slotData.Sprite);
+            metadata.TryGetValue(name, out var meta);
 
             Entries.Add(
                 new MerchantEntry(
-                    slotData.Name ?? string.Empty,
+                    name,
                     icon,
                     0,
-                    slot));
+                    slot,
+                    meta?.Category ?? string.Empty,
+                    meta?.Description ?? string.Empty,
+                    meta?.Level,
+                    meta?.Class,
+                    meta?.Weight));
         }
     }
 
@@ -311,19 +520,19 @@ public sealed class MerchantBrowserPanel : PrefabPanel
         }
 
         var entry = Entries[absoluteIndex];
+        var hasDetails = entry.Class is not null || entry.Level is not null || entry.Weight is not null;
 
-        // For buy shops, show cost
-        if (CurrentMenuType == MenuType.ShowItems)
-            MoneyLabel?.Text = entry.Cost > 0 ? entry.Cost.ToString("N0") : string.Empty;
-        else
-            MoneyLabel?.Text = string.Empty;
+        if (DescClassLabel is not null)
+            DescClassLabel.Text = entry.Class is { } cls ? ((BaseClass)cls).ToString() : string.Empty;
 
-        // Clear description fields — detail population would require metadata queries
-        // that aren't available at this level. The name in the list is sufficient for v1.
-        DescClassLabel?.Text = string.Empty;
-        DescLevelLabel?.Text = string.Empty;
-        DescWeightLabel?.Text = string.Empty;
-        DescTextLabel?.Text = string.Empty;
+        if (DescLevelLabel is not null)
+            DescLevelLabel.Text = entry.Level?.ToString() ?? string.Empty;
+
+        if (DescWeightLabel is not null)
+            DescWeightLabel.Text = entry.Weight?.ToString() ?? string.Empty;
+
+        if (DescTextLabel is not null)
+            DescTextLabel.Text = hasDetails ? entry.Description : string.Empty;
     }
 
     /// <summary>
@@ -370,10 +579,23 @@ public sealed class MerchantBrowserPanel : PrefabPanel
                 break;
         }
 
-        TotalPages = Entries.Count > 0 ? (Entries.Count + ItemsPerPage - 1) / ItemsPerPage : 1;
+        BuildCategories();
+        SelectedCategoryIndex = 0;
+        TabWindowStart = 0;
 
+        BuildFilteredIndices();
+        TotalPages = FilteredIndices.Count > 0 ? (FilteredIndices.Count + ItemsPerPage - 1) / ItemsPerPage : 1;
+
+        UpdateTabDisplay();
         UpdatePageDisplay();
         ClearDetails();
+
+        if (MoneyLabel is not null)
+            MoneyLabel.Text = WorldState.Inventory.Gold.ToString("N0");
+
+        if (CloseButton is not null)
+            CloseButton.Enabled = false;
+
         Show();
     }
 
@@ -381,6 +603,41 @@ public sealed class MerchantBrowserPanel : PrefabPanel
     {
         if (!Visible || !Enabled)
             return;
+
+        // Detect which row the mouse is over
+        var newHoveredRow = -1;
+
+        for (var i = 0; i < Listings.Length; i++)
+        {
+            var listing = Listings[i];
+
+            if (listing.Visible && listing.ContainsPoint(input.MouseX, input.MouseY))
+            {
+                var filteredPosition = CurrentPage * ItemsPerPage + i;
+
+                if (filteredPosition < FilteredIndices.Count)
+                    newHoveredRow = i;
+
+                break;
+            }
+        }
+
+        if (newHoveredRow != HoveredRow)
+        {
+            if (newHoveredRow >= 0)
+            {
+                var filteredPosition = CurrentPage * ItemsPerPage + newHoveredRow;
+                var absoluteIndex = FilteredIndices[filteredPosition];
+                OnItemHoverEnter?.Invoke(Entries[absoluteIndex].Name);
+                ShowDetails(absoluteIndex);
+            } else
+            {
+                OnItemHoverExit?.Invoke();
+                ClearDetails();
+            }
+
+            HoveredRow = newHoveredRow;
+        }
 
         base.Update(gameTime, input);
     }
@@ -391,13 +648,14 @@ public sealed class MerchantBrowserPanel : PrefabPanel
 
         for (var i = 0; i < Listings.Length; i++)
         {
-            var absoluteIndex = pageStart + i;
+            var filteredPosition = pageStart + i;
             var listing = Listings[i];
 
-            if (absoluteIndex < Entries.Count)
+            if (filteredPosition < FilteredIndices.Count)
             {
+                var absoluteIndex = FilteredIndices[filteredPosition];
                 var entry = Entries[absoluteIndex];
-                listing.SetEntry(entry.Icon, entry.Name);
+                listing.SetEntry(entry.Icon, entry.Name, entry.Cost);
                 listing.IsSelected = absoluteIndex == SelectedIndex;
                 listing.Visible = true;
             } else
@@ -411,54 +669,83 @@ public sealed class MerchantBrowserPanel : PrefabPanel
 
     private void UpdatePageDisplay()
     {
-        PageLabel?.Text = $"{CurrentPage + 1}/{TotalPages}";
+        PageLabel?.Text = $"{CurrentPage + 1} / {TotalPages}";
 
         if (PagePrevButton is not null)
-            PagePrevButton.Visible = CurrentPage > 0;
+            PagePrevButton.Enabled = CurrentPage > 0;
 
         if (PageNextButton is not null)
-            PageNextButton.Visible = CurrentPage < (TotalPages - 1);
+            PageNextButton.Enabled = CurrentPage < (TotalPages - 1);
 
         UpdateListingStates();
+    }
+
+    private void UpdateTabDisplay()
+    {
+        var visibleCount = Math.Min(MAX_VISIBLE_TABS, Categories.Count - TabWindowStart);
+        var offset = MAX_VISIBLE_TABS - visibleCount;
+
+        for (var i = 0; i < MAX_VISIBLE_TABS; i++)
+        {
+            var tab = Tabs[i];
+
+            if (i < offset)
+            {
+                tab.Visible = false;
+
+                continue;
+            }
+
+            var categoryIndex = TabWindowStart + (i - offset);
+
+            if (categoryIndex < Categories.Count)
+            {
+                tab.X = TAB_START_X + i * TAB_WIDTH;
+                tab.SetCategory(Categories[categoryIndex]);
+                tab.IsSelected = categoryIndex == SelectedCategoryIndex;
+                tab.Visible = true;
+            } else
+                tab.Visible = false;
+        }
+
+        if (TabPrevButton is not null)
+            TabPrevButton.Enabled = TabWindowStart > 0;
+
+        if (TabNextButton is not null)
+            TabNextButton.Enabled = (TabWindowStart + MAX_VISIBLE_TABS) < Categories.Count;
     }
 
     private sealed record MerchantEntry(
         string Name,
         Texture2D? Icon,
         int Cost,
-        byte Slot);
+        byte Slot,
+        string Category = "",
+        string Description = "",
+        int? Level = null,
+        byte? Class = null,
+        int? Weight = null);
 
     /// <summary>
-    ///     A single row in the merchant listing. Renders a centered icon and name text, with highlight states for hover and
-    ///     selection.
+    ///     A single row in the merchant listing. Renders an icon and name text with a selection highlight.
     /// </summary>
     private sealed class MerchantListingPanel : UIPanel
     {
-        private static readonly Color SELECTED_COLOR = new(
-            80,
-            80,
-            120,
-            100);
+        private static readonly Color SELECTED_TEXT_COLOR = new(206, 0, 16);
 
-        private static readonly Color HOVERED_COLOR = new(
-            60,
-            60,
-            90,
-            60);
-
-        private readonly CenteredIcon IconImage;
+        private readonly UILabel CostLabel;
+        private readonly UIImage IconImage;
         private readonly UILabel NameLabel;
-        private bool IsHovered;
         public bool IsSelected { get; set; }
 
-        public MerchantListingPanel()
+        public MerchantListingPanel(int contentWidth)
         {
-            IconImage = new CenteredIcon
+            IconImage = new UIImage
             {
                 X = 4,
-                Y = 0,
+                Y = (ROW_HEIGHT - ICON_SIZE) / 2,
                 Width = ICON_SIZE,
-                Height = ROW_HEIGHT
+                Height = ICON_SIZE
             };
 
             NameLabel = new UILabel
@@ -470,14 +757,27 @@ public sealed class MerchantBrowserPanel : PrefabPanel
                 ForegroundColor = Color.White
             };
 
+            CostLabel = new UILabel
+            {
+                X = 0,
+                Y = (ROW_HEIGHT - TextRenderer.CHAR_HEIGHT) / 2,
+                Width = contentWidth - 4,
+                Height = TextRenderer.CHAR_HEIGHT,
+                Alignment = TextAlignment.Right,
+                ForegroundColor = Color.White
+            };
+
             AddChild(IconImage);
             AddChild(NameLabel);
+            AddChild(CostLabel);
         }
 
         public void ClearEntry()
         {
             IconImage.Texture = null;
+            IconImage.Visible = false;
             NameLabel.Text = string.Empty;
+            CostLabel.Text = string.Empty;
         }
 
         public override void Draw(SpriteBatch spriteBatch)
@@ -485,41 +785,35 @@ public sealed class MerchantBrowserPanel : PrefabPanel
             if (!Visible)
                 return;
 
-            // Highlight background
-            if (IsSelected)
-                DrawRect(
-                    spriteBatch,
-                    new Rectangle(
-                        ScreenX,
-                        ScreenY,
-                        Width,
-                        Height),
-                    SELECTED_COLOR);
-            else if (IsHovered)
-                DrawRect(
-                    spriteBatch,
-                    new Rectangle(
-                        ScreenX,
-                        ScreenY,
-                        Width,
-                        Height),
-                    HOVERED_COLOR);
-
-            NameLabel.ForegroundColor = IsSelected
-                ? Color.Yellow
-                : IsHovered
-                    ? Color.LightGoldenrodYellow
-                    : Color.White;
+            var color = IsSelected ? SELECTED_TEXT_COLOR : Color.White;
+            NameLabel.ForegroundColor = color;
+            CostLabel.ForegroundColor = color;
 
             base.Draw(spriteBatch);
         }
 
         public event Action? OnClick;
 
-        public void SetEntry(Texture2D? icon, string name)
+        public void SetEntry(Texture2D? icon, string name, int cost)
         {
             IconImage.Texture = icon;
+            IconImage.Visible = icon is not null;
+
+            var costText = cost > 0 ? cost.ToString("N0") : string.Empty;
+            var maxName = MAX_COMBINED_CHARS - costText.Length;
+
+            // Truncate at first newline
+            var newlineIndex = name.IndexOf('\n');
+
+            if (newlineIndex >= 0)
+                name = newlineIndex <= (maxName - 3) ? name[..newlineIndex] + "..." : name[..newlineIndex];
+
+            // Truncate to fit within combined max
+            if (name.Length > maxName)
+                name = name[..(maxName - 3)] + "...";
+
             NameLabel.Text = name;
+            CostLabel.Text = costText;
         }
 
         public override void Update(GameTime gameTime, InputBuffer input)
@@ -527,9 +821,68 @@ public sealed class MerchantBrowserPanel : PrefabPanel
             if (!Visible || !Enabled)
                 return;
 
-            IsHovered = ContainsPoint(input.MouseX, input.MouseY);
+            if (ContainsPoint(input.MouseX, input.MouseY) && input.WasLeftButtonPressed)
+                OnClick?.Invoke();
 
-            if (IsHovered && input.WasLeftButtonPressed)
+            base.Update(gameTime, input);
+        }
+    }
+
+    /// <summary>
+    ///     A single category tab. Draws nd_mtab.spf normal/selected background with centered category text.
+    /// </summary>
+    private sealed class MerchantTab : UIPanel
+    {
+        private readonly UILabel NameLabel;
+        private readonly Texture2D? NormalBg;
+        private readonly Texture2D? SelectedBg;
+        public bool IsSelected { get; set; }
+
+        public MerchantTab(Texture2D? normalTexture, Texture2D? selectedTexture)
+        {
+            NormalBg = normalTexture;
+            SelectedBg = selectedTexture;
+
+            NameLabel = new UILabel
+            {
+                X = 0,
+                Y = (TAB_HEIGHT - TextRenderer.CHAR_HEIGHT) / 2 + 2,
+                Width = TAB_WIDTH,
+                Height = TextRenderer.CHAR_HEIGHT,
+                Alignment = TextAlignment.Center,
+                ForegroundColor = Color.White
+            };
+
+            AddChild(NameLabel);
+        }
+
+        public override void Draw(SpriteBatch spriteBatch)
+        {
+            if (!Visible)
+                return;
+
+            var texture = IsSelected ? SelectedBg : NormalBg;
+
+            if (texture is not null)
+                AtlasHelper.Draw(
+                    spriteBatch,
+                    texture,
+                    new Vector2(ScreenX, ScreenY),
+                    Color.White);
+
+            base.Draw(spriteBatch);
+        }
+
+        public event Action? OnClick;
+
+        public void SetCategory(string category) => NameLabel.Text = category;
+
+        public override void Update(GameTime gameTime, InputBuffer input)
+        {
+            if (!Visible || !Enabled)
+                return;
+
+            if (ContainsPoint(input.MouseX, input.MouseY) && input.WasLeftButtonPressed)
                 OnClick?.Invoke();
 
             base.Update(gameTime, input);

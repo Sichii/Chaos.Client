@@ -9,7 +9,7 @@ namespace Chaos.Client.Controls.Components;
 
 public class UIPanel : UIElement
 {
-    private static readonly Comparison<UIElement> ZIndexComparison = (a, b) => a.ZIndex.CompareTo(b.ZIndex);
+    private static readonly Func<UIElement, int> ZIndexSelector = e => e.ZIndex;
     internal bool ChildOrderDirty;
 
     public Texture2D? Background { get; set; }
@@ -101,7 +101,10 @@ public class UIPanel : UIElement
 
         if (ChildOrderDirty)
         {
-            Children.Sort(ZIndexComparison);
+            var sorted = Children.OrderBy(ZIndexSelector)
+                                 .ToList();
+            Children.Clear();
+            Children.AddRange(sorted);
             ChildOrderDirty = false;
         }
 

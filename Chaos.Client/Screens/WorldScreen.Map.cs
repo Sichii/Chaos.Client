@@ -50,6 +50,7 @@ public sealed partial class WorldScreen
         if (MapFile is null)
         {
             MapFile = new MapFile(args.Width, args.Height);
+            InitializeEmptyTiles(MapFile);
             AwaitingMapData = true;
             Game.Connection.RequestMapData();
         }
@@ -314,6 +315,13 @@ public sealed partial class WorldScreen
 
         var tileWorld = Camera.TileToWorld(player.TileX, player.TileY, MapFile.Height);
         Camera.Position = tileWorld + player.VisualOffset;
+    }
+
+    private static void InitializeEmptyTiles(MapFile mapFile)
+    {
+        for (var y = 0; y < mapFile.Height; y++)
+            for (var x = 0; x < mapFile.Width; x++)
+                mapFile.Tiles[x, y] = new MapTile();
     }
     #endregion
 }

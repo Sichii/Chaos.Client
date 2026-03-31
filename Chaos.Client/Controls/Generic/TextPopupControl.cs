@@ -1,7 +1,8 @@
 #region
 using Chaos.Client.Controls.Components;
-using Chaos.Client.Extensions;
+using Chaos.Client.Data;
 using Chaos.Client.Rendering;
+using Chaos.Client.Utilities;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using Microsoft.Xna.Framework.Input;
@@ -10,104 +11,87 @@ using Microsoft.Xna.Framework.Input;
 namespace Chaos.Client.Controls.Generic;
 
 /// <summary>
-///     Generic popup text window used for ScrollWindow (Sense), NonScrollWindow (Perish Lore), WoodenBoard (signposts),
-///     and Notepad displays. Centered on screen with word-wrapped text, optional scrollbar, and a close button. Escape or
-///     click outside closes.
+///     Popup text window for ScrollWindow, NonScrollWindow, and WoodenBoard ServerMessageTypes.
+///     Fixed position at (140,60), size 360x180 matching the original client. ScrollWindow and
+///     NonScrollWindow are identical (dialog frame with scrollbar and close button). WoodenBoard
+///     uses woodbk.epf wooden plank background from Legend.dat. All styles support mouse wheel scrolling.
 /// </summary>
 public sealed class TextPopupControl : UIPanel
 {
-    private const int LINE_HEIGHT = 12;
-    private const int PADDING = 12;
-    private const int MIN_WIDTH = 200;
-    private const int MIN_HEIGHT = 100;
-    private const int MAX_WIDTH = 500;
-    private const int MAX_HEIGHT = 400;
+    // Original client RECT {top,left,bottom,right}: {60, 140, 240, 500}
+    // Position: X=140, Y=60. Size: W=360, H=180.
+    private const int POPUP_X = 140;
+    private const int POPUP_Y = 60;
+    private const int POPUP_WIDTH = 360;
+    private const int POPUP_HEIGHT = 180;
 
-    private readonly TextElement[] Lines;
-    private readonly int MaxVisibleLines;
-    private int DataVersion;
-    private int RenderedVersion = -1;
-    private bool Scrollable;
-    private int ScrollOffset;
+    // Dialog frame text insets (16px dlgframe border)
+    private const int FRAME_INSET = DialogFrame.BORDER_SIZE;
 
-    private List<string> WrappedLines = [];
+    // Wooden board text insets (per RE: 16px left/right, 12px top, 32px bottom)
+    private const int WOOD_INSET_X = 16;
+    private const int WOOD_INSET_TOP = 12;
+    private const int WOOD_INSET_BOTTOM = 32;
+
+    // butt001.epf frame indices for Close button (2nd button: frames 3,4,5)
+    private const int CLOSE_NORMAL = 3;
+    private const int CLOSE_PRESSED = 4;
+    private readonly UIButton CloseButton;
+    private readonly ScrollBarControl Scrollbar;
+
+    private readonly UILabel TextLabel;
+    private Texture2D? DialogBackground;
+    private Texture2D? WoodBackground;
 
     public TextPopupControl()
     {
         Name = "TextPopup";
         Visible = false;
+        X = POPUP_X;
+        Y = POPUP_Y;
+        Width = POPUP_WIDTH;
+        Height = POPUP_HEIGHT;
 
-        MaxVisibleLines = (MAX_HEIGHT - PADDING * 2) / LINE_HEIGHT;
-        Lines = new TextElement[MaxVisibleLines];
-
-        for (var i = 0; i < MaxVisibleLines; i++)
-            Lines[i] = new TextElement();
-    }
-
-    public override void Draw(SpriteBatch spriteBatch)
-    {
-        if (!Visible)
-            return;
-
-        // 2px outer wooden frame
-        var sx = ScreenX;
-        var sy = ScreenY;
-
-        DrawRect(
-            spriteBatch,
-            new Rectangle(
-                sx - 2,
-                sy - 2,
-                Width + 4,
-                Height + 4),
-            new Color(80, 60, 40));
-
-        // Dark background via base.Draw()
-        base.Draw(spriteBatch);
-
-        // Text
-        RefreshLineCaches();
-
-        var textX = sx + PADDING;
-        var textY = sy + PADDING;
-
-        for (var i = 0; i < MaxVisibleLines; i++)
+        TextLabel = new UILabel
         {
-            var lineIndex = ScrollOffset + i;
+            WordWrap = true,
+            ForegroundColor = Color.White
+        };
+        AddChild(TextLabel);
 
-            if (lineIndex >= WrappedLines.Count)
-                break;
+        // Close button — bottom-right, under the scrollbar
+        var cache = UiRenderer.Instance!;
+        var closeNormalTex = cache.GetEpfTexture("butt001.epf", CLOSE_NORMAL);
+        var closePressedTex = cache.GetEpfTexture("butt001.epf", CLOSE_PRESSED);
+        var btnW = closeNormalTex.Width;
+        var btnH = closeNormalTex.Height;
 
-            Lines[i]
-                .Draw(spriteBatch, new Vector2(textX, textY + i * LINE_HEIGHT));
-        }
-
-        // Scroll indicator
-        if (Scrollable && (WrappedLines.Count > MaxVisibleLines))
+        CloseButton = new UIButton
         {
-            var scrollPct = (float)ScrollOffset / (WrappedLines.Count - MaxVisibleLines);
-            var barHeight = Height - PADDING * 2;
-            var thumbY = sy + PADDING + (int)(scrollPct * (barHeight - 20));
-            var barX = sx + Width - PADDING;
+            Name = "Close",
+            X = POPUP_WIDTH - FRAME_INSET - btnW,
+            Y = POPUP_HEIGHT - FRAME_INSET - btnH,
+            Width = btnW,
+            Height = btnH,
+            NormalTexture = closeNormalTex,
+            PressedTexture = closePressedTex
+        };
+        CloseButton.OnClick += Hide;
+        AddChild(CloseButton);
 
-            DrawRect(
-                spriteBatch,
-                new Rectangle(
-                    barX,
-                    sy + PADDING,
-                    4,
-                    barHeight),
-                new Color(60, 50, 40));
+        // Scrollbar — right side, above the close button
+        var scrollHeight = CloseButton.Y - FRAME_INSET;
 
-            DrawRect(
-                spriteBatch,
-                new Rectangle(
-                    barX,
-                    thumbY,
-                    4,
-                    20),
-                new Color(160, 140, 100));
-        }
+        Scrollbar = new ScrollBarControl
+        {
+            X = POPUP_WIDTH - FRAME_INSET - ScrollBarControl.DEFAULT_WIDTH,
+            Y = FRAME_INSET,
+            Height = scrollHeight,
+            Visible = false
+        };
+        AddChild(Scrollbar);
+
+        LoadBackgrounds();
     }
 
     public void Hide()
@@ -116,52 +100,69 @@ public sealed class TextPopupControl : UIPanel
         OnClose?.Invoke();
     }
 
-    public event Action? OnClose;
-
-    private void RefreshLineCaches()
+    private void LoadBackgrounds()
     {
-        if (RenderedVersion == DataVersion)
-            return;
+        // Dialog frame: DlgBack2.spf tiled background + dlgframe.epf 8-piece border
+        using var bgTile = DataContext.UserControls.GetSpfImage("DlgBack2.spf");
 
-        RenderedVersion = DataVersion;
-
-        for (var i = 0; i < MaxVisibleLines; i++)
+        if (bgTile is not null)
         {
-            var lineIndex = ScrollOffset + i;
+            using var composite = DialogFrame.Composite(bgTile, POPUP_WIDTH, POPUP_HEIGHT);
 
-            Lines[i]
-                .Update(lineIndex < WrappedLines.Count ? WrappedLines[lineIndex] : string.Empty, Color.White);
+            if (composite is not null)
+                DialogBackground = TextureConverter.ToTexture2D(composite);
         }
+
+        // Wooden board: woodbk.epf from Legend.dat (360x180, exact match)
+        using var woodImage = DataContext.UserControls.GetLegendEpfImage("woodbk.epf");
+
+        if (woodImage is not null)
+            WoodBackground = TextureConverter.ToTexture2D(woodImage);
     }
 
+    public event Action? OnClose;
+
     /// <summary>
-    ///     Shows a popup with the given text. PopupStyle controls appearance: Scroll = dark bg with scrollbar, NonScroll =
-    ///     dark bg no scroll, Wooden = brown border.
+    ///     Shows a popup with the given text. ScrollWindow and NonScrollWindow are identical (dialog
+    ///     frame with scrollbar and close button). WoodenBoard uses wooden plank background.
     /// </summary>
     public void Show(string text, PopupStyle style = PopupStyle.Scroll)
     {
-        Scrollable = style == PopupStyle.Scroll;
+        var contentHeight = Scrollbar.Height;
 
-        // Calculate dimensions based on text
-        var contentWidth = MAX_WIDTH - PADDING * 2;
-        WrappedLines = TextRenderer.WrapLines(text, contentWidth);
+        if (style == PopupStyle.Wooden)
+        {
+            Background = WoodBackground;
+            TextLabel.X = WOOD_INSET_X;
+            TextLabel.Y = WOOD_INSET_TOP;
+            TextLabel.Width = POPUP_WIDTH - WOOD_INSET_X * 2;
+            contentHeight = POPUP_HEIGHT - WOOD_INSET_TOP - WOOD_INSET_BOTTOM;
+            TextLabel.Height = contentHeight;
+            Scrollbar.Visible = false;
+            CloseButton.Visible = false;
+        } else
+        {
+            // Scroll and NonScroll are identical per original client RE
+            Background = DialogBackground;
+            TextLabel.X = FRAME_INSET;
+            TextLabel.Y = FRAME_INSET;
+            TextLabel.Width = POPUP_WIDTH - FRAME_INSET * 2 - ScrollBarControl.DEFAULT_WIDTH;
+            TextLabel.Height = contentHeight;
+            Scrollbar.Visible = true;
+            CloseButton.Visible = true;
+        }
 
-        var lineCount = Math.Min(WrappedLines.Count, MaxVisibleLines);
-        var contentHeight = lineCount * LINE_HEIGHT;
+        TextLabel.ScrollOffset = 0;
+        TextLabel.Text = text;
 
-        Width = Math.Clamp(contentWidth + PADDING * 2, MIN_WIDTH, MAX_WIDTH);
-        Height = Math.Clamp(contentHeight + PADDING * 2, MIN_HEIGHT, MAX_HEIGHT);
+        var visibleLines = contentHeight / TextRenderer.CHAR_HEIGHT;
+        var totalLines = TextLabel.ContentHeight / TextRenderer.CHAR_HEIGHT;
+        var scrollMax = Math.Max(0, totalLines - visibleLines);
+        Scrollbar.Value = 0;
+        Scrollbar.MaxValue = scrollMax;
+        Scrollbar.TotalItems = totalLines;
+        Scrollbar.VisibleItems = visibleLines;
 
-        this.CenterOnScreen();
-
-        BackgroundColor = new Color(
-            20,
-            15,
-            10,
-            240);
-
-        ScrollOffset = 0;
-        DataVersion++;
         Visible = true;
     }
 
@@ -177,20 +178,19 @@ public sealed class TextPopupControl : UIPanel
             return;
         }
 
-        // Click outside to close
-        if (input.WasLeftButtonPressed && !ContainsPoint(input.MouseX, input.MouseY))
+        // Mouse wheel scrolling (all styles)
+        if ((input.ScrollDelta != 0) && (TextLabel.ContentHeight > TextLabel.Height))
         {
-            Hide();
+            var visibleLines = TextLabel.Height / TextRenderer.CHAR_HEIGHT;
+            var totalLines = TextLabel.ContentHeight / TextRenderer.CHAR_HEIGHT;
+            var maxScroll = Math.Max(0, totalLines - visibleLines);
 
-            return;
+            Scrollbar.Value = Math.Clamp(Scrollbar.Value - input.ScrollDelta, 0, maxScroll);
         }
 
-        // Scroll
-        if (Scrollable && (input.ScrollDelta != 0) && (WrappedLines.Count > MaxVisibleLines))
-        {
-            ScrollOffset = Math.Clamp(ScrollOffset - input.ScrollDelta, 0, WrappedLines.Count - MaxVisibleLines);
+        // Sync label scroll from scrollbar interaction (arrow clicks, thumb drag)
+        TextLabel.ScrollOffset = Scrollbar.Value * TextRenderer.CHAR_HEIGHT;
 
-            DataVersion++;
-        }
+        base.Update(gameTime, input);
     }
 }

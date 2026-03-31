@@ -4,7 +4,6 @@ using Chaos.Client.Controls.Components;
 using Chaos.Client.Systems;
 using Chaos.DarkAges.Definitions;
 using Chaos.Geometry.Abstractions.Definitions;
-using Chaos.Networking.Entities.Server;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Input;
 using Pathfinder = Chaos.Client.Systems.Pathfinder;
@@ -14,17 +13,6 @@ namespace Chaos.Client.Screens;
 
 public sealed partial class WorldScreen
 {
-    private static readonly string[] TEST_NAMES =
-    [
-        "Dar",
-        "Mundane",
-        "Riona",
-        "Cian",
-        "Devlin",
-        "Erin",
-        "Fiona"
-    ];
-
     private static readonly string[] TEST_TEXTS =
     [
         "Hello adventurer, what brings you here today?",
@@ -286,6 +274,16 @@ public sealed partial class WorldScreen
         if (NpcSession.Visible)
         {
             NpcSession.Update(gameTime, input);
+
+            // Update tooltip position to follow cursor (merchant item hover)
+            if (ItemTooltip.Visible)
+            {
+                var rightX = input.MouseX + 15;
+
+                ItemTooltip.X = (rightX + ItemTooltip.Width) <= ChaosGame.VIRTUAL_WIDTH ? rightX : input.MouseX - ItemTooltip.Width;
+
+                ItemTooltip.Y = Math.Clamp(input.MouseY + 15, 0, ChaosGame.VIRTUAL_HEIGHT - ItemTooltip.Height);
+            }
 
             return;
         }
@@ -815,8 +813,8 @@ public sealed partial class WorldScreen
 
         ((UIPanel)WorldHud).Update(gameTime, input);
 
-        // Update inventory tooltip position to follow cursor
-        if (HoveredInventorySlot is not null && ItemTooltip.Visible)
+        // Update tooltip position to follow cursor
+        if (ItemTooltip.Visible)
         {
             var rightX = input.MouseX + 15;
 
@@ -859,37 +857,7 @@ public sealed partial class WorldScreen
     }
 
     private void FireTestDialog()
-    {
-        var rng = Random.Shared;
-        var itemCount = rng.Next(1, 15);
-
-        var items = new List<ItemInfo>();
-
-        for (var i = 0; i < itemCount; i++)
-            items.Add(
-                new ItemInfo
-                {
-                    Name = TEST_NAMES[rng.Next(TEST_NAMES.Length)],
-                    Sprite = (ushort)rng.Next(1, 300),
-                    Color = (DisplayColor)rng.Next(0, 15),
-                    Cost = rng.Next(100, 500000),
-                    Slot = (byte)i
-                });
-
-        var args = new DisplayMenuArgs
-        {
-            MenuType = MenuType.ShowItems,
-            EntityType = EntityType.Creature,
-            Name = TEST_NAMES[rng.Next(TEST_NAMES.Length)],
-            Text = "What would you like to buy?",
-            Color = DisplayColor.Default,
-            Sprite = (ushort)rng.Next(19, 45),
-            ShouldIllustrate = rng.Next(2) == 1,
-            PursuitId = (ushort)rng.Next(1, 100),
-            SourceId = (uint)rng.Next(1, 1000),
-            Items = items
-        };
-
-        WorldState.NpcInteraction.ShowMenu(args);
-    }
+        => TextPopup.Show(
+            "This is a test NonScrollWindow popup.\n\nNonScrollWindow and ScrollWindow are identical in the original client — same dialog frame, scrollbar, and close button.\n\nLine 1\nLine 2\nLine 3\nLine 4\nLine 5\nLine 6\nLine 7\nLine 8\nLine 9\nLine 10\nLine 11\nLine 12\nLine 13\nLine 14\nLine 15\nLine 16\nLine 17\nLine 18\nLine 19\nLine 20",
+            PopupStyle.NonScroll);
 }

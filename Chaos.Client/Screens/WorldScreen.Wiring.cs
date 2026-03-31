@@ -31,19 +31,13 @@ public sealed partial class WorldScreen
     #region NPC Session Wiring
     private void WireNpcSession()
     {
-        NpcSession.OnClose += () =>
-        {
-            if (NpcSession.SourceId is not { } sourceId)
-                return;
+        // Close/Escape just hides the UI — no response sent to the server.
+        // NpcSessionControl already calls HideAll() before firing OnClose.
 
-            if (NpcSession.IsDialogOpcode)
-                Game.Connection.SendDialogResponse(
-                    NpcSession.SourceEntityType,
-                    sourceId,
-                    NpcSession.PursuitId,
-                    0);
-            else
-                Game.Connection.SendMenuResponse(NpcSession.SourceEntityType, sourceId, NpcSession.PursuitId);
+        NpcSession.OnTop += () =>
+        {
+            if (NpcSession.SourceId is { } sourceId)
+                Game.Connection.ClickEntity(sourceId);
         };
 
         NpcSession.OnNext += () =>
@@ -165,12 +159,36 @@ public sealed partial class WorldScreen
                 ]);
         };
 
+        NpcSession.OnItemHoverEnter += name => ItemTooltip.Show(
+            name,
+            0,
+            0,
+            Game.Input.MouseX,
+            Game.Input.MouseY);
+
+        NpcSession.OnItemHoverExit += () => ItemTooltip.Hide();
+
         NpcSession.OnMerchantItemSelected += selectedIndex =>
         {
             if (NpcSession.SourceId is not { } sourceId)
                 return;
 
-            var slot = NpcSession.GetMerchantEntrySlot(selectedIndex);
+            var name = NpcSession.GetMerchantEntryName(selectedIndex);
+
+            if (name is not null)
+                Game.Connection.SendMenuResponse(
+                    NpcSession.SourceEntityType,
+                    sourceId,
+                    NpcSession.PursuitId,
+                    args: [name]);
+        };
+
+        NpcSession.OnListItemSelected += selectedIndex =>
+        {
+            if (NpcSession.SourceId is not { } sourceId)
+                return;
+
+            var slot = NpcSession.GetListEntrySlot(selectedIndex);
 
             if (slot is null)
                 return;
@@ -183,7 +201,7 @@ public sealed partial class WorldScreen
                     slot.Value);
             else
             {
-                var name = NpcSession.GetMerchantEntryName(selectedIndex);
+                var name = NpcSession.GetListEntryName(selectedIndex);
 
                 if (name is not null)
                     Game.Connection.SendMenuResponse(

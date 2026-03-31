@@ -38,6 +38,7 @@ public class UILabel : UIElement
         set => Invalidate(value, TextElement.Color);
     }
 
+    public bool TopAligned { get; set; }
     public bool WordWrap { get; set; }
 
     /// <summary>
@@ -79,7 +80,7 @@ public class UILabel : UIElement
                     innerX,
                     innerY,
                     innerW,
-                    innerH));
+                    TopAligned ? TextElement.Height : innerH));
         }
     }
 

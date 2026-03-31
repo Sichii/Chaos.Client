@@ -184,6 +184,17 @@ public sealed class UiComponentRepository : RepositoryBase
     }
 
     /// <summary>
+    ///     Loads a single EPF frame from Legend.dat rendered with the appropriate GUI palette.
+    /// </summary>
+    public SKImage? GetLegendEpfImage(string fileName, int frameIndex = 0)
+    {
+        if (!DatArchives.Legend.TryGetValue(fileName, out var entry))
+            return null;
+
+        return RenderEpfFrame(entry, fileName, frameIndex);
+    }
+
+    /// <summary>
     ///     Reads the msg.tbl text file from setoa.dat and returns its lines. Used for localized UI strings (e.g. social status
     ///     names). Returns null if msg.tbl is not found.
     /// </summary>

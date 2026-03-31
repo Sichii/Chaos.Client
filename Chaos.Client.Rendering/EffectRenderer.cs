@@ -4,6 +4,7 @@ using Chaos.Client.Data.Definitions;
 using Chaos.Client.Rendering.Models;
 using DALib.Definitions;
 using DALib.Drawing;
+using SkiaSharp;
 #endregion
 
 namespace Chaos.Client.Rendering;
@@ -134,6 +135,7 @@ public sealed class EffectRenderer : IDisposable
         var epfFile = epfEffect.Entity;
         var palette = epfEffect.Palette;
         var frameSequence = tableEntry.FrameSequence;
+        var alphaType = DataContext.Effects.UsesLuminanceBlending(effectId) ? SKAlphaType.Unpremul : SKAlphaType.Premul;
 
         // Load per-frame center points from the .tbl file (e.g. eff246.tbl)
         var centerPoints = DataContext.Effects.GetEffectCenterPoints(effectId, epfFile.Count);
@@ -147,7 +149,7 @@ public sealed class EffectRenderer : IDisposable
                 continue;
 
             var epfFrame = epfFile[epfFrameIndex];
-            using var skImage = Graphics.RenderImage(epfFrame, palette);
+            using var skImage = Graphics.RenderImage(epfFrame, palette, alphaType);
             var texture = TextureConverter.ToTexture2D(skImage);
 
             // Use center point from .tbl if available, otherwise fall back to half-size

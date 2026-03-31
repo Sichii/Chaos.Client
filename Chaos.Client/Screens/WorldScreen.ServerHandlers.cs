@@ -370,8 +370,6 @@ public sealed partial class WorldScreen
     {
         var dialog = WorldState.NpcInteraction.CurrentDialog;
 
-        Console.WriteLine($"[Dialog] Type={dialog?.DialogType}");
-
         if (dialog is null || (dialog.DialogType == DialogType.CloseDialog))
         {
             NpcSession.HideAll();
@@ -387,8 +385,6 @@ public sealed partial class WorldScreen
     {
         var menu = WorldState.NpcInteraction.CurrentMenu;
 
-        Console.WriteLine($"[Menu] Type={menu?.MenuType}");
-
         if (menu is null)
             return;
 
@@ -398,15 +394,8 @@ public sealed partial class WorldScreen
 
     private void RenderNpcSessionPortrait()
     {
-        if (!NpcSession.ShouldIllustrate)
-        {
-            NpcSession.SetPortrait(null, false);
-
-            return;
-        }
-
-        // Phase 1: Try full-art illustration SPF from NPCIllust metadata + npcbase.dat
-        if (!string.IsNullOrEmpty(NpcSession.NpcName))
+        // Phase 1: Try full-art illustration SPF (only when ShouldIllustrate is true)
+        if (NpcSession.ShouldIllustrate && !string.IsNullOrEmpty(NpcSession.NpcName))
         {
             var illustTexture = TryLoadNpcIllustration(NpcSession.NpcName);
 
@@ -692,6 +681,9 @@ public sealed partial class WorldScreen
 
     private void HandleSelfProfile(SelfProfileArgs args)
     {
+        // Nation emblem and text
+        StatusBook.SetNation((byte)args.Nation);
+
         // Social status display
         var status = SocialStatusPicker.CurrentStatus;
         StatusBook.SetEmoticonState((byte)status, status.ToString());

@@ -112,4 +112,9 @@ public sealed class EffectsRepository : RepositoryBase
                 Palette = EffectPalettes.GetPaletteForId(effectId)
             });
     }
+
+    /// <summary>
+    ///     Returns whether the effect's palette number is >= 1000, indicating luminance-based alpha blending.
+    /// </summary>
+    public bool UsesLuminanceBlending(int effectId) => EffectPalettes.Table.GetPaletteNumber(effectId) >= 1000;
 }

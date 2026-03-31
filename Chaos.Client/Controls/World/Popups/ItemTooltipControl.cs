@@ -10,21 +10,19 @@ using SkiaSharp;
 namespace Chaos.Client.Controls.World.Popups;
 
 /// <summary>
-///     Inventory item tooltip with black background, dlgframe.epf border drawn on the edges, white item name
-///     (character-wrapped at 25 chars), and blue durability text. Follows the cursor when visible.
+///     Inventory item tooltip with black background, dlgframe.epf border, white item name (word-wrapped at 25 chars),
+///     and blue durability text. Follows the cursor when visible.
 /// </summary>
 public sealed class ItemTooltipControl : UIPanel
 {
-    private const int MAX_CHARS_PER_LINE = 25;
-    private const int CHAR_CELL_WIDTH = TextRenderer.CHAR_WIDTH;
-    private const int LINE_HEIGHT = TextRenderer.CHAR_HEIGHT;
+    private const int MAX_CONTENT_WIDTH = 25 * TextRenderer.CHAR_WIDTH;
     private const int PADDING = 6;
 
     private static readonly Color DurabilityColor = new(100, 149, 237);
 
-    private readonly UIImage? TooltipImage;
-    private string? DurabilityText;
-    private List<string>? NameLines;
+    private readonly UILabel DurabilityLabel;
+    private readonly UILabel NameLabel;
+    private readonly UIImage TooltipImage;
 
     public ItemTooltipControl()
     {
@@ -36,36 +34,32 @@ public sealed class ItemTooltipControl : UIPanel
             Name = "TooltipContent"
         };
 
+        NameLabel = new UILabel
+        {
+            X = PADDING,
+            Y = PADDING,
+            Width = MAX_CONTENT_WIDTH,
+            Height = TextRenderer.CHAR_HEIGHT,
+            WordWrap = true,
+            PaddingLeft = 0,
+            PaddingTop = 0,
+            ForegroundColor = Color.White
+        };
+
+        DurabilityLabel = new UILabel
+        {
+            X = PADDING,
+            Width = MAX_CONTENT_WIDTH,
+            Height = TextRenderer.CHAR_HEIGHT,
+            WordWrap = true,
+            PaddingLeft = 0,
+            PaddingTop = 0,
+            ForegroundColor = DurabilityColor
+        };
+
         AddChild(TooltipImage);
-    }
-
-    private static List<string> CharacterWrap(string text)
-    {
-        var lines = new List<string>();
-
-        if (string.IsNullOrEmpty(text))
-        {
-            lines.Add(" ");
-
-            return lines;
-        }
-
-        var remaining = text;
-
-        while (remaining.Length > 0)
-        {
-            if (remaining.Length <= MAX_CHARS_PER_LINE)
-            {
-                lines.Add(remaining);
-
-                break;
-            }
-
-            lines.Add(remaining[..MAX_CHARS_PER_LINE]);
-            remaining = remaining[MAX_CHARS_PER_LINE..];
-        }
-
-        return lines;
+        AddChild(NameLabel);
+        AddChild(DurabilityLabel);
     }
 
     private static Texture2D CompositeBackground(int totalWidth, int totalHeight)
@@ -102,38 +96,6 @@ public sealed class ItemTooltipControl : UIPanel
         return TextureConverter.ToTexture2D(snapshot);
     }
 
-    public override void Draw(SpriteBatch spriteBatch)
-    {
-        if (!Visible)
-            return;
-
-        base.Draw(spriteBatch);
-
-        // Draw text lines on top of the background
-        if (NameLines is null)
-            return;
-
-        var textY = (float)(ScreenY + PADDING);
-        var textX = (float)(ScreenX + PADDING);
-
-        foreach (var line in NameLines)
-        {
-            TextRenderer.DrawText(
-                spriteBatch,
-                new Vector2(textX, textY),
-                line,
-                Color.White);
-            textY += LINE_HEIGHT;
-        }
-
-        if (DurabilityText is not null)
-            TextRenderer.DrawText(
-                spriteBatch,
-                new Vector2(textX, textY),
-                DurabilityText,
-                DurabilityColor);
-    }
-
     public void Hide() => Visible = false;
 
     public void Show(
@@ -143,36 +105,36 @@ public sealed class ItemTooltipControl : UIPanel
         int mouseX,
         int mouseY)
     {
-        // Character-wrap the name
-        NameLines = CharacterWrap(itemName);
-        var hasDurability = maxDurability > 0;
-        DurabilityText = hasDurability ? $"{currentDurability}/{maxDurability}" : null;
+        NameLabel.Text = itemName;
+        var nameHeight = NameLabel.ContentHeight;
+        NameLabel.Height = nameHeight;
 
-        // Content dimensions
-        var contentWidth = MAX_CHARS_PER_LINE * CHAR_CELL_WIDTH;
-        var contentHeight = NameLines.Count * LINE_HEIGHT;
+        var hasDurability = maxDurability > 0;
+        DurabilityLabel.Text = hasDurability ? $"{currentDurability}/{maxDurability}" : string.Empty;
+        DurabilityLabel.Y = PADDING + nameHeight;
+        DurabilityLabel.Height = DurabilityLabel.ContentHeight;
+        DurabilityLabel.Visible = hasDurability;
+
+        var contentHeight = nameHeight;
 
         if (hasDurability)
-            contentHeight += LINE_HEIGHT;
+            contentHeight += DurabilityLabel.ContentHeight;
 
-        // Total size = content + padding, border overlaps the edges
-        var totalWidth = PADDING + contentWidth + PADDING;
+        var totalWidth = PADDING + MAX_CONTENT_WIDTH + PADDING;
         var totalHeight = PADDING + contentHeight + PADDING;
 
         Width = totalWidth;
         Height = totalHeight;
 
-        // Composite background only (text drawn at draw time)
-        TooltipImage?.Texture?.Dispose();
+        TooltipImage.Texture?.Dispose();
 
         var texture = CompositeBackground(totalWidth, totalHeight);
-        TooltipImage!.Texture = texture;
+        TooltipImage.Texture = texture;
         TooltipImage.X = 0;
         TooltipImage.Y = 0;
         TooltipImage.Width = totalWidth;
         TooltipImage.Height = totalHeight;
 
-        // Position near cursor, clamped to screen
         X = Math.Clamp(mouseX + 15, 0, ChaosGame.VIRTUAL_WIDTH - totalWidth);
         Y = Math.Clamp(mouseY + 15, 0, ChaosGame.VIRTUAL_HEIGHT - totalHeight);
 

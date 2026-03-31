@@ -446,7 +446,7 @@ public static class TextRenderer
                 continue;
             }
 
-            var words = paragraph.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+            var words = paragraph.Split(' ');
             var currentLine = string.Empty;
 
             foreach (var word in words)
@@ -471,6 +471,10 @@ public static class TextRenderer
             if (currentLine.Length > 0)
                 lines.Add(currentLine);
         }
+
+        for (var i = 0; i < lines.Count; i++)
+            lines[i] = lines[i]
+                .Trim();
 
         return lines;
     }

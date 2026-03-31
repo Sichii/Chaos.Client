@@ -1,5 +1,6 @@
 #region
 using Chaos.Client.Controls.Components;
+using Chaos.Client.Controls.Generic;
 using Chaos.Client.Rendering;
 using Chaos.Client.Rendering.Models;
 using Chaos.DarkAges.Definitions;
@@ -26,6 +27,7 @@ public sealed class NpcSessionControl : PrefabPanel
     private readonly UIButton? CloseButton;
     private readonly DialogTextEntryPanel DialogTextEntry;
     private readonly UILabel DialogTextLabel;
+    private readonly ListMenuPanel ListMenu;
     private readonly MenuTextEntryPanel MenuTextEntry;
     private readonly MerchantBrowserPanel MerchantBrowser;
     private readonly UIButton? NextButton;
@@ -172,7 +174,7 @@ public sealed class NpcSessionControl : PrefabPanel
             TopButton.OnClick += () =>
             {
                 HideAll();
-                OnClose?.Invoke();
+                OnTop?.Invoke();
             };
 
         // Create sub-panels as children
@@ -180,12 +182,14 @@ public sealed class NpcSessionControl : PrefabPanel
         DialogTextEntry = new DialogTextEntryPanel();
         MenuTextEntry = new MenuTextEntryPanel();
         MerchantBrowser = new MerchantBrowserPanel();
+        ListMenu = new ListMenuPanel();
         ProtectedEntry = new ProtectedEntryPanel();
 
         AddChild(OptionMenu);
         AddChild(DialogTextEntry);
         AddChild(MenuTextEntry);
         AddChild(MerchantBrowser);
+        AddChild(ListMenu);
         AddChild(ProtectedEntry);
 
         // Wire sub-panel events — forward to container events
@@ -214,8 +218,18 @@ public sealed class NpcSessionControl : PrefabPanel
         };
 
         MerchantBrowser.OnItemSelected += index => OnMerchantItemSelected?.Invoke(index);
+        MerchantBrowser.OnItemHoverEnter += name => OnItemHoverEnter?.Invoke(name);
+        MerchantBrowser.OnItemHoverExit += () => OnItemHoverExit?.Invoke();
 
         MerchantBrowser.OnClose += () =>
+        {
+            HideAll();
+            OnClose?.Invoke();
+        };
+
+        ListMenu.OnItemSelected += index => OnListItemSelected?.Invoke(index);
+
+        ListMenu.OnClose += () =>
         {
             HideAll();
             OnClose?.Invoke();
@@ -260,16 +274,22 @@ public sealed class NpcSessionControl : PrefabPanel
 
         // 2. Base-layer children (alpha pane, bottom bar, portrait bg, buttons, labels)
         foreach (var child in Children)
-            if (child.Visible && child is not FramedDialogPanel)
+            if (child.Visible && !IsSubPanel(child))
+            {
                 child.Draw(spriteBatch);
+                DebugOverlay.DrawElement(spriteBatch, child);
+            }
 
         // 3. Portrait — on top of base layer, behind sub-panels
         DrawPortrait(spriteBatch);
 
         // 4. Sub-panels — always in front of portrait
         foreach (var child in Children)
-            if (child.Visible && child is FramedDialogPanel)
+            if (child.Visible && IsSubPanel(child))
+            {
                 child.Draw(spriteBatch);
+                DebugOverlay.DrawElement(spriteBatch, child);
+            }
     }
 
     private void DrawPortrait(SpriteBatch spriteBatch)
@@ -303,6 +323,16 @@ public sealed class NpcSessionControl : PrefabPanel
                     Color.White);
         }
     }
+
+    /// <summary>
+    ///     Returns the name of the list menu entry at the given index.
+    /// </summary>
+    public string? GetListEntryName(int index) => ListMenu.GetEntryName(index);
+
+    /// <summary>
+    ///     Returns the slot byte for the list menu entry at the given index.
+    /// </summary>
+    public byte? GetListEntrySlot(int index) => ListMenu.GetEntrySlot(index);
 
     /// <summary>
     ///     Returns the previous args string for menu text entry (TextEntryWithArgs).
@@ -340,6 +370,7 @@ public sealed class NpcSessionControl : PrefabPanel
         DialogTextEntry.Hide();
         MenuTextEntry.Hide();
         MerchantBrowser.Hide();
+        ListMenu.Hide();
         ProtectedEntry.Hide();
         ScrollLine = 0;
         DialogTextLabel.ScrollOffset = 0;
@@ -374,14 +405,26 @@ public sealed class NpcSessionControl : PrefabPanel
         }
     }
 
+    private bool IsSubPanel(UIElement child)
+        => (child == OptionMenu)
+           || (child == DialogTextEntry)
+           || (child == MenuTextEntry)
+           || (child == MerchantBrowser)
+           || (child == ListMenu)
+           || (child == ProtectedEntry);
+
     // Events — WorldScreen.Wiring subscribes to these
     public event Action? OnClose;
+    public event Action<string>? OnItemHoverEnter;
+    public event Action? OnItemHoverExit;
+    public event Action<int>? OnListItemSelected;
     public event Action<int>? OnMerchantItemSelected;
     public event Action? OnNext;
     public event Action<int>? OnOptionSelected;
     public event Action? OnPrevious;
     public event Action<string, string>? OnProtectedSubmit;
     public event Action<string>? OnTextSubmit;
+    public event Action? OnTop;
 
     private void ScrollText(int direction)
     {
@@ -595,12 +638,28 @@ public sealed class NpcSessionControl : PrefabPanel
                 break;
 
             case MenuType.ShowItems:
+                MerchantBrowser.ShowMerchant(args);
+
+                if (CloseButton is not null)
+                {
+                    CloseButton.Visible = true;
+                    CloseButton.Enabled = true;
+                }
+
+                if (TopButton is not null)
+                {
+                    TopButton.Visible = true;
+                    TopButton.Enabled = true;
+                }
+
+                break;
+
             case MenuType.ShowPlayerItems:
             case MenuType.ShowSkills:
             case MenuType.ShowSpells:
             case MenuType.ShowPlayerSkills:
             case MenuType.ShowPlayerSpells:
-                MerchantBrowser.ShowMerchant(args);
+                ListMenu.ShowList(args);
 
                 if (CloseButton is not null)
                 {

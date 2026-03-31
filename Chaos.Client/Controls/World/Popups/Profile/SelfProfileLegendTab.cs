@@ -66,7 +66,7 @@ public sealed class SelfProfileLegendTab : PrefabPanel
         ScrollBar = new ScrollBarControl
         {
             Name = "LegendScrollBar",
-            X = LegendListRect.X + LegendListRect.Width,
+            X = LegendListRect.X + LegendListRect.Width - 16,
             Y = LegendListRect.Y,
             Height = LegendListRect.Height,
             VisibleItems = MAX_VISIBLE_ROWS

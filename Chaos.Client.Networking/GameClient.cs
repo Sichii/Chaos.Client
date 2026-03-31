@@ -20,7 +20,7 @@ namespace Chaos.Client.Networking;
 /// </summary>
 public sealed class GameClient : IDisposable
 {
-    private const int RECEIVE_BUFFER_SIZE = ushort.MaxValue * 4;
+    private const int RECEIVE_BUFFER_SIZE = ushort.MaxValue * 8;
     private const int INITIAL_SEND_ARGS_COUNT = 5;
     private readonly ConcurrentQueue<ServerPacket> InboundQueue = new();
     private readonly PacketSerializer PacketSerializer;

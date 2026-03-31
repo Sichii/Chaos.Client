@@ -71,8 +71,8 @@ public sealed class ScrollBarControl : UIElement
                 Color.White);
         }
 
-        // Up arrow — ACTIVE when pressed, NORMAL otherwise (looks disabled when not scrollable)
-        var upFrame = scrollable && (ActiveZone == 0) ? FRAME_UP_ACTIVE : FRAME_UP_NORMAL;
+        // Up arrow — NORMAL when idle, ACTIVE when pressed or disabled (active frame doubles as disabled)
+        var upFrame = !scrollable || (ActiveZone == 0) ? FRAME_UP_ACTIVE : FRAME_UP_NORMAL;
 
         AtlasHelper.Draw(
             spriteBatch,
@@ -80,8 +80,8 @@ public sealed class ScrollBarControl : UIElement
             new Vector2(sx, sy),
             Color.White);
 
-        // Down arrow — ACTIVE when pressed, NORMAL otherwise
-        var downFrame = scrollable && (ActiveZone == 4) ? FRAME_DOWN_ACTIVE : FRAME_DOWN_NORMAL;
+        // Down arrow — NORMAL when idle, ACTIVE when pressed or disabled
+        var downFrame = !scrollable || (ActiveZone == 4) ? FRAME_DOWN_ACTIVE : FRAME_DOWN_NORMAL;
 
         AtlasHelper.Draw(
             spriteBatch,

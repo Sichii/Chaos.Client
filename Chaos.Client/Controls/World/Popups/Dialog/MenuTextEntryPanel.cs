@@ -1,42 +1,31 @@
 #region
 using Chaos.Client.Controls.Components;
-using Chaos.Client.Data;
-using Chaos.Client.Extensions;
-using Chaos.Client.Rendering;
 using Microsoft.Xna.Framework;
-using Microsoft.Xna.Framework.Graphics;
 using Microsoft.Xna.Framework.Input;
 #endregion
 
 namespace Chaos.Client.Controls.World.Popups.Dialog;
 
 /// <summary>
-///     Text entry sub-panel for MenuType.TextEntry (2) and MenuType.TextEntryWithArgs (3). Uses lnpcd2 template rects with
-///     9-slice frame background. The panel has a text input field with an optional label, and an OK button. Visually
-///     similar to OptionMenuPanel but with a text input instead of option rows.
+///     Text entry sub-panel for MenuType.TextEntry (2) and MenuType.TextEntryWithArgs (3). Uses lnpcd2 template with
+///     9-slice ornate frame. Shows an "Input:" label, a text input field, and an OK button. No prolog or epilog.
 /// </summary>
-public sealed class MenuTextEntryPanel : UIPanel
+public sealed class MenuTextEntryPanel : FramedDialogPanel
 {
     private const int PANEL_WIDTH = 426;
-    private const int PANEL_HEIGHT = 100;
-
-    // Text input area from lnpcd2 template rects
-    private const int INPUT_LABEL_X = 22;
-    private const int INPUT_LABEL_Y = 10;
-    private const int INPUT_LABEL_WIDTH = 40;
-    private const int INPUT_FIELD_X = 72;
-    private const int INPUT_FIELD_Y = 8;
-    private const int INPUT_FIELD_WIDTH = 332;
-    private const int INPUT_FIELD_HEIGHT = 20;
-
-    // Button from lnpcd2 Btn1 template (relative to panel)
-    private const int BTN_X = 345;
-    private const int BTN_Y = 68;
+    private const int PANEL_HEIGHT = 74;
     private const int BTN_WIDTH = 61;
     private const int BTN_HEIGHT = 22;
+    private const int BOTTOM_ANCHOR_Y = 372;
 
-    private readonly TextElement InputLabelText = new();
-    private readonly UIButton? OkButton;
+    // Content layout
+    private const int LABEL_X = 22;
+    private const int LABEL_Y = 19;
+    private const int INPUT_X = 72;
+    private const int INPUT_Y = 18;
+    private const int INPUT_WIDTH = 332;
+    private const int INPUT_HEIGHT = 14;
+
     private readonly UITextBox TextInput;
 
     /// <summary>
@@ -46,101 +35,57 @@ public sealed class MenuTextEntryPanel : UIPanel
     public string? PreviousArgs { get; private set; }
 
     public MenuTextEntryPanel()
+        : base("lnpcd2", false)
     {
         Name = "MenuTextEntry";
         Visible = false;
 
+        // Compact panel — dynamic 9-slice wraps just the text entry content
         Width = PANEL_WIDTH;
         Height = PANEL_HEIGHT;
-        this.CenterOnScreen();
 
-        InputLabelText.Update("Input:", Color.White);
+        // Right-aligned, bottom-anchored above dialog bar
+        X = ChaosGame.VIRTUAL_WIDTH - Width;
+        Y = BOTTOM_ANCHOR_Y - Height;
 
+        // "Input:" label
+        var inputLabel = new UILabel
+        {
+            Name = "InputLabel",
+            X = LABEL_X,
+            Y = LABEL_Y,
+            Width = 40,
+            Height = 16,
+            Text = "Enter:",
+            ForegroundColor = Color.White
+        };
+
+        AddChild(inputLabel);
+
+        // Text input field
         TextInput = new UITextBox
         {
             Name = "TextInput",
-            X = INPUT_FIELD_X,
-            Y = INPUT_FIELD_Y,
-            Width = INPUT_FIELD_WIDTH,
-            Height = INPUT_FIELD_HEIGHT,
+            X = INPUT_X,
+            Y = INPUT_Y,
+            Width = INPUT_WIDTH,
+            Height = INPUT_HEIGHT,
             MaxLength = 255,
-            ForegroundColor = Color.White,
-            FocusedBackgroundColor = new Color(
-                0,
-                0,
-                0,
-                120)
+            ForegroundColor = Color.Black,
+            FocusedBackgroundColor = Color.White
         };
 
         AddChild(TextInput);
 
-        // Try to load button from lnpcd2 prefab
-        try
+        // OK button from prefab
+        OkButton = CreateButton("Btn1");
+
+        if (OkButton is not null)
         {
-            var prefab = DataContext.UserControls.Get("lnpcd2");
-
-            if (prefab?.Contains("Btn1") == true)
-            {
-                var btnPrefab = prefab["Btn1"];
-                var rect = btnPrefab.Control.Rect;
-
-                if (rect is not null)
-                {
-                    var cache = UiRenderer.Instance!;
-
-                    OkButton = new UIButton
-                    {
-                        Name = "Btn1",
-                        X = BTN_X,
-                        Y = BTN_Y,
-                        Width = BTN_WIDTH,
-                        Height = BTN_HEIGHT,
-                        NormalTexture = btnPrefab.Images.Count > 0 ? cache.GetPrefabTexture("lnpcd2", "Btn1", 0) : null,
-                        PressedTexture = btnPrefab.Images.Count > 1 ? cache.GetPrefabTexture("lnpcd2", "Btn1", 1) : null
-                    };
-                }
-            }
-        } catch
-        {
-            // Prefab not available
+            OkButton.X = Width - BTN_WIDTH - 20;
+            OkButton.Y = Height - BTN_HEIGHT - 3;
+            OkButton.OnClick += HandleSubmit;
         }
-
-        OkButton ??= new UIButton
-        {
-            Name = "Btn1",
-            X = BTN_X,
-            Y = BTN_Y,
-            Width = BTN_WIDTH,
-            Height = BTN_HEIGHT
-        };
-
-        OkButton.OnClick += HandleSubmit;
-        AddChild(OkButton);
-    }
-
-    public override void Draw(SpriteBatch spriteBatch)
-    {
-        if (!Visible)
-            return;
-
-        // Draw dark background
-        DrawRect(
-            spriteBatch,
-            new Rectangle(
-                ScreenX,
-                ScreenY,
-                Width,
-                Height),
-            new Color(
-                20,
-                20,
-                30,
-                220));
-
-        // Draw input label
-        InputLabelText.Draw(spriteBatch, new Vector2(ScreenX + INPUT_LABEL_X, ScreenY + INPUT_LABEL_Y));
-
-        base.Draw(spriteBatch);
     }
 
     private void HandleSubmit()
@@ -151,10 +96,10 @@ public sealed class MenuTextEntryPanel : UIPanel
             OnTextSubmit?.Invoke(text);
     }
 
-    public void Hide()
+    public override void Hide()
     {
         TextInput.IsFocused = false;
-        Visible = false;
+        base.Hide();
     }
 
     public event Action? OnClose;

@@ -1,5 +1,6 @@
 #region
 using Chaos.Client.Controls.Components;
+using Chaos.Client.Data;
 using Chaos.Client.Rendering;
 using Chaos.DarkAges.Definitions;
 using Chaos.Networking.Entities.Server;
@@ -113,6 +114,9 @@ public sealed class OtherProfileEquipmentTab : PrefabPanel
         // Nation icon and text
         NationImage = CreateImage("Nation");
         NationTextLabel = CreateLabel("NationText");
+
+        if (NationTextLabel is not null)
+            NationTextLabel.TopAligned = true;
 
         // Paperdoll area
         PaperdollImage = CreateImage("HumanImage");
@@ -258,6 +262,12 @@ public sealed class OtherProfileEquipmentTab : PrefabPanel
 
         if (NationImage is not null)
             NationImage.Texture = NationIconTexture;
+
+        if (NationTextLabel is not null)
+        {
+            var nationMeta = DataContext.MetaFiles.GetNationMetadata();
+            NationTextLabel.Text = nationMeta?.Nations.TryGetValue(nationId, out var name) == true ? name : string.Empty;
+        }
     }
 
     /// <summary>

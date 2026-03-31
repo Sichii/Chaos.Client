@@ -430,6 +430,16 @@ public sealed class SelfProfileTabControl : PrefabPanel
         equipPage?.SetGroupOpen(groupOpen);
     }
 
+    /// <summary>
+    ///     Sets the nation icon and text on the equipment page.
+    /// </summary>
+    public void SetNation(byte nationId)
+    {
+        var equipPage = GetOrCreateEquipmentPage();
+
+        equipPage?.SetNation(nationId);
+    }
+
     public bool ContainsEquipmentSlotPoint(int screenX, int screenY)
     {
         var equipPage = GetOrCreateEquipmentPage();
