@@ -1,6 +1,5 @@
 #region
 using Chaos.Client.Controls.Components;
-using Chaos.Client.Rendering;
 using Chaos.Client.Utilities;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
@@ -43,7 +42,7 @@ public sealed class ItemTooltipControl : UIPanel
             WordWrap = true,
             PaddingLeft = 0,
             PaddingTop = 0,
-            ForegroundColor = Color.White
+            ForegroundColor = LegendColors.White
         };
 
         DurabilityLabel = new UILabel

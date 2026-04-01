@@ -9,7 +9,7 @@ namespace Chaos.Client.Data.Repositories;
 ///     Manages per-character data files stored in a subdirectory of DataPath named after the character. Creates the
 ///     directory and default files on first access.
 /// </summary>
-public sealed class PlayerDataRepository
+public sealed class LocalPlayerSettingsRepository
 {
     private const string FAMILY_LIST_FILE = "Familylist.cfg";
     private const string FRIEND_LIST_FILE = "Friendlist.cfg";

@@ -1,5 +1,4 @@
 #region
-using Chaos.Client.Rendering;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 #endregion
@@ -17,6 +16,12 @@ public class UILabel : UIElement
 {
     private readonly TextElement TextElement = new();
     public TextAlignment Alignment { get; set; } = TextAlignment.Left;
+
+    public bool ColorCodesEnabled
+    {
+        get => TextElement.ColorCodesEnabled;
+        set => TextElement.ColorCodesEnabled = value;
+    }
 
     public Color ForegroundColor
     {
@@ -69,7 +74,8 @@ public class UILabel : UIElement
                 TextElement.WrappedLines,
                 firstLine,
                 maxLines,
-                TextElement.Color);
+                TextElement.Color,
+                ColorCodesEnabled);
         } else
         {
             TextElement.Alignment = Alignment;

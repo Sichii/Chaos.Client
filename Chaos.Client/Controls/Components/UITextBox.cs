@@ -1,5 +1,4 @@
 #region
-using Chaos.Client.Rendering;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using Microsoft.Xna.Framework.Input;
@@ -22,6 +21,16 @@ public class UITextBox : UIElement
     private TextElement? PrefixTextElement;
     private int SelectionAnchor;
     public TextAlignment Alignment { get; set; } = TextAlignment.Left;
+
+    /// <summary>
+    ///     Color used for rendering both prefix and editable text. Default white.
+    /// </summary>
+    public bool ColorCodesEnabled
+    {
+        get => TextElement.ColorCodesEnabled;
+        set => TextElement.ColorCodesEnabled = value;
+    }
+
     public int CursorPosition { get; internal set; }
 
     /// <summary>
@@ -29,10 +38,7 @@ public class UITextBox : UIElement
     /// </summary>
     public Color? FocusedBackgroundColor { get; set; }
 
-    /// <summary>
-    ///     Color used for rendering both prefix and editable text. Default white.
-    /// </summary>
-    public Color ForegroundColor { get; set; } = Color.White;
+    public Color ForegroundColor { get; set; } = LegendColors.Silver;
 
     public bool IsFocusable { get; set; } = true;
 
@@ -74,6 +80,26 @@ public class UITextBox : UIElement
     public string Prefix { get; set; } = string.Empty;
 
     public string Text { get; set; } = string.Empty;
+
+    public static bool IsAnyFocused
+    {
+        get
+        {
+            if (FocusedTextBox is null)
+                return false;
+
+            // Verify the focused text box is still effectively visible
+            // (its own Visible flag and all ancestors are visible)
+            if (!IsEffectivelyVisible(FocusedTextBox))
+            {
+                FocusedTextBox.IsFocused = false;
+
+                return false;
+            }
+
+            return true;
+        }
+    }
 
     public bool HasSelection => IsSelectable && (SelectionAnchor != CursorPosition);
 
@@ -400,6 +426,15 @@ public class UITextBox : UIElement
         }
 
         return displayText.Length;
+    }
+
+    private static bool IsEffectivelyVisible(UIElement element)
+    {
+        for (var current = element; current is not null; current = current.Parent)
+            if (!current.Visible)
+                return false;
+
+        return true;
     }
 
     /// <summary>

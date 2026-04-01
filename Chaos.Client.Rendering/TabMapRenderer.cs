@@ -1,7 +1,6 @@
 #region
 using Chaos.Client.Data;
-using Chaos.Client.Models;
-using Chaos.Client.Rendering.Definitions;
+using Chaos.Client.Rendering.Models;
 using Chaos.DarkAges.Definitions;
 using DALib.Data;
 using Microsoft.Xna.Framework;
@@ -236,7 +235,8 @@ public sealed class TabMapRenderer : IDisposable
         Rectangle viewport,
         int playerTileX,
         int playerTileY,
-        IReadOnlyList<WorldEntity> entities,
+        TabMapEntity[] entities,
+        int entityCount,
         uint playerEntityId)
     {
         if (Atlas is null || (Entries.Length == 0))
@@ -319,6 +319,7 @@ public sealed class TabMapRenderer : IDisposable
         DrawEntityDiamonds(
             spriteBatch,
             entities,
+            entityCount,
             playerEntityId,
             offsetX,
             offsetY,
@@ -338,6 +339,7 @@ public sealed class TabMapRenderer : IDisposable
         DrawEntityDiamonds(
             spriteBatch,
             entities,
+            entityCount,
             playerEntityId,
             offsetX,
             offsetY,
@@ -348,15 +350,18 @@ public sealed class TabMapRenderer : IDisposable
 
     private void DrawEntityDiamonds(
         SpriteBatch spriteBatch,
-        IReadOnlyList<WorldEntity> entities,
+        TabMapEntity[] entities,
+        int entityCount,
         uint playerEntityId,
         float offsetX,
         float offsetY,
         int scaledTileW,
         int scaledTileH)
     {
-        foreach (var entity in entities)
+        for (var i = 0; i < entityCount; i++)
         {
+            var entity = entities[i];
+
             if (entity.Type == ClientEntityType.GroundItem)
                 continue;
 

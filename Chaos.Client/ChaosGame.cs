@@ -1,10 +1,13 @@
 #region
+using System.IO.Compression;
 using Chaos.Client.Collections;
 using Chaos.Client.Controls.Generic;
 using Chaos.Client.Networking;
-using Chaos.Client.Rendering;
 using Chaos.Client.Screens;
 using Chaos.Client.Systems;
+using Chaos.Cryptography;
+using Chaos.DarkAges.Definitions;
+using Chaos.Networking.Entities.Server;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using Microsoft.Xna.Framework.Input;
@@ -19,10 +22,14 @@ public sealed class ChaosGame : Game
     private const float ASPECT_RATIO = (float)VIRTUAL_WIDTH / VIRTUAL_HEIGHT;
 
     private readonly GraphicsDeviceManager Graphics;
+    private readonly string MetaFilePath = Path.Combine(GlobalSettings.DataPath, "metafile");
+    private readonly Dictionary<string, uint> MetaPendingChecksums = new(StringComparer.OrdinalIgnoreCase);
     private readonly List<ServerPacket> PacketBuffer = [];
     private int CursorOffsetX;
     private int CursorOffsetY;
     private Texture2D? CursorTexture;
+    internal volatile bool GcRequested;
+    private bool MetaSyncStarted;
     private RenderTarget2D RenderTarget = null!;
     private bool ResizingInProgress;
     private SpriteBatch SpriteBatch = null!;
@@ -64,11 +71,6 @@ public sealed class ChaosGame : Game
     public ItemRenderer ItemRenderer { get; } = new();
 
     /// <summary>
-    ///     Manages metadata file synchronization with the server.
-    /// </summary>
-    public MetaDataManager MetaData { get; }
-
-    /// <summary>
     ///     Manages sound effect and music playback.
     /// </summary>
     public SoundSystem SoundSystem { get; } = new();
@@ -92,9 +94,9 @@ public sealed class ChaosGame : Game
         InactiveSleepTime = TimeSpan.Zero;
 
         Connection = new ConnectionManager();
-        MetaData = new MetaDataManager(Connection, GlobalSettings.DataPath);
-        Connection.OnMetaData += MetaData.HandleMetaData;
-        Connection.OnWorldEntryComplete += MetaData.RequestSync;
+        Directory.CreateDirectory(MetaFilePath);
+        Connection.OnMetaData += HandleMetaData;
+        Connection.OnWorldEntryComplete += () => Connection.SendMetaDataRequest(MetaDataRequestType.AllCheckSums);
 
         // Wire state events to WorldState at startup so state is tracked
         // even during world entry (before WorldScreen is created)
@@ -163,6 +165,24 @@ public sealed class ChaosGame : Game
         base.Draw(gameTime);
 
         DebugOverlay.EndFrame();
+    }
+
+    protected override void EndDraw()
+    {
+        base.EndDraw();
+
+        if (GcRequested)
+        {
+            GcRequested = false;
+
+            GC.Collect(
+                2,
+                GCCollectionMode.Aggressive,
+                true,
+                true);
+
+            GC.WaitForPendingFinalizers();
+        }
     }
 
     protected override void Initialize()
@@ -271,6 +291,11 @@ public sealed class ChaosGame : Game
     }
     #endregion
 
+    /// <summary>
+    ///     Fired when all metadata files are up to date with the server.
+    /// </summary>
+    public event Action? OnMetaDataSyncComplete;
+
     protected override void UnloadContent()
     {
         Window.ClientSizeChanged -= OnClientSizeChanged;
@@ -316,4 +341,83 @@ public sealed class ChaosGame : Game
 
         base.Update(gameTime);
     }
+
+    #region Metadata Sync
+    private uint ComputeLocalMetaCheckSum(string name)
+    {
+        var filePath = Path.Combine(MetaFilePath, name);
+
+        if (!File.Exists(filePath))
+            return 0;
+
+        try
+        {
+            using var fileStream = File.OpenRead(filePath);
+            using var zlibStream = new ZLibStream(fileStream, CompressionMode.Decompress);
+            using var memoryStream = new MemoryStream();
+
+            zlibStream.CopyTo(memoryStream);
+
+            return Crc.Generate32(memoryStream.ToArray());
+        } catch
+        {
+            return 0;
+        }
+    }
+
+    private void HandleMetaData(MetaDataArgs args)
+    {
+        switch (args.MetaDataRequestType)
+        {
+            case MetaDataRequestType.AllCheckSums:
+                HandleMetaDataCheckSums(args.MetaDataCollection);
+
+                break;
+
+            case MetaDataRequestType.DataByName:
+                HandleMetaDataFileData(args.MetaDataInfo);
+
+                break;
+        }
+    }
+
+    private void HandleMetaDataCheckSums(ICollection<MetaDataInfo>? collection)
+    {
+        if (collection is null || (collection.Count == 0))
+        {
+            OnMetaDataSyncComplete?.Invoke();
+
+            return;
+        }
+
+        MetaPendingChecksums.Clear();
+        MetaSyncStarted = true;
+
+        foreach (var info in collection)
+        {
+            var localCheckSum = ComputeLocalMetaCheckSum(info.Name);
+
+            if (localCheckSum != info.CheckSum)
+                MetaPendingChecksums[info.Name] = info.CheckSum;
+        }
+
+        foreach (var name in MetaPendingChecksums.Keys)
+            Connection.SendMetaDataRequest(MetaDataRequestType.DataByName, name);
+
+        if (MetaPendingChecksums.Count == 0)
+            OnMetaDataSyncComplete?.Invoke();
+    }
+
+    private void HandleMetaDataFileData(MetaDataInfo? info)
+    {
+        if (info is null || string.IsNullOrEmpty(info.Name) || (info.Data.Length == 0))
+            return;
+
+        File.WriteAllBytes(Path.Combine(MetaFilePath, info.Name), info.Data);
+        MetaPendingChecksums.Remove(info.Name);
+
+        if (MetaSyncStarted && (MetaPendingChecksums.Count == 0))
+            OnMetaDataSyncComplete?.Invoke();
+    }
+    #endregion
 }

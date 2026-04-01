@@ -2,7 +2,6 @@
 using Chaos.Client.Collections;
 using Chaos.Client.Controls.Components;
 using Chaos.Client.Data;
-using Chaos.Client.Rendering;
 using Chaos.Client.ViewModel;
 using Chaos.DarkAges.Definitions;
 using Chaos.Networking.Entities.Server;

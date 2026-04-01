@@ -13,15 +13,45 @@ namespace Chaos.Client.Systems;
 /// </summary>
 public sealed class ChatSystem
 {
+    private const int MAX_WHISPER_HISTORY = 5;
+
     private readonly ConnectionManager Connection;
     private readonly Func<IWorldHud> GetHud;
+    private readonly List<string> WhisperHistory = [];
+    private int WhisperHistoryIndex;
+
+    public bool HasWhisperHistory => WhisperHistory.Count > 0;
 
     private IWorldHud Hud => GetHud();
+
+    public bool IsWhisperNamePhase => Hud.ChatInput.Prefix.StartsWithI("to [") && Hud.ChatInput.Prefix.EndsWithI("]? ");
 
     public ChatSystem(ConnectionManager connection, Func<IWorldHud> getHud)
     {
         Connection = connection;
         GetHud = getHud;
+    }
+
+    private void AddWhisperTarget(string name)
+    {
+        WhisperHistory.Remove(name);
+        WhisperHistory.Insert(0, name);
+
+        if (WhisperHistory.Count > MAX_WHISPER_HISTORY)
+            WhisperHistory.RemoveAt(WhisperHistory.Count - 1);
+    }
+
+    /// <summary>
+    ///     Cycles through whisper history targets during the name selection phase. Updates the name shown in the prefix
+    ///     brackets.
+    /// </summary>
+    public void CycleWhisperTarget(int direction)
+    {
+        if ((WhisperHistory.Count == 0) || !IsWhisperNamePhase)
+            return;
+
+        WhisperHistoryIndex = (WhisperHistoryIndex + direction + WhisperHistory.Count) % WhisperHistory.Count;
+        Hud.ChatInput.Prefix = $"to [{WhisperHistory[WhisperHistoryIndex]}]? ";
     }
 
     /// <summary>
@@ -38,6 +68,7 @@ public sealed class ChatSystem
             // Whisper phase 2: prefix is "-> targetName: "
             var targetName = prefix[3..^2];
             Connection.SendWhisper(targetName, message);
+            AddWhisperTarget(targetName);
         } else
             Connection.SendPublicMessage(message);
     }
@@ -47,15 +78,37 @@ public sealed class ChatSystem
     /// </summary>
     public void Focus(string prefix, Color textColor)
     {
-        Hud.ChatInput.FocusedBackgroundColor = new Color(
-            0,
-            0,
-            0,
-            128);
+        Hud.ChatInput.FocusedBackgroundColor = Color.Black;
         Hud.ChatInput.IsFocused = true;
         Hud.ChatInput.Prefix = prefix;
         Hud.ChatInput.ForegroundColor = textColor;
         Hud.SetDescription(null);
+    }
+
+    /// <summary>
+    ///     Opens whisper mode in name selection phase. The most recent whisper target is shown in the prefix brackets. The
+    ///     text field is left empty for the user to type a new name or press Enter to accept the bracketed default.
+    /// </summary>
+    public void FocusWhisper()
+    {
+        WhisperHistoryIndex = 0;
+        var defaultName = WhisperHistory.Count > 0 ? WhisperHistory[0] : string.Empty;
+        Focus($"to [{defaultName}]? ", TextColors.Whisper);
+    }
+
+    /// <summary>
+    ///     Extracts the default whisper target name from the bracket prefix (e.g. "to [abcd]? " → "abcd").
+    /// </summary>
+    public string GetBracketedWhisperTarget()
+    {
+        var prefix = Hud.ChatInput.Prefix;
+        var start = prefix.IndexOf('[') + 1;
+        var end = prefix.IndexOf(']');
+
+        if ((start <= 0) || (end < start))
+            return string.Empty;
+
+        return prefix[start..end];
     }
 
     /// <summary>

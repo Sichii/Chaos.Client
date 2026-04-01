@@ -1,13 +1,10 @@
 #region
-using System.Buffers;
 using Chaos.Client.Collections;
 using Chaos.Client.Controls.Generic;
 using Chaos.Client.Controls.World.Hud.Panel;
 using Chaos.Client.Data;
-using Chaos.Client.Data.Definitions;
 using Chaos.Client.Models;
-using Chaos.Client.Rendering;
-using Chaos.Client.Rendering.Definitions;
+using Chaos.Client.Rendering.Models;
 using Chaos.Client.Systems;
 using Chaos.DarkAges.Definitions;
 using Microsoft.Xna.Framework;
@@ -32,15 +29,35 @@ public sealed partial class WorldScreen
 
             // Collect silhouette entries (any entity type)
             if (player is not null)
-                SilhouetteRenderer.AddSilhouette(new SilhouetteRenderer.SilhouetteEntry(player));
+                SilhouetteRenderer.AddSilhouette(player.Id);
 
             // Collect transparent aisling entries (need per-entity compositing for uniform alpha)
             foreach (var entity in sortedEntities)
                 if ((entity.Type == ClientEntityType.Aisling) && entity.IsTransparent)
+                {
+                    if (entity.Appearance is null)
+                        continue;
+
+                    var appearance = entity.Appearance.Value;
+                    (var fIdx, var fFlip, var fAnimSuffix, var fIsFrontFacing) = AnimationSystem.GetAislingFrame(entity);
+                    var fEmotionFrame = entity.ActiveEmoteFrame;
+
+                    var drawData = Game.AislingRenderer.GetLayerFrames(
+                        in appearance,
+                        fIdx,
+                        fAnimSuffix,
+                        fFlip,
+                        fIsFrontFacing,
+                        fEmotionFrame);
+
                     SilhouetteRenderer.AddTransparent(
-                        entity,
-                        Game.AislingRenderer,
+                        entity.Id,
+                        entity.TileX,
+                        entity.TileY,
+                        entity.VisualOffset,
+                        drawData,
                         Highlight.ShowTintHighlight && (Highlight.HoveredEntityId == entity.Id));
+                }
 
             SilhouetteRenderer.PreRenderTransparents(Game.AislingRenderer);
 
@@ -50,8 +67,13 @@ public sealed partial class WorldScreen
             {
                 batch.Begin(SpriteSortMode.Immediate, BlendState.AlphaBlend, GlobalSettings.Sampler);
 
-                foreach (var entry in SilhouetteRenderer.SilhouetteEntries)
-                    DrawEntity(batch, entry.Entity);
+                foreach (var entityId in SilhouetteRenderer.SilhouetteEntityIds)
+                {
+                    var silEntity = WorldState.GetEntity(entityId);
+
+                    if (silEntity is not null)
+                        DrawEntity(batch, silEntity);
+                }
 
                 batch.End();
             });
@@ -149,13 +171,31 @@ public sealed partial class WorldScreen
             var px = player?.TileX ?? 0;
             var py = player?.TileY ?? 0;
 
+            var entityCount = sortedEntities.Count;
+
+            if (TabMapEntities.Length < entityCount)
+                TabMapEntities = new TabMapEntity[entityCount];
+
+            for (var i = 0; i < entityCount; i++)
+            {
+                var e = sortedEntities[i];
+
+                TabMapEntities[i] = new TabMapEntity(
+                    e.TileX,
+                    e.TileY,
+                    e.Type,
+                    e.Id,
+                    e.CreatureType);
+            }
+
             TabMapRenderer.Draw(
                 spriteBatch,
                 Device,
                 viewport,
                 px,
                 py,
-                sortedEntities,
+                TabMapEntities,
+                entityCount,
                 WorldState.PlayerEntityId);
         }
 
@@ -349,31 +389,16 @@ public sealed partial class WorldScreen
         float tileCenterX,
         float tileCenterY,
         Vector2 visualOffset)
-    {
-        var spriteFrame = Game.EffectRenderer.GetFrame(effect.EffectId, effect.CurrentFrame);
-
-        if (spriteFrame is null)
-            return;
-
-        var frame = spriteFrame.Value;
-        var drawX = tileCenterX + visualOffset.X - frame.CenterX + Math.Min(0, (int)frame.Left);
-        var drawY = tileCenterY + visualOffset.Y - frame.CenterY + Math.Min(0, (int)frame.Top);
-        var screenPos = Camera.WorldToScreen(new Vector2(drawX, drawY));
-
-        // In immediate mode, blend state can be changed directly between draws
-        if (effect.BlendMode != EffectBlendMode.Normal)
-            Device.BlendState = effect.BlendMode switch
-            {
-                EffectBlendMode.Additive  => BlendState.Additive,
-                EffectBlendMode.SelfAlpha => BlendStates.Screen,
-                _                         => BlendState.AlphaBlend
-            };
-
-        spriteBatch.Draw(frame.Texture, screenPos, Color.White);
-
-        if (effect.BlendMode != EffectBlendMode.Normal)
-            Device.BlendState = BlendState.AlphaBlend;
-    }
+        => Game.EffectRenderer.Draw(
+            spriteBatch,
+            Device,
+            Camera,
+            effect.EffectId,
+            effect.CurrentFrame,
+            effect.BlendMode,
+            tileCenterX,
+            tileCenterY,
+            visualOffset);
     #endregion
 
     #region Entity Rendering
@@ -421,12 +446,10 @@ public sealed partial class WorldScreen
         if (entityTextureBottom <= 0)
             return;
 
-        var textureBottom = entityTextureBottom;
-
         // Hitbox: 28px wide centered on tile screen X, 60px tall bottom-aligned to texture bottom
         var tileScreenPos = Camera.WorldToScreen(new Vector2(tileCenterX + entity.VisualOffset.X, tileCenterY + entity.VisualOffset.Y));
         var hitboxX = (int)tileScreenPos.X - HITBOX_WIDTH / 2;
-        var hitboxY = textureBottom - HITBOX_HEIGHT;
+        var hitboxY = entityTextureBottom - HITBOX_HEIGHT;
 
         EntityHitBoxes.Add(
             new EntityHitBox(
@@ -456,53 +479,24 @@ public sealed partial class WorldScreen
         var info = animInfo.Value;
         (var frameIndex, var flip) = AnimationSystem.GetCreatureFrame(entity, in info);
 
-        var spriteFrame = creatureRenderer.GetFrame(entity.SpriteId, frameIndex);
+        var tint = Highlight.ShowTintHighlight && (Highlight.HoveredEntityId == entity.Id)
+            ? EntityTintType.Highlight
+            : GroupHighlightedIds.Contains(entity.Id)
+                ? EntityTintType.Group
+                : EntityTintType.None;
 
-        if (spriteFrame is null)
-            return 0;
-
-        var frame = spriteFrame.Value;
-
-        // CenterX/CenterY in sprite-space. Convert to texture-space by subtracting Min(0, Left/Top)
-        // (when Left/Top are negative, the rendered image has no padding — center shifts right/down).
-        var texCenterX = frame.CenterX - Math.Min(0, (int)frame.Left);
-        var texCenterY = frame.CenterY - Math.Min(0, (int)frame.Top);
-
-        // When flipped, mirror the X anchor within the texture
-        var anchorX = flip ? frame.Texture.Width - texCenterX : texCenterX;
-
-        var drawX = tileCenterX + entity.VisualOffset.X - anchorX;
-        var drawY = tileCenterY + entity.VisualOffset.Y - texCenterY;
-        var screenPos = Camera.WorldToScreen(new Vector2(drawX, drawY));
-
-        var effects = flip ? SpriteEffects.FlipHorizontally : SpriteEffects.None;
-
-        var shouldTint = Highlight.ShowTintHighlight && (Highlight.HoveredEntityId == entity.Id);
-        var shouldGroupTint = !shouldTint && GroupHighlightedIds.Contains(entity.Id);
-
-        var drawTexture = shouldTint
-            ? GetOrCreateTintedTexture(frame.Texture, entity.Id)
-            : shouldGroupTint
-                ? GetOrCreateGroupTintedTexture(frame.Texture)
-                : frame.Texture;
-
-        spriteBatch.Draw(
-            drawTexture,
-            screenPos,
-            null,
-            Color.White,
-            0f,
-            Vector2.Zero,
-            1f,
-            effects,
-            0f);
-
-        return (int)screenPos.Y + frame.Texture.Height;
+        return creatureRenderer.Draw(
+            spriteBatch,
+            Camera,
+            entity.SpriteId,
+            frameIndex,
+            flip,
+            tileCenterX,
+            tileCenterY,
+            entity.VisualOffset,
+            tint);
     }
 
-    /// <summary>
-    ///     Draws an aisling entity. Returns the screen-space Y of the texture bottom edge, or 0 if not drawn.
-    /// </summary>
     private int DrawAisling(
         SpriteBatch spriteBatch,
         WorldEntity entity,
@@ -544,95 +538,33 @@ public sealed partial class WorldScreen
                 : 0;
 
             var swimFrame = dirIndex * framesPerDir + animIndex;
-            var texture = Game.AislingRenderer.GetSwimFrame(isFemale, swimFrame);
 
-            if (texture is null)
-                return 0;
-
-            var maxWidth = Game.AislingRenderer.GetSwimMaxFrameWidth(isFemale);
-            var drawX = tileCenterX + entity.VisualOffset.X - maxWidth / 2f;
-
-            // When flipped, compensate for the difference between maxWidth and actual texture width
-            // so the flip pivot stays at the center of maxWidth rather than the center of the texture
-            if (flip)
-                drawX += maxWidth - texture.Width;
-
-            var drawY = tileCenterY + entity.VisualOffset.Y - BODY_CENTER_Y;
-            var swimScreenPos = Camera.WorldToScreen(new Vector2(drawX, drawY));
-            var effects = flip ? SpriteEffects.FlipHorizontally : SpriteEffects.None;
-
-            spriteBatch.Draw(
-                texture,
-                swimScreenPos,
-                null,
-                Color.White,
-                0f,
-                Vector2.Zero,
-                1f,
-                effects,
-                0f);
-
-            return (int)swimScreenPos.Y + texture.Height;
+            return Game.AislingRenderer.DrawSwimming(
+                spriteBatch,
+                Camera,
+                isFemale,
+                swimFrame,
+                flip,
+                tileCenterX,
+                tileCenterY,
+                entity.VisualOffset);
         }
 
         var emotionFrame = entity.ActiveEmoteFrame;
-
-        // Check cache — recomposite if appearance, frame, flip, animation suffix, emotion, or ground tint changed.
         var groundPaintHeight = entity.IsOnSwimmingTile ? 0 : entity.GroundPaintHeight;
-
-        if (!AislingCache.TryGetValue(entity.Id, out var cached)
-            || (cached.Appearance != appearance)
-            || (cached.FrameIndex != frameIndex)
-            || (cached.Flip != flip)
-            || (cached.IsFrontFacing != isFrontFacing)
-            || (cached.AnimSuffix != animSuffix)
-            || (cached.EmotionFrame != emotionFrame)
-            || (cached.GroundPaintHeight != groundPaintHeight))
-        {
-            var texture = Game.AislingRenderer.Render(
-                in appearance,
-                frameIndex,
-                animSuffix,
-                flip,
-                isFrontFacing,
-                emotionFrame);
-
-            if (texture is null)
-                return 0;
-
-            // Apply ground tint before caching so the first draw is already tinted
-            if (groundPaintHeight > 0)
-                ApplyGroundTint(texture, groundPaintHeight, entity.GroundTintColor);
-
-            // Dispose previous texture if replacing a cache entry
-            cached.Texture?.Dispose();
-
-            cached = new AislingDrawDataEntry(
-                appearance,
-                frameIndex,
-                flip,
-                isFrontFacing,
-                animSuffix,
-                emotionFrame,
-                groundPaintHeight,
-                texture);
-            AislingCache[entity.Id] = cached;
-        }
-
-        var aislingTexture = cached.Texture!;
 
         // Base position: composite canvas origin relative to tile center
         var baseX = tileCenterX + entity.VisualOffset.X - BODY_CENTER_X;
         var baseY = tileCenterY + entity.VisualOffset.Y - BODY_CENTER_Y;
 
-        var isHighlighted = Highlight.ShowTintHighlight && (Highlight.HoveredEntityId == entity.Id);
-        var isGroupHighlighted = !isHighlighted && GroupHighlightedIds.Contains(entity.Id);
-
         // Transparent aislings use the pre-composited render target for uniform alpha (no layer bleed-through)
         if (entity.IsTransparent
             && SilhouetteRenderer.DrawTransparentEntity(
                 spriteBatch,
-                entity,
+                entity.Id,
+                entity.TileX,
+                entity.TileY,
+                entity.VisualOffset,
                 Camera,
                 MapFile!.Height,
                 BODY_CENTER_X,
@@ -643,109 +575,35 @@ public sealed partial class WorldScreen
             return (int)(bodyScreenPos2.Y + AislingRenderer.COMPOSITE_HEIGHT);
         }
 
-        var screenPos = Camera.WorldToScreen(new Vector2(baseX, baseY));
+        var tint = Highlight.ShowTintHighlight && (Highlight.HoveredEntityId == entity.Id)
+            ? EntityTintType.Highlight
+            : GroupHighlightedIds.Contains(entity.Id)
+                ? EntityTintType.Group
+                : EntityTintType.None;
 
-        var drawTexture = isHighlighted
-            ? Game.AislingRenderer.GetOrCreateTintedTexture(aislingTexture)
-            : isGroupHighlighted
-                ? GetOrCreateGroupTintedTexture(aislingTexture)
-                : aislingTexture;
+        var drawParams = new AislingDrawParams(
+            entity.Id,
+            appearance,
+            frameIndex,
+            flip,
+            isFrontFacing,
+            animSuffix,
+            emotionFrame,
+            groundPaintHeight,
+            entity.GroundTintColor,
+            tileCenterX,
+            tileCenterY,
+            entity.VisualOffset,
+            tint);
 
-        spriteBatch.Draw(drawTexture, screenPos, Color.White);
-
-        return (int)screenPos.Y + AislingRenderer.COMPOSITE_HEIGHT;
-    }
-
-    /// <summary>
-    ///     Applies a water tint to the bottom portion of a composited aisling texture by lerping opaque pixels toward the tint
-    ///     color. Modifies the texture in place. Called once when the texture is first composited.
-    /// </summary>
-    private static void ApplyGroundTint(Texture2D texture, int paintHeight, Color tintColor)
-    {
-        var tintTop = BODY_CENTER_Y - paintHeight;
-        var startRow = Math.Clamp(tintTop, 0, texture.Height);
-        var pixelCount = texture.Width * texture.Height;
-        var pixels = ArrayPool<Color>.Shared.Rent(pixelCount);
-
-        try
-        {
-            texture.GetData(pixels, 0, pixelCount);
-
-            var tintR = tintColor.R;
-            var tintG = tintColor.G;
-            var tintB = tintColor.B;
-            var alpha = tintColor.A / 255f;
-
-            for (var y = startRow; y < texture.Height; y++)
-            {
-                var rowStart = y * texture.Width;
-
-                for (var x = 0; x < texture.Width; x++)
-                {
-                    var i = rowStart + x;
-                    var pixel = pixels[i];
-
-                    if (pixel.A == 0)
-                        continue;
-
-                    // Unpremultiply, lerp toward tint color, re-premultiply
-                    var a = pixel.A / 255f;
-                    var r = (byte)(pixel.R / a * (1 - alpha) + tintR * alpha);
-                    var g = (byte)(pixel.G / a * (1 - alpha) + tintG * alpha);
-                    var b = (byte)(pixel.B / a * (1 - alpha) + tintB * alpha);
-
-                    pixels[i] = new Color(
-                        (byte)(r * a),
-                        (byte)(g * a),
-                        (byte)(b * a),
-                        pixel.A);
-                }
-            }
-
-            texture.SetData(pixels, 0, pixelCount);
-        } finally
-        {
-            ArrayPool<Color>.Shared.Return(pixels);
-        }
-    }
-
-    /// <summary>
-    ///     Creates a CPU-side tinted copy of a texture using the original DA client's highlight color transform.
-    /// </summary>
-    private Texture2D CreateTintedTexture(Texture2D source) => TextureConverter.CreateTintedTexture(source);
-
-    /// <summary>
-    ///     Returns a tinted texture for the given source, caching it for the current highlighted entity. Regenerates when the
-    ///     entity or source texture changes.
-    /// </summary>
-    private Texture2D? GetOrCreateTintedTexture(Texture2D source, uint entityId)
-        => Highlight.GetOrCreateTinted(source, entityId, CreateTintedTexture);
-
-    private readonly Dictionary<Texture2D, Texture2D> GroupTintCache = new();
-
-    private Texture2D GetOrCreateGroupTintedTexture(Texture2D source)
-    {
-        if (GroupTintCache.TryGetValue(source, out var cached))
-            return cached;
-
-        cached = TextureConverter.CreateGroupTintedTexture(source);
-        GroupTintCache[source] = cached;
-
-        return cached;
-    }
-
-    private void ClearGroupTintCache()
-    {
-        foreach (var texture in GroupTintCache.Values)
-            texture.Dispose();
-
-        GroupTintCache.Clear();
+        return Game.AislingRenderer.Draw(spriteBatch, Camera, in drawParams);
     }
 
     private void ClearHighlightCache()
     {
         Highlight.ClearTint();
         Game.AislingRenderer.ClearTintedCache();
+        Game.CreatureRenderer.ClearTintCaches();
     }
 
     private void DrawEntityEffects(SpriteBatch spriteBatch, WorldEntity entity)
@@ -776,27 +634,13 @@ public sealed partial class WorldScreen
         WorldEntity entity,
         float tileCenterX,
         float tileCenterY)
-    {
-        var sprite = Game.ItemRenderer.GetSprite(entity.SpriteId, entity.ItemColor);
-
-        if (sprite is null)
-            return;
-
-        var texture = sprite.Value.Texture;
-
-        // Center the visual content (not the canvas) on the tile
-        // The texture includes Left/Top transparent padding from SimpleRender,
-        // so the content center is at (Left + PixelWidth/2, Top + PixelHeight/2)
-        var contentWidth = texture.Width - sprite.Value.FrameLeft;
-        var contentHeight = texture.Height - sprite.Value.FrameTop;
-        var contentCenterX = sprite.Value.FrameLeft + contentWidth / 2f;
-        var contentCenterY = sprite.Value.FrameTop + contentHeight / 2f;
-        var drawX = tileCenterX - contentCenterX;
-        var drawY = tileCenterY - contentCenterY;
-        var screenPos = Camera.WorldToScreen(new Vector2(drawX, drawY));
-
-        spriteBatch.Draw(texture, screenPos, Color.White);
-    }
+        => Game.ItemRenderer.Draw(
+            spriteBatch,
+            Camera,
+            entity.SpriteId,
+            entity.ItemColor,
+            tileCenterX,
+            tileCenterY);
 
     /// <summary>
     ///     Creates a texture containing a dashed ellipse inscribed in the isometric tile diamond. Gaps at the 4 cardinal

@@ -2,7 +2,7 @@
 using Microsoft.Xna.Framework;
 #endregion
 
-namespace Chaos.Client.Models;
+namespace Chaos.Client.Rendering.Models;
 
 /// <summary>
 ///     Screen-space hitbox entry registered during the entity draw pass. Hitboxes are 28px wide (centered on the entity's

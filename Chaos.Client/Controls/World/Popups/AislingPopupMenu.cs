@@ -1,6 +1,5 @@
 #region
 using Chaos.Client.Controls.Components;
-using Chaos.Client.Rendering;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using Microsoft.Xna.Framework.Input;
@@ -12,7 +11,7 @@ namespace Chaos.Client.Controls.World.Popups;
 ///     A popup menu that appears when Ctrl+clicking a non-self aisling. Uses popupbox.epf as background. Top row shows the
 ///     player's name, bottom 3 rows are clickable options: info, group request, whisper.
 /// </summary>
-public sealed class AislingPopupMenu : UIElement
+public sealed class AislingPopupMenu : UIPanel
 {
     private const string EPF_FILE = "popupbox.epf";
     private const int BOX_X = 4;
@@ -31,24 +30,45 @@ public sealed class AislingPopupMenu : UIElement
         "whisper"
     ];
 
-    private readonly TextElement NameTextElement = new();
+    private readonly UILabel NameLabel;
     private readonly Action[] OptionCallbacks = new Action[3];
-    private readonly TextElement[] OptionTextElements;
-    private Texture2D? Background;
+    private readonly UILabel[] OptionLabels;
+    private Texture2D? FrameTexture;
     private int HoveredIndex = -1;
 
     public AislingPopupMenu()
     {
         Visible = false;
 
-        OptionTextElements = new TextElement[3];
+        NameLabel = new UILabel
+        {
+            Name = "Name",
+            X = BOX_X,
+            Y = BOX_START_Y,
+            Width = BOX_WIDTH,
+            Height = BOX_HEIGHT,
+            Alignment = TextAlignment.Center,
+            PaddingLeft = 0
+        };
+
+        AddChild(NameLabel);
+
+        OptionLabels = new UILabel[3];
 
         for (var i = 0; i < 3; i++)
         {
-            OptionTextElements[i] = new TextElement();
+            OptionLabels[i] = new UILabel
+            {
+                Name = $"Option{i}",
+                X = BOX_X,
+                Y = BOX_START_Y + OPTIONS_OFFSET_Y + (i + 1) * BOX_HEIGHT,
+                Width = BOX_WIDTH,
+                Height = BOX_HEIGHT,
+                Text = OPTION_LABELS[i],
+                PaddingLeft = 0
+            };
 
-            OptionTextElements[i]
-                .Update(OPTION_LABELS[i], Color.White);
+            AddChild(OptionLabels[i]);
         }
     }
 
@@ -57,7 +77,7 @@ public sealed class AislingPopupMenu : UIElement
         if (!Visible)
             return;
 
-        var bg = GetBackground();
+        var bg = GetFrameTexture();
 
         if (bg is null)
             return;
@@ -87,34 +107,14 @@ public sealed class AislingPopupMenu : UIElement
 
         spriteBatch.Draw(bg, new Vector2(sx, sy), Color.White);
 
-        // Draw name in top row (centered)
-        var nameRect = new Rectangle(
-            sx + BOX_X,
-            sy + BOX_START_Y,
-            BOX_WIDTH,
-            BOX_HEIGHT);
-        NameTextElement.Alignment = TextAlignment.Center;
-        NameTextElement.Draw(spriteBatch, nameRect);
-
-        // Draw 3 option rows (left-aligned)
-        for (var i = 0; i < 3; i++)
-        {
-            var optionRect = new Rectangle(
-                sx + BOX_X,
-                sy + BOX_START_Y + OPTIONS_OFFSET_Y + (i + 1) * BOX_HEIGHT,
-                BOX_WIDTH,
-                BOX_HEIGHT);
-            OptionTextElements[i].Alignment = TextAlignment.Left;
-
-            OptionTextElements[i]
-                .Draw(spriteBatch, optionRect);
-        }
+        // Children (NameLabel + OptionLabels) drawn by base
+        base.Draw(spriteBatch);
     }
 
-    private Texture2D? GetBackground()
+    private Texture2D? GetFrameTexture()
     {
-        if (Background is not null)
-            return Background;
+        if (FrameTexture is not null)
+            return FrameTexture;
 
         if (UiRenderer.Instance is null)
             return null;
@@ -124,11 +124,11 @@ public sealed class AislingPopupMenu : UIElement
         if (frameCount <= 0)
             return null;
 
-        Background = UiRenderer.Instance.GetEpfTexture(EPF_FILE, 0);
-        Width = Background.Width;
-        Height = Background.Height;
+        FrameTexture = UiRenderer.Instance.GetEpfTexture(EPF_FILE, 0);
+        Width = FrameTexture.Width;
+        Height = FrameTexture.Height;
 
-        return Background;
+        return FrameTexture;
     }
 
     public void Hide()
@@ -145,12 +145,13 @@ public sealed class AislingPopupMenu : UIElement
         Action onGroupRequest,
         Action onWhisper)
     {
-        var bg = GetBackground();
+        var bg = GetFrameTexture();
 
         if (bg is null)
             return;
 
-        NameTextElement.Update(name, Color.White);
+        NameLabel.Text = name;
+        NameLabel.ForegroundColor = Color.White;
         OptionCallbacks[0] = onInfo;
         OptionCallbacks[1] = onGroupRequest;
         OptionCallbacks[2] = onWhisper;

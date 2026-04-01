@@ -4,7 +4,6 @@ using Chaos.Client.Controls.Components;
 using Chaos.Client.Data;
 using Chaos.Client.Data.Models;
 using Chaos.Client.Models;
-using Chaos.Client.Rendering;
 using Chaos.DarkAges.Definitions;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Input;

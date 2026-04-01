@@ -1,7 +1,6 @@
 #region
 using Chaos.Client.Controls.Components;
 using Chaos.Client.Data;
-using Chaos.Client.Rendering;
 using Chaos.DarkAges.Definitions;
 using Chaos.Networking.Entities.Server;
 using Microsoft.Xna.Framework;
@@ -292,15 +291,15 @@ public sealed class OtherProfileEquipmentTab : PrefabPanel
         string clanTitle,
         string title)
     {
-        NameLabel?.ForegroundColor = Color.White;
+        NameLabel?.ForegroundColor = LegendColors.White;
         NameLabel?.Text = name;
-        ClassLabel?.ForegroundColor = Color.White;
+        ClassLabel?.ForegroundColor = LegendColors.White;
         ClassLabel?.Text = className;
-        ClanLabel?.ForegroundColor = Color.White;
+        ClanLabel?.ForegroundColor = LegendColors.White;
         ClanLabel?.Text = clanName;
-        ClanTitleLabel?.ForegroundColor = Color.White;
+        ClanTitleLabel?.ForegroundColor = LegendColors.White;
         ClanTitleLabel?.Text = clanTitle;
-        TitleLabel?.ForegroundColor = Color.White;
+        TitleLabel?.ForegroundColor = LegendColors.White;
         TitleLabel?.Text = title;
     }
 

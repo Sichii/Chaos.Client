@@ -1,6 +1,7 @@
 #region
 using Chaos.Client.Controls.Components;
 using Chaos.Client.Models;
+using Chaos.Client.Rendering.Models;
 using DALib.Data;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;

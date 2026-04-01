@@ -1,4 +1,6 @@
 #region
+using System.Buffers;
+using System.Collections.Concurrent;
 using Chaos.Client.Data;
 using Microsoft.Xna.Framework.Audio;
 using NAudio.Wave;
@@ -7,20 +9,25 @@ using NAudio.Wave;
 namespace Chaos.Client.Systems;
 
 /// <summary>
-///     Manages sound effect playback. Decodes MP3 streams from the game archives via NAudio, caches a bounded number of
-///     SoundEffect instances. Reads directly from memory-mapped archives — no intermediate stream caching.
+///     Manages sound effect playback. Caches compressed MP3 bytes from the game archives and decodes on background threads
+///     when played. Music is decoded async and never cached. SoundEffect creation and playback happen on the main thread
+///     via <see cref="Update" />.
 /// </summary>
 public sealed class SoundSystem : IDisposable
 {
     private const int MAX_CACHED_SOUNDS = 64;
     private const int VOLUME_STEPS = 10;
-    private readonly Dictionary<int, SoundEffect?> SoundCache = new();
+    private readonly ConcurrentQueue<DecodedSound> PendingSoundQueue = new();
+    private readonly List<PlayingSound> PlayingSounds = [];
+
+    private readonly Dictionary<int, (byte[]? Data, long Timestamp)> SoundCache = new();
     private int CurrentMusicId = -1;
     private SoundEffect? MusicEffect;
     private SoundEffectInstance? MusicInstance;
     private float MusicVolume = 0.75f;
     private int PendingMusicId;
     private Task<(byte[] PcmBytes, int SampleRate, AudioChannels Channels)?>? PendingMusicLoad;
+    private long SoundCacheTimestamp;
     private float Volume = 0.75f;
 
     /// <inheritdoc />
@@ -28,10 +35,49 @@ public sealed class SoundSystem : IDisposable
     {
         StopMusic();
 
-        foreach (var sfx in SoundCache.Values)
-            sfx?.Dispose();
+        foreach (var ps in PlayingSounds)
+        {
+            ps.Instance.Dispose();
+            ps.Effect.Dispose();
+        }
 
+        PlayingSounds.Clear();
         SoundCache.Clear();
+    }
+
+    private static DecodedSound? DecodeMp3(byte[] compressedBytes, float volume)
+    {
+        try
+        {
+            using var ms = new MemoryStream(compressedBytes);
+            using var mp3Reader = new Mp3FileReader(ms);
+            using var pcmStream = WaveFormatConversionStream.CreatePcmStream(mp3Reader);
+
+            using var pcmMs = new MemoryStream();
+            pcmStream.CopyTo(pcmMs);
+
+            var pcmLength = (int)pcmMs.Length;
+
+            if (pcmLength == 0)
+                return null;
+
+            var pcmBuffer = ArrayPool<byte>.Shared.Rent(pcmLength);
+            pcmMs.Position = 0;
+            pcmMs.ReadExactly(pcmBuffer, 0, pcmLength);
+
+            var format = pcmStream.WaveFormat;
+            var channels = format.Channels == 1 ? AudioChannels.Mono : AudioChannels.Stereo;
+
+            return new DecodedSound(
+                pcmBuffer,
+                pcmLength,
+                format.SampleRate,
+                channels,
+                volume);
+        } catch
+        {
+            return null;
+        }
     }
 
     private static (byte[] PcmBytes, int SampleRate, AudioChannels Channels)? DecodeMusicFile(string path)
@@ -62,19 +108,26 @@ public sealed class SoundSystem : IDisposable
 
     private void EvictOldest()
     {
-        var toRemove = SoundCache.Count - MAX_CACHED_SOUNDS;
-
-        foreach (var key in SoundCache.Keys
-                                      .Take(toRemove)
-                                      .ToList())
+        while (SoundCache.Count > MAX_CACHED_SOUNDS)
         {
-            SoundCache[key]
-                ?.Dispose();
-            SoundCache.Remove(key);
+            var oldestKey = -1;
+            var oldestTime = long.MaxValue;
+
+            foreach ((var key, var entry) in SoundCache)
+                if (entry.Timestamp < oldestTime)
+                {
+                    oldestTime = entry.Timestamp;
+                    oldestKey = key;
+                }
+
+            if (oldestKey < 0)
+                break;
+
+            SoundCache.Remove(oldestKey);
         }
     }
 
-    private static SoundEffect? LoadSound(int soundId)
+    private static byte[]? LoadCompressedSound(int soundId)
     {
         if (!DatArchives.Legend.TryGetValue($"{soundId}.mp3", out var entry))
             return null;
@@ -82,20 +135,10 @@ public sealed class SoundSystem : IDisposable
         try
         {
             using var archiveStream = entry.ToStreamSegment();
-            using var mp3Reader = new Mp3FileReader(archiveStream);
-            using var pcmStream = WaveFormatConversionStream.CreatePcmStream(mp3Reader);
-
             using var ms = new MemoryStream();
-            pcmStream.CopyTo(ms);
+            archiveStream.CopyTo(ms);
 
-            var pcmBytes = ms.ToArray();
-
-            if (pcmBytes.Length == 0)
-                return null;
-
-            var format = pcmStream.WaveFormat;
-
-            return new SoundEffect(pcmBytes, format.SampleRate, format.Channels == 1 ? AudioChannels.Mono : AudioChannels.Stereo);
+            return ms.ToArray();
         } catch
         {
             return null;
@@ -127,23 +170,41 @@ public sealed class SoundSystem : IDisposable
     }
 
     /// <summary>
-    ///     Plays a sound effect by ID. Loads and caches on first use.
+    ///     Plays a sound effect by ID. Caches compressed MP3 bytes on first use and decodes on a background thread. The
+    ///     decoded sound is played on the main thread in <see cref="Update" />.
     /// </summary>
     public void PlaySound(int soundId)
     {
         if (Volume <= 0f)
             return;
 
-        if (!SoundCache.TryGetValue(soundId, out var sfx))
+        byte[]? compressedBytes;
+
+        if (SoundCache.TryGetValue(soundId, out var cached))
         {
-            sfx = LoadSound(soundId);
-            SoundCache[soundId] = sfx;
+            compressedBytes = cached.Data;
+            SoundCache[soundId] = (cached.Data, SoundCacheTimestamp++);
+        } else
+        {
+            compressedBytes = LoadCompressedSound(soundId);
+            SoundCache[soundId] = (compressedBytes, SoundCacheTimestamp++);
 
             if (SoundCache.Count > MAX_CACHED_SOUNDS)
                 EvictOldest();
         }
 
-        sfx?.Play(Volume, 0f, 0f);
+        if (compressedBytes is null)
+            return;
+
+        var volume = Volume;
+
+        Task.Run(() =>
+        {
+            var decoded = DecodeMp3(compressedBytes, volume);
+
+            if (decoded is not null)
+                PendingSoundQueue.Enqueue(decoded);
+        });
     }
 
     /// <summary>
@@ -185,10 +246,53 @@ public sealed class SoundSystem : IDisposable
     }
 
     /// <summary>
-    ///     Pumps pending async music loads. Call once per frame from the game loop.
+    ///     Pumps pending sound and music loads. Call once per frame from the game loop.
     /// </summary>
     public void Update()
     {
+        // Clean up finished sounds
+        for (var i = PlayingSounds.Count - 1; i >= 0; i--)
+        {
+            if (PlayingSounds[i].Instance.State != SoundState.Stopped)
+                continue;
+
+            PlayingSounds[i]
+                .Instance
+                .Dispose();
+
+            PlayingSounds[i]
+                .Effect
+                .Dispose();
+            PlayingSounds.RemoveAt(i);
+        }
+
+        // Play sounds that finished decoding on background threads
+        while (PendingSoundQueue.TryDequeue(out var pending))
+        {
+            try
+            {
+                var sfx = new SoundEffect(
+                    pending.PcmBuffer,
+                    0,
+                    pending.PcmLength,
+                    pending.SampleRate,
+                    pending.Channels,
+                    0,
+                    0);
+                var instance = sfx.CreateInstance();
+                instance.Volume = pending.Volume;
+                instance.Play();
+                PlayingSounds.Add(new PlayingSound(sfx, instance));
+            } catch
+            {
+                // Sound creation failure is non-critical
+            } finally
+            {
+                ArrayPool<byte>.Shared.Return(pending.PcmBuffer);
+            }
+        }
+
+        // Music
         if (PendingMusicLoad is not { IsCompleted: true })
             return;
 
@@ -213,4 +317,13 @@ public sealed class SoundSystem : IDisposable
             StopMusic();
         }
     }
+
+    private record DecodedSound(
+        byte[] PcmBuffer,
+        int PcmLength,
+        int SampleRate,
+        AudioChannels Channels,
+        float Volume);
+
+    private record PlayingSound(SoundEffect Effect, SoundEffectInstance Instance);
 }

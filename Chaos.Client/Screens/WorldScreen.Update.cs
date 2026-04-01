@@ -117,7 +117,8 @@ public sealed partial class WorldScreen
             if (GroupHighlightTimer <= 0)
             {
                 GroupHighlightedIds.Clear();
-                ClearGroupTintCache();
+                Game.AislingRenderer.ClearGroupTintCache();
+                Game.CreatureRenderer.ClearTintCaches();
             }
         }
 
@@ -231,7 +232,7 @@ public sealed partial class WorldScreen
         // Toggle hotkeys — processed before overlay blocks so they work when the toggled panel is the active overlay
         var toggleCloseHandled = false;
 
-        if (!WorldHud.ChatInput.IsFocused && !NpcSession.Visible)
+        if (!WorldHud.ChatInput.IsFocused && !UITextBox.IsAnyFocused && !NpcSession.Visible)
         {
             if (input.WasKeyPressed(Keys.Q) && MainOptions.Visible)
             {
@@ -568,6 +569,15 @@ public sealed partial class WorldScreen
             if (WorldHud.ChatInput.IsFocused)
                 Chat.Unfocus();
 
+        // Up/Down — cycle whisper targets during name selection phase
+        if (WorldHud.ChatInput.IsFocused && Chat.IsWhisperNamePhase)
+        {
+            if (input.WasKeyPressed(Keys.Up))
+                Chat.CycleWhisperTarget(1);
+            else if (input.WasKeyPressed(Keys.Down))
+                Chat.CycleWhisperTarget(-1);
+        }
+
         // Enter — toggle chat focus / send message
         if (input.WasKeyPressed(Keys.Enter))
         {
@@ -576,11 +586,17 @@ public sealed partial class WorldScreen
                 var message = WorldHud.ChatInput.Text.Trim();
                 var prefix = WorldHud.ChatInput.Prefix;
 
-                // Whisper phase 1: "to []? " → user entered a target name, transition to phase 2
-                if ((prefix == "to []? ") && (message.Length > 0))
+                // Whisper phase 1: "to [name]? " → resolve target name, transition to phase 2
+                if (Chat.IsWhisperNamePhase)
                 {
-                    WorldHud.ChatInput.Prefix = $"-> {message}: ";
-                    WorldHud.ChatInput.Text = string.Empty;
+                    // Typed name overrides the bracketed default
+                    var targetName = message.Length > 0 ? message : Chat.GetBracketedWhisperTarget();
+
+                    if (targetName.Length > 0)
+                    {
+                        WorldHud.ChatInput.Prefix = $"-> {targetName}: ";
+                        WorldHud.ChatInput.Text = string.Empty;
+                    }
                 } else
                 {
                     Chat.Dispatch(message);
@@ -591,8 +607,8 @@ public sealed partial class WorldScreen
                 Chat.Focus($"{WorldHud.PlayerName}: ", Color.White);
         }
 
-        // Hotkeys and movement — only when chat is not focused
-        if (!WorldHud.ChatInput.IsFocused)
+        // Hotkeys and movement — only when no text box is focused
+        if (!WorldHud.ChatInput.IsFocused && !UITextBox.IsAnyFocused)
         {
             // Shout hotkey (!) — opens chat in shout mode
             if (input.WasKeyPressed(Keys.D1) && (input.IsKeyHeld(Keys.LeftShift) || input.IsKeyHeld(Keys.RightShift)))
@@ -602,10 +618,10 @@ public sealed partial class WorldScreen
                 return;
             }
 
-            // Whisper hotkey (") — opens chat in whisper target mode
+            // Whisper hotkey (") — opens chat in whisper mode, skipping phase 1 if history exists
             if (input.WasKeyPressed(Keys.OemQuotes) && (input.IsKeyHeld(Keys.LeftShift) || input.IsKeyHeld(Keys.RightShift)))
             {
-                Chat.Focus("to []? ", new Color(100, 149, 237));
+                Chat.FocusWhisper();
 
                 return;
             }
@@ -708,10 +724,10 @@ public sealed partial class WorldScreen
             // ` — unequip weapon and shield
             if (input.WasKeyPressed(Keys.OemTilde))
             {
-                if (Game.Connection.Equipment.ContainsKey(EquipmentSlot.Weapon))
+                if (WorldState.Equipment.GetSlot(EquipmentSlot.Weapon) is not null)
                     Game.Connection.Unequip(EquipmentSlot.Weapon);
 
-                if (Game.Connection.Equipment.ContainsKey(EquipmentSlot.Shield))
+                if (WorldState.Equipment.GetSlot(EquipmentSlot.Shield) is not null)
                     Game.Connection.Unequip(EquipmentSlot.Shield);
             }
 

@@ -216,7 +216,7 @@ public sealed class UiRenderer : IDisposable
         if (Cache.TryGetValue(key, out var cached))
             return cached;
 
-        var palettized = DataContext.PanelIcons.GetSpellIcon(iconId);
+        var palettized = DataContext.PanelSprites.GetSpellIcon(iconId);
 
         if (palettized is null)
             return MissingTexture;
@@ -265,11 +265,11 @@ public sealed class UiRenderer : IDisposable
         if (Cache.TryGetValue(key, out var cached))
             return cached;
 
-        var palettized = DataContext.PanelItems.GetPanelItemSprite(spriteId);
+        var palettized = DataContext.PanelSprites.GetItemSprite(spriteId);
 
         if (palettized is not null && (color != DisplayColor.Default))
         {
-            var dyedPalette = DataContext.AislingData.ApplyDye(palettized.Palette, color);
+            var dyedPalette = DataContext.AislingDrawData.ApplyDye(palettized.Palette, color);
 
             if (dyedPalette != palettized.Palette)
                 palettized = new Palettized<EpfFrame>
@@ -346,7 +346,7 @@ public sealed class UiRenderer : IDisposable
         if (Cache.TryGetValue(key, out var cached))
             return cached;
 
-        var texture = RenderSprite(DataContext.PanelIcons.GetSkillLockedIcon(spriteId));
+        var texture = RenderSprite(DataContext.PanelSprites.GetSkillLockedIcon(spriteId));
 
         if (texture is null)
             return MissingTexture;
@@ -366,7 +366,7 @@ public sealed class UiRenderer : IDisposable
         if (Cache.TryGetValue(key, out var cached))
             return cached;
 
-        var texture = RenderSprite(DataContext.PanelIcons.GetSkillIcon(spriteId));
+        var texture = RenderSprite(DataContext.PanelSprites.GetSkillIcon(spriteId));
 
         if (texture is null)
             return MissingTexture;
@@ -386,7 +386,7 @@ public sealed class UiRenderer : IDisposable
         if (Cache.TryGetValue(key, out var cached))
             return cached;
 
-        var texture = RenderSprite(DataContext.PanelIcons.GetSkillLearnableIcon(spriteId));
+        var texture = RenderSprite(DataContext.PanelSprites.GetSkillLearnableIcon(spriteId));
 
         if (texture is null)
             return MissingTexture;
@@ -406,7 +406,7 @@ public sealed class UiRenderer : IDisposable
         if (Cache.TryGetValue(key, out var cached))
             return cached;
 
-        var texture = RenderSprite(DataContext.PanelIcons.GetSkillLockedIcon(spriteId));
+        var texture = RenderSprite(DataContext.PanelSprites.GetSkillLockedIcon(spriteId));
 
         if (texture is null)
             return MissingTexture;
@@ -426,7 +426,7 @@ public sealed class UiRenderer : IDisposable
         if (Cache.TryGetValue(key, out var cached))
             return cached;
 
-        var texture = RenderSprite(DataContext.PanelIcons.GetSpellIcon(spriteId));
+        var texture = RenderSprite(DataContext.PanelSprites.GetSpellIcon(spriteId));
 
         if (texture is null)
             return MissingTexture;
@@ -446,7 +446,7 @@ public sealed class UiRenderer : IDisposable
         if (Cache.TryGetValue(key, out var cached))
             return cached;
 
-        var texture = RenderSprite(DataContext.PanelIcons.GetSpellLearnableIcon(spriteId));
+        var texture = RenderSprite(DataContext.PanelSprites.GetSpellLearnableIcon(spriteId));
 
         if (texture is null)
             return MissingTexture;
@@ -466,7 +466,7 @@ public sealed class UiRenderer : IDisposable
         if (Cache.TryGetValue(key, out var cached))
             return cached;
 
-        var texture = RenderSprite(DataContext.PanelIcons.GetSpellLockedIcon(spriteId));
+        var texture = RenderSprite(DataContext.PanelSprites.GetSpellLockedIcon(spriteId));
 
         if (texture is null)
             return MissingTexture;

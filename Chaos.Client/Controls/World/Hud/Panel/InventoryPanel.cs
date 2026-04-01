@@ -2,7 +2,6 @@
 using Chaos.Client.Collections;
 using Chaos.Client.Controls.World.Hud.Panel.Slots;
 using Chaos.Client.Data.Models;
-using Chaos.Client.Rendering;
 using Chaos.Client.ViewModel;
 using Microsoft.Xna.Framework.Graphics;
 #endregion

@@ -17,7 +17,7 @@ namespace Chaos.Client.Data.Repositories;
 ///     loaded once and frozen. EPF files are cached per session and cleared on map change via <see cref="ClearEpfCache" />
 ///     .
 /// </summary>
-public sealed class AislingDataRepository
+public sealed class AislingDrawDataRepository
 {
     private readonly Dictionary<string, EpfView?> EpfCache = new();
 
@@ -60,7 +60,7 @@ public sealed class AislingDataRepository
     public PaletteLookup PalW { get; } = PaletteLookup.FromArchive("palw", DatArchives.Khanpal)
                                                       .Freeze();
 
-    public AislingDataRepository()
+    public AislingDrawDataRepository()
     {
         if (DatArchives.Legend.TryGetValue("color0.tbl", out var entry))
             DyeColorTable = ColorTable.FromEntry(entry);

@@ -1,5 +1,6 @@
 #region
 using System.Text;
+using Chaos.Client.Data;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 #endregion
@@ -63,7 +64,8 @@ public static class TextRenderer
         SpriteBatch spriteBatch,
         Vector2 position,
         string text,
-        Color color)
+        Color color,
+        bool colorCodesEnabled = true)
     {
         if (string.IsNullOrEmpty(text))
             return;
@@ -77,7 +79,7 @@ public static class TextRenderer
 
         for (var i = 0; i < text.Length; i++)
         {
-            if (IsColorCode(text, i))
+            if (colorCodesEnabled && IsColorCode(text, i))
             {
                 activeColor = GetColorCode(text[i + 2])!.Value;
                 i += 2;
@@ -136,7 +138,8 @@ public static class TextRenderer
         Vector2 position,
         string text,
         Color textColor,
-        Color shadowColor)
+        Color shadowColor,
+        bool colorCodesEnabled = true)
     {
         if (string.IsNullOrEmpty(text))
             return;
@@ -146,65 +149,22 @@ public static class TextRenderer
             spriteBatch,
             position + new Vector2(2, 1),
             text,
-            shadowColor);
+            shadowColor,
+            colorCodesEnabled);
 
         DrawText(
             spriteBatch,
             position + new Vector2(0, 1),
             text,
-            shadowColor);
+            shadowColor,
+            colorCodesEnabled);
 
         DrawText(
             spriteBatch,
             position + new Vector2(1, 0),
             text,
-            textColor);
-    }
-
-    /// <summary>
-    ///     Word-wraps text and draws all resulting lines.
-    /// </summary>
-    public static void DrawWrappedText(
-        SpriteBatch spriteBatch,
-        Vector2 position,
-        string text,
-        int maxWidth,
-        Color color)
-    {
-        if (string.IsNullOrEmpty(text))
-            return;
-
-        var lines = WrapText(text, maxWidth);
-
-        DrawLines(
-            spriteBatch,
-            position,
-            lines,
-            color);
-    }
-
-    /// <summary>
-    ///     Word-wraps text and draws lines up to maxHeight pixels.
-    /// </summary>
-    public static void DrawWrappedText(
-        SpriteBatch spriteBatch,
-        Vector2 position,
-        string text,
-        int maxWidth,
-        int maxHeight,
-        Color color)
-    {
-        if (string.IsNullOrEmpty(text))
-            return;
-
-        var lines = WrapText(text, maxWidth);
-
-        DrawLines(
-            spriteBatch,
-            position,
-            lines,
-            maxHeight,
-            color);
+            textColor,
+            colorCodesEnabled);
     }
 
     /// <summary>
@@ -214,7 +174,8 @@ public static class TextRenderer
         SpriteBatch spriteBatch,
         Vector2 position,
         IReadOnlyList<string> lines,
-        Color color)
+        Color color,
+        bool colorCodesEnabled = true)
     {
         var y = position.Y;
 
@@ -224,34 +185,8 @@ public static class TextRenderer
                 spriteBatch,
                 new Vector2(position.X, y),
                 line,
-                color);
-            y += GLYPH_HEIGHT;
-        }
-    }
-
-    /// <summary>
-    ///     Draws pre-wrapped text lines up to maxHeight pixels.
-    /// </summary>
-    public static void DrawLines(
-        SpriteBatch spriteBatch,
-        Vector2 position,
-        IReadOnlyList<string> lines,
-        int maxHeight,
-        Color color)
-    {
-        var y = position.Y;
-        var maxY = position.Y + maxHeight;
-
-        foreach (var line in lines)
-        {
-            if ((y + GLYPH_HEIGHT) > maxY)
-                break;
-
-            DrawText(
-                spriteBatch,
-                new Vector2(position.X, y),
-                line,
-                color);
+                color,
+                colorCodesEnabled);
             y += GLYPH_HEIGHT;
         }
     }
@@ -265,7 +200,8 @@ public static class TextRenderer
         IReadOnlyList<string> lines,
         int startLine,
         int maxLines,
-        Color color)
+        Color color,
+        bool colorCodesEnabled = true)
     {
         var y = position.Y;
         var endLine = Math.Min(lines.Count, startLine + maxLines);
@@ -276,7 +212,8 @@ public static class TextRenderer
                 spriteBatch,
                 new Vector2(position.X, y),
                 lines[i],
-                color);
+                color,
+                colorCodesEnabled);
             y += GLYPH_HEIGHT;
         }
     }
@@ -315,34 +252,17 @@ public static class TextRenderer
     }
 
     /// <summary>
-    ///     Maps a color code character (the letter after {=) to its Color.
+    ///     Maps a color code character (the letter after {=) to its Color via the legend palette.
     /// </summary>
     public static Color? GetColorCode(char code)
-        => code switch
-        {
-            'a' => new Color(128, 128, 128),
-            'b' => new Color(255, 0, 0),
-            'c' => new Color(255, 255, 0),
-            'd' => new Color(0, 128, 0),
-            'e' => new Color(192, 192, 192),
-            'f' => new Color(0, 0, 255),
-            'g' => new Color(220, 220, 220),
-            'h' => new Color(128, 128, 128),
-            'i' => new Color(152, 152, 152),
-            'j' => new Color(128, 128, 128),
-            'k' => new Color(112, 128, 144),
-            'l' => new Color(54, 69, 79),
-            'm' => new Color(28, 28, 28),
-            'n' => new Color(0, 0, 0),
-            'o' => new Color(255, 105, 180),
-            'p' => new Color(128, 0, 128),
-            'q' => new Color(57, 255, 20),
-            's' => new Color(255, 165, 0),
-            't' => new Color(139, 69, 19),
-            'u' => new Color(255, 255, 255),
-            'x' => Color.Transparent,
-            _   => null
-        };
+    {
+        var legendColor = LegendPalette.GetTextColor(code);
+
+        if (!legendColor.HasValue)
+            return null;
+
+        return LegendColors.Get(legendColor.Value);
+    }
 
     /// <summary>
     ///     Returns true if the text at position i starts a {=x color code sequence.

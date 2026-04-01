@@ -6,7 +6,6 @@ using Chaos.Client.Data;
 using Chaos.Client.Data.Models;
 using Chaos.Client.Extensions;
 using Chaos.Client.Models;
-using Chaos.Client.Rendering;
 using Chaos.DarkAges.Definitions;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Input;
@@ -396,17 +395,9 @@ public sealed partial class WorldScreen
 
     // --- Cache / persistence helpers ---
 
-    private void ClearAislingCache()
-    {
-        foreach (var entry in AislingCache.Values)
-            entry.Texture?.Dispose();
-
-        AislingCache.Clear();
-    }
-
     private void LoadPlayerFamilyList()
     {
-        var family = DataContext.PlayerData.LoadFamilyList();
+        var family = DataContext.LocalPlayerSettings.LoadFamilyList();
         StatusBook.SetFamilyMembers(family);
     }
 
@@ -415,12 +406,12 @@ public sealed partial class WorldScreen
         var family = StatusBook.GetFamilyMembers();
 
         if (family is not null)
-            DataContext.PlayerData.SaveFamilyList(family);
+            DataContext.LocalPlayerSettings.SaveFamilyList(family);
     }
 
     private void LoadPlayerFriendList()
     {
-        var names = DataContext.PlayerData.LoadFriendList();
+        var names = DataContext.LocalPlayerSettings.LoadFriendList();
 
         var entries = names.Select(n => new FriendEntry(n, false))
                            .ToList();
@@ -430,12 +421,12 @@ public sealed partial class WorldScreen
     private void SavePlayerFriendList()
     {
         var names = FriendsList.GetFriendNames();
-        DataContext.PlayerData.SaveFriendList(names);
+        DataContext.LocalPlayerSettings.SaveFriendList(names);
     }
 
     private void LoadPlayerMacros()
     {
-        var macros = DataContext.PlayerData.LoadMacros();
+        var macros = DataContext.LocalPlayerSettings.LoadMacros();
 
         for (var i = 0; i < macros.Length; i++)
             MacroMenu.SetMacro(i, $"F{(i < 9 ? i + 5 : 0)}", macros[i]);
@@ -444,7 +435,7 @@ public sealed partial class WorldScreen
     private void SavePlayerMacros()
     {
         var macros = MacroMenu.GetMacroValues();
-        DataContext.PlayerData.SaveMacros(macros);
+        DataContext.LocalPlayerSettings.SaveMacros(macros);
     }
 
     private void SaveSkillChants()
@@ -466,7 +457,7 @@ public sealed partial class WorldScreen
                 });
         }
 
-        DataContext.PlayerData.SaveSkillChants(entries);
+        DataContext.LocalPlayerSettings.SaveSkillChants(entries);
     }
 
     private void SaveSpellChants()
@@ -488,7 +479,7 @@ public sealed partial class WorldScreen
             entries.Add(entry);
         }
 
-        DataContext.PlayerData.SaveSpellChants(entries);
+        DataContext.LocalPlayerSettings.SaveSpellChants(entries);
     }
     #endregion
 
@@ -558,7 +549,7 @@ public sealed partial class WorldScreen
         if (player is null)
             return;
 
-        var slot = Game.Connection.GetFirstEmptyInventorySlot();
+        var slot = WorldState.Inventory.GetFirstEmptySlot();
 
         if (slot == 0)
             return;
@@ -608,7 +599,7 @@ public sealed partial class WorldScreen
             {
                 if (entity.Type == ClientEntityType.GroundItem)
                 {
-                    var firstEmptySlot = Game.Connection.GetFirstEmptyInventorySlot();
+                    var firstEmptySlot = WorldState.Inventory.GetFirstEmptySlot();
                     Game.Connection.PickupItem(entity.TileX, entity.TileY, firstEmptySlot);
                 } else
                     Game.Connection.ClickEntity(entity.Id);
@@ -654,7 +645,7 @@ public sealed partial class WorldScreen
                 name,
                 () => Game.Connection.ClickEntity(id),
                 () => Game.Connection.SendGroupInvite(ClientGroupSwitch.TryInvite, name),
-                () => Chat.Focus($"-> {name}: ", new Color(100, 149, 237)));
+                () => Chat.Focus($"-> {name}: ", TextColors.Whisper));
         }
     }
 

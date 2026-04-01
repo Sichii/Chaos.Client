@@ -1,6 +1,5 @@
 #region
 using Chaos.Client.Controls.Components;
-using Chaos.Client.Rendering;
 #endregion
 
 namespace Chaos.Client.Controls.World.ViewPort;

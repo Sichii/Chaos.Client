@@ -2,7 +2,6 @@
 using Chaos.Client.Data;
 using Chaos.Client.Data.Models;
 using Chaos.Client.Extensions;
-using Chaos.Client.Rendering;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 #endregion

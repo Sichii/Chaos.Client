@@ -7,7 +7,7 @@ using Chaos.Client.Controls.Generic;
 using Chaos.Client.Controls.LobbyLogin;
 using Chaos.Client.Data;
 using Chaos.Client.Networking;
-using Chaos.Client.Rendering;
+using Chaos.Client.Networking.Definitions;
 using Chaos.Cryptography;
 using Chaos.DarkAges.Definitions;
 using Chaos.Networking.Entities.Server;

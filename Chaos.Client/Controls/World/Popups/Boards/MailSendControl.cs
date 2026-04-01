@@ -52,6 +52,9 @@ public sealed class MailSendControl : PrefabPanel
         ReceiverEditBox = CreateTextBox("ReceiverEdit", 24);
         TitleBox = CreateTextBox("Title", 60);
 
+        ReceiverEditBox?.ForegroundColor = LegendColors.White;
+        TitleBox?.ForegroundColor = LegendColors.White;
+
         // Content rect for body text display
         var contentRect = GetRect("Content");
         VisibleHeight = contentRect.Height;

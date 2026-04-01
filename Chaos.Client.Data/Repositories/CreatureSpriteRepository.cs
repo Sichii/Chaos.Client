@@ -20,7 +20,7 @@ public sealed class CreatureSpriteRepository : RepositoryBase
 
         try
         {
-            return GetOrCreate(spriteId.ToString(), () => LoadCreatureSprite(spriteId));
+            return GetOrCreate(spriteId, () => LoadCreatureSprite(spriteId));
         } catch
         {
             return null;

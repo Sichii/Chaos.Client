@@ -2,7 +2,6 @@
 using Chaos.Client.Collections;
 using Chaos.Client.Controls.Components;
 using Chaos.Client.Data.Models;
-using Chaos.Client.Rendering;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 #endregion
@@ -13,11 +12,11 @@ namespace Chaos.Client.Controls.World.Hud;
 ///     Orange bar message display above inventory. Shows the latest server message; supports drag-expand to reveal
 ///     history. Background from SystemMessagePane (_nsmbk.spf).
 /// </summary>
-public sealed class OrangeBarControl : UIElement
+public sealed class OrangeBarControl : UIPanel
 {
     private const int MAX_EXPAND_LINES = 10;
     private const int GLYPH_HEIGHT = 12;
-    private readonly TextElement[] Lines;
+    private readonly UILabel[] Lines;
     private readonly Texture2D? PaneBg;
 
     private readonly Rectangle TextBounds;
@@ -42,10 +41,24 @@ public sealed class OrangeBarControl : UIElement
         Width = WrapBounds.Width;
         Height = WrapBounds.Height;
 
-        Lines = new TextElement[MAX_EXPAND_LINES];
+        Lines = new UILabel[MAX_EXPAND_LINES];
 
         for (var i = 0; i < MAX_EXPAND_LINES; i++)
-            Lines[i] = new TextElement();
+        {
+            Lines[i] = new UILabel
+            {
+                Name = $"OrangeLine{i}",
+                X = TextBounds.X - WrapBounds.X,
+                Width = TextBounds.Width,
+                Height = GLYPH_HEIGHT,
+                ForegroundColor = Color.Orange,
+                PaddingLeft = 0,
+                PaddingTop = 0,
+                Visible = false
+            };
+
+            AddChild(Lines[i]);
+        }
     }
 
     public override void Dispose()
@@ -108,27 +121,40 @@ public sealed class OrangeBarControl : UIElement
                 4),
             Color.White);
 
-        // History text — newest at bottom, older above
+        // Update and position line labels
+        RefreshLines();
+
+        // Children (line labels) drawn by base
+        base.Draw(spriteBatch);
+    }
+
+    private void RefreshLines()
+    {
         var history = WorldState.Chat.GetOrangeBarHistory();
 
-        if (history.Count > 0)
+        if (history.Count == 0)
         {
-            var textX = sx + TextBounds.X;
-            var bottomY = sy + TextBounds.Y + ExpandedLines * GLYPH_HEIGHT;
-            var slot = 0;
+            for (var i = 0; i < MAX_EXPAND_LINES; i++)
+                Lines[i].Visible = false;
 
-            for (var i = history.Count - 1; (i >= 0) && (slot <= ExpandedLines); i--)
-            {
-                var textY = bottomY - slot * GLYPH_HEIGHT;
-
-                Lines[slot]
-                    .Update(history[i], Color.Orange);
-
-                Lines[slot]
-                    .Draw(spriteBatch, new Vector2(textX, textY));
-                slot++;
-            }
+            return;
         }
+
+        // TextBounds.Y is relative to the HUD parent, WrapBounds.Y is our own Y — compute relative offset
+        var baseRelY = TextBounds.Y - WrapBounds.Y;
+        var slot = 0;
+
+        for (var i = history.Count - 1; (i >= 0) && (slot <= ExpandedLines); i--)
+        {
+            var lineY = baseRelY + ExpandedLines * GLYPH_HEIGHT - slot * GLYPH_HEIGHT;
+            Lines[slot].Y = lineY;
+            Lines[slot].Text = history[i];
+            Lines[slot].Visible = true;
+            slot++;
+        }
+
+        for (; slot < MAX_EXPAND_LINES; slot++)
+            Lines[slot].Visible = false;
     }
 
     public override void Update(GameTime gameTime, InputBuffer input)

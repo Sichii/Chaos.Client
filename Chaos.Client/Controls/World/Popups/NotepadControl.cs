@@ -1,7 +1,6 @@
 #region
 using Chaos.Client.Controls.Components;
 using Chaos.Client.Extensions;
-using Chaos.Client.Rendering;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using Microsoft.Xna.Framework.Input;
@@ -42,17 +41,16 @@ public sealed class NotepadControl : UIPanel
     private static readonly Color ButtonHoverFill = new(70, 55, 40);
     private static readonly Color ScrollTrackColor = new(40, 35, 25);
     private static readonly Color ScrollThumbColor = new(140, 120, 80);
-    private readonly TextElement CancelLabelCache;
-    private readonly TextElement CloseLabelCache;
+    private readonly UILabel CancelLabel;
+    private readonly UILabel CloseLabel;
 
     private readonly List<string> Lines = [];
     private readonly int MaxPossibleVisibleLines;
 
-    // Cached button label textures to avoid per-frame allocation
-    private readonly TextElement OkLabelCache;
+    private readonly UILabel OkLabel;
 
-    // Visible-line CachedText array for readonly rendering
-    private readonly TextElement[] ReadonlyLineCaches;
+    // Visible-line labels for readonly rendering
+    private readonly UILabel[] ReadonlyLineLabels;
     private Rectangle CancelButtonRect;
     private bool CancelHovered;
 
@@ -78,19 +76,58 @@ public sealed class NotepadControl : UIPanel
         Name = "Notepad";
         Visible = false;
 
-        // Pre-allocate readonly line caches for the largest possible visible area
+        // Pre-allocate readonly line labels for the largest possible visible area
         MaxPossibleVisibleLines = (MAX_HEIGHT - PADDING * 2 - BUTTON_AREA_HEIGHT) / LINE_HEIGHT;
-        ReadonlyLineCaches = new TextElement[MaxPossibleVisibleLines];
+        ReadonlyLineLabels = new UILabel[MaxPossibleVisibleLines];
 
         for (var i = 0; i < MaxPossibleVisibleLines; i++)
-            ReadonlyLineCaches[i] = new TextElement();
+        {
+            ReadonlyLineLabels[i] = new UILabel
+            {
+                Name = $"ReadonlyLine{i}",
+                X = PADDING,
+                Height = LINE_HEIGHT,
+                PaddingLeft = 0,
+                PaddingTop = 0,
+                Visible = false
+            };
 
-        OkLabelCache = new TextElement();
-        OkLabelCache.Update("OK", Color.White);
-        CancelLabelCache = new TextElement();
-        CancelLabelCache.Update("Cancel", Color.White);
-        CloseLabelCache = new TextElement();
-        CloseLabelCache.Update("Close", Color.White);
+            AddChild(ReadonlyLineLabels[i]);
+        }
+
+        OkLabel = new UILabel
+        {
+            Name = "OkLabel",
+            Text = "OK",
+            Alignment = TextAlignment.Center,
+            PaddingLeft = 0,
+            PaddingTop = 0,
+            Visible = false
+        };
+
+        CancelLabel = new UILabel
+        {
+            Name = "CancelLabel",
+            Text = "Cancel",
+            Alignment = TextAlignment.Center,
+            PaddingLeft = 0,
+            PaddingTop = 0,
+            Visible = false
+        };
+
+        CloseLabel = new UILabel
+        {
+            Name = "CloseLabel",
+            Text = "Close",
+            Alignment = TextAlignment.Center,
+            PaddingLeft = 0,
+            PaddingTop = 0,
+            Visible = false
+        };
+
+        AddChild(OkLabel);
+        AddChild(CancelLabel);
+        AddChild(CloseLabel);
     }
 
     private string AssembleText()
@@ -161,6 +198,20 @@ public sealed class NotepadControl : UIPanel
             buttonY,
             BUTTON_WIDTH,
             BUTTON_HEIGHT);
+
+        // Position button labels within their button rects
+        PositionButtonLabel(OkLabel, OkButtonRect);
+        PositionButtonLabel(CancelLabel, CancelButtonRect);
+        PositionButtonLabel(CloseLabel, OkButtonRect);
+
+        // Position readonly line labels
+        var labelWidth = Width - PADDING * 2 - SCROLLBAR_WIDTH;
+
+        for (var i = 0; i < MaxPossibleVisibleLines; i++)
+        {
+            ReadonlyLineLabels[i].Y = PADDING + i * LINE_HEIGHT;
+            ReadonlyLineLabels[i].Width = labelWidth;
+        }
     }
 
     private void Confirm()
@@ -249,87 +300,18 @@ public sealed class NotepadControl : UIPanel
                 Height + 4),
             FrameColor);
 
-        // Background
-        base.Draw(spriteBatch);
+        // Update label visibility and button styling based on mode
+        UpdateLabelState();
 
-        if (IsEditable)
-        {
-            // UITextBox children draw themselves via base.Draw above (UIPanel iterates children)
-        } else
-            DrawReadonlyText(spriteBatch, sx, sy);
+        if (!IsEditable)
+            RefreshReadonlyLineLabels();
+
+        // Background + all children (readonly line labels, button labels, edit boxes)
+        base.Draw(spriteBatch);
 
         // Scrollbar
         if (Lines.Count > VisibleLineCount)
             DrawScrollbar(spriteBatch, sx, sy);
-
-        // Buttons
-        DrawButton(
-            spriteBatch,
-            sx,
-            sy,
-            OkButtonRect,
-            IsEditable ? OkLabelCache : CloseLabelCache,
-            OkHovered);
-
-        if (IsEditable)
-            DrawButton(
-                spriteBatch,
-                sx,
-                sy,
-                CancelButtonRect,
-                CancelLabelCache,
-                CancelHovered);
-    }
-
-    private void DrawButton(
-        SpriteBatch spriteBatch,
-        int panelX,
-        int panelY,
-        Rectangle buttonRect,
-        TextElement labelCache,
-        bool hovered)
-    {
-        var bx = panelX + buttonRect.X;
-        var by = panelY + buttonRect.Y;
-
-        var rect = new Rectangle(
-            bx,
-            by,
-            buttonRect.Width,
-            buttonRect.Height);
-
-        DrawBorderedRect(
-            spriteBatch,
-            rect,
-            hovered ? ButtonHoverFill : ButtonFill,
-            ButtonBorder);
-
-        if (labelCache.HasContent)
-        {
-            var textX = rect.CenterX(labelCache.Width);
-            var textY = rect.CenterY(labelCache.Height);
-            labelCache.Draw(spriteBatch, new Vector2(textX, textY));
-        }
-    }
-
-    private void DrawReadonlyText(SpriteBatch spriteBatch, int sx, int sy)
-    {
-        RefreshReadonlyLineCaches();
-
-        var textX = sx + PADDING;
-        var textY = sy + PADDING;
-
-        for (var i = 0; i < VisibleLineCount; i++)
-        {
-            var lineIndex = ScrollOffset + i;
-
-            if (lineIndex >= Lines.Count)
-                break;
-
-            if (i < ReadonlyLineCaches.Length)
-                ReadonlyLineCaches[i]
-                    .Draw(spriteBatch, new Vector2(textX, textY + i * LINE_HEIGHT));
-        }
     }
 
     private void DrawScrollbar(SpriteBatch spriteBatch, int sx, int sy)
@@ -426,7 +408,15 @@ public sealed class NotepadControl : UIPanel
     /// </summary>
     public event Action<byte, string>? OnSave;
 
-    private void RefreshReadonlyLineCaches()
+    private static void PositionButtonLabel(UILabel label, Rectangle buttonRect)
+    {
+        label.X = buttonRect.X;
+        label.Y = buttonRect.Y;
+        label.Width = buttonRect.Width;
+        label.Height = buttonRect.Height;
+    }
+
+    private void RefreshReadonlyLineLabels()
     {
         if (ReadonlyRenderedVersion == ReadonlyDataVersion)
             return;
@@ -436,10 +426,8 @@ public sealed class NotepadControl : UIPanel
         for (var i = 0; i < MaxPossibleVisibleLines; i++)
         {
             var lineIndex = ScrollOffset + i;
-            var text = lineIndex < Lines.Count ? Lines[lineIndex] : string.Empty;
-
-            ReadonlyLineCaches[i]
-                .Update(text, Color.White);
+            ReadonlyLineLabels[i].Text = lineIndex < Lines.Count ? Lines[lineIndex] : string.Empty;
+            ReadonlyLineLabels[i].ForegroundColor = Color.White;
         }
     }
 
@@ -755,6 +743,26 @@ public sealed class NotepadControl : UIPanel
 
         // After textbox updates, sync any changes back to Lines
         SyncLinesToEditBoxes();
+    }
+
+    private void UpdateLabelState()
+    {
+        // Button labels — visibility and hover styling
+        OkLabel.Visible = IsEditable;
+        OkLabel.BackgroundColor = OkHovered ? ButtonHoverFill : ButtonFill;
+        OkLabel.BorderColor = ButtonBorder;
+
+        CloseLabel.Visible = !IsEditable;
+        CloseLabel.BackgroundColor = OkHovered ? ButtonHoverFill : ButtonFill;
+        CloseLabel.BorderColor = ButtonBorder;
+
+        CancelLabel.Visible = IsEditable;
+        CancelLabel.BackgroundColor = CancelHovered ? ButtonHoverFill : ButtonFill;
+        CancelLabel.BorderColor = ButtonBorder;
+
+        // Readonly line labels
+        for (var i = 0; i < MaxPossibleVisibleLines; i++)
+            ReadonlyLineLabels[i].Visible = !IsEditable && (i < VisibleLineCount) && ((ScrollOffset + i) < Lines.Count);
     }
 
     private void UpdateReadonly(InputBuffer input)

@@ -22,8 +22,8 @@ public sealed class FriendsListControl : PrefabPanel
 
     private readonly Rectangle LeftColumnRect;
 
-    private readonly TextElement[] NamesColumn1 = new TextElement[MAX_VISIBLE_ROWS];
-    private readonly TextElement[] NamesColumn2 = new TextElement[MAX_VISIBLE_ROWS];
+    private readonly UILabel[] NamesColumn1 = new UILabel[MAX_VISIBLE_ROWS];
+    private readonly UILabel[] NamesColumn2 = new UILabel[MAX_VISIBLE_ROWS];
     private readonly Rectangle RightColumnRect;
     private bool ClosedWithOk;
     private int DataVersion;
@@ -74,8 +74,30 @@ public sealed class FriendsListControl : PrefabPanel
 
         for (var i = 0; i < MAX_VISIBLE_ROWS; i++)
         {
-            NamesColumn1[i] = new TextElement();
-            NamesColumn2[i] = new TextElement();
+            NamesColumn1[i] = new UILabel
+            {
+                Name = $"Left{i}",
+                X = LeftColumnRect.X,
+                Y = LeftColumnRect.Y + i * ROW_HEIGHT,
+                Width = LeftColumnRect.Width,
+                Height = ROW_HEIGHT,
+                PaddingLeft = 0,
+                PaddingTop = 0
+            };
+
+            NamesColumn2[i] = new UILabel
+            {
+                Name = $"Right{i}",
+                X = RightColumnRect.X,
+                Y = RightColumnRect.Y + i * ROW_HEIGHT,
+                Width = RightColumnRect.Width,
+                Height = ROW_HEIGHT,
+                PaddingLeft = 0,
+                PaddingTop = 0
+            };
+
+            AddChild(NamesColumn1[i]);
+            AddChild(NamesColumn2[i]);
         }
     }
 
@@ -111,28 +133,10 @@ public sealed class FriendsListControl : PrefabPanel
         if (!Visible)
             return;
 
-        base.Draw(spriteBatch);
-
         RefreshCaches();
 
-        var sx = ScreenX;
-        var sy = ScreenY;
-
-        // Draw online friends (left column)
-        var leftX = sx + LeftColumnRect.X;
-        var leftY = sy + LeftColumnRect.Y;
-
-        for (var i = 0; i < MAX_VISIBLE_ROWS; i++)
-            NamesColumn1[i]
-                .Draw(spriteBatch, new Vector2(leftX, leftY + i * ROW_HEIGHT));
-
-        // Draw offline friends (right column)
-        var rightX = sx + RightColumnRect.X;
-        var rightY = sy + RightColumnRect.Y;
-
-        for (var i = 0; i < MAX_VISIBLE_ROWS; i++)
-            NamesColumn2[i]
-                .Draw(spriteBatch, new Vector2(rightX, rightY + i * ROW_HEIGHT));
+        // Labels are children — drawn by base.Draw()
+        base.Draw(spriteBatch);
     }
 
     /// <summary>
@@ -169,18 +173,18 @@ public sealed class FriendsListControl : PrefabPanel
         for (var i = 0; i < MAX_VISIBLE_ROWS; i++)
         {
             if (i < onlineFriends.Count)
-                NamesColumn1[i]
-                    .Update(onlineFriends.Array[i].Name, new Color(150, 255, 150));
-            else
-                NamesColumn1[i]
-                    .Update(string.Empty, Color.White);
+            {
+                NamesColumn1[i].Text = onlineFriends.Array[i].Name;
+                NamesColumn1[i].ForegroundColor = new Color(150, 255, 150);
+            } else
+                NamesColumn1[i].Text = string.Empty;
 
             if (i < offlineFriends.Count)
-                NamesColumn2[i]
-                    .Update(offlineFriends.Array[i].Name, new Color(150, 150, 150));
-            else
-                NamesColumn2[i]
-                    .Update(string.Empty, Color.White);
+            {
+                NamesColumn2[i].Text = offlineFriends.Array[i].Name;
+                NamesColumn2[i].ForegroundColor = new Color(150, 150, 150);
+            } else
+                NamesColumn2[i].Text = string.Empty;
         }
     }
 

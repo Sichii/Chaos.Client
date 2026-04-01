@@ -1,8 +1,6 @@
 #region
 using Chaos.Client.Controls.Components;
-using Chaos.Client.Rendering;
 using Microsoft.Xna.Framework;
-using Microsoft.Xna.Framework.Graphics;
 #endregion
 
 namespace Chaos.Client.Controls.World.Popups.Exchange;
@@ -18,7 +16,7 @@ public sealed class ExchangeItemControl : UIPanel
     private const int TEXT_OFFSET_X = 36;
     private readonly UIImage Icon;
 
-    private readonly TextElement NameTextElement;
+    private readonly UILabel NameLabel;
 
     public ExchangeItemControl()
     {
@@ -36,7 +34,16 @@ public sealed class ExchangeItemControl : UIPanel
 
         AddChild(Icon);
 
-        NameTextElement = new TextElement();
+        NameLabel = new UILabel
+        {
+            Name = "ItemName",
+            X = TEXT_OFFSET_X,
+            Y = (Height - TextRenderer.CHAR_HEIGHT) / 2,
+            Width = 200,
+            Height = TextRenderer.CHAR_HEIGHT
+        };
+
+        AddChild(NameLabel);
     }
 
     public void ClearItem()
@@ -45,22 +52,11 @@ public sealed class ExchangeItemControl : UIPanel
         Visible = false;
     }
 
-    public override void Draw(SpriteBatch spriteBatch)
-    {
-        if (!Visible)
-            return;
-
-        base.Draw(spriteBatch);
-
-        // Draw name text vertically centered with the icon
-        var textY = ScreenY + (Height - TextRenderer.CHAR_HEIGHT) / 2;
-        NameTextElement.Draw(spriteBatch, new Vector2(ScreenX + TEXT_OFFSET_X, textY));
-    }
-
     public void SetItem(ushort sprite, string name)
     {
         Icon.Texture = UiRenderer.Instance!.GetItemIcon(sprite);
-        NameTextElement.Update(name, Color.White);
+        NameLabel.Text = name;
+        NameLabel.ForegroundColor = Color.White;
         Visible = true;
     }
 }

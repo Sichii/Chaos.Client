@@ -4,7 +4,6 @@ using Chaos.Client.Data.Models;
 using Chaos.Client.Extensions;
 using Chaos.Client.Models;
 using Chaos.Client.Networking;
-using Chaos.Client.Rendering;
 using Chaos.Client.Systems;
 using Chaos.Client.ViewModel;
 using Chaos.DarkAges.Definitions;
@@ -434,10 +433,10 @@ public static class WorldState
 
     private static string? LookupSkillChant(string? name)
     {
-        if (string.IsNullOrEmpty(name) || !DataContext.PlayerData.IsInitialized)
+        if (string.IsNullOrEmpty(name) || !DataContext.LocalPlayerSettings.IsInitialized)
             return null;
 
-        CachedSkillChants ??= DataContext.PlayerData.LoadSkillChants();
+        CachedSkillChants ??= DataContext.LocalPlayerSettings.LoadSkillChants();
 
         foreach (var entry in CachedSkillChants)
             if (entry.Name.EqualsI(name))
@@ -448,10 +447,10 @@ public static class WorldState
 
     private static string[]? LookupSpellChants(string? name)
     {
-        if (string.IsNullOrEmpty(name) || !DataContext.PlayerData.IsInitialized)
+        if (string.IsNullOrEmpty(name) || !DataContext.LocalPlayerSettings.IsInitialized)
             return null;
 
-        CachedSpellChants ??= DataContext.PlayerData.LoadSpellChants();
+        CachedSpellChants ??= DataContext.LocalPlayerSettings.LoadSpellChants();
 
         foreach (var entry in CachedSpellChants)
             if (entry.Name.EqualsI(name))

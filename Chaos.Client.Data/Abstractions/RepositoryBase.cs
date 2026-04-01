@@ -15,7 +15,11 @@ public abstract class RepositoryBase
                 .RegisterPostEvictionCallback(HandleDisposableEntries);
 
     protected virtual T GetOrCreate<T>(string key, Func<T> factory)
-        => Cache.SafeGetOrCreate(
+    {
+        if (Cache.TryGetValue(key, out T? cached))
+            return cached!;
+
+        return Cache.SafeGetOrCreate(
             key,
             entry =>
             {
@@ -23,6 +27,22 @@ public abstract class RepositoryBase
 
                 return factory();
             });
+    }
+
+    protected virtual T GetOrCreate<T>(int key, Func<T> factory)
+    {
+        if (Cache.TryGetValue(key, out T? cached))
+            return cached!;
+
+        return Cache.SafeGetOrCreate(
+            key,
+            entry =>
+            {
+                ConfigureEntry(entry);
+
+                return factory();
+            });
+    }
 
     protected static void HandleDisposableEntries(
         object key,

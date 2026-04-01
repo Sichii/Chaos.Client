@@ -1,6 +1,5 @@
 #region
 using Chaos.Client.Extensions;
-using Chaos.Client.Rendering;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 #endregion
@@ -16,7 +15,8 @@ public sealed class TextElement
     private bool IsShadowed;
     private Color RenderedShadowColor;
     public TextAlignment Alignment { get; set; } = TextAlignment.Left;
-    public Color Color { get; private set; } = Color.White;
+    public Color Color { get; private set; } = LegendColors.Silver;
+    public bool ColorCodesEnabled { get; set; } = true;
     public int Height { get; private set; }
     public string Text { get; private set; } = string.Empty;
     public int Width { get; private set; }
@@ -37,19 +37,22 @@ public sealed class TextElement
                 position,
                 Text,
                 Color,
-                RenderedShadowColor);
+                RenderedShadowColor,
+                ColorCodesEnabled);
         else if (WrappedLines is not null)
             TextRenderer.DrawLines(
                 spriteBatch,
                 position,
                 WrappedLines,
-                Color);
+                Color,
+                ColorCodesEnabled);
         else
             TextRenderer.DrawText(
                 spriteBatch,
                 position,
                 Text,
-                Color);
+                Color,
+                ColorCodesEnabled);
     }
 
     /// <summary>

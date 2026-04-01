@@ -3,7 +3,6 @@ using Chaos.Client.Collections;
 using Chaos.Client.Controls.Components;
 using Chaos.Client.Data;
 using Chaos.Client.Models;
-using Chaos.Client.Rendering;
 using Chaos.Networking.Entities.Server;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Input;

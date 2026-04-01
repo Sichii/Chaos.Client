@@ -2,7 +2,6 @@
 using Chaos.Client.Controls.Components;
 using Chaos.Client.Data;
 using Chaos.Client.Extensions;
-using Chaos.Client.Rendering;
 using Chaos.Client.Utilities;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
@@ -67,34 +66,24 @@ public sealed class OkPopupMessageControl : UIPanel
         this.CenterOnScreen();
         Background = TextureConverter.ToTexture2D(composite);
 
-        // OK button (butt001.epf — frame indices for OK)
-        var cache = UiRenderer.Instance!;
-        var okNormalTex = cache.GetEpfTexture("butt001.epf", OK_NORMAL);
-        var okPressedTex = cache.GetEpfTexture("butt001.epf", OK_PRESSED);
-
-        var btnWidth = okNormalTex?.Width ?? 0;
-        var btnHeight = okNormalTex?.Height ?? 0;
-
-        OkButton = new UIButton
-        {
-            Name = "OK",
-            X = totalWidth - borderSize - btnWidth - BUTTON_MARGIN + 4,
-            Y = totalHeight - borderSize - btnHeight - BUTTON_MARGIN + 5,
-            Width = btnWidth,
-            Height = btnHeight,
-            NormalTexture = okNormalTex,
-            PressedTexture = okPressedTex
-        };
-        OkButton.OnClick += () => OnOk?.Invoke();
-        AddChild(OkButton);
-
         // Content area — text fills above the button row
         ContentX = borderSize + CONTENT_PADDING;
         ContentY = borderSize + CONTENT_PADDING;
         ContentWidth = interiorWidth - CONTENT_PADDING * 2;
         ContentHeight = INTERIOR_HEIGHT - CONTENT_PADDING * 2;
 
-        // Cancel button (optional)
+        // Button textures
+        var cache = UiRenderer.Instance!;
+        var okNormalTex = cache.GetEpfTexture("butt001.epf", OK_NORMAL);
+        var okPressedTex = cache.GetEpfTexture("butt001.epf", OK_PRESSED);
+
+        var okWidth = okNormalTex?.Width ?? 0;
+        var okHeight = okNormalTex?.Height ?? 0;
+        var buttonY = totalHeight - borderSize - okHeight - BUTTON_MARGIN + 5;
+        var rightButtonX = totalWidth - borderSize - BUTTON_MARGIN + 4;
+        int okX;
+
+        // Cancel button (optional) — positioned on the right
         if (showCancel)
         {
             var cancelNormalTex = cache.GetEpfTexture("butt001.epf", CANCEL_NORMAL);
@@ -105,8 +94,8 @@ public sealed class OkPopupMessageControl : UIPanel
             CancelButton = new UIButton
             {
                 Name = "Cancel",
-                X = OkButton.X - cancelWidth - BUTTON_MARGIN,
-                Y = OkButton.Y,
+                X = rightButtonX - cancelWidth,
+                Y = buttonY,
                 Width = cancelWidth,
                 Height = cancelNormalTex?.Height ?? 0,
                 NormalTexture = cancelNormalTex,
@@ -114,7 +103,26 @@ public sealed class OkPopupMessageControl : UIPanel
             };
             CancelButton.OnClick += () => OnCancel?.Invoke();
             AddChild(CancelButton);
+
+            okX = CancelButton.X - okWidth - BUTTON_MARGIN;
+        } else
+        {
+            okX = rightButtonX - okWidth;
         }
+
+        // OK button — left of Cancel, or slides right when Cancel absent
+        OkButton = new UIButton
+        {
+            Name = "OK",
+            X = okX,
+            Y = buttonY,
+            Width = okWidth,
+            Height = okHeight,
+            NormalTexture = okNormalTex,
+            PressedTexture = okPressedTex
+        };
+        OkButton.OnClick += () => OnOk?.Invoke();
+        AddChild(OkButton);
     }
 
     public override void Draw(SpriteBatch spriteBatch)

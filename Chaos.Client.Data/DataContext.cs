@@ -6,7 +6,7 @@ namespace Chaos.Client.Data;
 
 public static class DataContext
 {
-    public static AislingDataRepository AislingData { get; private set; } = null!;
+    public static AislingDrawDataRepository AislingDrawData { get; private set; } = null!;
 
     /// <summary>
     ///     The client version sent during the lobby handshake.
@@ -33,11 +33,11 @@ public static class DataContext
     /// </summary>
     public static int LobbyPort { get; private set; }
 
+    public static LocalPlayerSettingsRepository LocalPlayerSettings { get; private set; } = null!;
+
     public static MapFileRepository MapsFiles { get; private set; } = null!;
     public static MetaFileRepository MetaFiles { get; private set; } = null!;
-    public static PanelIconRepository PanelIcons { get; private set; } = null!;
-    public static PanelItemRepository PanelItems { get; private set; } = null!;
-    public static PlayerDataRepository PlayerData { get; private set; } = null!;
+    public static PanelSpriteRepository PanelSprites { get; private set; } = null!;
     public static TileRepository Tiles { get; private set; } = null!;
     public static UiComponentRepository UserControls { get; private set; } = null!;
 
@@ -52,15 +52,16 @@ public static class DataContext
         LobbyHost = lobbyHost;
         LobbyPort = lobbyPort;
 
-        AislingData = new AislingDataRepository();
+        LegendPalette.Initialize();
+
+        AislingDrawData = new AislingDrawDataRepository();
         CreatureSprites = new CreatureSpriteRepository();
         Effects = new EffectsRepository();
         Fonts = new FontRepository();
         MapsFiles = new MapFileRepository();
         MetaFiles = new MetaFileRepository();
-        PanelIcons = new PanelIconRepository();
-        PanelItems = new PanelItemRepository();
-        PlayerData = new PlayerDataRepository();
+        PanelSprites = new PanelSpriteRepository();
+        LocalPlayerSettings = new LocalPlayerSettingsRepository();
         Tiles = new TileRepository();
         UserControls = new UiComponentRepository();
     }

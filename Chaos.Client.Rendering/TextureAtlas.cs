@@ -9,22 +9,6 @@ using SkiaSharp;
 namespace Chaos.Client.Rendering;
 
 /// <summary>
-///     Packing mode for a texture atlas.
-/// </summary>
-public enum PackingMode
-{
-    /// <summary>
-    ///     Fixed-size cells in a grid. All entries must be the same size. Zero wasted space.
-    /// </summary>
-    Grid,
-
-    /// <summary>
-    ///     Variable-size entries packed left-to-right in rows (shelves). Entries sorted by height descending.
-    /// </summary>
-    Shelf
-}
-
-/// <summary>
 ///     A region within an atlas texture.
 /// </summary>
 public readonly record struct AtlasRegion(Texture2D Atlas, Rectangle SourceRect);

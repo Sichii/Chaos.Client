@@ -1,7 +1,6 @@
 #region
 using Chaos.Client.Data.Utilities;
 using Chaos.Client.Models;
-using Chaos.Client.Rendering;
 using Chaos.DarkAges.Definitions;
 using Chaos.Geometry.Abstractions.Definitions;
 using Microsoft.Xna.Framework;

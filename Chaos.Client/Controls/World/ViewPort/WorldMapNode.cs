@@ -10,7 +10,7 @@ namespace Chaos.Client.Controls.World.ViewPort;
 ///     A single clickable node on the world map. Renders a small bordered box on the left followed by a text label.
 ///     Changes text color on hover.
 /// </summary>
-public sealed class WorldMapNode : UIElement
+public sealed class WorldMapNode : UIPanel
 {
     private static readonly Color BOX_BORDER_COLOR = new(100, 149, 237);
     private static readonly Color HOVER_TEXT_COLOR = new(247, 142, 24);
@@ -23,7 +23,7 @@ public sealed class WorldMapNode : UIElement
     private static Texture2D? SharedNormalBox;
     private static Texture2D? SharedHoveredBox;
 
-    private readonly TextElement Label;
+    private readonly UILabel Label;
     private readonly string Text;
     private bool IsHovered;
     public ushort CheckSum { get; }
@@ -47,14 +47,24 @@ public sealed class WorldMapNode : UIElement
         DestY = destY;
         CheckSum = checkSum;
         Text = text;
-        Label = new TextElement();
-        Label.Update(text, Color.White);
 
         EnsureBoxTextures();
 
-        var textWidth = Label.Width;
+        var textWidth = TextRenderer.MeasureWidth(text);
         Width = BOX_SIZE + BOX_GAP + textWidth;
         Height = Math.Max(BOX_SIZE, GLYPH_HEIGHT);
+
+        Label = new UILabel
+        {
+            Name = "NodeLabel",
+            X = BOX_SIZE + BOX_GAP,
+            Y = Height - GLYPH_HEIGHT,
+            Width = textWidth,
+            Height = GLYPH_HEIGHT,
+            Text = text
+        };
+
+        AddChild(Label);
     }
 
     /// <summary>
@@ -106,10 +116,8 @@ public sealed class WorldMapNode : UIElement
             spriteBatch.Draw(boxTexture, new Vector2(ScreenX + offsetX, boxY), Color.White);
         }
 
-        // Text bottom-aligned
-        var textHeight = Label.Height > 0 ? Label.Height : GLYPH_HEIGHT;
-        var textY = bottom - textHeight;
-        Label.Draw(spriteBatch, new Vector2(ScreenX + BOX_SIZE + BOX_GAP, textY));
+        // Children (Label) drawn by base
+        base.Draw(spriteBatch);
     }
 
     private static void EnsureBoxTextures()
@@ -127,7 +135,7 @@ public sealed class WorldMapNode : UIElement
             return;
 
         IsHovered = hovered;
-        Label.Update(Text, hovered ? HOVER_TEXT_COLOR : Color.White);
+        Label.ForegroundColor = hovered ? HOVER_TEXT_COLOR : Color.White;
     }
 
     public override void Update(GameTime gameTime, InputBuffer input) { }

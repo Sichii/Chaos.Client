@@ -4,6 +4,8 @@ using Chaos.Client.Data.Definitions;
 using Chaos.Client.Rendering.Models;
 using DALib.Definitions;
 using DALib.Drawing;
+using Microsoft.Xna.Framework;
+using Microsoft.Xna.Framework.Graphics;
 using SkiaSharp;
 #endregion
 
@@ -33,6 +35,45 @@ public sealed class EffectRenderer : IDisposable
             animation?.Dispose();
 
         AnimationCache.Clear();
+    }
+
+    /// <summary>
+    ///     Draws a single effect frame at the given tile center. Switches blend state for non-normal blend modes and restores
+    ///     AlphaBlend afterward. Requires the SpriteBatch to be in Immediate mode.
+    /// </summary>
+    public void Draw(
+        SpriteBatch batch,
+        GraphicsDevice device,
+        Camera camera,
+        int effectId,
+        int currentFrame,
+        EffectBlendMode blendMode,
+        float tileCenterX,
+        float tileCenterY,
+        Vector2 visualOffset)
+    {
+        var spriteFrame = GetFrame(effectId, currentFrame);
+
+        if (spriteFrame is null)
+            return;
+
+        var frame = spriteFrame.Value;
+        var drawX = tileCenterX + visualOffset.X - frame.CenterX + Math.Min(0, (int)frame.Left);
+        var drawY = tileCenterY + visualOffset.Y - frame.CenterY + Math.Min(0, (int)frame.Top);
+        var screenPos = camera.WorldToScreen(new Vector2(drawX, drawY));
+
+        if (blendMode != EffectBlendMode.Normal)
+            device.BlendState = blendMode switch
+            {
+                EffectBlendMode.Additive  => BlendState.Additive,
+                EffectBlendMode.SelfAlpha => BlendStates.Screen,
+                _                         => BlendState.AlphaBlend
+            };
+
+        batch.Draw(frame.Texture, screenPos, Color.White);
+
+        if (blendMode != EffectBlendMode.Normal)
+            device.BlendState = BlendState.AlphaBlend;
     }
 
     /// <summary>

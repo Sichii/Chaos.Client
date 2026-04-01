@@ -1,7 +1,6 @@
 #region
 using Chaos.Client.Collections;
 using Chaos.Client.Data;
-using Chaos.Client.Rendering;
 using Chaos.Client.Systems;
 using Chaos.Geometry;
 using Chaos.Geometry.Abstractions;
@@ -71,14 +70,15 @@ public sealed partial class WorldScreen
     private void ClearTransientState()
     {
         WorldState.Clear();
-        ClearAislingCache();
+        Game.AislingRenderer.ClearCompositeCache();
         Overlays.Clear();
         DebugRenderer.Clear();
         NpcSession.HideAll();
         Pathfinding.Clear();
         PendingWalks.Clear();
         GroupHighlightedIds.Clear();
-        ClearGroupTintCache();
+        Game.AislingRenderer.ClearGroupTintCache();
+        Game.CreatureRenderer.ClearTintCaches();
     }
 
     private void HandleMapData(MapDataArgs args)
@@ -143,6 +143,7 @@ public sealed partial class WorldScreen
 
         MapLoading.Hide();
         FollowPlayerCamera();
+        Game.GcRequested = true;
     }
 
     private static Pathfinder BuildPathfinder(MapFile mapFile)

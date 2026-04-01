@@ -1,7 +1,6 @@
 #region
 using Chaos.Client.Controls.Components;
 using Chaos.Client.Controls.Generic;
-using Chaos.Client.Rendering;
 using Chaos.Client.Rendering.Models;
 using Chaos.DarkAges.Definitions;
 using Chaos.Networking.Entities.Server;

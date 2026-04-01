@@ -37,6 +37,10 @@ public sealed class PasswordChangeControl : PrefabPanel
         NewPasswordField = CreateTextBox("NewPassword");
         ConfirmPasswordField = CreateTextBox("Confirm");
 
+        NameField?.ForegroundColor = LegendColors.White;
+        CurrentPasswordField?.ForegroundColor = LegendColors.White;
+        NewPasswordField?.ForegroundColor = LegendColors.White;
+        ConfirmPasswordField?.ForegroundColor = LegendColors.White;
         CurrentPasswordField?.IsMasked = true;
         NewPasswordField?.IsMasked = true;
         ConfirmPasswordField?.IsMasked = true;

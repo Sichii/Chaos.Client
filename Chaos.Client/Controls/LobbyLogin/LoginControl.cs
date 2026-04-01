@@ -27,6 +27,8 @@ public sealed class LoginControl : PrefabPanel
         UsernameField = CreateTextBox("Name");
         PasswordField = CreateTextBox("Password");
 
+        UsernameField?.ForegroundColor = LegendColors.White;
+        PasswordField?.ForegroundColor = LegendColors.White;
         PasswordField?.IsMasked = true;
 
         if (UsernameField is not null)

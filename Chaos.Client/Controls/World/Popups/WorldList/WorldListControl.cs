@@ -3,7 +3,6 @@ using Chaos.Client.Collections;
 using Chaos.Client.Controls.Components;
 using Chaos.Client.Controls.Generic;
 using Chaos.Client.Models;
-using Chaos.Client.Rendering;
 using Chaos.Client.Utilities;
 using Chaos.DarkAges.Definitions;
 using Chaos.Extensions.Common;
@@ -275,27 +274,12 @@ public sealed class WorldListControl : PrefabPanel
     }
 
     private static Color MapWorldListColor(WorldListColor color)
-        => color switch
-        {
-            WorldListColor.LightBlue   => new Color(150, 200, 255),
-            WorldListColor.BrightRed   => new Color(255, 80, 80),
-            WorldListColor.LightYellow => new Color(255, 255, 150),
-            WorldListColor.LightOrange => new Color(255, 200, 100),
-            WorldListColor.Yellow      => Color.Yellow,
-            WorldListColor.LightGreen  => new Color(150, 255, 150),
-            WorldListColor.Blue        => new Color(100, 149, 237),
-            WorldListColor.LightPurple => new Color(200, 150, 255),
-            WorldListColor.DarkPurple  => new Color(150, 100, 200),
-            WorldListColor.Pink        => new Color(255, 150, 200),
-            WorldListColor.DarkGreen   => new Color(50, 150, 50),
-            WorldListColor.Green       => new Color(100, 255, 100),
-            WorldListColor.Orange      => Color.Orange,
-            WorldListColor.Brown       => new Color(180, 120, 60),
-            WorldListColor.Red         => Color.Red,
-            WorldListColor.Black       => new Color(40, 40, 40),
-            WorldListColor.Invisble    => Color.Transparent,
-            _                          => Color.White
-        };
+    {
+        if (color == WorldListColor.Invisble)
+            return Color.Transparent;
+
+        return LegendColors.Get((int)color);
+    }
 
     public event Action? OnClose;
 

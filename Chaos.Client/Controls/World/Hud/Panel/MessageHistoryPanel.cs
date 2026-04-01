@@ -1,7 +1,6 @@
 #region
 using Chaos.Client.Controls.Components;
 using Chaos.Client.Controls.Generic;
-using Chaos.Client.Rendering;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 #endregion
@@ -16,8 +15,10 @@ public sealed class MessageHistoryPanel : ExpandablePanel
 {
     private const int GLYPH_HEIGHT = 12;
     private readonly IReadOnlyList<string> History;
-    private readonly TextElement[] Lines;
+    private readonly UILabel[] Lines;
     private readonly Rectangle NormalDisplayBounds;
+    private readonly int PanelOriginX;
+    private readonly int PanelOriginY;
     private readonly ScrollBarControl ScrollBar;
 
     private Rectangle DisplayBounds;
@@ -33,17 +34,34 @@ public sealed class MessageHistoryPanel : ExpandablePanel
         Name = "MessageHistory";
         NormalDisplayBounds = displayBounds;
         DisplayBounds = displayBounds;
+        PanelOriginX = panelBounds.X;
+        PanelOriginY = panelBounds.Y;
         History = history;
 
         Background = UiRenderer.Instance!.GetSpfTexture("_nchatbk.spf");
 
         MaxVisibleLines = displayBounds.Height > 0 ? displayBounds.Height / GLYPH_HEIGHT : 0;
-        Lines = new TextElement[MaxVisibleLines];
-
-        for (var i = 0; i < MaxVisibleLines; i++)
-            Lines[i] = new TextElement();
+        Lines = new UILabel[MaxVisibleLines];
 
         var relX = displayBounds.X - panelBounds.X;
+
+        for (var i = 0; i < MaxVisibleLines; i++)
+        {
+            Lines[i] = new UILabel
+            {
+                Name = $"HistoryLine{i}",
+                X = relX,
+                Width = displayBounds.Width,
+                Height = GLYPH_HEIGHT,
+                PaddingLeft = 0,
+                PaddingTop = 0
+            };
+
+            AddChild(Lines[i]);
+        }
+
+        RepositionLabels();
+
         var relY = displayBounds.Y - panelBounds.Y;
 
         ScrollBar = new ScrollBarControl
@@ -75,32 +93,7 @@ public sealed class MessageHistoryPanel : ExpandablePanel
         ScrollBar.Visible = false;
     }
 
-    public override void Draw(SpriteBatch spriteBatch)
-    {
-        if (!Visible)
-            return;
-
-        // ExpandablePanel.Draw handles expanded bg + children, or normal bg + children
-        base.Draw(spriteBatch);
-
-        var maxLines = Math.Min(MaxVisibleLines, Lines.Length);
-
-        if ((maxLines == 0) || (History.Count == 0))
-            return;
-
-        var baseY = DisplayBounds.Y + DisplayBounds.Height;
-
-        for (var i = maxLines - 1; i >= 0; i--)
-        {
-            baseY -= GLYPH_HEIGHT;
-
-            if (baseY < DisplayBounds.Y)
-                break;
-
-            Lines[i]
-                .Draw(spriteBatch, new Vector2(DisplayBounds.X, baseY));
-        }
-    }
+    // Labels are children — drawn automatically by base.Draw()
 
     private void RefreshDisplay()
     {
@@ -116,14 +109,27 @@ public sealed class MessageHistoryPanel : ExpandablePanel
 
         for (var i = startIndex; (i < History.Count) && (lineIndex < maxLines); i++)
         {
-            Lines[lineIndex]
-                .Update(History[i], Color.Orange);
+            Lines[lineIndex].Text = History[i];
+            Lines[lineIndex].ForegroundColor = Color.Orange;
             lineIndex++;
         }
 
         for (; lineIndex < maxLines; lineIndex++)
-            Lines[lineIndex]
-                .Update(string.Empty, Color.White);
+            Lines[lineIndex].Text = string.Empty;
+    }
+
+    private void RepositionLabels()
+    {
+        var relY = DisplayBounds.Y - PanelOriginY;
+        var maxLines = Math.Min(MaxVisibleLines, Lines.Length);
+
+        for (var i = 0; i < Lines.Length; i++)
+            if (i < maxLines)
+            {
+                Lines[i].Y = relY + DisplayBounds.Height - (maxLines - i) * GLYPH_HEIGHT;
+                Lines[i].Visible = true;
+            } else
+                Lines[i].Visible = false;
     }
 
     public override void SetExpanded(bool expanded)
@@ -133,6 +139,7 @@ public sealed class MessageHistoryPanel : ExpandablePanel
         DisplayBounds = expanded ? ExpandedDisplayBounds : NormalDisplayBounds;
         MaxVisibleLines = DisplayBounds.Height > 0 ? DisplayBounds.Height / GLYPH_HEIGHT : 0;
         ScrollBar.Visible = expanded;
+        RepositionLabels();
         RenderedScrollOffset = -1;
     }
 

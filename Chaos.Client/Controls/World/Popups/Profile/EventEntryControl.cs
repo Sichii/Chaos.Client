@@ -1,7 +1,6 @@
 #region
 using Chaos.Client.Controls.Components;
 using Chaos.Client.Data.Models;
-using Chaos.Client.Rendering;
 using Microsoft.Xna.Framework;
 #endregion
 
@@ -71,7 +70,7 @@ public sealed class EventEntryControl : PrefabPanel
         if (LevelLabel is not null)
         {
             LevelLabel.Text = FormatCircleText(entry.Page);
-            LevelLabel.ForegroundColor = new Color(200, 200, 200);
+            LevelLabel.ForegroundColor = LegendColors.White;
         }
 
         // leicon.epf: frame 0 = completed, 1 = available, 2 = unavailable

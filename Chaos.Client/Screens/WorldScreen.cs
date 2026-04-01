@@ -14,7 +14,7 @@ using Chaos.Client.Controls.World.Popups.WorldList;
 using Chaos.Client.Controls.World.ViewPort;
 using Chaos.Client.Extensions;
 using Chaos.Client.Models;
-using Chaos.Client.Rendering;
+using Chaos.Client.Rendering.Models;
 using Chaos.Client.Systems;
 using Chaos.Client.ViewModel;
 using Chaos.DarkAges.Definitions;
@@ -35,10 +35,9 @@ public sealed partial class WorldScreen : IScreen
     // Spacebar (assail) repeat interval when held
     private const float SPACEBAR_INTERVAL_MS = 100f;
 
-    // Aisling body anchor within the padded composite canvas.
-    // Canvas is padded by 27px on each side for weapon/accessory layers, so body center shifts right.
-    private const int BODY_CENTER_X = 28 + 27;
-    private const int BODY_CENTER_Y = 70;
+    // Aisling body anchor within the padded composite canvas — matches AislingRenderer.CANVAS_CENTER_X/Y.
+    private const int BODY_CENTER_X = AislingRenderer.CANVAS_CENTER_X;
+    private const int BODY_CENTER_Y = AislingRenderer.CANVAS_CENTER_Y;
 
     // Entity hitbox dimensions (screen pixels)
     private const int HITBOX_WIDTH = 28;
@@ -46,9 +45,6 @@ public sealed partial class WorldScreen : IScreen
 
     private const string SPOUSE_PREFIX = "Spouse: ";
     private const string GROUP_MEMBERS_PREFIX = "Group members";
-
-    // Aisling composited texture cache: keyed by entity ID, invalidated when appearance/frame/suffix changes.
-    private readonly Dictionary<uint, AislingDrawDataEntry> AislingCache = new();
 
     private readonly CastingSystem CastingSystem = new();
 
@@ -140,6 +136,7 @@ public sealed partial class WorldScreen : IScreen
     private SocialStatusControl SocialStatusPicker = null!;
     private float SpacebarTimer;
     private SelfProfileTabControl StatusBook = null!;
+    private TabMapEntity[] TabMapEntities = [];
     private TabMapRenderer TabMapRenderer = null!;
     private bool TabMapVisible;
     private TextPopupControl TextPopup = null!;
@@ -234,7 +231,7 @@ public sealed partial class WorldScreen : IScreen
         Game.Connection.OnLightLevel += HandleLightLevel;
 
         // Metadata sync — reload metadata consumers after server handshake completes
-        Game.MetaData.OnSyncComplete += HandleMetaDataSyncComplete;
+        Game.OnMetaDataSyncComplete += HandleMetaDataSyncComplete;
 
         // Notepad popups
         Game.Connection.OnDisplayReadonlyNotepad += HandleDisplayReadonlyNotepad;
@@ -649,7 +646,7 @@ public sealed partial class WorldScreen : IScreen
         Game.Connection.OnHealthBar -= HandleHealthBar;
         Game.Connection.OnEffect -= HandleEffect;
         Game.Connection.OnLightLevel -= HandleLightLevel;
-        Game.MetaData.OnSyncComplete -= HandleMetaDataSyncComplete;
+        Game.OnMetaDataSyncComplete -= HandleMetaDataSyncComplete;
         Game.Connection.OnDisplayReadonlyNotepad -= HandleDisplayReadonlyNotepad;
         Game.Connection.OnDisplayEditableNotepad -= HandleDisplayEditableNotepad;
         Game.Connection.OnWorldMap -= HandleWorldMap;
@@ -668,8 +665,9 @@ public sealed partial class WorldScreen : IScreen
         DarknessRenderer.Dispose();
         SilhouetteRenderer.Dispose();
         Root?.Dispose();
-        ClearAislingCache();
-        ClearGroupTintCache();
+        Game.AislingRenderer.ClearCompositeCache();
+        Game.AislingRenderer.ClearGroupTintCache();
+        Game.CreatureRenderer.ClearTintCaches();
         Game.ItemRenderer.Clear();
         Overlays.Clear();
         DebugRenderer.Clear();

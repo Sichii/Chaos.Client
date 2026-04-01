@@ -1,7 +1,6 @@
 #region
 using Chaos.Client.Data;
 using Chaos.Client.Data.Models;
-using Chaos.Client.Rendering.Definitions;
 using DALib.Data;
 using DALib.Definitions;
 using DALib.Drawing;
@@ -156,7 +155,7 @@ public sealed class MapRenderer : IDisposable
         {
             for (var x = bgMinX; x <= bgMaxX; x++)
             {
-                var bgIndex = mapFile.Tiles[x, y].Background;
+                int bgIndex = mapFile.Tiles[x, y].Background;
 
                 if (bgIndex <= 0)
                     continue;

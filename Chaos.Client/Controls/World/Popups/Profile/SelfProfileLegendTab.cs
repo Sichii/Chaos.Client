@@ -2,7 +2,6 @@
 using Chaos.Client.Controls.Components;
 using Chaos.Client.Controls.Generic;
 using Chaos.Client.Models;
-using Chaos.Client.Rendering;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 #endregion
@@ -54,7 +53,7 @@ public sealed class SelfProfileLegendTab : PrefabPanel
             {
                 Name = $"LegendRow{i}",
                 X = LegendListRect.X,
-                Y = LegendListRect.Y + i * RowHeight,
+                Y = LegendListRect.Y + i * (RowHeight + 1),
                 Width = LegendListRect.Width,
                 Height = RowHeight
             };

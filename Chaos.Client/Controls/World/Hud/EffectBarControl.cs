@@ -1,6 +1,5 @@
 #region
 using Chaos.Client.Controls.Components;
-using Chaos.Client.Rendering;
 using Chaos.DarkAges.Definitions;
 using Microsoft.Xna.Framework.Graphics;
 #endregion

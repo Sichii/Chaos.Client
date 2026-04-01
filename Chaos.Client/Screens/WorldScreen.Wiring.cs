@@ -5,10 +5,8 @@ using Chaos.Client.Controls.World.Hud;
 using Chaos.Client.Controls.World.Hud.Panel;
 using Chaos.Client.Controls.World.Popups.Options;
 using Chaos.Client.Extensions;
-using Chaos.Client.Rendering;
 using Chaos.Client.Systems;
 using Chaos.DarkAges.Definitions;
-using Microsoft.Xna.Framework.Graphics;
 #endregion
 
 namespace Chaos.Client.Screens;
@@ -213,16 +211,6 @@ public sealed partial class WorldScreen
         };
     }
     #endregion
-
-    private record struct AislingDrawDataEntry(
-        AislingAppearance Appearance,
-        int FrameIndex,
-        bool Flip,
-        bool IsFrontFacing,
-        string AnimSuffix,
-        int EmotionFrame,
-        int GroundPaintHeight,
-        Texture2D? Texture);
 
     #region Board/Mail Wiring
     private void WireMailControls()

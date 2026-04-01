@@ -1,4 +1,4 @@
-namespace Chaos.Client.Networking;
+namespace Chaos.Client.Networking.Definitions;
 
 /// <summary>
 ///     Represents the current phase of the client's connection to the server.
@@ -29,4 +29,18 @@ public enum ConnectionState
     ///     Connected to the world server, game is active.
     /// </summary>
     World
+}
+
+[Flags]
+public enum WorldEntryState : byte
+{
+    None = 0,
+    UserId = 1 << 0,
+    MapInfo = 1 << 1,
+    MapLoaded = 1 << 2,
+    MapChangeComplete = 1 << 3,
+    Location = 1 << 4,
+    Attributes = 1 << 5,
+
+    AllRequired = UserId | MapInfo | MapLoaded | MapChangeComplete | Location | Attributes
 }

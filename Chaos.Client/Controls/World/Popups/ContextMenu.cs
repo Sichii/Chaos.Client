@@ -1,6 +1,5 @@
 #region
 using Chaos.Client.Controls.Components;
-using Chaos.Client.Rendering;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using Microsoft.Xna.Framework.Input;
@@ -12,11 +11,17 @@ namespace Chaos.Client.Controls.World.Popups;
 ///     A floating context menu that appears at a screen position with a list of text options. Clicking an option fires its
 ///     callback. Clicking outside or pressing Escape dismisses it.
 /// </summary>
-public sealed class ContextMenu : UIElement
+public sealed class ContextMenu : UIPanel
 {
     private const int ITEM_HEIGHT = 14;
     private const int PADDING_X = 6;
     private const int PADDING_Y = 2;
+
+    private static readonly Color HoverColor = new(
+        80,
+        120,
+        200,
+        150);
 
     private readonly List<MenuItem> Items = [];
     private int HoveredIndex = -1;
@@ -33,40 +38,25 @@ public sealed class ContextMenu : UIElement
         BorderColor = Color.Gray;
     }
 
-    private void ClearItems() => Items.Clear();
+    private void ClearItems()
+    {
+        foreach (var item in Items)
+            RemoveChild(item.Label.Name);
+
+        Items.Clear();
+    }
 
     public override void Draw(SpriteBatch spriteBatch)
     {
         if (!Visible || (Items.Count == 0))
             return;
 
-        base.Draw(spriteBatch);
-
-        var sx = ScreenX;
-        var sy = ScreenY;
-
+        // Set hover highlight as BackgroundColor on the hovered label (draws behind text)
         for (var i = 0; i < Items.Count; i++)
-        {
-            var itemY = sy + PADDING_Y + i * ITEM_HEIGHT;
+            Items[i].Label.BackgroundColor = i == HoveredIndex ? HoverColor : null;
 
-            if (i == HoveredIndex)
-                DrawRect(
-                    spriteBatch,
-                    new Rectangle(
-                        sx + 1,
-                        itemY,
-                        Width - 2,
-                        ITEM_HEIGHT),
-                    new Color(
-                        80,
-                        120,
-                        200,
-                        150));
-
-            Items[i]
-                .Cache
-                .Draw(spriteBatch, new Vector2(sx + PADDING_X, itemY + 1));
-        }
+        // Draw background/border + children (labels with hover bg)
+        base.Draw(spriteBatch);
     }
 
     public void Hide()
@@ -81,11 +71,23 @@ public sealed class ContextMenu : UIElement
 
         var maxWidth = 0;
 
-        foreach ((var text, var callback) in options)
+        for (var i = 0; i < options.Length; i++)
         {
-            var menuTextElement = new TextElement();
-            menuTextElement.Update(text, Color.White);
-            Items.Add(new MenuItem(menuTextElement, callback));
+            (var text, var callback) = options[i];
+
+            var label = new UILabel
+            {
+                Name = $"MenuItem{i}",
+                X = 1,
+                Y = PADDING_Y + i * ITEM_HEIGHT,
+                Height = ITEM_HEIGHT,
+                Text = text,
+                PaddingLeft = PADDING_X - 1,
+                PaddingTop = 1
+            };
+
+            AddChild(label);
+            Items.Add(new MenuItem(label, callback));
 
             var textWidth = TextRenderer.MeasureWidth(text);
 
@@ -97,6 +99,10 @@ public sealed class ContextMenu : UIElement
         Y = screenY;
         Width = maxWidth + PADDING_X * 2;
         Height = Items.Count * ITEM_HEIGHT + PADDING_Y * 2;
+
+        // Set label widths to fill the menu (matching original hover rect width)
+        foreach (var item in Items)
+            item.Label.Width = Width - 2;
 
         // Clamp to screen bounds
         if ((X + Width) > ChaosGame.VIRTUAL_WIDTH)
@@ -142,5 +148,5 @@ public sealed class ContextMenu : UIElement
             Hide();
     }
 
-    private record struct MenuItem(TextElement Cache, Action Callback);
+    private record struct MenuItem(UILabel Label, Action Callback);
 }

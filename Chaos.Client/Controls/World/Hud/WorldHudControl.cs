@@ -3,7 +3,6 @@ using Chaos.Client.Collections;
 using Chaos.Client.Controls.Components;
 using Chaos.Client.Controls.World.Hud.Panel;
 using Chaos.Client.Data;
-using Chaos.Client.Rendering;
 using Chaos.Client.ViewModel;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
@@ -113,7 +112,7 @@ public sealed class WorldHudControl : PrefabPanel, IWorldHud
             0,
             0,
             0,
-            128);
+            160);
 
         // Prompt — same position/size as ChatInput, white bg + black text, hidden by default
         Prompt = new PromptControl
@@ -144,6 +143,7 @@ public sealed class WorldHudControl : PrefabPanel, IWorldHud
         // Info text areas
         PlayerNameLabel = CreateLabel("SZ_ID", TextAlignment.Center)!;
         ZoneNameLabel = CreateLabel("SZ_ZONE", TextAlignment.Center)!;
+        ZoneNameLabel.ForegroundColor = LegendColors.White;
         WeightLabel = CreateLabel("SZ_WEIGHT", TextAlignment.Center)!;
         CoordsLabel = CreateLabel("SZ_XY", TextAlignment.Center)!;
         ServerNameLabel = CreateLabel("SZ_SERVER", TextAlignment.Center);

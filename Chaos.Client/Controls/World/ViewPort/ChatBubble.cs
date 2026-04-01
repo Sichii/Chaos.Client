@@ -1,7 +1,6 @@
 #region
 using System.Buffers;
 using Chaos.Client.Controls.Components;
-using Chaos.Client.Rendering;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 #endregion
@@ -38,8 +37,8 @@ public sealed class ChatBubble : UIImage
         0,
         85);
 
-    private static readonly Color NormalTextColor = Color.White;
-    private static readonly Color ShoutTextColor = Color.Yellow;
+    private static readonly Color NormalTextColor = LegendColors.White;
+    private static readonly Color ShoutTextColor = TextColors.Shout;
 
     private readonly int BubbleBodyHeight;
     private readonly List<string> Lines;

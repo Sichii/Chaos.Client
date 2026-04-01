@@ -19,11 +19,7 @@ namespace Chaos.Client.Networking;
 /// </summary>
 public sealed class ConnectionManager : IDisposable
 {
-    private readonly Dictionary<EquipmentSlot, EquipmentInfo> EquipmentState = new();
-    private readonly Dictionary<byte, InventorySlotInfo> InventoryState = new();
     private readonly Action<ServerPacket>?[] PacketHandlers = new Action<ServerPacket>?[byte.MaxValue + 1];
-    private readonly Dictionary<byte, (ushort Sprite, string Name)> SkillState = new();
-    private readonly Dictionary<byte, SpellInfo> SpellState = new();
     private WorldEntryState EntryState;
     private RedirectInfo? PendingRedirect;
 
@@ -81,26 +77,6 @@ public sealed class ConnectionManager : IDisposable
     ///     The underlying game client.
     /// </summary>
     public GameClient Client { get; }
-
-    /// <summary>
-    ///     Buffered equipment state (slot → info), populated during world entry.
-    /// </summary>
-    public IReadOnlyDictionary<EquipmentSlot, EquipmentInfo> Equipment => EquipmentState;
-
-    /// <summary>
-    ///     Buffered inventory sprites (slot → sprite), populated during world entry.
-    /// </summary>
-    public IReadOnlyDictionary<byte, InventorySlotInfo> InventorySlots => InventoryState;
-
-    /// <summary>
-    ///     Buffered skill data (slot → sprite + name), populated during world entry.
-    /// </summary>
-    public IReadOnlyDictionary<byte, (ushort Sprite, string Name)> SkillSlots => SkillState;
-
-    /// <summary>
-    ///     Buffered spell data (slot → sprite + name), populated during world entry.
-    /// </summary>
-    public IReadOnlyDictionary<byte, SpellInfo> SpellSlots => SpellState;
 
     public ConnectionManager()
     {
@@ -332,10 +308,6 @@ public sealed class ConnectionManager : IDisposable
         Client.Crypto = new Crypto(redirect.Seed, redirect.Key, keySaltSeed);
         Client.SetSequence(0);
         EntryState = WorldEntryState.None;
-        InventoryState.Clear();
-        SkillState.Clear();
-        SpellState.Clear();
-        EquipmentState.Clear();
         PendingTargetState = redirect.TargetState;
 
         try
@@ -364,18 +336,6 @@ public sealed class ConnectionManager : IDisposable
 
         if (State == ConnectionState.Login)
             RequestHomepage();
-    }
-
-    /// <summary>
-    ///     Returns the first empty inventory slot (1-based), or 0 if inventory is full.
-    /// </summary>
-    public byte GetFirstEmptyInventorySlot()
-    {
-        for (byte i = 1; i <= 59; i++)
-            if (!InventoryState.ContainsKey(i))
-                return i;
-
-        return 0;
     }
 
     /// <summary>
@@ -1552,15 +1512,6 @@ public sealed class ConnectionManager : IDisposable
 
     private void HandleMapChangeComplete(ServerPacket _)
     {
-        // Map tile data is fully loaded — ideal time for a full collection while the loading screen is still up
-        GC.Collect(
-            2,
-            GCCollectionMode.Aggressive,
-            true,
-            true);
-
-        //GC.WaitForPendingFinalizers();
-
         EntryState |= WorldEntryState.MapChangeComplete;
         CheckWorldEntryComplete();
     }
@@ -1735,20 +1686,12 @@ public sealed class ConnectionManager : IDisposable
     private void HandleAddItemToPane(ServerPacket pkt)
     {
         var args = Client.Deserialize<AddItemToPaneArgs>(in pkt);
-        var displayName = args.Item is { Stackable: true, Count: > 0 } ? $"{args.Item.Name}[ {args.Item.Count} ]" : args.Item.Name;
-
-        InventoryState[args.Item.Slot] = new InventorySlotInfo(
-            args.Item.Sprite,
-            displayName,
-            args.Item.Stackable,
-            args.Item.Count ?? 0);
         OnAddItemToPane?.Invoke(args);
     }
 
     private void HandleRemoveItemFromPane(ServerPacket pkt)
     {
         var args = Client.Deserialize<RemoveItemFromPaneArgs>(in pkt);
-        InventoryState.Remove(args.Slot);
         OnRemoveItemFromPane?.Invoke(args);
     }
 
@@ -1757,28 +1700,24 @@ public sealed class ConnectionManager : IDisposable
     private void HandleAddSkillToPane(ServerPacket pkt)
     {
         var args = Client.Deserialize<AddSkillToPaneArgs>(in pkt);
-        SkillState[args.Skill.Slot] = (args.Skill.Sprite, args.Skill.PanelName);
         OnAddSkillToPane?.Invoke(args);
     }
 
     private void HandleRemoveSkillFromPane(ServerPacket pkt)
     {
         var args = Client.Deserialize<RemoveSkillFromPaneArgs>(in pkt);
-        SkillState.Remove(args.Slot);
         OnRemoveSkillFromPane?.Invoke(args);
     }
 
     private void HandleAddSpellToPane(ServerPacket pkt)
     {
         var args = Client.Deserialize<AddSpellToPaneArgs>(in pkt);
-        SpellState[args.Spell.Slot] = args.Spell;
         OnAddSpellToPane?.Invoke(args);
     }
 
     private void HandleRemoveSpellFromPane(ServerPacket pkt)
     {
         var args = Client.Deserialize<RemoveSpellFromPaneArgs>(in pkt);
-        SpellState.Remove(args.Slot);
         OnRemoveSpellFromPane?.Invoke(args);
     }
 
@@ -1787,21 +1726,12 @@ public sealed class ConnectionManager : IDisposable
     private void HandleEquipment(ServerPacket pkt)
     {
         var args = Client.Deserialize<EquipmentArgs>(in pkt);
-
-        EquipmentState[args.Slot] = new EquipmentInfo(
-            args.Item.Sprite,
-            args.Item.Color,
-            args.Item.Name,
-            args.Item.MaxDurability,
-            args.Item.CurrentDurability);
-
         OnEquipment?.Invoke(args);
     }
 
     private void HandleDisplayUnequip(ServerPacket pkt)
     {
         var args = Client.Deserialize<DisplayUnequipArgs>(in pkt);
-        EquipmentState.Remove(args.EquipmentSlot);
         OnDisplayUnequip?.Invoke(args);
     }
 
@@ -1978,16 +1908,6 @@ public sealed class ConnectionManager : IDisposable
 }
 
 /// <summary>
-///     Buffered equipment slot data received from the server.
-/// </summary>
-public readonly record struct EquipmentInfo(
-    ushort Sprite,
-    DisplayColor Color,
-    string Name,
-    int MaxDurability,
-    int CurrentDurability);
-
-/// <summary>
 ///     Contains redirect information received from the server.
 /// </summary>
 public readonly record struct RedirectInfo(
@@ -1997,20 +1917,3 @@ public readonly record struct RedirectInfo(
     string Name,
     uint Id,
     ConnectionState TargetState);
-
-/// <summary>
-///     Tracks which world entry packets have been received.
-/// </summary>
-[Flags]
-public enum WorldEntryState : byte
-{
-    None = 0,
-    UserId = 1 << 0,
-    MapInfo = 1 << 1,
-    MapLoaded = 1 << 2,
-    MapChangeComplete = 1 << 3,
-    Location = 1 << 4,
-    Attributes = 1 << 5,
-
-    AllRequired = UserId | MapInfo | MapLoaded | MapChangeComplete | Location | Attributes
-}

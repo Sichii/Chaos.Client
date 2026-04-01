@@ -1,8 +1,6 @@
 #region
 using Chaos.Client.Controls.Components;
-using Chaos.Client.Rendering;
 using Microsoft.Xna.Framework;
-using Microsoft.Xna.Framework.Graphics;
 #endregion
 
 namespace Chaos.Client.Controls.World.ViewPort;
@@ -12,7 +10,7 @@ namespace Chaos.Client.Controls.World.ViewPort;
 ///     chars per visual line with character wrap (not word wrap). If total character count is 10 or less, text is centered
 ///     per line; otherwise left-aligned.
 /// </summary>
-public sealed class ChantOverlay : UIElement
+public sealed class ChantOverlay : UIPanel
 {
     private const int CHARS_PER_LINE = 18;
     private const int LINE_HEIGHT = 12;
@@ -22,24 +20,14 @@ public sealed class ChantOverlay : UIElement
 
     private static readonly Color ChantColor = new(100, 149, 237);
 
-    private readonly bool Centered;
-    private readonly List<string> VisualLines;
-
     private float ElapsedMs;
 
     public uint EntityId { get; }
     public bool IsExpired => ElapsedMs >= DISPLAY_DURATION_MS;
 
-    private ChantOverlay(
-        uint entityId,
-        List<string> visualLines,
-        bool centered,
-        int width,
-        int height)
+    private ChantOverlay(uint entityId, int width, int height)
     {
         EntityId = entityId;
-        VisualLines = visualLines;
-        Centered = centered;
         Width = width;
         Height = height;
     }
@@ -72,33 +60,30 @@ public sealed class ChantOverlay : UIElement
         var textAreaWidth = CHARS_PER_LINE * 6 + 2;
         var totalHeight = visualLines.Count * LINE_HEIGHT;
 
-        return new ChantOverlay(
-            entityId,
-            visualLines,
-            centered,
-            textAreaWidth,
-            totalHeight);
-    }
+        var overlay = new ChantOverlay(entityId, textAreaWidth, totalHeight);
 
-    public override void Draw(SpriteBatch spriteBatch)
-    {
-        if (!Visible)
-            return;
-
-        var y = (float)ScreenY;
-
-        foreach (var line in VisualLines)
+        for (var i = 0; i < visualLines.Count; i++)
         {
+            var line = visualLines[i];
             var lineWidth = TextRenderer.MeasureWidth(line);
-            var x = Centered ? ScreenX + (Width - lineWidth) / 2f : ScreenX;
 
-            TextRenderer.DrawText(
-                spriteBatch,
-                new Vector2(x, y),
-                line,
-                ChantColor);
-            y += LINE_HEIGHT;
+            var label = new UILabel
+            {
+                Name = $"Line{i}",
+                X = centered ? (textAreaWidth - lineWidth) / 2 : 0,
+                Y = i * LINE_HEIGHT,
+                Width = lineWidth,
+                Height = LINE_HEIGHT,
+                Text = line,
+                ForegroundColor = ChantColor,
+                PaddingLeft = 0,
+                PaddingTop = 0
+            };
+
+            overlay.AddChild(label);
         }
+
+        return overlay;
     }
 
     public override void Update(GameTime gameTime, InputBuffer input) => ElapsedMs += (float)gameTime.ElapsedGameTime.TotalMilliseconds;

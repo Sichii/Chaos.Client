@@ -1,7 +1,6 @@
 #region
 using Chaos.Client.Collections;
 using Chaos.Client.Controls.Components;
-using Chaos.Client.Rendering;
 using Chaos.Client.ViewModel;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
@@ -154,7 +153,7 @@ public sealed class GroupControl : PrefabPanel
                 if (i < members.Count)
                 {
                     var isMemberLeader = string.Equals(members[i], leaderName, StringComparison.OrdinalIgnoreCase);
-                    MemberLabels[i]!.ForegroundColor = isMemberLeader ? Color.White : Color.LightGray;
+                    MemberLabels[i]!.ForegroundColor = isMemberLeader ? LegendColors.White : Color.LightGray;
                     MemberLabels[i]!.Text = members[i];
                 } else
                     MemberLabels[i]!.Text = string.Empty;

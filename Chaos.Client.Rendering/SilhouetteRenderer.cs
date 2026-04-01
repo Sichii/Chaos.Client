@@ -1,6 +1,5 @@
 #region
-using Chaos.Client.Models;
-using Chaos.Client.Systems;
+using DALib.Definitions;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 #endregion
@@ -19,7 +18,7 @@ public sealed class SilhouetteRenderer : IDisposable
     private const float TRANSPARENT_ALPHA = 0.30f;
 
     private readonly GraphicsDevice Device;
-    public readonly List<SilhouetteEntry> SilhouetteEntries = [];
+    public readonly List<uint> SilhouetteEntityIds = [];
     private readonly List<TransparentEntry> TransparentEntries = [];
     private readonly List<RenderTarget2D> TransparentTargetPool = [];
     private SpriteBatch? Batch;
@@ -44,33 +43,31 @@ public sealed class SilhouetteRenderer : IDisposable
     /// <summary>
     ///     Adds any entity to be rendered as a silhouette this frame (drawn on top of world as a single alpha overlay).
     /// </summary>
-    public void AddSilhouette(SilhouetteEntry entry) => SilhouetteEntries.Add(entry);
+    public void AddSilhouette(uint entityId) => SilhouetteEntityIds.Add(entityId);
 
     /// <summary>
     ///     Adds a transparent aisling entity to be composited this frame. Draw inline via <see cref="DrawTransparentEntity" />
     ///     during the stripe pass.
     /// </summary>
-    public void AddTransparent(WorldEntity entity, AislingRenderer aislingRenderer, bool isHighlighted)
+    public void AddTransparent(
+        uint entityId,
+        int tileX,
+        int tileY,
+        Vector2 visualOffset,
+        AislingDrawData drawData,
+        bool isHighlighted)
     {
-        if (entity.Appearance is null)
-            return;
-
-        var appearance = entity.Appearance.Value;
-        (var frameIndex, var flip, var animSuffix, var isFrontFacing) = AnimationSystem.GetAislingFrame(entity);
-        var emotionFrame = entity.ActiveEmoteFrame;
-
-        var drawData = aislingRenderer.GetLayerFrames(
-            in appearance,
-            frameIndex,
-            animSuffix,
-            flip,
-            isFrontFacing,
-            emotionFrame);
-
         if (!drawData.Layers[(int)LayerSlot.Body].HasValue)
             return;
 
-        TransparentEntries.Add(new TransparentEntry(entity, drawData, isHighlighted));
+        TransparentEntries.Add(
+            new TransparentEntry(
+                entityId,
+                tileX,
+                tileY,
+                visualOffset,
+                drawData,
+                isHighlighted));
     }
 
     /// <summary>
@@ -78,7 +75,7 @@ public sealed class SilhouetteRenderer : IDisposable
     /// </summary>
     public void Clear()
     {
-        SilhouetteEntries.Clear();
+        SilhouetteEntityIds.Clear();
         TransparentEntries.Clear();
         SilhouettesReady = false;
         TransparentsReady = false;
@@ -109,7 +106,10 @@ public sealed class SilhouetteRenderer : IDisposable
     /// </summary>
     public bool DrawTransparentEntity(
         SpriteBatch spriteBatch,
-        WorldEntity entity,
+        uint entityId,
+        int tileX,
+        int tileY,
+        Vector2 visualOffset,
         Camera camera,
         int mapHeight,
         int anchorX,
@@ -120,14 +120,14 @@ public sealed class SilhouetteRenderer : IDisposable
 
         foreach (var entry in TransparentEntries)
         {
-            if ((entry.Entity.Id != entity.Id) || entry.CompositeTarget is null)
+            if ((entry.EntityId != entityId) || entry.CompositeTarget is null)
                 continue;
 
-            var tileWorldPos = Camera.TileToWorld(entity.TileX, entity.TileY, mapHeight);
-            var tileCenterX = tileWorldPos.X + DaLibConstants.HALF_TILE_WIDTH;
-            var tileCenterY = tileWorldPos.Y + DaLibConstants.HALF_TILE_HEIGHT;
-            var baseX = tileCenterX + entity.VisualOffset.X - anchorX;
-            var baseY = tileCenterY + entity.VisualOffset.Y - anchorY;
+            var tileWorldPos = Camera.TileToWorld(tileX, tileY, mapHeight);
+            var tileCenterX = tileWorldPos.X + CONSTANTS.HALF_TILE_WIDTH;
+            var tileCenterY = tileWorldPos.Y + CONSTANTS.HALF_TILE_HEIGHT;
+            var baseX = tileCenterX + visualOffset.X - anchorX;
+            var baseY = tileCenterY + visualOffset.Y - anchorY;
             var screenPos = camera.WorldToScreen(new Vector2(baseX, baseY));
 
             spriteBatch.Draw(
@@ -159,7 +159,7 @@ public sealed class SilhouetteRenderer : IDisposable
     /// </summary>
     public void PreRenderSilhouettes(Action<SpriteBatch> drawEntities)
     {
-        if (SilhouetteEntries.Count == 0)
+        if (SilhouetteEntityIds.Count == 0)
         {
             SilhouettesReady = false;
 
@@ -273,18 +273,22 @@ public sealed class SilhouetteRenderer : IDisposable
     }
 
     /// <summary>
-    ///     A silhouette entry representing any entity type to be drawn into the shared silhouette overlay.
-    /// </summary>
-    public readonly record struct SilhouetteEntry(WorldEntity Entity);
-
-    /// <summary>
     ///     A transparent aisling entry with pre-composited layer data.
     /// </summary>
-    public sealed class TransparentEntry(WorldEntity Entity, AislingDrawData DrawData, bool IsHighlighted)
+    public sealed class TransparentEntry(
+        uint EntityId,
+        int TileX,
+        int TileY,
+        Vector2 VisualOffset,
+        AislingDrawData DrawData,
+        bool IsHighlighted)
     {
         public RenderTarget2D? CompositeTarget { get; set; }
         public AislingDrawData DrawData { get; } = DrawData;
-        public WorldEntity Entity { get; } = Entity;
+        public uint EntityId { get; } = EntityId;
         public bool IsHighlighted { get; } = IsHighlighted;
+        public int TileX { get; } = TileX;
+        public int TileY { get; } = TileY;
+        public Vector2 VisualOffset { get; } = VisualOffset;
     }
 }

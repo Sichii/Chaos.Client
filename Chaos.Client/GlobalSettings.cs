@@ -43,6 +43,9 @@ public static class GlobalSettings
             LobbyHost,
             LobbyPort);
 
+        LegendColors.Initialize();
+        TextColors.Initialize();
+
         foreach (var name in PreLoadedAssemblies)
             Assembly.Load(name);
 

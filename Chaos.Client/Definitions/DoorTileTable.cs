@@ -11,12 +11,12 @@ namespace Chaos.Client.Definitions;
 public static class DoorTileTable
 {
     // Bidirectional: ClosedToOpen for opening, OpenToClosed for closing
-    private static readonly FrozenDictionary<int, int> ClosedToOpen;
-    private static readonly FrozenDictionary<int, int> OpenToClosed;
+    private static readonly FrozenDictionary<short, short> ClosedToOpen;
+    private static readonly FrozenDictionary<short, short> OpenToClosed;
 
     static DoorTileTable()
     {
-        var pairs = new (int Closed, int Open)[]
+        var pairs = new (short Closed, short Open)[]
         {
             (1994, 1997),
             (2000, 2003),
@@ -86,8 +86,8 @@ public static class DoorTileTable
             (3211, 3219)
         };
 
-        var closedToOpen = new Dictionary<int, int>(pairs.Length);
-        var openToClosed = new Dictionary<int, int>(pairs.Length);
+        var closedToOpen = new Dictionary<short, short>(pairs.Length);
+        var openToClosed = new Dictionary<short, short>(pairs.Length);
 
         foreach ((var closed, var open) in pairs)
         {
@@ -102,10 +102,10 @@ public static class DoorTileTable
     /// <summary>
     ///     Gets the closed tile ID for an open tile. Returns null if the tile is not a recognized door.
     /// </summary>
-    public static int? GetClosedTileId(int openTileId) => OpenToClosed.TryGetValue(openTileId, out var closed) ? closed : null;
+    public static short? GetClosedTileId(short openTileId) => OpenToClosed.TryGetValue(openTileId, out var closed) ? closed : null;
 
     /// <summary>
     ///     Gets the open tile ID for a closed tile. Returns null if the tile is not a recognized door.
     /// </summary>
-    public static int? GetOpenTileId(int closedTileId) => ClosedToOpen.TryGetValue(closedTileId, out var open) ? open : null;
+    public static short? GetOpenTileId(short closedTileId) => ClosedToOpen.TryGetValue(closedTileId, out var open) ? open : null;
 }

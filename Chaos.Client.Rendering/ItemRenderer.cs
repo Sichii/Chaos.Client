@@ -1,6 +1,7 @@
 #region
 using Chaos.Client.Data;
 using DALib.Drawing;
+using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 #endregion
 
@@ -29,6 +30,35 @@ public sealed class ItemRenderer : IDisposable
     }
 
     /// <summary>
+    ///     Draws a ground item sprite centered on the tile, using visual content bounds to ignore transparent padding.
+    /// </summary>
+    public void Draw(
+        SpriteBatch batch,
+        Camera camera,
+        int spriteId,
+        byte color,
+        float tileCenterX,
+        float tileCenterY)
+    {
+        var sprite = GetSprite(spriteId, color);
+
+        if (sprite is null)
+            return;
+
+        var texture = sprite.Value.Texture;
+
+        var contentWidth = texture.Width - sprite.Value.FrameLeft;
+        var contentHeight = texture.Height - sprite.Value.FrameTop;
+        var contentCenterX = sprite.Value.FrameLeft + contentWidth / 2f;
+        var contentCenterY = sprite.Value.FrameTop + contentHeight / 2f;
+        var drawX = tileCenterX - contentCenterX;
+        var drawY = tileCenterY - contentCenterY;
+        var screenPos = camera.WorldToScreen(new Vector2(drawX, drawY));
+
+        batch.Draw(texture, screenPos, Color.White);
+    }
+
+    /// <summary>
     ///     Returns the cached item sprite for the given sprite ID and color, loading and caching on first access.
     /// </summary>
     public ItemSprite? GetSprite(int spriteId, byte color = 0)
@@ -46,7 +76,7 @@ public sealed class ItemRenderer : IDisposable
 
     private static ItemSprite? LoadSprite(int spriteId, byte color)
     {
-        var palettized = DataContext.PanelItems.GetPanelItemSprite(spriteId);
+        var palettized = DataContext.PanelSprites.GetItemSprite(spriteId);
 
         if (palettized is null)
             return null;
@@ -54,8 +84,8 @@ public sealed class ItemRenderer : IDisposable
         var palette = palettized.Palette;
 
         // Apply dye color if specified
-        if ((color > 0) && DataContext.AislingData.DyeColorTable.Contains(color))
-            palette = palette.Dye(DataContext.AislingData.DyeColorTable[color]);
+        if ((color > 0) && DataContext.AislingDrawData.DyeColorTable.Contains(color))
+            palette = palette.Dye(DataContext.AislingDrawData.DyeColorTable[color]);
 
         using var image = Graphics.RenderImage(palettized.Entity, palette);
 

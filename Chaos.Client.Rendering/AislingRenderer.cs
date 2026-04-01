@@ -1,10 +1,12 @@
 #region
+using System.Buffers;
 using Chaos.Client.Data;
 using Chaos.Client.Data.Repositories;
 using Chaos.DarkAges.Definitions;
 using DALib.Definitions;
 using DALib.Drawing;
 using DALib.Drawing.Virtualized;
+using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using SkiaSharp;
 #endregion
@@ -68,33 +70,20 @@ public sealed class AislingDrawData
     public AislingLayerTexture?[] Layers = new AislingLayerTexture?[(int)LayerSlot.Count];
 }
 
-/// <summary>
-///     Layer slots for aisling composite ordering. Each slot is one visual layer.
-/// </summary>
-public enum LayerSlot
-{
-    BodyB,
-    Body,
-    Pants,
-    Face,
-    Boots,
-    HeadH,
-    HeadE,
-    HeadF,
-    Armor,
-    Arms,
-    WeaponW,
-    WeaponP,
-    Shield,
-    Acc1C,
-    Acc1G,
-    Acc2C,
-    Acc2G,
-    Acc3C,
-    Acc3G,
-    Emotion,
-    Count
-}
+public readonly record struct AislingDrawParams(
+    uint EntityId,
+    AislingAppearance Appearance,
+    int FrameIndex,
+    bool Flip,
+    bool IsFrontFacing,
+    string AnimSuffix,
+    int EmotionFrame,
+    int GroundPaintHeight,
+    Color GroundTintColor,
+    float TileCenterX,
+    float TileCenterY,
+    Vector2 VisualOffset,
+    EntityTintType Tint);
 
 /// <summary>
 ///     Renders aisling sprites by compositing body, equipment, and hair layers. All layers are positioned relative to body
@@ -123,6 +112,11 @@ public sealed class AislingRenderer : IDisposable
     public const int COMPOSITE_HEIGHT = BODY_HEIGHT;
     public const int BODY_CENTER_X = BODY_WIDTH / 2;
     public const int BODY_CENTER_Y = BODY_HEIGHT / 2;
+
+    // Composite canvas anchor: body center within the full padded canvas (111x85).
+    // Canvas is padded by LAYER_OFFSET_PADDING (27px) on each side, so body center shifts right.
+    public const int CANVAS_CENTER_X = BODY_CENTER_X + LAYER_OFFSET_PADDING;
+    public const int CANVAS_CENTER_Y = 70;
 
     // EPFs contain frames for 2 base directions only:
     //   Frames 0-4: Up (away-facing)
@@ -191,9 +185,11 @@ public sealed class AislingRenderer : IDisposable
 
     private const string SWIM_MALE_EPF = "mb00501.epf";
     private const string SWIM_FEMALE_EPF = "wb00501.epf";
+    private readonly Dictionary<uint, CompositeEntry> CompositeCache = new();
 
-    private readonly AislingDataRepository Data = DataContext.AislingData;
+    private readonly AislingDrawDataRepository DrawData = DataContext.AislingDrawData;
     private readonly EpfView? EmotionsEpf = LoadEmotionsEpf();
+    private readonly Dictionary<Texture2D, Texture2D> GroupTintCache = new();
     private readonly Dictionary<LayerCacheKey, AislingLayerTexture> LayerTextureCache = new();
     private readonly LayerInfo?[] RenderLayers = new LayerInfo?[(int)LayerSlot.Count];
     private readonly Dictionary<int, Texture2D> SwimFemaleFrameCache = new();
@@ -214,12 +210,85 @@ public sealed class AislingRenderer : IDisposable
         ClearCache();
         ClearLayerCache();
         ClearSwimCache();
+        ClearCompositeCache();
+        ClearGroupTintCache();
+    }
+
+    private static void ApplyGroundTint(Texture2D texture, int paintHeight, Color tintColor)
+    {
+        var tintTop = CANVAS_CENTER_Y - paintHeight;
+        var startRow = Math.Clamp(tintTop, 0, texture.Height);
+        var pixelCount = texture.Width * texture.Height;
+        var pixels = ArrayPool<Color>.Shared.Rent(pixelCount);
+
+        try
+        {
+            texture.GetData(pixels, 0, pixelCount);
+
+            var tintR = tintColor.R;
+            var tintG = tintColor.G;
+            var tintB = tintColor.B;
+            var alpha = tintColor.A / 255f;
+
+            for (var y = startRow; y < texture.Height; y++)
+            {
+                var rowStart = y * texture.Width;
+
+                for (var x = 0; x < texture.Width; x++)
+                {
+                    var i = rowStart + x;
+                    var pixel = pixels[i];
+
+                    if (pixel.A == 0)
+                        continue;
+
+                    // Unpremultiply, lerp toward tint color, re-premultiply
+                    var a = pixel.A / 255f;
+                    var r = (byte)(pixel.R / a * (1 - alpha) + tintR * alpha);
+                    var g = (byte)(pixel.G / a * (1 - alpha) + tintG * alpha);
+                    var b = (byte)(pixel.B / a * (1 - alpha) + tintB * alpha);
+
+                    pixels[i] = new Color(
+                        (byte)(r * a),
+                        (byte)(g * a),
+                        (byte)(b * a),
+                        pixel.A);
+                }
+            }
+
+            texture.SetData(pixels, 0, pixelCount);
+        } finally
+        {
+            ArrayPool<Color>.Shared.Return(pixels);
+        }
     }
 
     /// <summary>
     ///     Clears the cached EPF files. Call on map change to free memory.
     /// </summary>
-    public void ClearCache() => Data.ClearEpfCache();
+    public void ClearCache() => DrawData.ClearEpfCache();
+
+    /// <summary>
+    ///     Clears all cached composite textures. Call on map change or F5 refresh.
+    /// </summary>
+    public void ClearCompositeCache()
+    {
+        foreach (var entry in CompositeCache.Values)
+            entry.Texture?.Dispose();
+
+        CompositeCache.Clear();
+    }
+
+    /// <summary>
+    ///     Clears the group tint cache. Call when group membership changes.
+    /// </summary>
+    public void ClearGroupTintCache()
+    {
+        foreach (var texture in GroupTintCache.Values)
+            texture.Dispose();
+
+        GroupTintCache.Clear();
+    }
 
     /// <summary>
     ///     Clears the cached per-layer textures. Call on map change to free GPU memory.
@@ -245,10 +314,87 @@ public sealed class AislingRenderer : IDisposable
     }
 
     /// <summary>
+    ///     Draws an aisling at the given position. Handles composite caching, ground tinting, and highlight/group tinting.
+    ///     Returns screen-space texture bottom Y for hitbox calculation, or 0 if not drawn.
+    /// </summary>
+    public int Draw(SpriteBatch batch, Camera camera, in AislingDrawParams p)
+    {
+        if (!CompositeCache.TryGetValue(p.EntityId, out var cached)
+            || (cached.Appearance != p.Appearance)
+            || (cached.FrameIndex != p.FrameIndex)
+            || (cached.Flip != p.Flip)
+            || (cached.IsFrontFacing != p.IsFrontFacing)
+            || (cached.AnimSuffix != p.AnimSuffix)
+            || (cached.EmotionFrame != p.EmotionFrame)
+            || (cached.GroundPaintHeight != p.GroundPaintHeight))
+        {
+            var appearance = p.Appearance;
+
+            var texture = Render(
+                in appearance,
+                p.FrameIndex,
+                p.AnimSuffix,
+                p.Flip,
+                p.IsFrontFacing,
+                p.EmotionFrame);
+
+            if (texture is null)
+                return 0;
+
+            if (p.GroundPaintHeight > 0)
+                ApplyGroundTint(texture, p.GroundPaintHeight, p.GroundTintColor);
+
+            cached.Texture?.Dispose();
+
+            cached = new CompositeEntry(
+                p.Appearance,
+                p.FrameIndex,
+                p.Flip,
+                p.IsFrontFacing,
+                p.AnimSuffix,
+                p.EmotionFrame,
+                p.GroundPaintHeight,
+                texture);
+            CompositeCache[p.EntityId] = cached;
+        }
+
+        if (cached.Texture is null)
+            return 0;
+
+        var drawTexture = cached.Texture;
+
+        var baseX = p.TileCenterX + p.VisualOffset.X - CANVAS_CENTER_X;
+        var baseY = p.TileCenterY + p.VisualOffset.Y - CANVAS_CENTER_Y;
+        var screenPos = camera.WorldToScreen(new Vector2(baseX, baseY));
+
+        var finalTexture = p.Tint switch
+        {
+            EntityTintType.Highlight => GetOrCreateTintedTexture(drawTexture),
+            EntityTintType.Group     => GetOrCreateGroupTint(drawTexture),
+            _                        => drawTexture
+        };
+
+        batch.Draw(finalTexture, screenPos, Color.White);
+
+        return (int)screenPos.Y + COMPOSITE_HEIGHT;
+    }
+
+    /// <summary>
     ///     Returns the X draw offset for a layer type. Weapons (w/p) and accessories (c/g) are shifted left by 27px relative
     ///     to the body center to align correctly.
     /// </summary>
     public static int GetLayerOffsetX(char typeLetter) => typeLetter is 'w' or 'p' or 'c' or 'g' ? -27 : 0;
+
+    private Texture2D GetOrCreateGroupTint(Texture2D source)
+    {
+        if (GroupTintCache.TryGetValue(source, out var cached))
+            return cached;
+
+        cached = TextureConverter.CreateGroupTintedTexture(source);
+        GroupTintCache[source] = cached;
+
+        return cached;
+    }
 
     /// <summary>
     ///     Returns a tinted (blue-shifted) copy of a layer texture, caching it for reuse.
@@ -284,6 +430,15 @@ public sealed class AislingRenderer : IDisposable
         return EpfView.FromEntry(entry);
     }
 
+    /// <summary>
+    ///     Removes a single entity's cached composite. Call when an entity leaves the map.
+    /// </summary>
+    public void RemoveCachedEntity(uint entityId)
+    {
+        if (CompositeCache.Remove(entityId, out var removed))
+            removed.Texture?.Dispose();
+    }
+
     #region Palette Resolution
     private Palette? ResolvePalette(
         PaletteLookup lookup,
@@ -299,13 +454,23 @@ public sealed class AislingRenderer : IDisposable
         if (!lookup.Palettes.TryGetValue(paletteNumber, out var basePalette))
             return null;
 
-        return Data.ApplyDye(basePalette, dyeColor);
+        return DrawData.ApplyDye(basePalette, dyeColor);
     }
     #endregion
 
     /// <summary>
     ///     A rendered layer with its EpfFrame positioning metadata preserved (composited rendering path only).
     /// </summary>
+    private record struct CompositeEntry(
+        AislingAppearance Appearance,
+        int FrameIndex,
+        bool Flip,
+        bool IsFrontFacing,
+        string AnimSuffix,
+        int EmotionFrame,
+        int GroundPaintHeight,
+        Texture2D? Texture);
+
     private readonly record struct LayerInfo(
         SKImage Image,
         short FrameLeft,
@@ -349,7 +514,7 @@ public sealed class AislingRenderer : IDisposable
         {
             var frame = EmotionsEpf[emotionFrame];
 
-            if (Data.BodyPalettes.TryGetValue(appearance.BodyColor, out var palette))
+            if (DrawData.BodyPalettes.TryGetValue(appearance.BodyColor, out var palette))
             {
                 var paletteKey = appearance.BodyColor;
 
@@ -636,7 +801,7 @@ public sealed class AislingRenderer : IDisposable
 
         var frame = epf[resolvedFrame];
 
-        if (!Data.BodyPalettes.TryGetValue(appearance.BodyColor, out var palette))
+        if (!DrawData.BodyPalettes.TryGetValue(appearance.BodyColor, out var palette))
             return null;
 
         var paletteKey = appearance.BodyColor;
@@ -680,7 +845,7 @@ public sealed class AislingRenderer : IDisposable
             return null;
 
         var frame = epf[resolvedFrame];
-        var lookup = Data.GetPaletteLookup(typeLetter);
+        var lookup = DrawData.GetPaletteLookup(typeLetter);
 
         var palette = ResolvePalette(
             lookup,
@@ -810,7 +975,7 @@ public sealed class AislingRenderer : IDisposable
             {
                 var frame = EmotionsEpf[emotionFrame];
 
-                if (Data.BodyPalettes.TryGetValue(appearance.BodyColor, out var palette))
+                if (DrawData.BodyPalettes.TryGetValue(appearance.BodyColor, out var palette))
                 {
                     var image = Graphics.RenderImage(frame, palette);
 
@@ -1135,7 +1300,7 @@ public sealed class AislingRenderer : IDisposable
 
         var frame = epf[resolvedFrame];
 
-        if (!Data.BodyPalettes.TryGetValue(appearance.BodyColor, out var palette))
+        if (!DrawData.BodyPalettes.TryGetValue(appearance.BodyColor, out var palette))
             return null;
 
         var image = Graphics.RenderImage(frame, palette);
@@ -1174,7 +1339,7 @@ public sealed class AislingRenderer : IDisposable
             return null;
 
         var frame = epf[resolvedFrame];
-        var lookup = Data.GetPaletteLookup(typeLetter);
+        var lookup = DrawData.GetPaletteLookup(typeLetter);
 
         var palette = ResolvePalette(
             lookup,
@@ -1280,6 +1445,52 @@ public sealed class AislingRenderer : IDisposable
     }
 
     /// <summary>
+    ///     Draws a single swimming frame for an aisling. Handles horizontal centering via maxWidth, flip compensation, and
+    ///     CANVAS_CENTER_Y-based vertical anchoring. Returns the screen-space Y of the texture bottom, or 0 if the frame
+    ///     texture is unavailable.
+    /// </summary>
+    public int DrawSwimming(
+        SpriteBatch batch,
+        Camera camera,
+        bool isFemale,
+        int swimFrame,
+        bool flip,
+        float tileCenterX,
+        float tileCenterY,
+        Vector2 visualOffset)
+    {
+        var texture = GetSwimFrame(isFemale, swimFrame);
+
+        if (texture is null)
+            return 0;
+
+        var maxWidth = GetSwimMaxFrameWidth(isFemale);
+        var drawX = tileCenterX + visualOffset.X - maxWidth / 2f;
+
+        // When flipped, compensate for the difference between maxWidth and actual texture width
+        // so the flip pivot stays at the center of maxWidth rather than the center of the texture
+        if (flip)
+            drawX += maxWidth - texture.Width;
+
+        var drawY = tileCenterY + visualOffset.Y - CANVAS_CENTER_Y;
+        var screenPos = camera.WorldToScreen(new Vector2(drawX, drawY));
+        var effects = flip ? SpriteEffects.FlipHorizontally : SpriteEffects.None;
+
+        batch.Draw(
+            texture,
+            screenPos,
+            null,
+            Color.White,
+            0f,
+            Vector2.Zero,
+            1f,
+            effects,
+            0f);
+
+        return (int)screenPos.Y + texture.Height;
+    }
+
+    /// <summary>
     ///     Clears all cached swimming frame textures.
     /// </summary>
     public void ClearSwimCache()
@@ -1328,7 +1539,7 @@ public sealed class AislingRenderer : IDisposable
         return (epf, frameIndex);
     }
 
-    private EpfView? TryLoadEpf(char typeLetter, bool isMale, string fileName) => Data.GetEquipmentEpf(typeLetter, isMale, fileName);
+    private EpfView? TryLoadEpf(char typeLetter, bool isMale, string fileName) => DrawData.GetEquipmentEpf(typeLetter, isMale, fileName);
 
     /// <summary>
     ///     Scans all equipped layers for "04" idle animation EPFs and returns the max frames per direction found.
@@ -1434,7 +1645,7 @@ public sealed class AislingRenderer : IDisposable
                 ? appearance.ArmorSprite
                 : 0;
 
-        return DataContext.AislingData.AbilityAnimations.IsAbilityAnimationAllowed(anim, spriteId);
+        return DataContext.AislingDrawData.AbilityAnimations.IsAbilityAnimationAllowed(anim, spriteId);
     }
     #endregion
 }

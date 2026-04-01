@@ -22,10 +22,10 @@ public sealed class MacroMenuControl : PrefabPanel
     private const int LABEL_X = 40;
     private const int LABEL_WIDTH = 385;
 
-    private readonly TextElement[] MacroNameCaches = new TextElement[MAX_MACROS];
+    private readonly UILabel[] MacroNameLabels = new UILabel[MAX_MACROS];
 
     private readonly string[] MacroNames = new string[MAX_MACROS];
-    private readonly TextElement[] MacroValueCaches = new TextElement[MAX_MACROS];
+    private readonly UILabel[] MacroValueLabels = new UILabel[MAX_MACROS];
     private readonly string[] MacroValues = new string[MAX_MACROS];
     private bool ClosedWithOk;
     private int DataVersion;
@@ -54,11 +54,34 @@ public sealed class MacroMenuControl : PrefabPanel
         if (CancelButton is not null)
             CancelButton.OnClick += Close;
 
-        // Initialize macro caches
+        // Initialize macro labels
         for (var i = 0; i < MAX_MACROS; i++)
         {
-            MacroNameCaches[i] = new TextElement();
-            MacroValueCaches[i] = new TextElement();
+            MacroNameLabels[i] = new UILabel
+            {
+                Name = $"MacroName{i}",
+                X = LABEL_X,
+                Y = LABEL_START_Y + i * ROW_HEIGHT,
+                Width = 55,
+                Height = ROW_HEIGHT,
+                PaddingLeft = 0,
+                PaddingTop = 0
+            };
+
+            MacroValueLabels[i] = new UILabel
+            {
+                Name = $"MacroValue{i}",
+                X = LABEL_X + 60,
+                Y = LABEL_START_Y + i * ROW_HEIGHT,
+                Width = LABEL_WIDTH - 60,
+                Height = ROW_HEIGHT,
+                PaddingLeft = 0,
+                PaddingTop = 0
+            };
+
+            AddChild(MacroNameLabels[i]);
+            AddChild(MacroValueLabels[i]);
+
             MacroNames[i] = $"F{i + 5}";
             MacroValues[i] = string.Empty;
         }
@@ -98,25 +121,10 @@ public sealed class MacroMenuControl : PrefabPanel
         if (!Visible)
             return;
 
-        base.Draw(spriteBatch);
-
         RefreshCaches();
 
-        var sx = ScreenX + LABEL_X;
-        var sy = ScreenY + LABEL_START_Y;
-
-        for (var i = 0; i < MAX_MACROS; i++)
-        {
-            var rowY = sy + i * ROW_HEIGHT;
-
-            // Name (function key label)
-            MacroNameCaches[i]
-                .Draw(spriteBatch, new Vector2(sx, rowY));
-
-            // Value (command text) — offset to the right
-            MacroValueCaches[i]
-                .Draw(spriteBatch, new Vector2(sx + 60, rowY));
-        }
+        // Labels are children — drawn by base.Draw()
+        base.Draw(spriteBatch);
     }
 
     /// <summary>
@@ -147,13 +155,13 @@ public sealed class MacroMenuControl : PrefabPanel
 
         for (var i = 0; i < MAX_MACROS; i++)
         {
-            var nameColor = i == SelectedIndex ? Color.Yellow : Color.White;
+            var nameColor = i == SelectedIndex ? Color.Yellow : LegendColors.LightGray;
 
-            MacroNameCaches[i]
-                .Update(MacroNames[i], nameColor);
+            MacroNameLabels[i].Text = MacroNames[i];
+            MacroNameLabels[i].ForegroundColor = nameColor;
 
-            MacroValueCaches[i]
-                .Update(MacroValues[i], nameColor);
+            MacroValueLabels[i].Text = MacroValues[i];
+            MacroValueLabels[i].ForegroundColor = nameColor;
         }
     }
 

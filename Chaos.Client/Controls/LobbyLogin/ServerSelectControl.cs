@@ -2,7 +2,6 @@
 using Chaos.Client.Controls.Components;
 using Chaos.Client.Networking;
 using Microsoft.Xna.Framework;
-using Microsoft.Xna.Framework.Graphics;
 #endregion
 
 namespace Chaos.Client.Controls.LobbyLogin;
@@ -13,9 +12,9 @@ public sealed class ServerSelectControl : PrefabPanel
     private const int FIRST_ROW_Y = 37;
     private const int NAME_X = 28;
     private const int DESC_X = 108;
+    private List<(UILabel Name, UILabel Description)> ServerLabels = [];
 
     private List<ServerTableEntry> Servers = [];
-    private List<(TextElement Name, TextElement Description)> ServerTextElements = [];
 
     public ServerSelectControl()
         : base("_nsvr")
@@ -24,42 +23,53 @@ public sealed class ServerSelectControl : PrefabPanel
         Visible = false;
     }
 
-    public override void Draw(SpriteBatch spriteBatch)
-    {
-        if (!Visible)
-            return;
-
-        base.Draw(spriteBatch);
-
-        var sx = ScreenX;
-        var sy = ScreenY;
-
-        for (var i = 0; i < ServerTextElements.Count; i++)
-        {
-            var rowY = sy + FIRST_ROW_Y + i * ROW_HEIGHT;
-            (var nameCache, var descCache) = ServerTextElements[i];
-
-            nameCache.Draw(spriteBatch, new Vector2(sx + NAME_X, rowY));
-            descCache.Draw(spriteBatch, new Vector2(sx + DESC_X, rowY));
-        }
-    }
-
     public event Action<byte>? OnServerSelected;
 
     public void SetServers(List<ServerTableEntry> entries)
     {
-        Servers = entries;
-        ServerTextElements = [];
-
-        foreach (var server in entries)
+        // Remove previous server labels
+        foreach ((var nameLabel, var descLabel) in ServerLabels)
         {
-            var name = new TextElement();
-            var description = new TextElement();
+            RemoveChild(nameLabel.Name);
+            RemoveChild(descLabel.Name);
+        }
 
-            name.Update(server.Name, Color.White);
-            description.Update(server.Description, Color.LightGray);
+        Servers = entries;
+        ServerLabels = [];
 
-            ServerTextElements.Add((name, description));
+        for (var i = 0; i < entries.Count; i++)
+        {
+            var server = entries[i];
+
+            var nameLabel = new UILabel
+            {
+                Name = $"ServerName{i}",
+                X = NAME_X,
+                Y = FIRST_ROW_Y + i * ROW_HEIGHT,
+                Width = DESC_X - NAME_X,
+                Height = ROW_HEIGHT,
+                Text = server.Name,
+                ForegroundColor = LegendColors.White,
+                PaddingLeft = 0,
+                PaddingTop = 0
+            };
+
+            var descLabel = new UILabel
+            {
+                Name = $"ServerDesc{i}",
+                X = DESC_X,
+                Y = FIRST_ROW_Y + i * ROW_HEIGHT,
+                Width = Width - DESC_X,
+                Height = ROW_HEIGHT,
+                Text = server.Description,
+                ForegroundColor = Color.LightGray,
+                PaddingLeft = 0,
+                PaddingTop = 0
+            };
+
+            AddChild(nameLabel);
+            AddChild(descLabel);
+            ServerLabels.Add((nameLabel, descLabel));
         }
     }
 

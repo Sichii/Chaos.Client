@@ -1,6 +1,5 @@
 #region
 using Chaos.Client.Controls.Components;
-using Chaos.Client.Rendering;
 using Chaos.DarkAges.Definitions;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
@@ -123,6 +122,9 @@ public sealed class CharacterCreationControl : PrefabPanel
         PasswordField = CreateTextBox("PASSWD", 8);
         PasswordConfirmField = CreateTextBox("PASSWD2", 8);
 
+        NameField?.ForegroundColor = LegendColors.White;
+        PasswordField?.ForegroundColor = LegendColors.White;
+        PasswordConfirmField?.ForegroundColor = LegendColors.White;
         PasswordField?.IsMasked = true;
         PasswordConfirmField?.IsMasked = true;
 

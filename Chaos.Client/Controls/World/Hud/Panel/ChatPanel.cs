@@ -2,7 +2,6 @@
 using Chaos.Client.Collections;
 using Chaos.Client.Controls.Components;
 using Chaos.Client.Controls.Generic;
-using Chaos.Client.Rendering;
 using Chaos.Client.ViewModel;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
@@ -19,8 +18,10 @@ public sealed class ChatPanel : ExpandablePanel
     private const int MAX_CHAT_LINES = 200;
     private const int GLYPH_HEIGHT = 12;
     private readonly List<ChatLine> ChatLog = [];
-    private readonly TextElement[] Lines;
+    private readonly UILabel[] Lines;
     private readonly Rectangle NormalDisplayBounds;
+    private readonly int PanelOriginX;
+    private readonly int PanelOriginY;
     private readonly ScrollBarControl ScrollBar;
 
     private Rectangle DisplayBounds;
@@ -35,17 +36,34 @@ public sealed class ChatPanel : ExpandablePanel
         Name = "Chat";
         NormalDisplayBounds = displayBounds;
         DisplayBounds = displayBounds;
+        PanelOriginX = panelBounds.X;
+        PanelOriginY = panelBounds.Y;
 
         Background = UiRenderer.Instance!.GetSpfTexture("_nchatbk.spf");
 
         MaxVisibleLines = displayBounds.Height > 0 ? displayBounds.Height / GLYPH_HEIGHT : 0;
-        Lines = new TextElement[MaxVisibleLines];
+        Lines = new UILabel[MaxVisibleLines];
+
+        var relX = displayBounds.X - panelBounds.X;
 
         for (var i = 0; i < MaxVisibleLines; i++)
-            Lines[i] = new TextElement();
+        {
+            Lines[i] = new UILabel
+            {
+                Name = $"ChatLine{i}",
+                X = relX,
+                Width = displayBounds.Width,
+                Height = GLYPH_HEIGHT,
+                PaddingLeft = 0,
+                PaddingTop = 0
+            };
+
+            AddChild(Lines[i]);
+        }
+
+        RepositionLabels();
 
         // Position relative to panel origin (panel is placed at panelBounds by RegisterTab)
-        var relX = displayBounds.X - panelBounds.X;
         var relY = displayBounds.Y - panelBounds.Y;
 
         ScrollBar = new ScrollBarControl
@@ -120,32 +138,7 @@ public sealed class ChatPanel : ExpandablePanel
         base.Dispose();
     }
 
-    public override void Draw(SpriteBatch spriteBatch)
-    {
-        if (!Visible)
-            return;
-
-        // ExpandablePanel.Draw handles expanded bg + children, or normal bg + children
-        base.Draw(spriteBatch);
-
-        var maxLines = Math.Min(MaxVisibleLines, Lines.Length);
-
-        if ((maxLines == 0) || (ChatLog.Count == 0))
-            return;
-
-        var baseY = DisplayBounds.Y + DisplayBounds.Height;
-
-        for (var i = maxLines - 1; i >= 0; i--)
-        {
-            baseY -= GLYPH_HEIGHT;
-
-            if (baseY < DisplayBounds.Y)
-                break;
-
-            Lines[i]
-                .Draw(spriteBatch, new Vector2(DisplayBounds.X, baseY));
-        }
-    }
+    // Labels are children — drawn automatically by base.Draw()
 
     private void OnMessageAdded(Chat.ChatMessage msg) => AddMessage(msg.Text, msg.Color);
 
@@ -163,15 +156,28 @@ public sealed class ChatPanel : ExpandablePanel
         for (var i = startIndex; (i < ChatLog.Count) && (lineIndex < maxLines); i++)
         {
             var line = ChatLog[i];
-
-            Lines[lineIndex]
-                .Update(line.Text, line.Color);
+            Lines[lineIndex].Text = line.Text;
+            Lines[lineIndex].ForegroundColor = line.Color;
             lineIndex++;
         }
 
         for (; lineIndex < maxLines; lineIndex++)
-            Lines[lineIndex]
-                .Update(string.Empty, Color.White);
+            Lines[lineIndex].Text = string.Empty;
+    }
+
+    private void RepositionLabels()
+    {
+        var relY = DisplayBounds.Y - PanelOriginY;
+        var maxLines = Math.Min(MaxVisibleLines, Lines.Length);
+
+        for (var i = 0; i < Lines.Length; i++)
+            if (i < maxLines)
+            {
+                // Bottom-up: line 0 at top, line maxLines-1 at bottom
+                Lines[i].Y = relY + DisplayBounds.Height - (maxLines - i) * GLYPH_HEIGHT;
+                Lines[i].Visible = true;
+            } else
+                Lines[i].Visible = false;
     }
 
     public override void SetExpanded(bool expanded)
@@ -181,6 +187,7 @@ public sealed class ChatPanel : ExpandablePanel
         DisplayBounds = expanded ? ExpandedDisplayBounds : NormalDisplayBounds;
         MaxVisibleLines = DisplayBounds.Height > 0 ? DisplayBounds.Height / GLYPH_HEIGHT : 0;
         ScrollBar.Visible = expanded;
+        RepositionLabels();
 
         // Force re-render with new line count
         LogVersion++;

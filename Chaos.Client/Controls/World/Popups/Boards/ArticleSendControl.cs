@@ -45,6 +45,8 @@ public sealed class ArticleSendControl : PrefabPanel
         AuthorLabel = CreateLabel("Author");
         TitleBox = CreateTextBox("Title", 60);
 
+        TitleBox?.ForegroundColor = LegendColors.White;
+
         // Content rect for body text display
         var contentRect = GetRect("Content");
         VisibleHeight = contentRect.Height;

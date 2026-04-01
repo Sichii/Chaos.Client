@@ -4,8 +4,7 @@ using Chaos.Client.Data;
 using Chaos.Client.Data.Utilities;
 using Chaos.Client.Extensions;
 using Chaos.Client.Models;
-using Chaos.Client.Networking;
-using Chaos.Client.Rendering;
+using Chaos.Client.Networking.Definitions;
 using Chaos.Client.Rendering.Models;
 using Chaos.Client.Systems;
 using Chaos.Client.ViewModel;
@@ -35,7 +34,7 @@ public sealed partial class WorldScreen
             WorldList.PlayerName = args.Name;
             Exchange.PlayerName = args.Name;
             UpdateHuds(h => h.SetServerName(Game.Connection.ServerName));
-            DataContext.PlayerData.Initialize(args.Name);
+            DataContext.LocalPlayerSettings.Initialize(args.Name);
             LoadPlayerFamilyList();
             LoadPlayerFriendList();
             LoadPlayerMacros();
@@ -64,8 +63,7 @@ public sealed partial class WorldScreen
             CreateDyingEffect(entity);
 
         // Clean up aisling composited texture cache
-        if (AislingCache.Remove(id, out var removed))
-            removed.Texture?.Dispose();
+        Game.AislingRenderer.RemoveCachedEntity(id);
 
         // Clean up all overlay caches (name tag, chat bubble, health bar, chant)
         Overlays.RemoveEntity(id);
@@ -228,8 +226,8 @@ public sealed partial class WorldScreen
 
         var color = args.PublicMessageType switch
         {
-            PublicMessageType.Shout => Color.Yellow,
-            _                       => Color.White
+            PublicMessageType.Shout => TextColors.Shout,
+            _                       => LegendColors.White
         };
 
         WorldState.Chat.AddMessage(args.Message, color);
@@ -246,17 +244,17 @@ public sealed partial class WorldScreen
         switch (args.ServerMessageType)
         {
             case ServerMessageType.Whisper:
-                WorldState.Chat.AddMessage(args.Message, new Color(100, 149, 237));
+                WorldState.Chat.AddMessage(args.Message, TextColors.Whisper);
 
                 break;
 
             case ServerMessageType.GroupChat:
-                WorldState.Chat.AddMessage(args.Message, new Color(154, 205, 50));
+                WorldState.Chat.AddMessage(args.Message, TextColors.GroupChat);
 
                 break;
 
             case ServerMessageType.GuildChat:
-                WorldState.Chat.AddMessage(args.Message, new Color(128, 128, 0));
+                WorldState.Chat.AddMessage(args.Message, TextColors.GuildChat);
 
                 break;
 
@@ -778,7 +776,8 @@ public sealed partial class WorldScreen
     private void ApplyGroupHighlight()
     {
         GroupHighlightedIds.Clear();
-        ClearGroupTintCache();
+        Game.AislingRenderer.ClearGroupTintCache();
+        Game.CreatureRenderer.ClearTintCaches();
 
         var members = WorldState.Group.Members;
 
@@ -1012,11 +1011,12 @@ public sealed partial class WorldScreen
             Game.SoundSystem.PlaySound(args.Sound.Value);
     }
 
-    private void HandleLightLevel(LightLevelArgs args) => DarknessRenderer.OnLightLevel(args);
+    private void HandleLightLevel(LightLevelArgs args) => DarknessRenderer.OnLightLevel(args.LightLevel);
 
     private void HandleMetaDataSyncComplete()
     {
         DarknessRenderer.ReloadMetadata();
+        DarknessRenderer.ReapplyLightLevel();
         DataContext.MetaFiles.BuildItemIndex();
     }
 
@@ -1061,23 +1061,11 @@ public sealed partial class WorldScreen
     // --- Helpers ---
 
     private static Color MapMarkColor(MarkColor color)
-        => color switch
-        {
-            MarkColor.White       => Color.White,
-            MarkColor.LightOrange => new Color(255, 200, 100),
-            MarkColor.LightYellow => new Color(255, 255, 150),
-            MarkColor.Yellow      => Color.Yellow,
-            MarkColor.LightGreen  => new Color(150, 255, 150),
-            MarkColor.Blue        => new Color(100, 149, 237),
-            MarkColor.Cyan        => new Color(0, 200, 200),
-            MarkColor.LightPink   => new Color(255, 150, 200),
-            MarkColor.DarkPurple  => new Color(150, 100, 200),
-            MarkColor.Pink        => new Color(255, 182, 193),
-            MarkColor.Red         => Color.Red,
-            MarkColor.Orange      => Color.Orange,
-            MarkColor.Green       => new Color(100, 255, 100),
-            MarkColor.Brown       => new Color(180, 120, 60),
-            _                     => Color.White
-        };
+    {
+        if (color == MarkColor.Invisible)
+            return Color.Transparent;
+
+        return LegendColors.Get((int)color);
+    }
     #endregion
 }

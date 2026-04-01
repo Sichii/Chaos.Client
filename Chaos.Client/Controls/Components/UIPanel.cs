@@ -1,6 +1,5 @@
 #region
 using Chaos.Client.Controls.Generic;
-using Chaos.Client.Rendering;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 #endregion
@@ -9,7 +8,6 @@ namespace Chaos.Client.Controls.Components;
 
 public class UIPanel : UIElement
 {
-    private static readonly Func<UIElement, int> ZIndexSelector = e => e.ZIndex;
     internal bool ChildOrderDirty;
 
     public Texture2D? Background { get; set; }
@@ -94,6 +92,28 @@ public class UIPanel : UIElement
             }
     }
 
+    /// <summary>
+    ///     Stable in-place insertion sort by ZIndex. O(n) when already sorted (common case), stable (preserves add-order for
+    ///     equal ZIndex), zero allocations.
+    /// </summary>
+    private static void StableSortByZIndex(List<UIElement> list)
+    {
+        for (var i = 1; i < list.Count; i++)
+        {
+            var item = list[i];
+            var key = item.ZIndex;
+            var j = i - 1;
+
+            while ((j >= 0) && (list[j].ZIndex > key))
+            {
+                list[j + 1] = list[j];
+                j--;
+            }
+
+            list[j + 1] = item;
+        }
+    }
+
     public override void Update(GameTime gameTime, InputBuffer input)
     {
         if (!Visible || !Enabled)
@@ -101,10 +121,7 @@ public class UIPanel : UIElement
 
         if (ChildOrderDirty)
         {
-            var sorted = Children.OrderBy(ZIndexSelector)
-                                 .ToList();
-            Children.Clear();
-            Children.AddRange(sorted);
+            StableSortByZIndex(Children);
             ChildOrderDirty = false;
         }
 

@@ -3,7 +3,6 @@ using Chaos.Client.Collections;
 using Chaos.Client.Controls.Components;
 using Chaos.Client.Data.Models;
 using Chaos.Client.Extensions;
-using Chaos.Client.Rendering;
 using Chaos.Client.ViewModel;
 using Chaos.Extensions.Common;
 using Microsoft.Xna.Framework;
@@ -85,9 +84,9 @@ public sealed class AbilityDetailControl : PrefabPanel
         return false;
     }
 
-    private static Color RequirementColor(int required, int? current) => current >= required ? Color.White : UnmetColor;
+    private static Color RequirementColor(int required, int? current) => current >= required ? LegendColors.White : UnmetColor;
 
-    private static Color RequirementColor(bool met) => met ? Color.White : UnmetColor;
+    private static Color RequirementColor(bool met) => met ? LegendColors.White : UnmetColor;
 
     /// <summary>
     ///     Populates and shows the detail view for the given ability entry.

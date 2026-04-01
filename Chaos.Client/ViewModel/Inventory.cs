@@ -48,6 +48,18 @@ public sealed class Inventory
     }
 
     /// <summary>
+    ///     Returns the first empty inventory slot (1-based), or 0 if inventory is full.
+    /// </summary>
+    public byte GetFirstEmptySlot()
+    {
+        for (var i = 0; i < MAX_SLOTS; i++)
+            if (!Slots[i].IsOccupied)
+                return (byte)(i + 1);
+
+        return 0;
+    }
+
+    /// <summary>
     ///     Returns the data for a 1-based slot number. Returns default if slot is out of range.
     /// </summary>
     public ref readonly InventorySlotData GetSlot(byte slot)
