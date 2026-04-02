@@ -308,10 +308,19 @@ public sealed partial class WorldScreen
                 break;
 
             case HudTab.Chat:
-            case HudTab.Stats:
-            case HudTab.ExtendedStats:
-                // TODO: chat macros (slots 1-12)
+            case HudTab.MessageHistory:
+            {
+                var macroText = MacroMenu.GetMacroValue(slot - 1);
+
+                if (macroText.Length > 0)
+                {
+                    Chat.Focus(string.Empty, Color.White);
+                    WorldHud.ChatInput.Text = macroText;
+                    WorldHud.ChatInput.CursorPosition = macroText.Length;
+                }
+
                 break;
+            }
         }
     }
 
@@ -427,15 +436,7 @@ public sealed partial class WorldScreen
     private void LoadPlayerMacros()
     {
         var macros = DataContext.LocalPlayerSettings.LoadMacros();
-
-        for (var i = 0; i < macros.Length; i++)
-            MacroMenu.SetMacro(i, $"F{(i < 9 ? i + 5 : 0)}", macros[i]);
-    }
-
-    private void SavePlayerMacros()
-    {
-        var macros = MacroMenu.GetMacroValues();
-        DataContext.LocalPlayerSettings.SaveMacros(macros);
+        MacroMenu.SetMacros(macros);
     }
 
     private void SaveSkillChants()

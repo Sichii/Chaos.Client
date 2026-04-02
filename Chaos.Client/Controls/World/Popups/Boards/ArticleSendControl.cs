@@ -13,10 +13,8 @@ namespace Chaos.Client.Controls.World.Popups.Boards;
 public sealed class ArticleSendControl : PrefabPanel
 {
     private readonly UILabel? AuthorLabel;
-    private readonly UILabel BodyLabel;
+    private readonly UITextBox BodyBox;
     private readonly UITextBox? TitleBox;
-    private readonly int VisibleHeight;
-    private string BodyText = string.Empty;
     private int TargetX;
 
     public ushort BoardId { get; set; }
@@ -47,71 +45,31 @@ public sealed class ArticleSendControl : PrefabPanel
 
         TitleBox?.ForegroundColor = LegendColors.White;
 
-        // Content rect for body text display
+        // Content rect for multi-line body text entry
         var contentRect = GetRect("Content");
-        VisibleHeight = contentRect.Height;
 
-        BodyLabel = new UILabel
+        BodyBox = new UITextBox
         {
             X = contentRect.X,
             Y = contentRect.Y,
             Width = contentRect.Width,
             Height = contentRect.Height,
-            PaddingLeft = 0,
-            PaddingTop = 0,
-            WordWrap = true,
+            IsMultiLine = true,
+            IsFocusable = true,
+            IsSelectable = true,
+            MaxLength = 10000,
+            PaddingX = 0,
+            PaddingY = 0,
             ForegroundColor = Color.White
         };
 
-        AddChild(BodyLabel);
-    }
-
-    private void HandleBodyInput(InputBuffer input)
-    {
-        var changed = false;
-
-        foreach (var c in input.TextInput)
-        {
-            if (c == '\b')
-            {
-                if (BodyText.Length > 0)
-                {
-                    BodyText = BodyText[..^1];
-                    changed = true;
-                }
-
-                continue;
-            }
-
-            if ((c == '\r') || (c == '\n'))
-            {
-                BodyText += '\n';
-                changed = true;
-
-                continue;
-            }
-
-            if (char.IsControl(c))
-                continue;
-
-            BodyText += c;
-            changed = true;
-        }
-
-        if (!changed)
-            return;
-
-        BodyLabel.Text = BodyText;
-
-        // Auto-scroll to bottom
-        var maxScroll = Math.Max(0, BodyLabel.ContentHeight - VisibleHeight);
-        BodyLabel.ScrollOffset = maxScroll;
+        AddChild(BodyBox);
     }
 
     private void HandleSend()
     {
         var subject = TitleBox?.Text ?? string.Empty;
-        OnSend?.Invoke(subject, BodyText);
+        OnSend?.Invoke(subject, BodyBox.Text);
     }
 
     public override void Hide() => Visible = false;
@@ -144,9 +102,9 @@ public sealed class ArticleSendControl : PrefabPanel
             TitleBox.IsFocused = true;
         }
 
-        BodyText = string.Empty;
-        BodyLabel.ScrollOffset = 0;
-        BodyLabel.Text = string.Empty;
+        BodyBox.Text = string.Empty;
+        BodyBox.ScrollOffset = 0;
+        BodyBox.CursorPosition = 0;
 
         Show();
     }
@@ -166,12 +124,11 @@ public sealed class ArticleSendControl : PrefabPanel
 
         // Tab out of title into body
         if (input.WasKeyPressed(Keys.Tab) && (TitleBox?.IsFocused == true))
+        {
             TitleBox.IsFocused = false;
+            BodyBox.IsFocused = true;
+        }
 
         base.Update(gameTime, input);
-
-        // Handle body text input when title is not focused
-        if (TitleBox?.IsFocused != true)
-            HandleBodyInput(input);
     }
 }

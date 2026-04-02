@@ -20,6 +20,13 @@ public class UIPanel : UIElement
 
     public List<UIElement> Children { get; } = [];
 
+    public UIPanel()
+        => VisibilityChanged += visible =>
+        {
+            if (!visible)
+                ResetInteractionState();
+        };
+
     public void AddChild(UIElement child)
     {
         child.Parent = this;
@@ -45,6 +52,8 @@ public class UIPanel : UIElement
         if (!Visible)
             return;
 
+        EnsureChildOrder();
+
         base.Draw(spriteBatch);
 
         if (Background is not null)
@@ -60,6 +69,15 @@ public class UIPanel : UIElement
                 child.Draw(spriteBatch);
                 DebugOverlay.DrawElement(spriteBatch, child);
             }
+    }
+
+    private void EnsureChildOrder()
+    {
+        if (!ChildOrderDirty)
+            return;
+
+        StableSortByZIndex(Children);
+        ChildOrderDirty = false;
     }
 
     public T? FindChild<T>(string name) where T: UIElement
@@ -92,6 +110,12 @@ public class UIPanel : UIElement
             }
     }
 
+    public override void ResetInteractionState()
+    {
+        foreach (var child in Children)
+            child.ResetInteractionState();
+    }
+
     /// <summary>
     ///     Stable in-place insertion sort by ZIndex. O(n) when already sorted (common case), stable (preserves add-order for
     ///     equal ZIndex), zero allocations.
@@ -119,11 +143,7 @@ public class UIPanel : UIElement
         if (!Visible || !Enabled)
             return;
 
-        if (ChildOrderDirty)
-        {
-            StableSortByZIndex(Children);
-            ChildOrderDirty = false;
-        }
+        EnsureChildOrder();
 
         // Snapshot to avoid collection-modified during enumeration
         // (e.g. button click handlers that add/remove children)

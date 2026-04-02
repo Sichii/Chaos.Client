@@ -11,6 +11,41 @@
 #
 # Palette selection for EPF images is determined by the GetGuiPaletteNumber() prefix table
 # in UiComponentRepository.cs. SPF files use their own embedded palette (colorized or primary).
+#
+#
+# ═══════════════════════════════════════════════════════════════════════════════
+# CONTROL .TXT FILE FORMAT
+#
+# Each .txt file in the Setoa/Cious archives defines controls as
+# <CONTROL>...<ENDCONTROL> blocks. Loaded via DataContext.UserControls.Get("_name")
+# -> ControlPrefabSet. First control is always the Anchor (type 0) with panel
+# dimensions and background.
+#
+# Tags:
+#   <NAME> "name"                  -- Control name (key in ControlPrefabSet, case-insensitive)
+#   <TYPE> N                       -- ControlType enum integer (see table below)
+#   <RECT> left top right bottom   -- Bounding rectangle (relative to anchor)
+#   <IMAGE>                        -- Lines of "imageName" frameIndex
+#                                     Two same-name lines = range expansion
+#   <VALUE>                        -- Integer return value
+#   <COLOR>                        -- Palette color indexes
+#
+# ControlType enum (DALib.Definitions):
+#   0 = Anchor           -- Panel background + dimensions (always index 0)
+#   3 = ReturnsValue     -- UIButton, interactive, produces a return value
+#   4 = Returns0         -- UIButton, always returns 0
+#   5 = ReadonlyText     -- Static text display region
+#   6 = EditableText     -- UITextBox, editable text input field
+#   7 = DoesNotReturnValue -- Non-interactive display area (label, text region, image)
+#
+# ControlPrefab data:
+#   Control -- DALib object: Name, Type (ControlType), Rect (nullable SKRectI),
+#              Images (IReadOnlyList<SKImage>, pre-rendered frames), ReturnValue, ColorIndexes
+#   For buttons: Images[0]=normal, Images[1]=pressed
+#
+# DALib parses into ControlFile (KeyedCollection) via ControlFile.FromArchive(archive)
+# or ControlFile.FromEntry(entry).
+# ═══════════════════════════════════════════════════════════════════════════════
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # SECTION 1: CONTROL FILES (.txt) — Loaded via DataContext.UserControls.Get()

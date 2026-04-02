@@ -233,6 +233,12 @@ public abstract class UIElement : IDisposable
         return SharedPixel;
     }
 
+    /// <summary>
+    ///     Resets transient interaction state (hover, press, drag) so the element appears idle. Called recursively when a
+    ///     parent panel is hidden.
+    /// </summary>
+    public virtual void ResetInteractionState() { }
+
     public abstract void Update(GameTime gameTime, InputBuffer input);
 
     public event Action<bool>? VisibilityChanged;

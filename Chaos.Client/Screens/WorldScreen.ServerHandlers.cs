@@ -1023,14 +1023,27 @@ public sealed partial class WorldScreen
     // --- Notepad ---
 
     private void HandleDisplayReadonlyNotepad(DisplayReadonlyNotepadArgs args)
-        => Notepad.ShowReadonly(args.Width, args.Height, args.Message);
+    {
+        ItemTooltip.Hide();
 
-    private void HandleDisplayEditableNotepad(DisplayEditableNotepadArgs args)
-        => Notepad.ShowEditable(
-            args.Slot,
+        Notepad.ShowReadonly(
+            (byte)args.NotepadType,
             args.Width,
             args.Height,
             args.Message);
+    }
+
+    private void HandleDisplayEditableNotepad(DisplayEditableNotepadArgs args)
+    {
+        ItemTooltip.Hide();
+
+        Notepad.ShowEditable(
+            args.Slot,
+            (byte)args.NotepadType,
+            args.Width,
+            args.Height,
+            args.Message);
+    }
 
     // --- Exit / state ---
 

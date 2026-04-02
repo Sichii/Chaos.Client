@@ -294,7 +294,7 @@ public sealed class ConnectionManager : IDisposable
             });
     }
 
-    private async void FollowPendingRedirect()
+    private void FollowPendingRedirect()
     {
         if (PendingRedirect is not { } redirect)
             return;
@@ -312,7 +312,7 @@ public sealed class ConnectionManager : IDisposable
 
         try
         {
-            await Client.ConnectAsync(redirect.EndPoint.Address.ToString(), redirect.EndPoint.Port);
+            Client.Connect(redirect.EndPoint.Address.ToString(), redirect.EndPoint.Port);
         } catch (Exception ex)
         {
             State = ConnectionState.Disconnected;

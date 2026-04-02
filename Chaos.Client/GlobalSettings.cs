@@ -22,13 +22,15 @@ public static class GlobalSettings
     public static string DataPath => @"C:\Users\Despe\Desktop\Unora\Unora";
 
     //@"C:\Users\Despe\Desktop\Dark Ages"; 
-    public static string LobbyHost => "chaotic-minds.dynu.net";
+    public static string LobbyHost
+        => //"chaotic-minds.dynu.net";
+            "127.0.0.1";
 
-    //"127.0.0.1"; 
     //"da0.kru.com";
-    public static int LobbyPort => 6900;
+    public static int LobbyPort
+        => //6900;
+            4200;
 
-    //4200;
     //2610;
 
     static GlobalSettings() => InitializeOthers();

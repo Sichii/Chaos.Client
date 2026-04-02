@@ -99,6 +99,14 @@ public class UIButton : UIElement
 
     public void PerformClick() => OnClick?.Invoke();
 
+    public override void ResetInteractionState()
+    {
+        IsHovered = false;
+        IsPressed = false;
+        IsSelected = false;
+        PressedInside = false;
+    }
+
     public override void Update(GameTime gameTime, InputBuffer input)
     {
         if (!Visible || !Enabled)

@@ -329,6 +329,7 @@ public sealed class WorldListControl : PrefabPanel
         TotalOnline = totalOnline;
         PlayerName = playerName;
         ActiveTab = 0;
+        TabButtons[0].IsSelected = true;
         ScrollOffset = 0;
 
         ApplyFilter();

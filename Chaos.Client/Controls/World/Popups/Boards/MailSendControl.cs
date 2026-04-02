@@ -13,7 +13,7 @@ namespace Chaos.Client.Controls.World.Popups.Boards;
 public sealed class MailSendControl : PrefabPanel
 {
     // Content area — multi-line body
-    private readonly UILabel BodyLabel;
+    private readonly UITextBox BodyBox;
 
     // Receiver — display label + editable overlay
     private readonly UILabel? ReceiverDisplayLabel;
@@ -21,8 +21,6 @@ public sealed class MailSendControl : PrefabPanel
 
     // Subject
     private readonly UITextBox? TitleBox;
-    private readonly int VisibleHeight;
-    private string BodyText = string.Empty;
     private int TargetX;
 
     public ushort BoardId { get; set; }
@@ -55,65 +53,25 @@ public sealed class MailSendControl : PrefabPanel
         ReceiverEditBox?.ForegroundColor = LegendColors.White;
         TitleBox?.ForegroundColor = LegendColors.White;
 
-        // Content rect for body text display
+        // Content rect for multi-line body text entry
         var contentRect = GetRect("Content");
-        VisibleHeight = contentRect.Height;
 
-        BodyLabel = new UILabel
+        BodyBox = new UITextBox
         {
             X = contentRect.X,
             Y = contentRect.Y,
             Width = contentRect.Width,
             Height = contentRect.Height,
-            PaddingLeft = 0,
-            PaddingTop = 0,
-            WordWrap = true,
+            IsMultiLine = true,
+            IsFocusable = true,
+            IsSelectable = true,
+            MaxLength = 10000,
+            PaddingX = 0,
+            PaddingY = 0,
             ForegroundColor = Color.White
         };
 
-        AddChild(BodyLabel);
-    }
-
-    private void HandleBodyInput(InputBuffer input)
-    {
-        var changed = false;
-
-        foreach (var c in input.TextInput)
-        {
-            if (c == '\b')
-            {
-                if (BodyText.Length > 0)
-                {
-                    BodyText = BodyText[..^1];
-                    changed = true;
-                }
-
-                continue;
-            }
-
-            if ((c == '\r') || (c == '\n'))
-            {
-                BodyText += '\n';
-                changed = true;
-
-                continue;
-            }
-
-            if (char.IsControl(c))
-                continue;
-
-            BodyText += c;
-            changed = true;
-        }
-
-        if (!changed)
-            return;
-
-        BodyLabel.Text = BodyText;
-
-        // Auto-scroll to bottom
-        var maxScroll = Math.Max(0, BodyLabel.ContentHeight - VisibleHeight);
-        BodyLabel.ScrollOffset = maxScroll;
+        AddChild(BodyBox);
     }
 
     private void HandleSend()
@@ -124,7 +82,7 @@ public sealed class MailSendControl : PrefabPanel
         if (string.IsNullOrWhiteSpace(recipient))
             return;
 
-        OnSend?.Invoke(recipient, subject, BodyText);
+        OnSend?.Invoke(recipient, subject, BodyBox.Text);
     }
 
     public override void Hide() => Visible = false;
@@ -159,9 +117,9 @@ public sealed class MailSendControl : PrefabPanel
         if (TitleBox is not null)
             TitleBox.Text = string.Empty;
 
-        BodyText = string.Empty;
-        BodyLabel.ScrollOffset = 0;
-        BodyLabel.Text = string.Empty;
+        BodyBox.Text = string.Empty;
+        BodyBox.ScrollOffset = 0;
+        BodyBox.CursorPosition = 0;
 
         Show();
 
@@ -184,7 +142,7 @@ public sealed class MailSendControl : PrefabPanel
             return;
         }
 
-        // Tab navigation between fields
+        // Tab navigation: Receiver → Title → BodyBox
         if (input.WasKeyPressed(Keys.Tab))
         {
             if (ReceiverEditBox?.IsFocused == true)
@@ -193,23 +151,26 @@ public sealed class MailSendControl : PrefabPanel
 
                 if (TitleBox is not null)
                     TitleBox.IsFocused = true;
+                else
+                    BodyBox.IsFocused = true;
             } else if (TitleBox?.IsFocused == true)
+            {
                 TitleBox.IsFocused = false;
+                BodyBox.IsFocused = true;
+            }
         }
 
-        // Enter in receiver → focus title
+        // Enter in receiver → focus title (or body if no title)
         if ((ReceiverEditBox?.IsFocused == true) && input.WasKeyPressed(Keys.Enter))
         {
             ReceiverEditBox.IsFocused = false;
 
             if (TitleBox is not null)
                 TitleBox.IsFocused = true;
+            else
+                BodyBox.IsFocused = true;
         }
 
         base.Update(gameTime, input);
-
-        // Handle body text input when no textbox is focused
-        if ((ReceiverEditBox?.IsFocused != true) && (TitleBox?.IsFocused != true))
-            HandleBodyInput(input);
     }
 }

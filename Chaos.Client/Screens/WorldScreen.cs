@@ -365,7 +365,6 @@ public sealed partial class WorldScreen : IScreen
             ZIndex = -3
         };
         MacroMenu.SetSlideAnchor(optionsAnchorX, optionsAnchorY);
-        MacroMenu.OnOk += SavePlayerMacros;
 
         HotkeyHelp = new HotkeyHelpControl();
 

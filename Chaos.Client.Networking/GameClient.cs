@@ -77,6 +77,26 @@ public sealed class GameClient : IDisposable
     }
 
     /// <summary>
+    ///     Connects to the specified host and port synchronously, then starts the receive loop.
+    /// </summary>
+    public void Connect(string host, int port)
+    {
+        if (Disposed)
+            throw new ObjectDisposedException(nameof(GameClient));
+
+        Disconnect();
+
+        Socket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp)
+        {
+            NoDelay = true
+        };
+
+        Socket.Connect(host, port);
+
+        StartReceiveLoop();
+    }
+
+    /// <summary>
     ///     Connects to the specified host and port, then starts the receive loop.
     /// </summary>
     public async Task ConnectAsync(string host, int port, CancellationToken ct = default)
@@ -93,13 +113,7 @@ public sealed class GameClient : IDisposable
 
         await Socket.ConnectAsync(host, port, ct);
 
-        ReceiveMemoryOwner = MemoryPool<byte>.Shared.Rent(RECEIVE_BUFFER_SIZE);
-        ReceiveCount = 0;
-        IsAlive = true;
-
-        var generation = Interlocked.Increment(ref ConnectionGeneration);
-        ReceiveCts = new CancellationTokenSource();
-        ReceiveTask = Task.Run(() => ReceiveLoopAsync(ReceiveCts.Token, generation), ReceiveCts.Token);
+        StartReceiveLoop();
     }
 
     /// <summary>
@@ -256,6 +270,17 @@ public sealed class GameClient : IDisposable
     ///     Sets the outbound sequence number.
     /// </summary>
     public void SetSequence(byte newSequence) => Sequence = newSequence;
+
+    private void StartReceiveLoop()
+    {
+        ReceiveMemoryOwner = MemoryPool<byte>.Shared.Rent(RECEIVE_BUFFER_SIZE);
+        ReceiveCount = 0;
+        IsAlive = true;
+
+        var generation = Interlocked.Increment(ref ConnectionGeneration);
+        ReceiveCts = new CancellationTokenSource();
+        ReceiveTask = Task.Run(() => ReceiveLoopAsync(ReceiveCts.Token, generation), ReceiveCts.Token);
+    }
 
     private delegate void ServerPacketHandler(in Packet packet);
 

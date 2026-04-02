@@ -1,516 +1,388 @@
 #region
 using Chaos.Client.Controls.Components;
+using Chaos.Client.Data;
 using Chaos.Client.Extensions;
+using DALib.Drawing;
+using DALib.Drawing.Virtualized;
 using Microsoft.Xna.Framework;
-using Microsoft.Xna.Framework.Graphics;
 using Microsoft.Xna.Framework.Input;
+using SkiaSharp;
 #endregion
 
 namespace Chaos.Client.Controls.World.Popups;
 
 /// <summary>
-///     Multi-line text editor popup for editable and readonly notepad displays. Text is split into lines, each backed by a
-///     UITextBox. Vertical scrolling when content exceeds the visible area. OK saves (editable), Cancel/Escape closes. The
-///     original DA client uses Width/Height sizing hints: display_chars ~ round(2.5 * Width), display_lines ~ round(1.4 *
-///     Height).
+///     Notepad popup with a 9-slice tiled background from line001.epf. Supports editable mode (multi-line UITextBox) and
+///     readonly mode (word-wrapped UILabel). Escape closes; editable mode sends text on close.
 /// </summary>
 public sealed class NotepadControl : UIPanel
 {
-    private const int PADDING = 10;
-    private const int LINE_HEIGHT = 14;
-    private const int BUTTON_WIDTH = 50;
-    private const int BUTTON_HEIGHT = 18;
-    private const int BUTTON_SPACING = 10;
-    private const int BUTTON_AREA_HEIGHT = 28;
+    private const int TILE_SIZE = 16;
     private const int MAX_MESSAGE_LENGTH = 3500;
-    private const int SCROLLBAR_WIDTH = 8;
-    private const int MIN_WIDTH = 180;
-    private const int MIN_HEIGHT = 100;
-    private const int MAX_WIDTH = 520;
-    private const int MAX_HEIGHT = 420;
 
-    private static readonly Color BackgroundFill = new(
-        20,
-        15,
-        10,
-        240);
+    // Notepad type frames start at frame 48 in line001.epf
+    private const int NOTEPAD_BASE_FRAME = 48;
 
-    private static readonly Color FrameColor = new(80, 60, 40);
-    private static readonly Color ButtonFill = new(50, 40, 30);
-    private static readonly Color ButtonBorder = new(120, 100, 70);
-    private static readonly Color ButtonHoverFill = new(70, 55, 40);
-    private static readonly Color ScrollTrackColor = new(40, 35, 25);
-    private static readonly Color ScrollThumbColor = new(140, 120, 80);
-    private readonly UILabel CancelLabel;
-    private readonly UILabel CloseLabel;
+    // 9-slice piece indices within each type's 9-frame group
+    // Standard clockwise: TL, Top, TR, Right, BR, Bottom, BL, Left, Fill
+    private const int PIECE_COUNT = 9;
+    private const int PIECE_TL = 0;
+    private const int PIECE_TOP = 1;
+    private const int PIECE_TR = 2;
+    private const int PIECE_RIGHT = 3;
+    private const int PIECE_BR = 4;
+    private const int PIECE_BOTTOM = 5;
+    private const int PIECE_BL = 6;
+    private const int PIECE_LEFT = 7;
+    private const int PIECE_FILL = 8;
 
-    private readonly List<string> Lines = [];
-    private readonly int MaxPossibleVisibleLines;
+    private static SKImage[]? CachedEpfFrames;
 
-    private readonly UILabel OkLabel;
-
-    // Visible-line labels for readonly rendering
-    private readonly UILabel[] ReadonlyLineLabels;
-    private Rectangle CancelButtonRect;
-    private bool CancelHovered;
-
-    // Editable mode: one UITextBox per visible line, mapped to Lines via ScrollOffset
-    private UITextBox[] EditBoxes = [];
-
+    private readonly UITextBox ContentBox;
+    private readonly UILabel ReadonlyLabel;
     private byte EditSlot;
     private bool IsEditable;
-    private int MaxCharsPerLine;
-
-    // Button rectangles (screen-relative within the panel, calculated in Show)
-    private Rectangle OkButtonRect;
-    private bool OkHovered;
-
-    // Readonly dirty tracking
-    private int ReadonlyDataVersion;
-    private int ReadonlyRenderedVersion = -1;
-    private int ScrollOffset;
-    private int VisibleLineCount;
 
     public NotepadControl()
     {
         Name = "Notepad";
         Visible = false;
 
-        // Pre-allocate readonly line labels for the largest possible visible area
-        MaxPossibleVisibleLines = (MAX_HEIGHT - PADDING * 2 - BUTTON_AREA_HEIGHT) / LINE_HEIGHT;
-        ReadonlyLineLabels = new UILabel[MaxPossibleVisibleLines];
-
-        for (var i = 0; i < MaxPossibleVisibleLines; i++)
+        ContentBox = new UITextBox
         {
-            ReadonlyLineLabels[i] = new UILabel
-            {
-                Name = $"ReadonlyLine{i}",
-                X = PADDING,
-                Height = LINE_HEIGHT,
-                PaddingLeft = 0,
-                PaddingTop = 0,
-                Visible = false
-            };
+            Name = "NotepadContent",
+            IsMultiLine = true,
+            MaxLength = MAX_MESSAGE_LENGTH,
+            IsFocusable = true,
+            IsReadOnly = false,
+            IsSelectable = true,
+            ForegroundColor = Color.Black,
+            PaddingX = 2,
+            PaddingY = 2,
+            Visible = false,
+            ZIndex = 1
+        };
+        AddChild(ContentBox);
 
-            AddChild(ReadonlyLineLabels[i]);
+        ReadonlyLabel = new UILabel
+        {
+            Name = "NotepadReadonly",
+            WordWrap = true,
+            TopAligned = true,
+            ForegroundColor = Color.Black,
+            PaddingLeft = 2,
+            PaddingTop = 2,
+            Visible = false
+        };
+        AddChild(ReadonlyLabel);
+    }
+
+    public void Close()
+    {
+        if (IsEditable)
+        {
+            var text = ContentBox.Text;
+
+            if (text.Length > MAX_MESSAGE_LENGTH)
+                text = text[..MAX_MESSAGE_LENGTH];
+
+            // Convert newlines back to TAB for the protocol
+            text = text.Replace('\n', '\t');
+
+            OnSave?.Invoke(EditSlot, text);
         }
 
-        OkLabel = new UILabel
-        {
-            Name = "OkLabel",
-            Text = "OK",
-            Alignment = TextAlignment.Center,
-            PaddingLeft = 0,
-            PaddingTop = 0,
-            Visible = false
-        };
-
-        CancelLabel = new UILabel
-        {
-            Name = "CancelLabel",
-            Text = "Cancel",
-            Alignment = TextAlignment.Center,
-            PaddingLeft = 0,
-            PaddingTop = 0,
-            Visible = false
-        };
-
-        CloseLabel = new UILabel
-        {
-            Name = "CloseLabel",
-            Text = "Close",
-            Alignment = TextAlignment.Center,
-            PaddingLeft = 0,
-            PaddingTop = 0,
-            Visible = false
-        };
-
-        AddChild(OkLabel);
-        AddChild(CancelLabel);
-        AddChild(CloseLabel);
+        Visible = false;
+        ContentBox.IsFocused = false;
+        ContentBox.Visible = false;
+        ReadonlyLabel.Visible = false;
     }
 
-    private string AssembleText()
+    private void ComposeBackground(byte notepadType)
     {
-        // Make sure we capture latest edits
-        SyncLinesToEditBoxes();
+        // Dispose any previous background
+        Background?.Dispose();
+        Background = null;
 
-        // Trim trailing empty lines
-        var lastNonEmpty = Lines.Count - 1;
+        var frames = GetEpfFrames();
 
-        while ((lastNonEmpty >= 0) && string.IsNullOrEmpty(Lines[lastNonEmpty]))
-            lastNonEmpty--;
+        if (frames is null)
+            return;
 
-        if (lastNonEmpty < 0)
-            return string.Empty;
+        var baseFrame = NOTEPAD_BASE_FRAME + notepadType * PIECE_COUNT;
 
-        var result = string.Join("\n", Lines.GetRange(0, lastNonEmpty + 1));
+        // Load the 9 pieces, skipping any that fall outside the EPF frame count
+        var pieces = new SKImage?[PIECE_COUNT];
 
-        if (result.Length > MAX_MESSAGE_LENGTH)
-            result = result[..MAX_MESSAGE_LENGTH];
+        for (var i = 0; i < PIECE_COUNT; i++)
+        {
+            var frameIndex = baseFrame + i;
 
-        return result;
+            if (frameIndex < frames.Length)
+                pieces[i] = frames[frameIndex];
+        }
+
+        var info = new SKImageInfo(
+            Width,
+            Height,
+            SKColorType.Rgba8888,
+            SKAlphaType.Premul);
+        using var surface = SKSurface.Create(info);
+
+        if (surface is null)
+            return;
+
+        var canvas = surface.Canvas;
+        canvas.Clear(SKColors.Transparent);
+
+        // Fill: tile across the inset area
+        TilePiece(
+            canvas,
+            pieces[PIECE_FILL],
+            TILE_SIZE,
+            TILE_SIZE,
+            Width - TILE_SIZE * 2,
+            Height - TILE_SIZE * 2);
+
+        // Draw order (back to front): Top -> Bottom -> Left -> Right -> TL -> TR -> BL -> BR
+        // Edges first (tiled), then corners on top
+        TilePieceH(
+            canvas,
+            pieces[PIECE_TOP],
+            TILE_SIZE,
+            0,
+            Width - TILE_SIZE * 2);
+
+        TilePieceH(
+            canvas,
+            pieces[PIECE_BOTTOM],
+            TILE_SIZE,
+            Height - TILE_SIZE,
+            Width - TILE_SIZE * 2);
+
+        TilePieceV(
+            canvas,
+            pieces[PIECE_LEFT],
+            0,
+            TILE_SIZE,
+            Height - TILE_SIZE * 2);
+
+        TilePieceV(
+            canvas,
+            pieces[PIECE_RIGHT],
+            Width - TILE_SIZE,
+            TILE_SIZE,
+            Height - TILE_SIZE * 2);
+
+        // Corners (drawn last, on top of edges)
+        DrawPiece(
+            canvas,
+            pieces[PIECE_TL],
+            0,
+            0);
+
+        DrawPiece(
+            canvas,
+            pieces[PIECE_TR],
+            Width - TILE_SIZE,
+            0);
+
+        DrawPiece(
+            canvas,
+            pieces[PIECE_BL],
+            0,
+            Height - TILE_SIZE);
+
+        DrawPiece(
+            canvas,
+            pieces[PIECE_BR],
+            Width - TILE_SIZE,
+            Height - TILE_SIZE);
+
+        using var snapshot = surface.Snapshot();
+        Background = TextureConverter.ToTexture2D(snapshot);
     }
 
-    private void Cancel() => Hide();
-
-    private void ConfigureSize(byte width, byte height)
+    private void ConfigureSize(byte notepadType, byte width, byte height)
     {
-        // Apply sizing hints from the protocol
-        MaxCharsPerLine = (int)Math.Round(2.5 * width);
-        VisibleLineCount = (int)Math.Round(1.4 * height);
+        // Exact sizing formula: (field + offset) * 16
+        var pixelWidth = (width + 2) * TILE_SIZE;
+        var pixelHeight = (height + 3) * TILE_SIZE;
 
-        if (MaxCharsPerLine < 20)
-            MaxCharsPerLine = 20;
-
-        if (VisibleLineCount < 4)
-            VisibleLineCount = 4;
-
-        // Clamp visible lines to what we can fit
-        if (VisibleLineCount > MaxPossibleVisibleLines)
-            VisibleLineCount = MaxPossibleVisibleLines;
-
-        // Calculate pixel dimensions from character/line counts
-        var textAreaWidth = MaxCharsPerLine * TextRenderer.CHAR_WIDTH;
-        var textAreaHeight = VisibleLineCount * LINE_HEIGHT;
-
-        Width = Math.Clamp(textAreaWidth + PADDING * 2 + SCROLLBAR_WIDTH, MIN_WIDTH, MAX_WIDTH);
-        Height = Math.Clamp(textAreaHeight + PADDING * 2 + BUTTON_AREA_HEIGHT, MIN_HEIGHT, MAX_HEIGHT);
+        Width = pixelWidth;
+        Height = pixelHeight;
 
         this.CenterOnScreen();
 
-        ScrollOffset = 0;
-        BackgroundColor = BackgroundFill;
+        // Compose the 9-slice background
+        ComposeBackground(notepadType);
 
-        // Calculate button positions (centered at bottom of panel)
-        var buttonY = Height - BUTTON_AREA_HEIGHT + (BUTTON_AREA_HEIGHT - BUTTON_HEIGHT) / 2;
-        var totalButtonWidth = BUTTON_WIDTH * 2 + BUTTON_SPACING;
-        var buttonStartX = (Width - totalButtonWidth) / 2;
+        // Text area: left=16, top=26, right=W-16, bottom=height*16+36
+        var contentX = TILE_SIZE;
+        var contentY = 26;
+        var contentWidth = pixelWidth - TILE_SIZE * 2;
+        var contentHeight = height * TILE_SIZE + 36 - contentY;
 
-        OkButtonRect = new Rectangle(
-            buttonStartX,
-            buttonY,
-            BUTTON_WIDTH,
-            BUTTON_HEIGHT);
+        ContentBox.X = contentX;
+        ContentBox.Y = contentY;
+        ContentBox.Width = contentWidth;
+        ContentBox.Height = contentHeight;
 
-        CancelButtonRect = new Rectangle(
-            buttonStartX + BUTTON_WIDTH + BUTTON_SPACING,
-            buttonY,
-            BUTTON_WIDTH,
-            BUTTON_HEIGHT);
-
-        // Position button labels within their button rects
-        PositionButtonLabel(OkLabel, OkButtonRect);
-        PositionButtonLabel(CancelLabel, CancelButtonRect);
-        PositionButtonLabel(CloseLabel, OkButtonRect);
-
-        // Position readonly line labels
-        var labelWidth = Width - PADDING * 2 - SCROLLBAR_WIDTH;
-
-        for (var i = 0; i < MaxPossibleVisibleLines; i++)
-        {
-            ReadonlyLineLabels[i].Y = PADDING + i * LINE_HEIGHT;
-            ReadonlyLineLabels[i].Width = labelWidth;
-        }
-    }
-
-    private void Confirm()
-    {
-        if (!IsEditable)
-        {
-            Hide();
-
-            return;
-        }
-
-        var text = AssembleText();
-        Hide();
-        OnSave?.Invoke(EditSlot, text);
-    }
-
-    private void CreateEditBoxes()
-    {
-        DestroyEditBoxes();
-
-        var textAreaWidth = Width - PADDING * 2 - SCROLLBAR_WIDTH;
-        EditBoxes = new UITextBox[VisibleLineCount];
-
-        for (var i = 0; i < VisibleLineCount; i++)
-        {
-            var box = new UITextBox
-            {
-                Name = $"NoteLine{i}",
-                X = PADDING,
-                Y = PADDING + i * LINE_HEIGHT,
-                Width = textAreaWidth,
-                Height = LINE_HEIGHT,
-                MaxLength = MaxCharsPerLine,
-                PaddingX = 0,
-                PaddingY = 1,
-                ForegroundColor = Color.White,
-                IsFocusable = true,
-                IsReadOnly = false,
-                IsSelectable = true,
-                ZIndex = 1
-            };
-
-            EditBoxes[i] = box;
-            AddChild(box);
-        }
-
-        // Focus the first line
-        if (EditBoxes.Length > 0)
-            EditBoxes[0].IsFocused = true;
-    }
-
-    private void DestroyEditBoxes()
-    {
-        foreach (var box in EditBoxes)
-        {
-            box.IsFocused = false;
-            RemoveChild(box);
-            box.Dispose();
-        }
-
-        EditBoxes = [];
+        ReadonlyLabel.X = contentX;
+        ReadonlyLabel.Y = contentY;
+        ReadonlyLabel.Width = contentWidth;
+        ReadonlyLabel.Height = contentHeight;
     }
 
     public override void Dispose()
     {
-        DestroyEditBoxes();
+        ContentBox.IsFocused = false;
 
         base.Dispose();
     }
 
-    public override void Draw(SpriteBatch spriteBatch)
+    private static void DrawPiece(
+        SKCanvas canvas,
+        SKImage? piece,
+        int x,
+        int y)
     {
-        if (!Visible)
-            return;
-
-        var sx = ScreenX;
-        var sy = ScreenY;
-
-        // Outer frame
-        DrawRect(
-            spriteBatch,
-            new Rectangle(
-                sx - 2,
-                sy - 2,
-                Width + 4,
-                Height + 4),
-            FrameColor);
-
-        // Update label visibility and button styling based on mode
-        UpdateLabelState();
-
-        if (!IsEditable)
-            RefreshReadonlyLineLabels();
-
-        // Background + all children (readonly line labels, button labels, edit boxes)
-        base.Draw(spriteBatch);
-
-        // Scrollbar
-        if (Lines.Count > VisibleLineCount)
-            DrawScrollbar(spriteBatch, sx, sy);
+        if (piece is not null)
+            canvas.DrawImage(piece, x, y);
     }
 
-    private void DrawScrollbar(SpriteBatch spriteBatch, int sx, int sy)
+    private static SKImage[]? GetEpfFrames()
     {
-        var barX = sx + Width - PADDING - SCROLLBAR_WIDTH + 2;
-        var barY = sy + PADDING;
-        var barHeight = VisibleLineCount * LINE_HEIGHT;
-        var maxScroll = Math.Max(1, Lines.Count - VisibleLineCount);
-        var scrollPct = (float)ScrollOffset / maxScroll;
-        var thumbHeight = Math.Max(12, barHeight * VisibleLineCount / Lines.Count);
-        var thumbY = barY + (int)(scrollPct * (barHeight - thumbHeight));
+        if (CachedEpfFrames is not null)
+            return CachedEpfFrames;
 
-        DrawRect(
-            spriteBatch,
-            new Rectangle(
-                barX,
-                barY,
-                SCROLLBAR_WIDTH - 2,
-                barHeight),
-            ScrollTrackColor);
+        if (!DatArchives.Legend.TryGetValue("line001.epf", out var entry)
+            || !DatArchives.Legend.TryGetValue("legend.pal", out var palEntry))
+            return null;
 
-        DrawRect(
-            spriteBatch,
-            new Rectangle(
-                barX,
-                thumbY,
-                SCROLLBAR_WIDTH - 2,
-                thumbHeight),
-            ScrollThumbColor);
+        var palette = Palette.FromEntry(palEntry);
+
+        var epf = EpfView.FromEntry(entry);
+        var frames = new SKImage[epf.Count];
+
+        for (var i = 0; i < epf.Count; i++)
+            frames[i] = Graphics.RenderImage(epf[i], palette);
+
+        CachedEpfFrames = frames;
+
+        return CachedEpfFrames;
     }
 
-    /// <summary>
-    ///     Returns the index of the focused UITextBox within EditBoxes, or -1 if none.
-    /// </summary>
-    private int GetFocusedBoxIndex()
+    private static string NormalizeMessage(string message)
     {
-        for (var i = 0; i < EditBoxes.Length; i++)
-            if (EditBoxes[i].IsFocused)
-                return i;
-
-        return -1;
-    }
-
-    public void Hide()
-    {
-        Visible = false;
-        DestroyEditBoxes();
-    }
-
-    private void LoadText(string message)
-    {
-        Lines.Clear();
-
         if (string.IsNullOrEmpty(message))
-        {
-            Lines.Add(string.Empty);
+            return string.Empty;
 
-            return;
-        }
-
-        // Normalize literal escape sequences to actual newlines
-        var normalized = message.Replace("\\n", "\n")
-                                .Replace("\\r", "\r")
-                                .Replace("\r\n", "\n")
-                                .Replace("\r", "\n");
-
-        // Split on newlines, then word-wrap each paragraph to fit the line width
-        var paragraphs = normalized.Split('\n');
-
-        var linePixelWidth = (Width - PADDING * 2 - SCROLLBAR_WIDTH) > 0
-            ? Width - PADDING * 2 - SCROLLBAR_WIDTH
-            : MaxCharsPerLine * TextRenderer.CHAR_WIDTH;
-
-        foreach (var paragraph in paragraphs)
-        {
-            if (string.IsNullOrEmpty(paragraph))
-            {
-                Lines.Add(string.Empty);
-
-                continue;
-            }
-
-            var wrapped = TextRenderer.WrapLines(paragraph, linePixelWidth);
-
-            if (wrapped.Count == 0)
-                Lines.Add(string.Empty);
-            else
-                Lines.AddRange(wrapped);
-        }
+        // Protocol uses TAB (0x09) as line separator; convert to newlines for display
+        return message.Replace('\t', '\n');
     }
 
     /// <summary>
-    ///     Fired when the user confirms editable notepad text. Parameters: slot, edited message.
+    ///     Fired when the editable notepad is closed. Parameters: slot, message text.
     /// </summary>
     public event Action<byte, string>? OnSave;
-
-    private static void PositionButtonLabel(UILabel label, Rectangle buttonRect)
-    {
-        label.X = buttonRect.X;
-        label.Y = buttonRect.Y;
-        label.Width = buttonRect.Width;
-        label.Height = buttonRect.Height;
-    }
-
-    private void RefreshReadonlyLineLabels()
-    {
-        if (ReadonlyRenderedVersion == ReadonlyDataVersion)
-            return;
-
-        ReadonlyRenderedVersion = ReadonlyDataVersion;
-
-        for (var i = 0; i < MaxPossibleVisibleLines; i++)
-        {
-            var lineIndex = ScrollOffset + i;
-            ReadonlyLineLabels[i].Text = lineIndex < Lines.Count ? Lines[lineIndex] : string.Empty;
-            ReadonlyLineLabels[i].ForegroundColor = Color.White;
-        }
-    }
-
-    /// <summary>
-    ///     Removes a child element from this panel.
-    /// </summary>
-    private void RemoveChild(UIElement child)
-    {
-        Children.Remove(child);
-        child.Parent = null;
-    }
 
     /// <summary>
     ///     Shows the notepad in editable mode with the given message text and sizing hints.
     /// </summary>
     public void ShowEditable(
         byte slot,
+        byte notepadType,
         byte width,
         byte height,
         string message)
     {
         EditSlot = slot;
         IsEditable = true;
-        ConfigureSize(width, height);
-        LoadText(message);
-        CreateEditBoxes();
-        SyncEditBoxesToLines();
+        ConfigureSize(notepadType, width, height);
+
+        ContentBox.Text = NormalizeMessage(message);
+        ContentBox.CursorPosition = 0;
+        ContentBox.ScrollOffset = 0;
+        ContentBox.Visible = true;
+        ContentBox.IsFocused = true;
+
+        ReadonlyLabel.Visible = false;
         Visible = true;
     }
 
     /// <summary>
     ///     Shows the notepad in readonly mode.
     /// </summary>
-    public void ShowReadonly(byte width, byte height, string message)
+    public void ShowReadonly(
+        byte notepadType,
+        byte width,
+        byte height,
+        string message)
     {
         IsEditable = false;
-        ConfigureSize(width, height);
-        LoadText(message);
-        ReadonlyDataVersion++;
+        ConfigureSize(notepadType, width, height);
+
+        ReadonlyLabel.Text = NormalizeMessage(message);
+        ReadonlyLabel.ScrollOffset = 0;
+        ReadonlyLabel.Visible = true;
+
+        ContentBox.Visible = false;
+        ContentBox.IsFocused = false;
         Visible = true;
     }
 
     /// <summary>
-    ///     Copies Lines data into the visible UITextBox controls based on the current ScrollOffset.
+    ///     Tiles a piece in both directions across the given area.
     /// </summary>
-    private void SyncEditBoxesToLines()
+    private static void TilePiece(
+        SKCanvas canvas,
+        SKImage? piece,
+        int startX,
+        int startY,
+        int areaWidth,
+        int areaHeight)
     {
-        for (var i = 0; i < EditBoxes.Length; i++)
-        {
-            var lineIndex = ScrollOffset + i;
+        if (piece is null)
+            return;
 
-            if (lineIndex < Lines.Count)
-            {
-                EditBoxes[i].Text = Lines[lineIndex];
-                EditBoxes[i].Visible = true;
-            } else
-            {
-                EditBoxes[i].Text = string.Empty;
-                EditBoxes[i].Visible = true;
-            }
-        }
+        for (var x = startX; x < (startX + areaWidth); x += TILE_SIZE)
+            for (var y = startY; y < (startY + areaHeight); y += TILE_SIZE)
+                canvas.DrawImage(piece, x, y);
     }
 
     /// <summary>
-    ///     Copies text from the visible UITextBox controls back into Lines.
+    ///     Tiles a piece horizontally.
     /// </summary>
-    private void SyncLinesToEditBoxes()
+    private static void TilePieceH(
+        SKCanvas canvas,
+        SKImage? piece,
+        int startX,
+        int y,
+        int areaWidth)
     {
-        for (var i = 0; i < EditBoxes.Length; i++)
-        {
-            var lineIndex = ScrollOffset + i;
+        if (piece is null)
+            return;
 
-            if (lineIndex < Lines.Count)
-                Lines[lineIndex] = EditBoxes[i].Text;
-            else if (!string.IsNullOrEmpty(EditBoxes[i].Text))
-            {
-                // Extend Lines if user typed into a line beyond current count
-                while (Lines.Count <= lineIndex)
-                    Lines.Add(string.Empty);
+        for (var x = startX; x < (startX + areaWidth); x += TILE_SIZE)
+            canvas.DrawImage(piece, x, y);
+    }
 
-                Lines[lineIndex] = EditBoxes[i].Text;
-            }
-        }
+    /// <summary>
+    ///     Tiles a piece vertically.
+    /// </summary>
+    private static void TilePieceV(
+        SKCanvas canvas,
+        SKImage? piece,
+        int x,
+        int startY,
+        int areaHeight)
+    {
+        if (piece is null)
+            return;
+
+        for (var y = startY; y < (startY + areaHeight); y += TILE_SIZE)
+            canvas.DrawImage(piece, x, y);
     }
 
     public override void Update(GameTime gameTime, InputBuffer input)
@@ -518,269 +390,25 @@ public sealed class NotepadControl : UIPanel
         if (!Visible || !Enabled)
             return;
 
-        // Escape closes
+        // Escape closes (sends text if editable)
         if (input.WasKeyPressed(Keys.Escape))
         {
-            Cancel();
+            Close();
 
             return;
-        }
-
-        // Button hover detection
-        var mx = input.MouseX - ScreenX;
-        var my = input.MouseY - ScreenY;
-        OkHovered = OkButtonRect.Contains(mx, my);
-        CancelHovered = CancelButtonRect.Contains(mx, my);
-
-        // Button clicks
-        if (input.WasLeftButtonPressed)
-        {
-            if (OkHovered)
-            {
-                Confirm();
-
-                return;
-            }
-
-            if (CancelHovered)
-            {
-                Cancel();
-
-                return;
-            }
         }
 
         if (IsEditable)
-            UpdateEditable(gameTime, input);
-        else
-            UpdateReadonly(input);
-    }
-
-    private void UpdateEditable(GameTime gameTime, InputBuffer input)
-    {
-        var focusedIndex = GetFocusedBoxIndex();
-
-        // Enter inserts a new line below the focused line
-        if (input.WasKeyPressed(Keys.Enter) && (focusedIndex >= 0))
         {
-            SyncLinesToEditBoxes();
-            var lineIndex = ScrollOffset + focusedIndex;
-            var currentBox = EditBoxes[focusedIndex];
-
-            // Split the current line at cursor position
-            var cursorPos = Math.Min(currentBox.CursorPosition, currentBox.Text.Length);
-            var beforeCursor = currentBox.Text[..cursorPos];
-            var afterCursor = currentBox.Text[cursorPos..];
-
-            Lines[lineIndex] = beforeCursor;
-
-            if ((lineIndex + 1) < Lines.Count)
-                Lines.Insert(lineIndex + 1, afterCursor);
-            else
-                Lines.Add(afterCursor);
-
-            // Move focus to the new line
-            if (focusedIndex < (EditBoxes.Length - 1))
-            {
-                // Next box is visible — just sync and move focus
-                SyncEditBoxesToLines();
-                EditBoxes[focusedIndex].IsFocused = false;
-                EditBoxes[focusedIndex + 1].IsFocused = true;
-                EditBoxes[focusedIndex + 1].CursorPosition = 0;
-            } else
-            {
-                // At bottom of visible area — scroll down
-                ScrollOffset++;
-                SyncEditBoxesToLines();
-
-                // Keep focus on the last visible box (which now shows the new line)
-                EditBoxes[focusedIndex].IsFocused = true;
-                EditBoxes[focusedIndex].CursorPosition = 0;
-            }
-
-            return;
-        }
-
-        // Backspace at start of line joins with previous line
-        if (input.WasKeyPressed(Keys.Back) && (focusedIndex >= 0))
+            base.Update(gameTime, input);
+        } else if ((input.ScrollDelta != 0) && (ReadonlyLabel.ContentHeight > ReadonlyLabel.Height))
         {
-            var currentBox = EditBoxes[focusedIndex];
+            var maxScroll = Math.Max(0, ReadonlyLabel.ContentHeight - ReadonlyLabel.Height);
 
-            if (currentBox is { CursorPosition: 0, HasSelection: false })
-            {
-                var lineIndex = ScrollOffset + focusedIndex;
-
-                if (lineIndex > 0)
-                {
-                    SyncLinesToEditBoxes();
-
-                    var prevLineText = Lines[lineIndex - 1];
-                    var curLineText = Lines[lineIndex];
-                    var joinedLength = prevLineText.Length;
-
-                    // Join lines (truncate if too long)
-                    var joined = prevLineText + curLineText;
-
-                    if (joined.Length > MaxCharsPerLine)
-                        joined = joined[..MaxCharsPerLine];
-
-                    Lines[lineIndex - 1] = joined;
-                    Lines.RemoveAt(lineIndex);
-
-                    // Move focus to previous line at the join point
-                    if (focusedIndex > 0)
-                    {
-                        SyncEditBoxesToLines();
-                        EditBoxes[focusedIndex].IsFocused = false;
-                        EditBoxes[focusedIndex - 1].IsFocused = true;
-                        EditBoxes[focusedIndex - 1].CursorPosition = Math.Min(joinedLength, EditBoxes[focusedIndex - 1].Text.Length);
-                    } else if (ScrollOffset > 0)
-                    {
-                        ScrollOffset--;
-                        SyncEditBoxesToLines();
-                        EditBoxes[0].IsFocused = true;
-                        EditBoxes[0].CursorPosition = Math.Min(joinedLength, EditBoxes[0].Text.Length);
-                    }
-
-                    return;
-                }
-            }
-        }
-
-        // Delete at end of line joins with next line
-        if (input.WasKeyPressed(Keys.Delete) && (focusedIndex >= 0))
-        {
-            var currentBox = EditBoxes[focusedIndex];
-
-            if ((currentBox.CursorPosition >= currentBox.Text.Length) && !currentBox.HasSelection)
-            {
-                var lineIndex = ScrollOffset + focusedIndex;
-
-                if ((lineIndex + 1) < Lines.Count)
-                {
-                    SyncLinesToEditBoxes();
-
-                    var curLineText = Lines[lineIndex];
-                    var nextLineText = Lines[lineIndex + 1];
-                    var cursorPos = curLineText.Length;
-
-                    var joined = curLineText + nextLineText;
-
-                    if (joined.Length > MaxCharsPerLine)
-                        joined = joined[..MaxCharsPerLine];
-
-                    Lines[lineIndex] = joined;
-                    Lines.RemoveAt(lineIndex + 1);
-                    SyncEditBoxesToLines();
-                    EditBoxes[focusedIndex].CursorPosition = Math.Min(cursorPos, EditBoxes[focusedIndex].Text.Length);
-
-                    return;
-                }
-            }
-        }
-
-        // Arrow up/down moves between lines
-        if (input.WasKeyPressed(Keys.Up) && (focusedIndex >= 0))
-        {
-            if (focusedIndex > 0)
-            {
-                SyncLinesToEditBoxes();
-                var cursorPos = EditBoxes[focusedIndex].CursorPosition;
-                EditBoxes[focusedIndex].IsFocused = false;
-                EditBoxes[focusedIndex - 1].IsFocused = true;
-                EditBoxes[focusedIndex - 1].CursorPosition = Math.Min(cursorPos, EditBoxes[focusedIndex - 1].Text.Length);
-            } else if (ScrollOffset > 0)
-            {
-                SyncLinesToEditBoxes();
-                var cursorPos = EditBoxes[focusedIndex].CursorPosition;
-                ScrollOffset--;
-                SyncEditBoxesToLines();
-                EditBoxes[0].IsFocused = true;
-                EditBoxes[0].CursorPosition = Math.Min(cursorPos, EditBoxes[0].Text.Length);
-            }
-
-            return;
-        }
-
-        if (input.WasKeyPressed(Keys.Down) && (focusedIndex >= 0))
-        {
-            var lineIndex = ScrollOffset + focusedIndex;
-
-            if (lineIndex < (Lines.Count - 1))
-            {
-                if (focusedIndex < (EditBoxes.Length - 1))
-                {
-                    SyncLinesToEditBoxes();
-                    var cursorPos = EditBoxes[focusedIndex].CursorPosition;
-                    EditBoxes[focusedIndex].IsFocused = false;
-                    EditBoxes[focusedIndex + 1].IsFocused = true;
-                    EditBoxes[focusedIndex + 1].CursorPosition = Math.Min(cursorPos, EditBoxes[focusedIndex + 1].Text.Length);
-                } else
-                {
-                    SyncLinesToEditBoxes();
-                    var cursorPos = EditBoxes[focusedIndex].CursorPosition;
-                    ScrollOffset++;
-                    SyncEditBoxesToLines();
-                    EditBoxes[^1].IsFocused = true;
-                    EditBoxes[^1].CursorPosition = Math.Min(cursorPos, EditBoxes[^1].Text.Length);
-                }
-            }
-
-            return;
-        }
-
-        // Scroll wheel
-        if ((input.ScrollDelta != 0) && (Lines.Count > VisibleLineCount))
-        {
-            SyncLinesToEditBoxes();
-            var maxScroll = Math.Max(0, Lines.Count - VisibleLineCount);
-            ScrollOffset = Math.Clamp(ScrollOffset - input.ScrollDelta, 0, maxScroll);
-            SyncEditBoxesToLines();
-        }
-
-        // Let UITextBox children handle their own input (character typing, cursor, selection)
-        base.Update(gameTime, input);
-
-        // After textbox updates, sync any changes back to Lines
-        SyncLinesToEditBoxes();
-    }
-
-    private void UpdateLabelState()
-    {
-        // Button labels — visibility and hover styling
-        OkLabel.Visible = IsEditable;
-        OkLabel.BackgroundColor = OkHovered ? ButtonHoverFill : ButtonFill;
-        OkLabel.BorderColor = ButtonBorder;
-
-        CloseLabel.Visible = !IsEditable;
-        CloseLabel.BackgroundColor = OkHovered ? ButtonHoverFill : ButtonFill;
-        CloseLabel.BorderColor = ButtonBorder;
-
-        CancelLabel.Visible = IsEditable;
-        CancelLabel.BackgroundColor = CancelHovered ? ButtonHoverFill : ButtonFill;
-        CancelLabel.BorderColor = ButtonBorder;
-
-        // Readonly line labels
-        for (var i = 0; i < MaxPossibleVisibleLines; i++)
-            ReadonlyLineLabels[i].Visible = !IsEditable && (i < VisibleLineCount) && ((ScrollOffset + i) < Lines.Count);
-    }
-
-    private void UpdateReadonly(InputBuffer input)
-    {
-        // Click outside to close
-        if (input.WasLeftButtonPressed && !ContainsPoint(input.MouseX, input.MouseY))
-        {
-            Hide();
-
-            return;
-        }
-
-        // Scroll
-        if ((input.ScrollDelta != 0) && (Lines.Count > VisibleLineCount))
-        {
-            var maxScroll = Math.Max(0, Lines.Count - VisibleLineCount);
-            ScrollOffset = Math.Clamp(ScrollOffset - input.ScrollDelta, 0, maxScroll);
-            ReadonlyDataVersion++;
+            ReadonlyLabel.ScrollOffset = Math.Clamp(
+                ReadonlyLabel.ScrollOffset - input.ScrollDelta * TextRenderer.CHAR_HEIGHT,
+                0,
+                maxScroll);
         }
     }
 }

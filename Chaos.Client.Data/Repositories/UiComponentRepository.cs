@@ -195,6 +195,16 @@ public sealed class UiComponentRepository : RepositoryBase
     }
 
     /// <summary>
+    ///     Returns the GUI palette that would be used for the given legend.dat EPF filename.
+    /// </summary>
+    public Palette? GetLegendPalette(string fileName)
+    {
+        var palNum = GetGuiPaletteNumber(fileName);
+
+        return GuiPalettes.TryGetValue(palNum, out var palette) ? palette : null;
+    }
+
+    /// <summary>
     ///     Reads the msg.tbl text file from setoa.dat and returns its lines. Used for localized UI strings (e.g. social status
     ///     names). Returns null if msg.tbl is not found.
     /// </summary>

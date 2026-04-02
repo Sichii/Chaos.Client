@@ -1,42 +1,33 @@
 #region
 using Chaos.Client.Controls.Components;
+using Chaos.Client.Data;
 using Chaos.Client.Extensions;
 using Chaos.Client.Utilities;
 using Microsoft.Xna.Framework;
-using Microsoft.Xna.Framework.Graphics;
 using Microsoft.Xna.Framework.Input;
 #endregion
 
 namespace Chaos.Client.Controls.World.Popups.Options;
 
 /// <summary>
-///     Macro pulldown menu using _nmacro prefab. Triggered by F3 key. Displays configurable macro slots with text labels.
-///     Two text rows per macro entry (TextTop/TextBottom), OK/Cancel at bottom. Macros map function keys (F5-F12) to chat
-///     commands or spell/skill usage.
+///     Macro editor using _nmacro prefab. Triggered by F3 key or Options → Macro button. Displays 10 editable text fields
+///     for macro commands. Loads from player config on open, saves on close.
 /// </summary>
 public sealed class MacroMenuControl : PrefabPanel
 {
     private const int MAX_MACROS = 10;
     private const int ROW_HEIGHT = 21;
     private const int LABEL_START_Y = 40;
-    private const int LABEL_X = 40;
-    private const int LABEL_WIDTH = 385;
+    private const int TEXTBOX_X = 40;
+    private const int TEXTBOX_WIDTH = 385;
+    private const int MAX_MACRO_LENGTH = 50;
 
-    private readonly UILabel[] MacroNameLabels = new UILabel[MAX_MACROS];
-
-    private readonly string[] MacroNames = new string[MAX_MACROS];
-    private readonly UILabel[] MacroValueLabels = new UILabel[MAX_MACROS];
-    private readonly string[] MacroValues = new string[MAX_MACROS];
-    private bool ClosedWithOk;
-    private int DataVersion;
-    private int RenderedVersion = -1;
-    private int SelectedIndex = -1;
+    private readonly UITextBox[] MacroTextBoxes = new UITextBox[MAX_MACROS];
     private SlideAnimator Slide;
     private int SlideAnchorY;
     private bool SlideMode;
 
     public UIButton? CancelButton { get; }
-
     public UIButton? OkButton { get; }
 
     public MacroMenuControl()
@@ -49,50 +40,35 @@ public sealed class MacroMenuControl : PrefabPanel
         CancelButton = CreateButton("Cancel");
 
         if (OkButton is not null)
-            OkButton.OnClick += CloseWithOk;
+            OkButton.OnClick += SaveAndClose;
 
         if (CancelButton is not null)
             CancelButton.OnClick += Close;
 
-        // Initialize macro labels
         for (var i = 0; i < MAX_MACROS; i++)
         {
-            MacroNameLabels[i] = new UILabel
+            MacroTextBoxes[i] = new UITextBox
             {
-                Name = $"MacroName{i}",
-                X = LABEL_X,
+                Name = $"Macro{i}",
+                X = TEXTBOX_X,
                 Y = LABEL_START_Y + i * ROW_HEIGHT,
-                Width = 55,
+                Width = TEXTBOX_WIDTH,
                 Height = ROW_HEIGHT,
-                PaddingLeft = 0,
-                PaddingTop = 0
+                MaxLength = MAX_MACRO_LENGTH,
+                ForegroundColor = LegendColors.White,
+                FocusedBackgroundColor = new Color(
+                    0,
+                    0,
+                    0,
+                    255)
             };
 
-            MacroValueLabels[i] = new UILabel
-            {
-                Name = $"MacroValue{i}",
-                X = LABEL_X + 60,
-                Y = LABEL_START_Y + i * ROW_HEIGHT,
-                Width = LABEL_WIDTH - 60,
-                Height = ROW_HEIGHT,
-                PaddingLeft = 0,
-                PaddingTop = 0
-            };
-
-            AddChild(MacroNameLabels[i]);
-            AddChild(MacroValueLabels[i]);
-
-            MacroNames[i] = $"F{i + 5}";
-            MacroValues[i] = string.Empty;
+            AddChild(MacroTextBoxes[i]);
         }
-
-        DataVersion++;
     }
 
     private void Close()
     {
-        ClosedWithOk = false;
-
         if (SlideMode)
             Slide.SlideOut();
         else
@@ -102,35 +78,23 @@ public sealed class MacroMenuControl : PrefabPanel
         }
     }
 
-    private void CloseWithOk()
-    {
-        ClosedWithOk = true;
-
-        if (SlideMode)
-            Slide.SlideOut();
-        else
-        {
-            OnOk?.Invoke();
-            Hide();
-            OnClose?.Invoke();
-        }
-    }
-
-    public override void Draw(SpriteBatch spriteBatch)
-    {
-        if (!Visible)
-            return;
-
-        RefreshCaches();
-
-        // Labels are children — drawn by base.Draw()
-        base.Draw(spriteBatch);
-    }
+    /// <summary>
+    ///     Returns the macro value for the given slot index, or empty string if out of range.
+    /// </summary>
+    public string GetMacroValue(int index) => (index >= 0) && (index < MAX_MACROS) ? MacroTextBoxes[index].Text : string.Empty;
 
     /// <summary>
     ///     Returns the macro values for all slots.
     /// </summary>
-    public string[] GetMacroValues() => (string[])MacroValues.Clone();
+    public string[] GetMacroValues()
+    {
+        var values = new string[MAX_MACROS];
+
+        for (var i = 0; i < MAX_MACROS; i++)
+            values[i] = MacroTextBoxes[i].Text;
+
+        return values;
+    }
 
     public override void Hide()
     {
@@ -141,41 +105,26 @@ public sealed class MacroMenuControl : PrefabPanel
     }
 
     public event Action? OnClose;
-    #pragma warning disable CS0067 // not yet wired
-    public event Action<int, string, string>? OnMacroChanged;
-    #pragma warning restore CS0067
-    public event Action? OnOk;
 
-    private void RefreshCaches()
+    private void Save()
     {
-        if (RenderedVersion == DataVersion)
-            return;
+        var macros = GetMacroValues();
+        DataContext.LocalPlayerSettings.SaveMacros(macros);
+    }
 
-        RenderedVersion = DataVersion;
-
-        for (var i = 0; i < MAX_MACROS; i++)
-        {
-            var nameColor = i == SelectedIndex ? Color.Yellow : LegendColors.LightGray;
-
-            MacroNameLabels[i].Text = MacroNames[i];
-            MacroNameLabels[i].ForegroundColor = nameColor;
-
-            MacroValueLabels[i].Text = MacroValues[i];
-            MacroValueLabels[i].ForegroundColor = nameColor;
-        }
+    private void SaveAndClose()
+    {
+        Save();
+        Close();
     }
 
     /// <summary>
-    ///     Sets a macro slot's display name and command value.
+    ///     Populates all macro textboxes from the given values array.
     /// </summary>
-    public void SetMacro(int index, string name, string value)
+    public void SetMacros(string[] macros)
     {
-        if ((index < 0) || (index >= MAX_MACROS))
-            return;
-
-        MacroNames[index] = name;
-        MacroValues[index] = value;
-        DataVersion++;
+        for (var i = 0; i < MAX_MACROS; i++)
+            MacroTextBoxes[i].Text = i < macros.Length ? macros[i] : string.Empty;
     }
 
     /// <summary>
@@ -219,9 +168,6 @@ public sealed class MacroMenuControl : PrefabPanel
 
         if (Slide.Update(gameTime, this))
         {
-            if (ClosedWithOk)
-                OnOk?.Invoke();
-
             OnClose?.Invoke();
 
             return;
@@ -235,20 +181,5 @@ public sealed class MacroMenuControl : PrefabPanel
         }
 
         base.Update(gameTime, input);
-
-        // Click to select a macro slot
-        if (input.WasLeftButtonPressed)
-        {
-            var localY = input.MouseY - ScreenY - LABEL_START_Y;
-            var localX = input.MouseX - ScreenX - LABEL_X;
-
-            if (localX is >= 0 and < LABEL_WIDTH && (localY >= 0))
-            {
-                var index = localY / ROW_HEIGHT;
-
-                if (index < MAX_MACROS)
-                    SelectedIndex = index;
-            }
-        }
     }
 }

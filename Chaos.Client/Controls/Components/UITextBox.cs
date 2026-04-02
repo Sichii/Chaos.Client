@@ -15,9 +15,12 @@ public class UITextBox : UIElement
     private static UITextBox? FocusedTextBox;
 
     private readonly TextElement TextElement = new();
+    private string CachedLayoutText = string.Empty;
+    private int CachedLayoutWidth;
     private double CursorTimer;
     private bool CursorVisible;
     private bool Dragging;
+    private List<int> LineStarts = [0];
     private TextElement? PrefixTextElement;
     private int SelectionAnchor;
     public TextAlignment Alignment { get; set; } = TextAlignment.Left;
@@ -66,6 +69,7 @@ public class UITextBox : UIElement
     }
 
     public bool IsMasked { get; set; }
+    public bool IsMultiLine { get; set; }
     public bool IsReadOnly { get; set; }
     public bool IsSelectable { get; set; } = true;
     public int MaxLength { get; set; } = 12;
@@ -78,6 +82,8 @@ public class UITextBox : UIElement
     ///     and cannot be deleted by the user.
     /// </summary>
     public string Prefix { get; set; } = string.Empty;
+
+    public int ScrollOffset { get; set; }
 
     public string Text { get; set; } = string.Empty;
 
@@ -101,6 +107,8 @@ public class UITextBox : UIElement
         }
     }
 
+    private int FirstVisibleLine => ScrollOffset / TextRenderer.CHAR_HEIGHT;
+
     public bool HasSelection => IsSelectable && (SelectionAnchor != CursorPosition);
 
     public string SelectedText => HasSelection ? Text[SelectionStart..Math.Min(SelectionEnd, Text.Length)] : string.Empty;
@@ -109,6 +117,8 @@ public class UITextBox : UIElement
     public int SelectionLength => SelectionEnd - SelectionStart;
 
     public int SelectionStart => Math.Min(SelectionAnchor, CursorPosition);
+
+    private int VisibleLineCount => (Height - PaddingY * 2) / TextRenderer.CHAR_HEIGHT;
 
     /// <summary>
     ///     Ensures cursor and anchor are within valid range after external Text changes.
@@ -122,6 +132,67 @@ public class UITextBox : UIElement
 
         if (SelectionAnchor > len)
             SelectionAnchor = len;
+    }
+
+    private void ComputeLineLayout()
+    {
+        var innerWidth = Width - PaddingX * 2;
+
+        if ((innerWidth == CachedLayoutWidth) && (Text == CachedLayoutText))
+            return;
+
+        CachedLayoutWidth = innerWidth;
+        CachedLayoutText = Text;
+        LineStarts = [0];
+
+        if (string.IsNullOrEmpty(Text) || (innerWidth <= 0))
+            return;
+
+        var pos = 0;
+
+        while (pos <= Text.Length)
+        {
+            var nlIndex = Text.IndexOf('\n', pos);
+            var paraEnd = nlIndex < 0 ? Text.Length : nlIndex;
+            var para = Text[pos..paraEnd];
+
+            if (para.Length == 0)
+            {
+                pos = paraEnd + 1;
+
+                if ((nlIndex >= 0) && (pos <= Text.Length))
+                    LineStarts.Add(pos);
+
+                continue;
+            }
+
+            var paraOffset = pos;
+            var remaining = para;
+
+            while (remaining.Length > 0)
+            {
+                var lineEnd = TextRenderer.FindLineBreak(remaining, innerWidth);
+                var consumed = lineEnd;
+
+                while ((consumed < remaining.Length) && (remaining[consumed] == ' '))
+                    consumed++;
+
+                remaining = remaining[consumed..];
+                paraOffset += consumed;
+
+                if (remaining.Length > 0)
+                    LineStarts.Add(paraOffset);
+            }
+
+            pos = paraEnd + 1;
+
+            if ((nlIndex >= 0) && (pos <= Text.Length))
+                LineStarts.Add(pos);
+        }
+
+        // Ensure trailing \n produces a final empty line
+        if ((Text.Length > 0) && (Text[^1] == '\n') && (LineStarts[^1] != Text.Length))
+            LineStarts.Add(Text.Length);
     }
 
     private void DeleteSelection()
@@ -144,6 +215,86 @@ public class UITextBox : UIElement
 
         base.Draw(spriteBatch);
 
+        if (IsMultiLine)
+            DrawMultiLine(spriteBatch);
+        else
+            DrawSingleLine(spriteBatch);
+    }
+
+    private void DrawMultiLine(SpriteBatch spriteBatch)
+    {
+        var sx = ScreenX;
+        var sy = ScreenY;
+        var textX = sx + PaddingX;
+        var textY = sy + PaddingY;
+        var firstLine = FirstVisibleLine;
+        var visibleCount = VisibleLineCount;
+        var lastLine = Math.Min(firstLine + visibleCount, LineStarts.Count);
+        var selStart = SelectionStart;
+        var selEnd = SelectionEnd;
+
+        for (var i = firstLine; i < lastLine; i++)
+        {
+            var lineText = GetLineText(i);
+            var lineY = textY + (i - firstLine) * TextRenderer.CHAR_HEIGHT;
+            var lineStartIdx = LineStarts[i];
+            var lineEndIdx = lineStartIdx + lineText.Length;
+
+            if (HasSelection && (selStart < lineEndIdx) && (selEnd > lineStartIdx))
+            {
+                var hlStart = Math.Max(selStart, lineStartIdx) - lineStartIdx;
+                var hlEnd = Math.Min(selEnd, lineEndIdx) - lineStartIdx;
+                var hlX = textX + (hlStart > 0 ? TextRenderer.MeasureWidth(lineText[..hlStart]) : 0);
+                var hlWidth = TextRenderer.MeasureWidth(lineText[hlStart..hlEnd]);
+
+                DrawRect(
+                    spriteBatch,
+                    new Rectangle(
+                        hlX,
+                        lineY,
+                        hlWidth,
+                        TextRenderer.CHAR_HEIGHT),
+                    new Color(
+                        80,
+                        120,
+                        200,
+                        150));
+            }
+
+            if (lineText.Length > 0)
+                TextRenderer.DrawText(
+                    spriteBatch,
+                    new Vector2(textX, lineY),
+                    lineText,
+                    ForegroundColor,
+                    ColorCodesEnabled);
+        }
+
+        if (!IsFocused || !CursorVisible || IsReadOnly)
+            return;
+
+        var cursorLine = GetLineForPosition(CursorPosition);
+
+        if ((cursorLine >= firstLine) && (cursorLine < lastLine))
+        {
+            var cLineText = GetLineText(cursorLine);
+            var colOffset = Math.Min(CursorPosition - LineStarts[cursorLine], cLineText.Length);
+            var cursorX = textX + (colOffset > 0 ? TextRenderer.MeasureWidth(cLineText[..colOffset]) + 1 : 0);
+            var cursorY = textY + (cursorLine - firstLine) * TextRenderer.CHAR_HEIGHT;
+
+            DrawRect(
+                spriteBatch,
+                new Rectangle(
+                    cursorX,
+                    cursorY,
+                    CURSOR_WIDTH,
+                    TextRenderer.CHAR_HEIGHT),
+                Color.White);
+        }
+    }
+
+    private void DrawSingleLine(SpriteBatch spriteBatch)
+    {
         var displayText = IsMasked ? new string('*', Text.Length) : Text;
         var sx = ScreenX;
         var sy = ScreenY;
@@ -227,6 +378,21 @@ public class UITextBox : UIElement
             Color.White);
     }
 
+    private void EnsureCursorVisible()
+    {
+        var cursorLine = GetLineForPosition(CursorPosition);
+        var firstVisible = FirstVisibleLine;
+        var visibleCount = VisibleLineCount;
+
+        if (visibleCount <= 0)
+            return;
+
+        if (cursorLine < firstVisible)
+            ScrollOffset = cursorLine * TextRenderer.CHAR_HEIGHT;
+        else if (cursorLine >= (firstVisible + visibleCount))
+            ScrollOffset = (cursorLine - visibleCount + 1) * TextRenderer.CHAR_HEIGHT;
+    }
+
     private int FindWordBoundaryLeft(int from)
     {
         if (from <= 0)
@@ -257,6 +423,38 @@ public class UITextBox : UIElement
             i++;
 
         return i;
+    }
+
+    private int GetLineForPosition(int position)
+    {
+        for (var i = LineStarts.Count - 1; i >= 0; i--)
+            if (position >= LineStarts[i])
+                return i;
+
+        return 0;
+    }
+
+    private string GetLineText(int lineIndex)
+    {
+        if ((lineIndex < 0) || (lineIndex >= LineStarts.Count))
+            return string.Empty;
+
+        var start = LineStarts[lineIndex];
+        int end;
+
+        if ((lineIndex + 1) < LineStarts.Count)
+        {
+            end = LineStarts[lineIndex + 1];
+
+            if ((end > start) && (end <= Text.Length) && (end > 0) && (Text[end - 1] == '\n'))
+                end--;
+        } else
+            end = Text.Length;
+
+        while ((end > start) && (end <= Text.Length) && (Text[end - 1] == ' '))
+            end--;
+
+        return Text[start..end];
     }
 
     private void HandleBackspace()
@@ -304,6 +502,26 @@ public class UITextBox : UIElement
                 continue;
             }
 
+            if ((c == '\r') || (c == '\n'))
+            {
+                if (IsMultiLine)
+                {
+                    if (HasSelection)
+                        DeleteSelection();
+
+                    if (Text.Length < MaxLength)
+                    {
+                        var nlInsertPos = CursorPosition;
+                        Text = Text.Insert(nlInsertPos, "\n");
+                        CursorPosition = nlInsertPos + 1;
+                        SelectionAnchor = CursorPosition;
+                        ResetCursor();
+                    }
+                }
+
+                continue;
+            }
+
             // Tab signals focus transfer — parent handles the actual transfer
             if (c == '\t')
                 continue;
@@ -332,7 +550,12 @@ public class UITextBox : UIElement
         // Mouse down — focus, set cursor, begin drag
         if (IsFocusable && input.WasLeftButtonPressed && ContainsPoint(input.MouseX, input.MouseY))
         {
-            var clickPos = HitTestCursorPosition(input.MouseX - ScreenX - PaddingX);
+            int clickPos;
+
+            if (IsMultiLine)
+                clickPos = HitTestMultiLine(input.MouseX, input.MouseY);
+            else
+                clickPos = HitTestCursorPosition(input.MouseX - ScreenX - PaddingX);
 
             if (shift && IsFocused && IsSelectable)
 
@@ -357,7 +580,12 @@ public class UITextBox : UIElement
         // Mouse drag — extend selection
         if (Dragging && IsSelectable && input.IsLeftButtonHeld)
         {
-            var dragPos = HitTestCursorPosition(input.MouseX - ScreenX - PaddingX);
+            int dragPos;
+
+            if (IsMultiLine)
+                dragPos = HitTestMultiLine(input.MouseX, input.MouseY);
+            else
+                dragPos = HitTestCursorPosition(input.MouseX - ScreenX - PaddingX);
 
             if (dragPos != CursorPosition)
             {
@@ -389,11 +617,58 @@ public class UITextBox : UIElement
                 MoveCursor(ctrl ? FindWordBoundaryRight(CursorPosition) : CursorPosition + 1, shift);
         }
 
+        if (IsMultiLine && input.WasKeyPressed(Keys.Up))
+        {
+            var cursorLine = GetLineForPosition(CursorPosition);
+
+            if (cursorLine > 0)
+            {
+                var colOffset = CursorPosition - LineStarts[cursorLine];
+                var currentLineText = GetLineText(cursorLine);
+                var colPixelX = TextRenderer.MeasureWidth(currentLineText[..Math.Min(colOffset, currentLineText.Length)]);
+                var targetLine = cursorLine - 1;
+                var targetText = GetLineText(targetLine);
+                var targetCol = HitTestCursorPosition(colPixelX, targetText);
+                MoveCursor(LineStarts[targetLine] + targetCol, shift);
+            }
+        }
+
+        if (IsMultiLine && input.WasKeyPressed(Keys.Down))
+        {
+            var cursorLine = GetLineForPosition(CursorPosition);
+
+            if ((cursorLine + 1) < LineStarts.Count)
+            {
+                var colOffset = CursorPosition - LineStarts[cursorLine];
+                var currentLineText = GetLineText(cursorLine);
+                var colPixelX = TextRenderer.MeasureWidth(currentLineText[..Math.Min(colOffset, currentLineText.Length)]);
+                var targetLine = cursorLine + 1;
+                var targetText = GetLineText(targetLine);
+                var targetCol = HitTestCursorPosition(colPixelX, targetText);
+                MoveCursor(LineStarts[targetLine] + targetCol, shift);
+            }
+        }
+
         if (input.WasKeyPressed(Keys.Home))
-            MoveCursor(0, shift);
+        {
+            if (IsMultiLine && !ctrl)
+            {
+                var cursorLine = GetLineForPosition(CursorPosition);
+                MoveCursor(LineStarts[cursorLine], shift);
+            } else
+                MoveCursor(0, shift);
+        }
 
         if (input.WasKeyPressed(Keys.End))
-            MoveCursor(Text.Length, shift);
+        {
+            if (IsMultiLine && !ctrl)
+            {
+                var cursorLine = GetLineForPosition(CursorPosition);
+                var lineText = GetLineText(cursorLine);
+                MoveCursor(LineStarts[cursorLine] + lineText.Length, shift);
+            } else
+                MoveCursor(Text.Length, shift);
+        }
 
         // Ctrl+A to select all
         if (IsSelectable && ctrl && input.WasKeyPressed(Keys.A))
@@ -426,6 +701,36 @@ public class UITextBox : UIElement
         }
 
         return displayText.Length;
+    }
+
+    private static int HitTestCursorPosition(int targetPixelX, string lineText)
+    {
+        if ((lineText.Length == 0) || (targetPixelX <= 0))
+            return 0;
+
+        for (var i = 1; i <= lineText.Length; i++)
+        {
+            var charWidth = TextRenderer.MeasureWidth(lineText[..i]);
+            var prevWidth = i > 1 ? TextRenderer.MeasureWidth(lineText[..(i - 1)]) : 0;
+            var midpoint = (prevWidth + charWidth) / 2;
+
+            if (targetPixelX < midpoint)
+                return i - 1;
+        }
+
+        return lineText.Length;
+    }
+
+    private int HitTestMultiLine(int mouseX, int mouseY)
+    {
+        var localY = mouseY - ScreenY - PaddingY;
+        var clickLine = FirstVisibleLine + localY / TextRenderer.CHAR_HEIGHT;
+        clickLine = Math.Clamp(clickLine, 0, LineStarts.Count - 1);
+        var lineText = GetLineText(clickLine);
+        var localX = mouseX - ScreenX - PaddingX;
+        var colInLine = HitTestCursorPosition(localX, lineText);
+
+        return LineStarts[clickLine] + colInLine;
     }
 
     private static bool IsEffectivelyVisible(UIElement element)
@@ -464,6 +769,14 @@ public class UITextBox : UIElement
         CursorTimer = 0;
     }
 
+    public override void ResetInteractionState()
+    {
+        Dragging = false;
+
+        if (IsFocused)
+            IsFocused = false;
+    }
+
     public void SelectAll()
     {
         if (!IsSelectable || (Text.Length == 0))
@@ -481,6 +794,17 @@ public class UITextBox : UIElement
         // Clamp positions in case Text was changed externally
         ClampPositions();
 
+        if (IsMultiLine)
+        {
+            ComputeLineLayout();
+
+            if (IsFocused && (input.ScrollDelta != 0))
+            {
+                var maxScroll = Math.Max(0, (LineStarts.Count - VisibleLineCount) * TextRenderer.CHAR_HEIGHT);
+                ScrollOffset = Math.Clamp(ScrollOffset - input.ScrollDelta * TextRenderer.CHAR_HEIGHT, 0, maxScroll);
+            }
+        }
+
         var shift = input.IsKeyHeld(Keys.LeftShift) || input.IsKeyHeld(Keys.RightShift);
         var ctrl = input.IsKeyHeld(Keys.LeftControl) || input.IsKeyHeld(Keys.RightControl);
 
@@ -492,6 +816,9 @@ public class UITextBox : UIElement
         UpdateCursorBlink(gameTime);
         HandleNavigation(input, shift, ctrl);
         HandleEditing(input, ctrl);
+
+        if (IsMultiLine)
+            EnsureCursorVisible();
     }
 
     private void UpdateCursorBlink(GameTime gameTime)
