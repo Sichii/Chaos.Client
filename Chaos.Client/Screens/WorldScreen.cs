@@ -75,6 +75,7 @@ public sealed partial class WorldScreen : IScreen
     private ChantEditControl ChantEdit = null!;
     private ChatSystem Chat = null!;
     private ContextMenu ContextMenu = null!;
+    private MapFlags CurrentMapFlags;
     private short CurrentMapId;
 
     private DarknessRenderer DarknessRenderer = null!;
@@ -102,6 +103,7 @@ public sealed partial class WorldScreen : IScreen
     private ItemTooltipControl ItemTooltip = null!;
     private LargeWorldHudControl LargeHud = null!;
     private TileClickTracker LeftClickTracker = new();
+    private LightSource[] LightSourceBuffer = new LightSource[16];
 
     // True while awaiting a paginated board response (append instead of replace)
     private bool LoadingMoreBoardPosts;
@@ -123,6 +125,7 @@ public sealed partial class WorldScreen : IScreen
     private Action? PendingDeleteAction;
     private bool PendingLoginSwitch;
     private byte[] PlayerPortrait = [];
+    private ProfileTextEditorControl ProfileTextEditor = null!;
     private Direction? QueuedWalkDirection;
     private bool RedirectInProgress;
     private TileClickTracker RightClickTracker = new();
@@ -302,7 +305,7 @@ public sealed partial class WorldScreen : IScreen
         userOptions.SetValue(6, ClientSettings.AutoAcceptGroupInvites);
         userOptions.SetValue(8, ClientSettings.ScrollLevel > 0);
         userOptions.SetValue(9, ClientSettings.UseShiftKeyForAltPanels);
-        userOptions.SetValue(10, ClientSettings.EnableProfileClick > 0);
+        userOptions.SetValue(10, ClientSettings.EnableProfileClick);
         userOptions.SetValue(11, ClientSettings.RecordNpcChat);
         userOptions.SetValue(12, ClientSettings.GroupOpen);
 
@@ -330,7 +333,7 @@ public sealed partial class WorldScreen : IScreen
 
                         break;
                     case 10:
-                        ClientSettings.EnableProfileClick = value ? 1 : 0;
+                        ClientSettings.EnableProfileClick = value;
 
                         break;
                     case 11:
@@ -484,11 +487,27 @@ public sealed partial class WorldScreen : IScreen
 
         StatusBook.OnGroupToggled += () => Game.Connection.ToggleGroup();
 
+        StatusBook.OnProfileTextClicked += () =>
+        {
+            ProfileTextEditor.Show(StatusBook.GetProfileText());
+        };
+
         StatusBook.OnAbilityDetailRequested += entry =>
         {
             AbilityDetail.ShowEntry(entry, WorldHud.ViewportBounds);
         };
         StatusBook.OnEventDetailRequested += (entry, state) => EventDetail.ShowEntry(entry, state, WorldHud.ViewportBounds);
+
+        ProfileTextEditor = new ProfileTextEditorControl
+        {
+            ZIndex = 3
+        };
+
+        ProfileTextEditor.OnSave += text =>
+        {
+            StatusBook.SetProfileText(text);
+            SaveProfileText(text);
+        };
 
         AbilityDetail = new AbilityDetailControl
         {
@@ -506,6 +525,15 @@ public sealed partial class WorldScreen : IScreen
         {
             Game.Connection.SendSocialStatus(status);
             StatusBook.SetEmoticonState((byte)status, status.ToString());
+
+            var emoteIcon = UiRenderer.Instance?.GetSpfTexture("_nemots.spf", (int)status);
+
+            if (emoteIcon is not null)
+                UpdateHuds(h =>
+                {
+                    if (h.EmoteButton is not null)
+                        h.EmoteButton.NormalTexture = emoteIcon;
+                });
         };
 
         TextPopup = new TextPopupControl
@@ -523,6 +551,7 @@ public sealed partial class WorldScreen : IScreen
         {
             ZIndex = 2
         };
+        OtherProfile.OnGroupInviteRequested += name => Game.Connection.SendGroupInvite(ClientGroupSwitch.TryInvite, name);
 
         ChantEdit = new ChantEditControl
         {
@@ -584,6 +613,7 @@ public sealed partial class WorldScreen : IScreen
         Root.AddChild(MailSend);
         Root.AddChild(DeleteConfirm);
         Root.AddChild(StatusBook);
+        Root.AddChild(ProfileTextEditor);
         Root.AddChild(AbilityDetail);
         Root.AddChild(EventDetail);
         Root.AddChild(OtherProfile);

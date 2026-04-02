@@ -24,6 +24,7 @@ public sealed class LargeWorldHudControl : PrefabPanel, IWorldHud
     private readonly UILabel CoordsLabel;
     private readonly UILabel? DescriptionLabel;
     private readonly Rectangle ExpandedChatBounds;
+    private readonly UIImage? ExtendedTabFrame;
     private readonly UILabel HpNumLabel;
     private readonly UIProgressBar HpOrb;
     private readonly UILabel MpNumLabel;
@@ -67,6 +68,7 @@ public sealed class LargeWorldHudControl : PrefabPanel, IWorldHud
     public UIButton? OptionButton { get; }
     public PromptControl Prompt { get; }
     public UIButton? ScreenshotButton { get; }
+    public UIButton? SettingsButton { get; }
     public UIButton? TownMapButton { get; }
     public UIButton? UsersButton { get; }
     public Rectangle ViewportBounds { get; }
@@ -85,6 +87,7 @@ public sealed class LargeWorldHudControl : PrefabPanel, IWorldHud
 
         // Chat input
         ChatInput = CreateTextBox("SAY", 255)!;
+        ChatInput.IsFocusable = false;
         ChatInput.PaddingX = 1;
         ChatInput.PaddingY = 1;
 
@@ -116,8 +119,12 @@ public sealed class LargeWorldHudControl : PrefabPanel, IWorldHud
         // HP/MP numeric text — centered for horizontal orbs, ZIndex=1 to render above orbs after re-sorts
         HpNumLabel = CreateLabel("NUM_HP", TextAlignment.Center)!;
         HpNumLabel.ZIndex = 1;
+        HpNumLabel.ForegroundColor = Color.White;
+        HpNumLabel.Shadowed = true;
         MpNumLabel = CreateLabel("NUM_MP", TextAlignment.Center)!;
         MpNumLabel.ZIndex = 1;
+        MpNumLabel.ForegroundColor = Color.White;
+        MpNumLabel.Shadowed = true;
 
         // Info text areas
         PlayerNameLabel = CreateLabel("SZ_ID", TextAlignment.Center)!;
@@ -149,13 +156,24 @@ public sealed class LargeWorldHudControl : PrefabPanel, IWorldHud
         GroupButton = CreateButton("BTN_GROUP");
         MailButton = CreateButton("CMail");
         GroupIndicator = CreateButton("CGroup");
+
         ScreenshotButton = CreateButton("CShot");
         EmoteButton = CreateButton("BTN_EMOT");
-        CreateButton("BTN_SETTING");
+        SettingsButton = CreateButton("BTN_SETTING");
         CreateButton("BTN_SCREENSHOT");
 
         for (var i = 0; i < 6; i++)
             InventoryTabButtons[i] = CreateButton($"BTN_INV{i}");
+
+        ExtendedTabFrame = CreateImage("BTN_INV_EXTENDED_FRAME");
+
+        if (ExtendedTabFrame is not null)
+        {
+            ExtendedTabFrame.X = InventoryBounds.X;
+            ExtendedTabFrame.Y = InventoryBounds.Y - ExtendedTabFrame.Height;
+            ExtendedTabFrame.ZIndex = -1;
+            ExtendedTabFrame.Visible = false;
+        }
 
         // Persistent message panel
         var lbackPrefab = DataContext.UserControls.Get("lback");
@@ -219,7 +237,8 @@ public sealed class LargeWorldHudControl : PrefabPanel, IWorldHud
             skillSpellExpandedTexture,
             chatExpandedTexture);
 
-        // Orange bar drawn after tab panels
+        // Orange bar renders above collapsed tab panels (z=0) but below expanded ones (z=10)
+        OrangeBar.ZIndex = 1;
         AddChild(OrangeBar);
 
         // Attributes subscription + initial sync if data already exists
@@ -253,8 +272,15 @@ public sealed class LargeWorldHudControl : PrefabPanel, IWorldHud
     public void ShowTab(HudTab tab)
     {
         // Collapse the outgoing panel before hiding it (so it returns to normal state)
-        if (TabPanels[(int)ActiveTab] is ExpandablePanel oldExpandable)
+        if (TabPanels[(int)ActiveTab] is ExpandablePanel { IsExpanded: true } oldExpandable)
+        {
+            var offset = oldExpandable.ExpandYOffset;
             oldExpandable.SetExpanded(false);
+            ShiftCompanionElements(offset);
+
+            if (ExtendedTabFrame is not null)
+                ExtendedTabFrame.Visible = false;
+        }
 
         foreach (var panel in TabPanels)
             panel?.Visible = false;
@@ -289,7 +315,7 @@ public sealed class LargeWorldHudControl : PrefabPanel, IWorldHud
             HudTab.Inventory                     => 0,
             HudTab.Skills or HudTab.SkillsAlt    => 1,
             HudTab.Spells or HudTab.SpellsAlt    => 2,
-            HudTab.Chat                          => 3,
+            HudTab.Chat or HudTab.MessageHistory => 3,
             HudTab.Stats or HudTab.ExtendedStats => 4,
             HudTab.Tools                         => 5,
             _                                    => -1
@@ -350,21 +376,31 @@ public sealed class LargeWorldHudControl : PrefabPanel, IWorldHud
         ChatDisplay.ConfigureExpand(chatExpandedTexture, ExpandedChatBounds, tabRect);
         RegisterTab(HudTab.Chat, ChatDisplay, tabRect);
 
-        // Large HUD uses compact stats (_nstatur) for both normal Stats and ExtendedStats
+        // Large HUD uses compact stats (_nstatur), expanding to full stats (_nstatus)
         var compactStatusPrefabSet = DataContext.UserControls.Get("_nstatur")!;
-        StatsPanel = new StatsPanel("_nstatur");
+        var fullStatusPrefabSet = DataContext.UserControls.Get("_nstatus")!;
+        StatsPanel = new StatsPanel(compactStatusPrefabSet);
+        StatsPanel.ConfigureExpand(fullStatusPrefabSet);
         ExtendedStatsPanel = new ExtendedStatsPanel(compactStatusPrefabSet);
+        ExtendedStatsPanel.ConfigureExpand(fullStatusPrefabSet);
         RegisterTab(HudTab.Stats, StatsPanel, tabRect);
         RegisterTab(HudTab.ExtendedStats, ExtendedStatsPanel, tabRect);
 
-        // Tools: 1 row normal, 3 rows expanded (same as skills/spells)
+        // Tools: 1 row normal, expanded uses the normal HUD's split background
+        var normalHudPrefabSet = DataContext.UserControls.Get("_nbk_s")!;
+        var uiCache = UiRenderer.Instance!;
+        Texture2D? toolsExpandedTexture = null;
+
+        if (normalHudPrefabSet.Contains("LivingInventoryBackground") && (normalHudPrefabSet["LivingInventoryBackground"].Images.Count > 0))
+            toolsExpandedTexture = uiCache.GetPrefabTexture(normalHudPrefabSet.Name, "LivingInventoryBackground", 0);
+
         var tools = new ToolsPanel(PrefabSet, livingBgTexture, LARGE_NORMAL_SLOTS);
-        tools.ConfigureExpand(skillSpellExpandedTexture, LARGE_EXPANDED_SKILL_SPELL_SLOTS);
+        tools.ConfigureExpand(toolsExpandedTexture, LARGE_EXPANDED_SKILL_SPELL_SLOTS);
         RegisterTab(HudTab.Tools, tools, tabRect);
 
         var msgHistoryBounds = GetRect("ChattingRect");
         var msgHistoryPanel = new MessageHistoryPanel(msgHistoryBounds, tabRect, WorldState.Chat.GetOrangeBarHistory());
-        msgHistoryPanel.ConfigureExpand(chatExpandedTexture, ExpandedChatBounds);
+        msgHistoryPanel.ConfigureExpand(chatExpandedTexture, ExpandedChatBounds, tabRect);
         RegisterTab(HudTab.MessageHistory, msgHistoryPanel, tabRect);
 
         HudTab[] tabMapping =
@@ -412,6 +448,24 @@ public sealed class LargeWorldHudControl : PrefabPanel, IWorldHud
 
     public string PlayerName { get; private set; } = string.Empty;
 
+    public void SetGroupOpen(bool groupOpen)
+    {
+        if (GroupIndicator is null)
+            return;
+
+        var cache = UiRenderer.Instance!;
+
+        if (groupOpen)
+        {
+            GroupIndicator.NormalTexture = cache.GetPrefabTexture(PrefabSet.Name, "CGroup", 0);
+            GroupIndicator.PressedTexture = cache.GetPrefabTexture(PrefabSet.Name, "CGroup", 1);
+        } else
+        {
+            GroupIndicator.NormalTexture = cache.GetSpfTexture("_ni_gr0b.spf");
+            GroupIndicator.PressedTexture = cache.GetSpfTexture("_ni_gr0b.spf", 1);
+        }
+    }
+
     public void SetPlayerName(string name)
     {
         PlayerName = name;
@@ -446,8 +500,32 @@ public sealed class LargeWorldHudControl : PrefabPanel, IWorldHud
 
     private void ApplyExpandToActiveTab()
     {
-        if (TabPanels[(int)ActiveTab] is ExpandablePanel expandable)
-            expandable.SetExpanded(Expanded);
+        if (TabPanels[(int)ActiveTab] is not ExpandablePanel expandable)
+            return;
+
+        var wasExpanded = expandable.IsExpanded;
+        expandable.SetExpanded(Expanded);
+
+        if (expandable.IsExpanded != wasExpanded)
+        {
+            ShiftCompanionElements(expandable.IsExpanded ? -expandable.ExpandYOffset : expandable.ExpandYOffset);
+
+            if (ExtendedTabFrame is not null)
+                ExtendedTabFrame.Visible = expandable.IsExpanded;
+        }
+    }
+
+    private void ShiftCompanionElements(int yShift)
+    {
+        foreach (var btn in InventoryTabButtons)
+            if (btn is not null)
+                btn.Y += yShift;
+
+        if (ExtendedTabFrame is not null)
+            ExtendedTabFrame.Y += yShift;
+
+        ChatInput.Y += yShift;
+        Prompt.Y += yShift;
     }
 
     public void ShowPersistentMessage(string text)

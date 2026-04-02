@@ -10,7 +10,7 @@ public static class ClientSettings
     public static bool AutoAcceptGroupInvites { get; set; } = true;
     public static int ChattingMode { get; set; }
     public static bool DoGroundAnimation { get; set; } = true;
-    public static int EnableProfileClick { get; set; }
+    public static bool EnableProfileClick { get; set; }
     public static bool GroupOpen { get; set; }
     public static int MusicVolume { get; set; } = 5;
     public static bool RecordNpcChat { get; set; } = true;
@@ -82,8 +82,7 @@ public static class ClientSettings
                         break;
 
                     case "UserClickMode":
-                        if (int.TryParse(value, out var ucm))
-                            EnableProfileClick = ucm;
+                        EnableProfileClick = value == "1";
 
                         break;
 
@@ -142,7 +141,7 @@ public static class ClientSettings
             writer.WriteLine($"SkillSpellSelectByToggle : {(UseShiftKeyForAltPanels ? 1 : 0)}");
             writer.WriteLine($"GroupAnswer : {(GroupOpen ? 1 : 0)}");
             writer.WriteLine($"ScrollLevel : {ScrollLevel}");
-            writer.WriteLine($"UserClickMode : {EnableProfileClick}");
+            writer.WriteLine($"UserClickMode : {(EnableProfileClick ? 1 : 0)}");
             writer.WriteLine($"MonsterSayRecordMode : {(RecordNpcChat ? 1 : 0)}");
             writer.WriteLine($"GroupObjectOption : {(AutoAcceptGroupInvites ? 1 : 0)}");
         } catch

@@ -1,4 +1,5 @@
 #region
+using Chaos.Client.Collections;
 using Chaos.Extensions.Common;
 #endregion
 
@@ -13,9 +14,8 @@ public sealed class GroupState
 {
     public string? LeaderName { get; private set; }
     public List<string> Members { get; private set; } = [];
-    public string PlayerName { get; set; } = string.Empty;
     public bool InGroup => Members.Count > 0;
-    public bool IsLeader => InGroup && string.Equals(LeaderName, PlayerName, StringComparison.OrdinalIgnoreCase);
+    public bool IsLeader => InGroup && LeaderName?.EqualsI(WorldState.PlayerName) is true;
 
     public event GroupChangedHandler? Changed;
 

@@ -1,5 +1,6 @@
 #region
 using Chaos.Client.Controls.Generic;
+using Chaos.Extensions.Common;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 #endregion
@@ -102,7 +103,9 @@ public class UIPanel : UIElement
     public void RemoveChild(string name)
     {
         for (var i = Children.Count - 1; i >= 0; i--)
-            if (string.Equals(Children[i].Name, name, StringComparison.OrdinalIgnoreCase))
+            if (Children[i]
+                .Name
+                ?.EqualsI(name) is true)
             {
                 var child = Children[i];
                 Children.RemoveAt(i);

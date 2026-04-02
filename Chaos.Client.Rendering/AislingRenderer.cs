@@ -27,6 +27,7 @@ public record struct AislingAppearance
     public DisplayColor ArmorColor { get; init; }
     public int ArmorSprite { get; init; }
     public int BodyColor { get; init; }
+    public int BodySpriteId { get; init; }
     public DisplayColor BootsColor { get; init; }
     public int BootsSprite { get; init; }
     public int FaceSprite { get; init; }
@@ -83,7 +84,8 @@ public readonly record struct AislingDrawParams(
     float TileCenterX,
     float TileCenterY,
     Vector2 VisualOffset,
-    EntityTintType Tint);
+    EntityTintType Tint,
+    bool IsDead);
 
 /// <summary>
 ///     Renders aisling sprites by compositing body, equipment, and hair layers. All layers are positioned relative to body
@@ -185,6 +187,9 @@ public sealed class AislingRenderer : IDisposable
 
     private const string SWIM_MALE_EPF = "mb00501.epf";
     private const string SWIM_FEMALE_EPF = "wb00501.epf";
+
+    private const float GHOST_ALPHA = 0.15f;
+
     private readonly Dictionary<uint, CompositeEntry> CompositeCache = new();
 
     private readonly AislingDrawDataRepository DrawData = DataContext.AislingDrawData;
@@ -196,6 +201,7 @@ public sealed class AislingRenderer : IDisposable
 
     private readonly Dictionary<int, Texture2D> SwimMaleFrameCache = new();
     private readonly Dictionary<Texture2D, Texture2D> TintedTextureCache = new();
+
     private EpfFile? SwimFemaleEpf;
     private int SwimFemaleMaxWidth;
     private Palette? SwimFemalePalette;
@@ -374,7 +380,14 @@ public sealed class AislingRenderer : IDisposable
             _                        => drawTexture
         };
 
-        batch.Draw(finalTexture, screenPos, Color.White);
+        if (p.IsDead)
+        {
+            var device = finalTexture.GraphicsDevice;
+            device.BlendState = BlendStates.Ghost;
+            batch.Draw(finalTexture, screenPos, Color.White * GHOST_ALPHA);
+            device.BlendState = BlendState.AlphaBlend;
+        } else
+            batch.Draw(finalTexture, screenPos, Color.White);
 
         return (int)screenPos.Y + COMPOSITE_HEIGHT;
     }
@@ -544,26 +557,30 @@ public sealed class AislingRenderer : IDisposable
         string anim,
         int idleFallbackFrame = -1)
     {
-        // Beast body (type b, always id 1) — behind all other layers
+        var bodySpriteId = appearance.BodySpriteId > 0 ? appearance.BodySpriteId : BODY_ID;
+
+        // Body base (type b) — uses non-standard sprite ID for ghost/invis/jester
         layers[(int)LayerSlot.BodyB] = ResolveEquipLayerTexture(
             'b',
-            BODY_ID,
+            bodySpriteId,
             DisplayColor.Default,
             in appearance,
             frameIndex,
             anim,
             idleFallbackFrame);
 
-        // Body (type m, always id 1)
-        layers[(int)LayerSlot.Body] = ResolveBodyPaletteLayerTexture(
-            'm',
-            BODY_ID,
-            in appearance,
-            frameIndex,
-            anim,
-            idleFallbackFrame);
+        // Body skin (type m) — only for standard body
+        if (bodySpriteId == BODY_ID)
+            layers[(int)LayerSlot.Body] = ResolveBodyPaletteLayerTexture(
+                'm',
+                BODY_ID,
+                in appearance,
+                frameIndex,
+                anim,
+                idleFallbackFrame);
 
         // Pants (type n, always id 1) — only if server sent a pants color
+
         if (appearance.PantsColor.HasValue)
             layers[(int)LayerSlot.Pants] = ResolveEquipLayerTexture(
                 'n',
@@ -1053,22 +1070,25 @@ public sealed class AislingRenderer : IDisposable
         string anim,
         int idleFallbackFrame = -1)
     {
+        var bodySpriteId = appearance.BodySpriteId > 0 ? appearance.BodySpriteId : BODY_ID;
+
         layers[(int)LayerSlot.BodyB] = RenderEquipLayer(
             'b',
-            BODY_ID,
+            bodySpriteId,
             DisplayColor.Default,
             in appearance,
             frameIndex,
             anim,
             idleFallbackFrame);
 
-        layers[(int)LayerSlot.Body] = RenderBodyPaletteLayer(
-            'm',
-            BODY_ID,
-            in appearance,
-            frameIndex,
-            anim,
-            idleFallbackFrame);
+        if (bodySpriteId == BODY_ID)
+            layers[(int)LayerSlot.Body] = RenderBodyPaletteLayer(
+                'm',
+                BODY_ID,
+                in appearance,
+                frameIndex,
+                anim,
+                idleFallbackFrame);
 
         if (appearance.PantsColor.HasValue)
             layers[(int)LayerSlot.Pants] = RenderEquipLayer(

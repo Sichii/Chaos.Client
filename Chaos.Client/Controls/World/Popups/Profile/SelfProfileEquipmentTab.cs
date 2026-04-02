@@ -79,7 +79,7 @@ public sealed class SelfProfileEquipmentTab : PrefabPanel
 
     // Portrait and profile text
     private readonly UIImage? PortraitImage;
-    private readonly UITextBox? PortraitTextBox;
+    private readonly UILabel? PortraitTextLabel;
 
     // Equipment slot rendering: maps EquipmentSlot to its visual state
     private readonly Dictionary<EquipmentSlot, EquipmentSlotVisual> SlotVisuals = new();
@@ -98,9 +98,9 @@ public sealed class SelfProfileEquipmentTab : PrefabPanel
     private Texture2D? PaperdollTexture;
 
     /// <summary>
-    ///     Gets the current profile text from the editable text box.
+    ///     Gets the current profile text from the label.
     /// </summary>
-    public string ProfileText => PortraitTextBox?.Text ?? string.Empty;
+    public string ProfileText => PortraitTextLabel?.Text ?? string.Empty;
 
     public SelfProfileEquipmentTab(string prefabName)
         : base(prefabName, false)
@@ -172,7 +172,13 @@ public sealed class SelfProfileEquipmentTab : PrefabPanel
 
         // Portrait and profile text
         PortraitImage = CreateImage("Portrait");
-        PortraitTextBox = CreateTextBox("PortraitText", 256);
+        PortraitTextLabel = CreateLabel("PortraitText");
+
+        if (PortraitTextLabel is not null)
+        {
+            PortraitTextLabel.WordWrap = true;
+            PortraitTextLabel.ForegroundColor = Color.White;
+        }
 
         // Emoticon status areas
         HumanIconRect = GetRect("HumanIcon");
@@ -289,6 +295,7 @@ public sealed class SelfProfileEquipmentTab : PrefabPanel
     }
 
     public event Action? OnGroupToggled;
+    public event Action? OnProfileTextClicked;
     public event Action<EquipmentSlot>? OnUnequip;
 
     /// <summary>
@@ -375,9 +382,13 @@ public sealed class SelfProfileEquipmentTab : PrefabPanel
     }
 
     /// <summary>
-    ///     Sets the profile text in the editable text box.
+    ///     Sets the profile text on the display label.
     /// </summary>
-    public void SetProfileText(string text) => PortraitTextBox?.Text = text;
+    public void SetProfileText(string text)
+    {
+        if (PortraitTextLabel is not null)
+            PortraitTextLabel.Text = text;
+    }
 
     /// <summary>
     ///     Sets the item icon for a specific equipment slot.
@@ -425,6 +436,10 @@ public sealed class SelfProfileEquipmentTab : PrefabPanel
                 break;
             }
         }
+
+        // Profile text label click detection
+        if (input.WasLeftButtonPressed && (PortraitTextLabel?.ContainsPoint(mx, my) == true))
+            OnProfileTextClicked?.Invoke();
 
         // Double-click detection for unequip
         if (input.WasLeftButtonPressed && HoveredSlot.HasValue)

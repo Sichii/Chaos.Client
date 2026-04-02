@@ -156,6 +156,7 @@ public sealed class SelfProfileTabControl : PrefabPanel
         {
             equipTab.OnUnequip += slot => OnUnequip?.Invoke(slot);
             equipTab.OnGroupToggled += () => OnGroupToggled?.Invoke();
+            equipTab.OnProfileTextClicked += () => OnProfileTextClicked?.Invoke();
         }
 
         if (page is SelfProfileAbilityMetadataTab skillsTab)
@@ -196,6 +197,7 @@ public sealed class SelfProfileTabControl : PrefabPanel
     public event Action? OnClose;
     public event Action<EventMetadataEntry, EventState>? OnEventDetailRequested;
     public event Action? OnGroupToggled;
+    public event Action? OnProfileTextClicked;
     public event Action<EquipmentSlot>? OnUnequip;
 
     #region Legend API
@@ -465,11 +467,6 @@ public sealed class SelfProfileTabControl : PrefabPanel
 
         equipPage?.SetProfileText(text);
     }
-
-    /// <summary>
-    ///     Fired when the profile text is edited by the user.
-    /// </summary>
-    public event Action<string>? OnProfileTextChanged;
 
     private SelfProfileEquipmentTab? GetOrCreateEquipmentPage()
     {

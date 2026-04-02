@@ -2,6 +2,7 @@
 using Chaos.Client.Data;
 using Chaos.Client.Data.Models;
 using Chaos.Client.Extensions;
+using Chaos.Extensions.Common;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 #endregion
@@ -176,10 +177,24 @@ public abstract class PrefabPanel : UIPanel
 
         var r = rect.Value;
         var cache = UiRenderer.Instance!;
-        var frames = new Texture2D[prefab.Images.Count];
+        Texture2D[] frames;
 
-        for (var i = 0; i < prefab.Images.Count; i++)
-            frames[i] = cache.GetPrefabTexture(PrefabSet.Name, name, i);
+        // Single-entry IMAGE lines in control files encode the frame count, not a frame index.
+        // Load all frames (0 through count-1) from the referenced SPF file.
+        if (prefab.Control.Images is { Count: 1 } rawImages && (rawImages[0].FrameIndex > 1))
+        {
+            (var imageName, var frameCount) = rawImages[0];
+            frames = new Texture2D[frameCount];
+
+            for (var i = 0; i < frameCount; i++)
+                frames[i] = cache.GetSpfTexture(imageName, i);
+        } else
+        {
+            frames = new Texture2D[prefab.Images.Count];
+
+            for (var i = 0; i < prefab.Images.Count; i++)
+                frames[i] = cache.GetPrefabTexture(PrefabSet.Name, name, i);
+        }
 
         var bar = new UIProgressBar(frames)
         {
@@ -270,7 +285,9 @@ public abstract class PrefabPanel : UIPanel
 
         for (var i = Children.Count - 1; i >= 0; i--)
         {
-            if (!string.Equals(Children[i].Name, name, StringComparison.OrdinalIgnoreCase))
+            if (Children[i]
+                .Name
+                ?.EqualsI(name) is not true)
                 continue;
 
             if (reusable is null && Children[i] is T match)

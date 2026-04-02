@@ -36,6 +36,7 @@ public interface IWorldHud
     string PlayerName { get; }
     PromptControl Prompt { get; }
     UIButton? ScreenshotButton { get; }
+    UIButton? SettingsButton { get; }
     SkillBookPanel SkillBook { get; }
     SkillBookPanel SkillBookAlt { get; }
     SpellBookPanel SpellBook { get; }
@@ -44,9 +45,10 @@ public interface IWorldHud
     UIButton? TownMapButton { get; }
     UIButton? UsersButton { get; }
     Rectangle ViewportBounds { get; }
-
     void SetCoords(int x, int y);
     void SetDescription(string? text);
+
+    void SetGroupOpen(bool groupOpen);
     void SetPlayerName(string name);
     void SetServerName(string name);
     void SetWeight(int current, int max);

@@ -222,17 +222,18 @@ public static class TextRenderer
     #region Measurement
     /// <summary>
     ///     Finds the character index at which to break a line to fit within maxWidth pixels. Prefers breaking at the last
-    ///     space; falls back to force-breaking mid-word. Skips {=x} color codes for width measurement.
+    ///     space; falls back to force-breaking mid-word. When colorCodesEnabled is true, {=x} color codes are skipped for
+    ///     width measurement (they have zero visual width). When false, they are measured as literal characters.
     /// </summary>
-    public static int FindLineBreak(string text, int maxWidth)
+    public static int FindLineBreak(string text, int maxWidth, bool colorCodesEnabled = true)
     {
         var width = 0;
         var lastSpace = -1;
 
         for (var i = 0; i < text.Length; i++)
         {
-            // Skip color codes — they have zero visual width
-            if (IsColorCode(text, i))
+            // Skip color codes — they have zero visual width when enabled
+            if (colorCodesEnabled && IsColorCode(text, i))
             {
                 i += 2;
 

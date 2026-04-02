@@ -2,6 +2,7 @@
 using Chaos.Client.Collections;
 using Chaos.Client.Controls.Components;
 using Chaos.Client.ViewModel;
+using Chaos.Extensions.Common;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using Microsoft.Xna.Framework.Input;
@@ -140,7 +141,7 @@ public sealed class GroupControl : PrefabPanel
         var members = WorldState.Group.Members;
         var leaderName = WorldState.Group.LeaderName;
         var isLeader = WorldState.Group.IsLeader;
-        var playerName = WorldState.Group.PlayerName;
+        var playerName = WorldState.PlayerName;
 
         var cache = UiRenderer.Instance!;
         var normalTexture = cache.GetPrefabTexture("_ngcdlg0", "B_BTN0", 0);
@@ -152,7 +153,9 @@ public sealed class GroupControl : PrefabPanel
             {
                 if (i < members.Count)
                 {
-                    var isMemberLeader = string.Equals(members[i], leaderName, StringComparison.OrdinalIgnoreCase);
+                    var isMemberLeader = leaderName is not null
+                                         && members[i]
+                                             .EqualsI(leaderName);
                     MemberLabels[i]!.ForegroundColor = isMemberLeader ? LegendColors.White : Color.LightGray;
                     MemberLabels[i]!.Text = members[i];
                 } else
@@ -160,7 +163,9 @@ public sealed class GroupControl : PrefabPanel
             }
 
             // Enable quit button only for other members when we are the leader
-            var isSelf = (i < members.Count) && string.Equals(members[i], playerName, StringComparison.OrdinalIgnoreCase);
+            var isSelf = (i < members.Count)
+                         && members[i]
+                             .EqualsI(playerName);
             var canKick = isLeader && (i < members.Count) && !isSelf;
 
             QuitButtons[i].Enabled = canKick;

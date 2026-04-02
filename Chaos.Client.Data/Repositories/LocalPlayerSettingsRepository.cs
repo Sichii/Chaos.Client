@@ -150,24 +150,34 @@ public sealed class LocalPlayerSettingsRepository
     public string[] LoadMacros()
     {
         var macros = new string[10];
-        var lines = File.ReadAllLines(MacroPath);
 
-        for (var i = 0; i < Math.Min(lines.Length, 10); i++)
+        try
         {
-            var line = lines[i];
+            if (!File.Exists(MacroPath))
+                return macros;
 
-            // Strip 'MacroN: ' prefix if present
-            var colonIndex = line.IndexOf(':');
+            var lines = File.ReadAllLines(MacroPath);
 
-            if (colonIndex >= 0)
-                line = line[(colonIndex + 1)..]
-                    .Trim();
+            for (var i = 0; i < Math.Min(lines.Length, 10); i++)
+            {
+                var line = lines[i];
 
-            // Strip surrounding double quotes
-            if (line is ['"', _, ..] && (line[^1] == '"'))
-                line = line[1..^1];
+                // Strip 'MacroN: ' prefix if present
+                var colonIndex = line.IndexOf(':');
 
-            macros[i] = line;
+                if (colonIndex >= 0)
+                    line = line[(colonIndex + 1)..]
+                        .Trim();
+
+                // Strip surrounding double quotes
+                if (line is ['"', _, ..] && (line[^1] == '"'))
+                    line = line[1..^1];
+
+                macros[i] = line;
+            }
+        } catch
+        {
+            // Return whatever was parsed so far
         }
 
         return macros;

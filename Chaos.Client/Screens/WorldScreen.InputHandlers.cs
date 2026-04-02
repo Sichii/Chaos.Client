@@ -6,6 +6,7 @@ using Chaos.Client.Data;
 using Chaos.Client.Data.Models;
 using Chaos.Client.Extensions;
 using Chaos.Client.Models;
+using Chaos.Client.Systems;
 using Chaos.DarkAges.Definitions;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Input;
@@ -19,7 +20,12 @@ public sealed partial class WorldScreen
     #region UI Event Handlers
     // --- Inventory ---
 
-    private void HandleInventorySlotClicked(byte slot) => Game.Connection.UseItem(slot);
+    private void HandleInventorySlotClicked(byte slot)
+    {
+        Game.Connection.UseItem(slot);
+        HoveredInventorySlot = null;
+        ItemTooltip.Hide();
+    }
 
     private void HandleInventoryHoverEnter(PanelSlot slot)
     {
@@ -41,6 +47,14 @@ public sealed partial class WorldScreen
 
     private void HandleInventoryDropInViewport(byte slot, int mouseX, int mouseY)
     {
+        // Dropped onto the exchange window — add item to exchange
+        if ((slot != 0) && Exchange.Visible && Exchange.ContainsPoint(mouseX, mouseY))
+        {
+            Game.Connection.SendExchangeInteraction(ExchangeRequestType.AddItem, Exchange.OtherUserId, slot);
+
+            return;
+        }
+
         // Dropped onto an equipment slot — equip the item
         if ((slot != 0) && StatusBook.Visible && StatusBook.ContainsEquipmentSlotPoint(mouseX, mouseY))
         {
@@ -63,7 +77,7 @@ public sealed partial class WorldScreen
 
         // Check if dropped on an entity (give item/gold to NPC/player) — skip self (drop on ground instead)
         (var tileX, var tileY) = ScreenToTile(mouseX, mouseY);
-        var entity = WorldState.GetEntityAt(tileX, tileY);
+        var entity = GetEntityAtScreen(mouseX, mouseY);
 
         var droppedOnEntity = entity is not null
                               && entity.Type is ClientEntityType.Aisling or ClientEntityType.Creature
@@ -172,6 +186,23 @@ public sealed partial class WorldScreen
 
         // Enter cast mode — wait for target selection
         CastingSystem.BeginTargeting(spellSlot);
+    }
+
+    private void HandleSpellSlotDropped(byte slot, int mouseX, int mouseY)
+    {
+        var entity = GetEntityAtScreen(mouseX, mouseY);
+
+        if (entity is null || entity.Type is not (ClientEntityType.Aisling or ClientEntityType.Creature))
+            return;
+
+        HandleSpellSlotClicked(slot);
+
+        if (CastingSystem.IsTargeting)
+            CastingSystem.SelectTarget(
+                entity.Id,
+                entity.TileX,
+                entity.TileY,
+                Game.Connection);
     }
 
     // --- Hotkeys ---
@@ -602,7 +633,7 @@ public sealed partial class WorldScreen
                 {
                     var firstEmptySlot = WorldState.Inventory.GetFirstEmptySlot();
                     Game.Connection.PickupItem(entity.TileX, entity.TileY, firstEmptySlot);
-                } else
+                } else if ((entity.Type != ClientEntityType.Aisling) || ClientSettings.EnableProfileClick)
                     Game.Connection.ClickEntity(entity.Id);
             }
         } else

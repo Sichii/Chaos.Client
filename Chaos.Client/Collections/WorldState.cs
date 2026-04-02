@@ -36,6 +36,11 @@ public static class WorldState
     public static uint PlayerEntityId { get; set; }
 
     /// <summary>
+    ///     The player's character name, set from the initial SelfProfile packet.
+    /// </summary>
+    public static string PlayerName { get; set; } = string.Empty;
+
+    /// <summary>
     ///     Active spell/effect animations currently playing in the world.
     /// </summary>
     public static List<ActiveEffect> ActiveEffects { get; } = [];
@@ -160,6 +165,7 @@ public static class WorldState
             entity.Appearance = new AislingAppearance
             {
                 Gender = args.BodySprite is BodySprite.Female or BodySprite.FemaleGhost ? Gender.Female : Gender.Male,
+                BodySpriteId = GetBodySpriteId(args.BodySprite),
                 BodyColor = (int)args.BodyColor,
                 HeadSprite = args.HeadSprite,
                 HeadColor = args.HeadColor,
@@ -260,6 +266,15 @@ public static class WorldState
 
         return blocked;
     }
+
+    private static int GetBodySpriteId(BodySprite bodySprite)
+        => bodySprite switch
+        {
+            BodySprite.MaleGhost or BodySprite.FemaleGhost => 2,
+            BodySprite.MaleInvis or BodySprite.FemaleInvis => 3,
+            BodySprite.MaleJester                          => 4,
+            _                                              => 1
+        };
 
     /// <summary>
     ///     Returns an entity by ID, or null if not tracked.
@@ -663,9 +678,6 @@ public static class WorldState
                     break;
 
                 case BoardOrResponseType.PublicBoard or BoardOrResponseType.MailBoard:
-                    if (!Board.IsBoardListPending)
-                        break;
-
                     Board.IsBoardListPending = false;
 
                     if (args.Board is not null)

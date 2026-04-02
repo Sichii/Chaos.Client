@@ -37,6 +37,8 @@ public class PanelSlot : UIButton
     /// </summary>
     public Texture2D? GreyTexture { get; set; }
 
+    public bool IsDropTarget { get; set; }
+
     public int MaxDurability { get; set; }
 
     /// <summary>
@@ -65,6 +67,36 @@ public class PanelSlot : UIButton
             return;
 
         base.Draw(spriteBatch);
+
+        if (IsDropTarget)
+        {
+            DrawBorder(
+                spriteBatch,
+                new Rectangle(
+                    ScreenX,
+                    ScreenY,
+                    Width,
+                    Height),
+                Color.Black);
+
+            DrawBorder(
+                spriteBatch,
+                new Rectangle(
+                    ScreenX + 1,
+                    ScreenY + 1,
+                    Width - 2,
+                    Height - 2),
+                Color.Black);
+
+            DrawBorder(
+                spriteBatch,
+                new Rectangle(
+                    ScreenX + 2,
+                    ScreenY + 2,
+                    Width - 4,
+                    Height - 4),
+                Color.Black);
+        }
 
         // Icon rendering with cooldown overlay
         var icon = NormalTexture;

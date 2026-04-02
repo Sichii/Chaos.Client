@@ -58,11 +58,14 @@ public sealed class MainOptionsControl : PrefabPanel
         SoundTrackRect = GetRect("SoundRect");
         MusicTrackRect = GetRect("MusicRect");
 
-        // Slider thumb from option04.epf (Tick control)
+        // Slider thumb from option04.epf (Tick control) — extract texture only, remove the child
         var tickImage = CreateImage("Tick");
 
         if (tickImage is not null)
+        {
             ThumbTexture = tickImage.Texture;
+            Children.Remove(tickImage);
+        }
 
         // Buttons
         MacroButton = CreateButton("Macro");

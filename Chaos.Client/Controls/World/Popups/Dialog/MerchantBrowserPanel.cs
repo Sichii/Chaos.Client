@@ -4,6 +4,7 @@ using Chaos.Client.Controls.Components;
 using Chaos.Client.Data;
 using Chaos.Client.ViewModel;
 using Chaos.DarkAges.Definitions;
+using Chaos.Extensions.Common;
 using Chaos.Networking.Entities.Server;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
@@ -200,8 +201,8 @@ public sealed class MerchantBrowserPanel : PrefabPanel
         // Sort alphabetically, but keep "Other" at the end
         Categories.Sort((a, b) =>
         {
-            var aIsOther = a.Equals("Other", StringComparison.OrdinalIgnoreCase);
-            var bIsOther = b.Equals("Other", StringComparison.OrdinalIgnoreCase);
+            var aIsOther = a.EqualsI("Other");
+            var bIsOther = b.EqualsI("Other");
 
             if (aIsOther && !bIsOther)
                 return 1;
@@ -226,7 +227,7 @@ public sealed class MerchantBrowserPanel : PrefabPanel
         }
 
         var selectedCategory = Categories[SelectedCategoryIndex];
-        var isOther = selectedCategory.Equals("Other", StringComparison.OrdinalIgnoreCase);
+        var isOther = selectedCategory.EqualsI("Other");
 
         for (var i = 0; i < Entries.Count; i++)
         {
@@ -234,7 +235,7 @@ public sealed class MerchantBrowserPanel : PrefabPanel
 
             if (isOther && (entryCategory.Length == 0))
                 FilteredIndices.Add(i);
-            else if (entryCategory.Equals(selectedCategory, StringComparison.OrdinalIgnoreCase))
+            else if (entryCategory.EqualsI(selectedCategory))
                 FilteredIndices.Add(i);
         }
     }

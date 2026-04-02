@@ -14,14 +14,15 @@ public sealed class DyingEffect : IDisposable
 {
     private const int FRAME_COUNT = 9;
     private const float FRAME_INTERVAL_MS = 60f;
-    private const float INITIAL_ALPHA = 75f / 255f;
-    private const float ALPHA_DECAY_PER_FRAME = 3f / 255f;
+    private const float INITIAL_ALPHA = 1.0f;
+    private const float ALPHA_DECAY_PER_FRAME = 3f / 32f;
 
     private readonly Color[] Pixels;
     private readonly int Step;
     private readonly int TextureHeight;
     private readonly int TextureWidth;
     public float Alpha { get; private set; } = INITIAL_ALPHA;
+    public int CenterYOffset { get; private set; }
     public int CurrentFrame { get; private set; }
     public float ElapsedMs { get; set; }
     public short CenterX { get; }
@@ -81,28 +82,27 @@ public sealed class DyingEffect : IDisposable
     public void Dispose() => Texture.Dispose();
 
     /// <summary>
-    ///     Shifts every odd column down by Step pixels and clears the original position. Operates on the Pixels array
-    ///     in-place, then uploads to the Texture. Creates horizontal scanline dissolve bands.
+    ///     Shifts every odd column down by Step pixels and clears the top Step rows. Operates on the Pixels array
+    ///     in-place, then uploads to the Texture. Creates interlaced vertical band dissolve.
     /// </summary>
     private void ApplyScanlineDissolve()
     {
-        // Process odd columns; for each, shift pixels down by Step rows
         for (var col = 0; col < TextureWidth; col++)
         {
             if ((col % 2) == 0)
                 continue;
 
-            // Shift from bottom to top so we don't overwrite data we still need
-            for (var row = TextureHeight - 1; row >= 0; row--)
+            // Copy column content down by Step pixels (bottom to top to avoid overwrite)
+            for (var row = TextureHeight - 1 - Step; row >= 0; row--)
             {
                 var srcIndex = row * TextureWidth + col;
-                var dstRow = row + Step;
-
-                if (dstRow < TextureHeight)
-                    Pixels[dstRow * TextureWidth + col] = Pixels[srcIndex];
-
-                Pixels[srcIndex] = Color.Transparent;
+                var dstIndex = (row + Step) * TextureWidth + col;
+                Pixels[dstIndex] = Pixels[srcIndex];
             }
+
+            // Clear top Step pixels to transparent
+            for (var row = 0; (row < Step) && (row < TextureHeight); row++)
+                Pixels[row * TextureWidth + col] = Color.Transparent;
         }
 
         Texture.SetData(Pixels);
@@ -124,6 +124,7 @@ public sealed class DyingEffect : IDisposable
             ElapsedMs -= FRAME_INTERVAL_MS;
             CurrentFrame++;
             Alpha = Math.Max(0, Alpha - ALPHA_DECAY_PER_FRAME);
+            CenterYOffset += Step / 2;
             ApplyScanlineDissolve();
             advanced = true;
         }

@@ -28,6 +28,7 @@ public sealed class BoardListControl : PrefabPanel
     private int ScrollOffset;
     private int SelectedIndex = -1;
     private SlideAnimator Slide;
+    private bool SlideMode;
 
     public UIButton? QuitButton { get; }
     public UIButton? ViewButton { get; }
@@ -42,7 +43,7 @@ public sealed class BoardListControl : PrefabPanel
         QuitButton = CreateButton("Quit");
 
         if (QuitButton is not null)
-            QuitButton.OnClick += () => Slide.SlideOut();
+            QuitButton.OnClick += Close;
 
         if (ViewButton is not null)
             ViewButton.OnClick += () =>
@@ -79,6 +80,17 @@ public sealed class BoardListControl : PrefabPanel
         };
 
         AddChild(ScrollBar);
+    }
+
+    public void Close()
+    {
+        if (SlideMode)
+            Slide.SlideOut();
+        else
+        {
+            Slide.Hide(this);
+            OnClose?.Invoke();
+        }
     }
 
     public override void Draw(SpriteBatch spriteBatch)
@@ -126,7 +138,10 @@ public sealed class BoardListControl : PrefabPanel
     public override void Show()
     {
         if (!Visible)
+        {
+            SlideMode = true;
             Slide.SlideIn(this);
+        }
     }
 
     public void ShowBoards(List<(ushort BoardId, string Name)> boards, bool slide = true)
@@ -144,10 +159,13 @@ public sealed class BoardListControl : PrefabPanel
         if (slide)
             Show();
         else
+        {
+            SlideMode = false;
             Slide.ShowInPlace(this);
+        }
     }
 
-    public void SlideClose() => Slide.SlideOut();
+    public void SlideClose() => Close();
 
     public override void Update(GameTime gameTime, InputBuffer input)
     {
@@ -163,7 +181,7 @@ public sealed class BoardListControl : PrefabPanel
 
         if (input.WasKeyPressed(Keys.Escape))
         {
-            Slide.SlideOut();
+            Close();
 
             return;
         }

@@ -85,6 +85,7 @@ public sealed class WorldHudControl : PrefabPanel, IWorldHud
     public UIButton? OptionButton { get; }
     public PromptControl Prompt { get; }
     public UIButton? ScreenshotButton { get; }
+    public UIButton? SettingsButton { get; }
     public UIButton? TownMapButton { get; }
 
     public UIButton? UsersButton { get; }
@@ -105,6 +106,7 @@ public sealed class WorldHudControl : PrefabPanel, IWorldHud
 
         // Chat input textbox (SAY) — reduce padding so prefix aligns flush
         ChatInput = CreateTextBox("SAY", 255)!;
+        ChatInput.IsFocusable = false;
         ChatInput.PaddingX = 1;
         ChatInput.PaddingY = 1;
 
@@ -180,7 +182,7 @@ public sealed class WorldHudControl : PrefabPanel, IWorldHud
         EmoteButton = CreateButton("BTN_EMOT");
 
         // Conditional buttons (may not exist in all client versions)
-        CreateButton("BTN_SETTING");
+        SettingsButton = CreateButton("BTN_SETTING");
         CreateButton("BTN_SCREENSHOT");
 
         // Inventory tab buttons (BTN_INV0 through BTN_INV5)
@@ -242,7 +244,8 @@ public sealed class WorldHudControl : PrefabPanel, IWorldHud
         // Tab panels — shared center-bottom area
         CreateTabPanels(invBgTexture, invBgExpandedTexture, livingBgTexture);
 
-        // Orange bar drawn after tab panels so it renders on top
+        // Orange bar renders above collapsed tab panels (z=0) but below expanded ones (z=10)
+        OrangeBar.ZIndex = 1;
         AddChild(OrangeBar);
 
         // Subscribe to attributes changes for HP/MP/weight/stats
@@ -279,7 +282,7 @@ public sealed class WorldHudControl : PrefabPanel, IWorldHud
             HudTab.Inventory                     => 0,
             HudTab.Skills or HudTab.SkillsAlt    => 1,
             HudTab.Spells or HudTab.SpellsAlt    => 2,
-            HudTab.Chat                          => 3,
+            HudTab.Chat or HudTab.MessageHistory => 3,
             HudTab.Stats or HudTab.ExtendedStats => 4,
             HudTab.Tools                         => 5,
             _                                    => -1
@@ -357,7 +360,7 @@ public sealed class WorldHudControl : PrefabPanel, IWorldHud
 
         // Stats (G) / Extended Stats (Shift+G) — both load from _nstatus prefab
         var statusPrefabSet = DataContext.UserControls.Get("_nstatus")!;
-        StatsPanel = new StatsPanel();
+        StatsPanel = new StatsPanel(statusPrefabSet);
         ExtendedStatsPanel = new ExtendedStatsPanel(statusPrefabSet);
         RegisterTab(HudTab.Stats, StatsPanel, tabRect);
         RegisterTab(HudTab.ExtendedStats, ExtendedStatsPanel, tabRect);
@@ -417,6 +420,24 @@ public sealed class WorldHudControl : PrefabPanel, IWorldHud
     }
 
     public string PlayerName { get; private set; } = string.Empty;
+
+    public void SetGroupOpen(bool groupOpen)
+    {
+        if (GroupIndicator is null)
+            return;
+
+        var cache = UiRenderer.Instance!;
+
+        if (groupOpen)
+        {
+            GroupIndicator.NormalTexture = cache.GetPrefabTexture(PrefabSet.Name, "CGroup", 0);
+            GroupIndicator.PressedTexture = cache.GetPrefabTexture(PrefabSet.Name, "CGroup", 1);
+        } else
+        {
+            GroupIndicator.NormalTexture = cache.GetSpfTexture("_ni_gr0.spf");
+            GroupIndicator.PressedTexture = cache.GetSpfTexture("_ni_gr0.spf", 1);
+        }
+    }
 
     public void SetPlayerName(string name)
     {

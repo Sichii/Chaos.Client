@@ -510,7 +510,7 @@ public sealed class ListMenuPanel : FramedDialogPanel
                 Y = (ROW_HEIGHT - TextRenderer.CHAR_HEIGHT) / 2,
                 Width = columnWidth - ICON_SIZE - ICON_TEXT_GAP,
                 Height = TextRenderer.CHAR_HEIGHT,
-                ForegroundColor = Color.White
+                ForegroundColor = TextColors.Default
             };
 
             AddChild(IconImage);
@@ -530,10 +530,10 @@ public sealed class ListMenuPanel : FramedDialogPanel
             IconImage.Texture = icon;
             IconImage.Visible = icon is not null;
             NameLabel.Text = name;
-            NameLabel.ForegroundColor = selected ? SELECTED_TEXT_COLOR : Color.White;
+            NameLabel.ForegroundColor = selected ? SELECTED_TEXT_COLOR : TextColors.Default;
         }
 
-        public void SetSelected(bool selected) => NameLabel.ForegroundColor = selected ? SELECTED_TEXT_COLOR : Color.White;
+        public void SetSelected(bool selected) => NameLabel.ForegroundColor = selected ? SELECTED_TEXT_COLOR : TextColors.Default;
 
         public override void Update(GameTime gameTime, InputBuffer input) { }
     }

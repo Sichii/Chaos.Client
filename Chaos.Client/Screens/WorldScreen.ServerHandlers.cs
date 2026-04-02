@@ -30,9 +30,8 @@ public sealed partial class WorldScreen
         // Update player name in HUD when the player's own aisling is displayed
         if (args.Id == Game.Connection.AislingId)
         {
+            WorldState.PlayerName = args.Name;
             UpdateHuds(h => h.SetPlayerName(args.Name));
-            WorldList.PlayerName = args.Name;
-            Exchange.PlayerName = args.Name;
             UpdateHuds(h => h.SetServerName(Game.Connection.ServerName));
             DataContext.LocalPlayerSettings.Initialize(args.Name);
             LoadPlayerFamilyList();
@@ -224,15 +223,19 @@ public sealed partial class WorldScreen
             return;
         }
 
+        var entity = WorldState.GetEntity(args.SourceId);
+        var isNpc = entity is not null && entity.Type is not ClientEntityType.Aisling;
+
         var color = args.PublicMessageType switch
         {
             PublicMessageType.Shout => TextColors.Shout,
             _                       => LegendColors.White
         };
 
-        WorldState.Chat.AddMessage(args.Message, color);
+        if (!isNpc || ClientSettings.RecordNpcChat)
+            WorldState.Chat.AddMessage(args.Message, color);
 
-        if (!entityExists)
+        if (entity is null)
             return;
 
         var isShout = args.PublicMessageType == PublicMessageType.Shout;
@@ -595,6 +598,13 @@ public sealed partial class WorldScreen
             {
                 WorldState.Chat.AddOrangeBarMessage($"{sourceName} invites you to join a group.");
 
+                if (ClientSettings.AutoAcceptGroupInvites)
+                {
+                    Game.Connection.SendGroupInvite(ClientGroupSwitch.AcceptInvite, sourceName);
+
+                    break;
+                }
+
                 var vp = WorldHud.ViewportBounds;
                 var menuX = vp.X + vp.Width / 2;
                 var menuY = vp.Y + vp.Height / 2;
@@ -611,6 +621,13 @@ public sealed partial class WorldScreen
             case ServerGroupSwitch.RequestToJoin:
             {
                 WorldState.Chat.AddOrangeBarMessage($"{sourceName} wants to join your group.");
+
+                if (ClientSettings.AutoAcceptGroupInvites)
+                {
+                    Game.Connection.SendGroupInvite(ClientGroupSwitch.AcceptInvite, sourceName);
+
+                    break;
+                }
 
                 var vp = WorldHud.ViewportBounds;
                 var menuX = vp.X + vp.Width / 2;
@@ -745,6 +762,7 @@ public sealed partial class WorldScreen
         // Group open state — server is source of truth, sync all UI
         StatusBook.SetGroupOpen(args.GroupOpen);
         WorldState.UserOptions.SetValue(12, args.GroupOpen);
+        WorldHud.SetGroupOpen(args.GroupOpen);
 
         // Group members — parse GroupString into state, UI subscribes via event
         if (!string.IsNullOrEmpty(args.GroupString))
@@ -791,7 +809,7 @@ public sealed partial class WorldScreen
             if (entity.Type != ClientEntityType.Aisling)
                 continue;
 
-            if (!string.IsNullOrEmpty(entity.Name) && memberSet.Contains(entity.Name))
+            if ((entity.Id != WorldState.PlayerEntityId) && !string.IsNullOrEmpty(entity.Name) && memberSet.Contains(entity.Name))
                 GroupHighlightedIds.Add(entity.Id);
         }
 

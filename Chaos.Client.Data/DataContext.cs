@@ -23,6 +23,8 @@ public static class DataContext
     public static EffectsRepository Effects { get; private set; } = null!;
     public static FontRepository Fonts { get; private set; } = null!;
 
+    public static LightMaskRepository LightMasks { get; private set; } = null!;
+
     /// <summary>
     ///     The lobby server hostname or IP address.
     /// </summary>
@@ -58,10 +60,11 @@ public static class DataContext
         CreatureSprites = new CreatureSpriteRepository();
         Effects = new EffectsRepository();
         Fonts = new FontRepository();
+        LightMasks = new LightMaskRepository();
+        LocalPlayerSettings = new LocalPlayerSettingsRepository();
         MapsFiles = new MapFileRepository();
         MetaFiles = new MetaFileRepository();
         PanelSprites = new PanelSpriteRepository();
-        LocalPlayerSettings = new LocalPlayerSettingsRepository();
         Tiles = new TileRepository();
         UserControls = new UiComponentRepository();
     }

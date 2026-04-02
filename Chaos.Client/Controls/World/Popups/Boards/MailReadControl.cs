@@ -1,5 +1,6 @@
 #region
 using Chaos.Client.Controls.Components;
+using Chaos.Client.Controls.Generic;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Input;
 #endregion
@@ -15,6 +16,7 @@ public sealed class MailReadControl : PrefabPanel
     private readonly UILabel? AuthorLabel;
     private readonly UILabel BodyLabel;
     private readonly UILabel? DateLabel;
+    private readonly ScrollBarControl ScrollBar;
     private readonly UILabel? TitleLabel;
     private readonly int VisibleHeight;
     private int TargetX;
@@ -74,11 +76,26 @@ public sealed class MailReadControl : PrefabPanel
         var contentRect = GetRect("Content");
         VisibleHeight = contentRect.Height;
 
+        ScrollBar = new ScrollBarControl
+        {
+            Name = "ScrollBar",
+            X = contentRect.X + contentRect.Width - ScrollBarControl.DEFAULT_WIDTH,
+            Y = contentRect.Y,
+            Height = contentRect.Height
+        };
+
+        ScrollBar.OnValueChanged += v =>
+        {
+            BodyLabel.ScrollOffset = v * TextRenderer.CHAR_HEIGHT;
+        };
+
+        AddChild(ScrollBar);
+
         BodyLabel = new UILabel
         {
             X = contentRect.X,
             Y = contentRect.Y,
-            Width = contentRect.Width,
+            Width = contentRect.Width - ScrollBarControl.DEFAULT_WIDTH,
             Height = contentRect.Height,
             PaddingLeft = 0,
             PaddingTop = 0,
@@ -135,6 +152,7 @@ public sealed class MailReadControl : PrefabPanel
 
         BodyLabel.ScrollOffset = 0;
         BodyLabel.Text = message;
+        UpdateScrollBar();
 
         Show();
     }
@@ -156,8 +174,22 @@ public sealed class MailReadControl : PrefabPanel
         // Scroll wheel
         if (input.ScrollDelta != 0)
         {
-            var maxScroll = Math.Max(0, BodyLabel.ContentHeight - VisibleHeight);
-            BodyLabel.ScrollOffset = Math.Clamp(BodyLabel.ScrollOffset - input.ScrollDelta * TextRenderer.CHAR_HEIGHT, 0, maxScroll);
+            var maxLines = Math.Max(0, BodyLabel.ContentHeight / TextRenderer.CHAR_HEIGHT - VisibleHeight / TextRenderer.CHAR_HEIGHT);
+            var lineOffset = BodyLabel.ScrollOffset / TextRenderer.CHAR_HEIGHT;
+            lineOffset = Math.Clamp(lineOffset - input.ScrollDelta, 0, maxLines);
+            BodyLabel.ScrollOffset = lineOffset * TextRenderer.CHAR_HEIGHT;
+            ScrollBar.Value = lineOffset;
         }
+    }
+
+    private void UpdateScrollBar()
+    {
+        var totalLines = BodyLabel.ContentHeight / TextRenderer.CHAR_HEIGHT;
+        var visibleLines = VisibleHeight / TextRenderer.CHAR_HEIGHT;
+
+        ScrollBar.TotalItems = totalLines;
+        ScrollBar.VisibleItems = visibleLines;
+        ScrollBar.MaxValue = Math.Max(0, totalLines - visibleLines);
+        ScrollBar.Value = 0;
     }
 }

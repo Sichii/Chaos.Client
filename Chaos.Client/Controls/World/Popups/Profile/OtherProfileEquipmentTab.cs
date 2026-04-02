@@ -93,14 +93,21 @@ public sealed class OtherProfileEquipmentTab : PrefabPanel
         ClanTitleLabel = CreateLabel("CLANTITLETEXT");
         TitleLabel = CreateLabel("TITLETEXT");
 
-        // Group button — display-only for other profiles (no click handler)
+        // Group button — sends group invite for the displayed player
         GroupBtn = CreateButton("GroupBtn");
 
         if (GroupBtn is not null)
         {
             GroupOpenTexture = GroupBtn.NormalTexture;
             GroupBtn.PressedTexture = null;
-            GroupBtn.Enabled = false;
+
+            GroupBtn.OnClick += () =>
+            {
+                var name = NameLabel?.Text;
+
+                if (!string.IsNullOrEmpty(name))
+                    OnGroupInviteRequested?.Invoke(name);
+            };
         }
 
         if (CreateImage("GroupBtn_Disabled") is { } disabledImage)
@@ -206,6 +213,8 @@ public sealed class OtherProfileEquipmentTab : PrefabPanel
                 new Vector2(ScreenX + HumanIconRect.X, ScreenY + HumanIconRect.Y),
                 Color.White);
     }
+
+    public event Action<string>? OnGroupInviteRequested;
 
     /// <summary>
     ///     Sets the emoticon/social status icon and text.

@@ -22,7 +22,7 @@ public abstract class ExpandablePanel : UIPanel
     ///     </c>
     ///     so it grows upward from the bottom edge.
     /// </summary>
-    protected int ExpandYOffset { get; private set; }
+    public int ExpandYOffset { get; private set; }
 
     /// <summary>
     ///     Whether the panel is in expanded mode.
@@ -81,5 +81,11 @@ public abstract class ExpandablePanel : UIPanel
 
         IsExpanded = expanded;
         ZIndex = expanded ? 10 : 0;
+
+        // Shift all children up/down by ExpandYOffset so they align with the expanded/normal background
+        var yShift = expanded ? -ExpandYOffset : ExpandYOffset;
+
+        foreach (var child in Children)
+            child.Y += yShift;
     }
 }

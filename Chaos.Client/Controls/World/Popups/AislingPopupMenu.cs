@@ -65,7 +65,8 @@ public sealed class AislingPopupMenu : UIPanel
                 Width = BOX_WIDTH,
                 Height = BOX_HEIGHT,
                 Text = OPTION_LABELS[i],
-                PaddingLeft = 0
+                PaddingLeft = 0,
+                ForegroundColor = Color.White
             };
 
             AddChild(OptionLabels[i]);

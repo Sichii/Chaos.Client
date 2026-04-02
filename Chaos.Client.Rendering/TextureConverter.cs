@@ -95,8 +95,8 @@ public static class TextureConverter
     }
 
     /// <summary>
-    ///     Applies saturated additive blend with (255, 231, 59) to a pixel array in-place. The original DA client uses this
-    ///     palette-based additive tint for group member highlighting — the entity appears washed toward bright yellow-white.
+    ///     Applies 50/50 average blend with (255, 231, 59) to a pixel array in-place. The original DA client uses
+    ///     floor((pixel + tint) / 2) per channel for group member highlighting — a warm golden shift that preserves detail.
     /// </summary>
     internal static void GroupTintPixels(Color[] pixels, int count)
     {
@@ -108,9 +108,9 @@ public static class TextureConverter
                 continue;
 
             pixels[i] = new Color(
-                (byte)Math.Min(p.R + 255, 255),
-                (byte)Math.Min(p.G + 231, 255),
-                (byte)Math.Min(p.B + 59, 255),
+                (byte)((p.R + 255) / 2),
+                (byte)((p.G + 231) / 2),
+                (byte)((p.B + 59) / 2),
                 p.A);
         }
     }

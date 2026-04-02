@@ -26,6 +26,12 @@ public class UITextBox : UIElement
     public TextAlignment Alignment { get; set; } = TextAlignment.Left;
 
     /// <summary>
+    ///     When true, prevents text input that would cause the content to exceed the visible area. Only applies to multiline
+    ///     text boxes. Uses the computed line layout to determine whether content fits.
+    /// </summary>
+    public bool ClampToVisibleArea { get; set; }
+
+    /// <summary>
     ///     Color used for rendering both prefix and editable text. Default white.
     /// </summary>
     public bool ColorCodesEnabled
@@ -72,6 +78,7 @@ public class UITextBox : UIElement
     public bool IsMultiLine { get; set; }
     public bool IsReadOnly { get; set; }
     public bool IsSelectable { get; set; } = true;
+
     public int MaxLength { get; set; } = 12;
 
     public int PaddingX { get; set; } = 2;
@@ -171,7 +178,7 @@ public class UITextBox : UIElement
 
             while (remaining.Length > 0)
             {
-                var lineEnd = TextRenderer.FindLineBreak(remaining, innerWidth);
+                var lineEnd = TextRenderer.FindLineBreak(remaining, innerWidth, ColorCodesEnabled);
                 var consumed = lineEnd;
 
                 while ((consumed < remaining.Length) && (remaining[consumed] == ' '))
@@ -393,6 +400,19 @@ public class UITextBox : UIElement
             ScrollOffset = (cursorLine - visibleCount + 1) * TextRenderer.CHAR_HEIGHT;
     }
 
+    /// <summary>
+    ///     Forces a layout recompute and returns true if the content exceeds the visible line count. Only meaningful when both
+    ///     <see cref="ClampToVisibleArea" /> and <see cref="IsMultiLine" /> are true.
+    /// </summary>
+    private bool ExceedsVisibleArea()
+    {
+        // Invalidate cached layout to force recomputation
+        CachedLayoutText = string.Empty;
+        ComputeLineLayout();
+
+        return LineStarts.Count > VisibleLineCount;
+    }
+
     private int FindWordBoundaryLeft(int from)
     {
         if (from <= 0)
@@ -493,6 +513,8 @@ public class UITextBox : UIElement
         if (ctrl)
             return;
 
+        var clamp = ClampToVisibleArea && IsMultiLine;
+
         foreach (var c in input.TextInput)
         {
             if (c == '\b')
@@ -506,6 +528,11 @@ public class UITextBox : UIElement
             {
                 if (IsMultiLine)
                 {
+                    // Snapshot state before additive mutation for potential overflow revert
+                    var savedText = Text;
+                    var savedCursor = CursorPosition;
+                    var savedAnchor = SelectionAnchor;
+
                     if (HasSelection)
                         DeleteSelection();
 
@@ -516,6 +543,14 @@ public class UITextBox : UIElement
                         CursorPosition = nlInsertPos + 1;
                         SelectionAnchor = CursorPosition;
                         ResetCursor();
+                    }
+
+                    if (clamp && ExceedsVisibleArea())
+                    {
+                        Text = savedText;
+                        CursorPosition = savedCursor;
+                        SelectionAnchor = savedAnchor;
+                        CachedLayoutText = string.Empty;
                     }
                 }
 
@@ -528,6 +563,11 @@ public class UITextBox : UIElement
 
             if (char.IsControl(c))
                 continue;
+
+            // Snapshot state before additive mutation for potential overflow revert
+            var priorText = Text;
+            var priorCursor = CursorPosition;
+            var priorAnchor = SelectionAnchor;
 
             // Replace selection with typed character
             if (HasSelection)
@@ -542,6 +582,14 @@ public class UITextBox : UIElement
             CursorPosition = insertPos + 1;
             SelectionAnchor = CursorPosition;
             ResetCursor();
+
+            if (clamp && ExceedsVisibleArea())
+            {
+                Text = priorText;
+                CursorPosition = priorCursor;
+                SelectionAnchor = priorAnchor;
+                CachedLayoutText = string.Empty;
+            }
         }
     }
 

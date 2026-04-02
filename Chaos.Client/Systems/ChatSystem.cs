@@ -7,6 +7,14 @@ using Microsoft.Xna.Framework;
 
 namespace Chaos.Client.Systems;
 
+public enum IgnorePhase
+{
+    None,
+    ModeSelect,
+    AddName,
+    RemoveName
+}
+
 /// <summary>
 ///     Manages chat input focus state and dispatches outbound chat messages (public, shout, whisper, slash commands)
 ///     through the connection manager.
@@ -19,6 +27,7 @@ public sealed class ChatSystem
     private readonly Func<IWorldHud> GetHud;
     private readonly List<string> WhisperHistory = [];
     private int WhisperHistoryIndex;
+    public IgnorePhase IgnorePhase { get; private set; }
 
     public bool HasWhisperHistory => WhisperHistory.Count > 0;
 
@@ -86,6 +95,16 @@ public sealed class ChatSystem
     }
 
     /// <summary>
+    ///     Opens the ignore list management flow. Phase 1 shows a mode-selection prefix; single-keypress (a/d/?) advances to
+    ///     the appropriate phase.
+    /// </summary>
+    public void FocusIgnore()
+    {
+        IgnorePhase = IgnorePhase.ModeSelect;
+        Focus("a: add, d: delete, ?: see list>", TextColors.Default);
+    }
+
+    /// <summary>
     ///     Opens whisper mode in name selection phase. The most recent whisper target is shown in the prefix brackets. The
     ///     text field is left empty for the user to type a new name or press Enter to accept the bracketed default.
     /// </summary>
@@ -112,10 +131,31 @@ public sealed class ChatSystem
     }
 
     /// <summary>
+    ///     Transitions from ignore mode-select to the "add name" phase.
+    /// </summary>
+    public void TransitionIgnoreAdd()
+    {
+        IgnorePhase = IgnorePhase.AddName;
+        Hud.ChatInput.Prefix = "ID of people you wish to reject whisper >";
+        Hud.ChatInput.Text = string.Empty;
+    }
+
+    /// <summary>
+    ///     Transitions from ignore mode-select to the "remove name" phase.
+    /// </summary>
+    public void TransitionIgnoreRemove()
+    {
+        IgnorePhase = IgnorePhase.RemoveName;
+        Hud.ChatInput.Prefix = "ID of people you wish to cancel rejection of whisper >";
+        Hud.ChatInput.Text = string.Empty;
+    }
+
+    /// <summary>
     ///     Unfocuses the chat input and clears its text/prefix.
     /// </summary>
     public void Unfocus()
     {
+        IgnorePhase = IgnorePhase.None;
         Hud.ChatInput.IsFocused = false;
         Hud.ChatInput.Text = string.Empty;
         Hud.ChatInput.Prefix = string.Empty;

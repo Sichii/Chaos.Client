@@ -2,6 +2,7 @@
 using System.Diagnostics;
 using System.IO.Compression;
 using System.Text;
+using Chaos.Client.Collections;
 using Chaos.Client.Controls.Components;
 using Chaos.Client.Controls.Generic;
 using Chaos.Client.Controls.LobbyLogin;
@@ -398,6 +399,7 @@ public sealed class LobbyLoginScreen : IScreen
         Connecting = true;
         LoginControl.Visible = false;
         SetStatus("Logging in...", Color.LightBlue);
+        WorldState.PlayerName = username;
         Game.Connection.Login(username, password);
     }
 

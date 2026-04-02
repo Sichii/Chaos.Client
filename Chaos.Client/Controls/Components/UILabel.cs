@@ -37,6 +37,8 @@ public class UILabel : UIElement
     /// </summary>
     public int ScrollOffset { get; set; }
 
+    public bool Shadowed { get; set; }
+
     public string Text
     {
         get => TextElement.Text;
@@ -94,6 +96,8 @@ public class UILabel : UIElement
     {
         if (WordWrap)
             TextElement.UpdateWrapped(text, Width - PaddingLeft * 2, color);
+        else if (Shadowed)
+            TextElement.UpdateShadowed(text, color, Color.Black);
         else
             TextElement.Update(text, color);
     }

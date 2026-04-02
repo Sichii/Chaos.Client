@@ -1,6 +1,7 @@
 #region
 using Chaos.Client.Collections;
 using Chaos.Client.Controls.Components;
+using Chaos.Client.Data;
 using Chaos.Client.Systems;
 using Chaos.DarkAges.Definitions;
 using Chaos.Geometry.Abstractions.Definitions;
@@ -473,6 +474,12 @@ public sealed partial class WorldScreen
             input.Suppressed = true;
         }
 
+        if (HoveredInventorySlot is not null && (modal is not null || StatusBook.Visible || OtherProfile.Visible || NpcSession.Visible))
+        {
+            HoveredInventorySlot = null;
+            ItemTooltip.Hide();
+        }
+
         if (StatusBook.Visible)
         {
             // HUD panels still receive input while the status book is open (drag-and-drop)
@@ -529,6 +536,7 @@ public sealed partial class WorldScreen
             ClearHighlightCache();
 
         Highlight.HoveredEntityId = newHoveredId;
+        Game.UseHandCursor = newHoveredId.HasValue;
 
         // Tint highlight only shows during spell targeting or item dragging
         Highlight.ShowTintHighlight = CastingSystem.IsTargeting || GetDraggingPanel() is not null;
@@ -578,6 +586,30 @@ public sealed partial class WorldScreen
                 Chat.CycleWhisperTarget(-1);
         }
 
+        // Ignore mode — phase 1: single-key mode selection (a/d/?)
+        if (WorldHud.ChatInput.IsFocused && (Chat.IgnorePhase == IgnorePhase.ModeSelect))
+        {
+            var textInput = input.TextInput;
+
+            if (textInput.Length > 0)
+            {
+                var c = textInput[0];
+
+                if (c is 'a' or 'A')
+                    Chat.TransitionIgnoreAdd();
+                else if (c is 'd' or 'D')
+                    Chat.TransitionIgnoreRemove();
+                else if (c == '?')
+                {
+                    Game.Connection.SendIgnoreRequest();
+                    Chat.Unfocus();
+                }
+
+                // Suppress all text input during mode selection so characters don't reach the textbox
+                input.Suppressed = true;
+            }
+        }
+
         // Enter — toggle chat focus / send message
         if (input.WasKeyPressed(Keys.Enter))
         {
@@ -586,8 +618,22 @@ public sealed partial class WorldScreen
                 var message = WorldHud.ChatInput.Text.Trim();
                 var prefix = WorldHud.ChatInput.Prefix;
 
+                // Ignore phase 2: submit the typed name for add/remove
+                if (Chat.IgnorePhase is IgnorePhase.AddName or IgnorePhase.RemoveName)
+                {
+                    if (message.Length > 0)
+                    {
+                        if (Chat.IgnorePhase == IgnorePhase.AddName)
+                            Game.Connection.SendAddIgnore(message);
+                        else
+                            Game.Connection.SendRemoveIgnore(message);
+                    }
+
+                    Chat.Unfocus();
+                }
+
                 // Whisper phase 1: "to [name]? " → resolve target name, transition to phase 2
-                if (Chat.IsWhisperNamePhase)
+                else if (Chat.IsWhisperNamePhase)
                 {
                     // Typed name overrides the bracketed default
                     var targetName = message.Length > 0 ? message : Chat.GetBracketedWhisperTarget();
@@ -647,10 +693,16 @@ public sealed partial class WorldScreen
                 } else
                     WorldHud.ShowTab(HudTab.Inventory);
             } else if (input.WasKeyPressed(Keys.S))
-                WorldHud.ShowTab(shift ? HudTab.SkillsAlt : HudTab.Skills);
-            else if (input.WasKeyPressed(Keys.D))
-                WorldHud.ShowTab(shift ? HudTab.SpellsAlt : HudTab.Spells);
-            else if (input.WasKeyPressed(Keys.F))
+            {
+                var useShift = ClientSettings.UseShiftKeyForAltPanels;
+                var alt = useShift ? shift : WorldHud.ActiveTab == HudTab.Skills;
+                WorldHud.ShowTab(alt ? HudTab.SkillsAlt : HudTab.Skills);
+            } else if (input.WasKeyPressed(Keys.D))
+            {
+                var useShift = ClientSettings.UseShiftKeyForAltPanels;
+                var alt = useShift ? shift : WorldHud.ActiveTab == HudTab.Spells;
+                WorldHud.ShowTab(alt ? HudTab.SpellsAlt : HudTab.Spells);
+            } else if (input.WasKeyPressed(Keys.F))
                 WorldHud.ShowTab(shift ? HudTab.MessageHistory : HudTab.Chat);
             else if (input.WasKeyPressed(Keys.G))
                 WorldHud.ShowTab(shift ? HudTab.ExtendedStats : HudTab.Stats);
@@ -704,10 +756,9 @@ public sealed partial class WorldScreen
             if (input.WasKeyPressed(Keys.F8))
                 GroupPanel.Show();
 
-            // F9 — focus chat input
+            // F9 — ignore list management
             if (input.WasKeyPressed(Keys.F9))
-                if (!WorldHud.ChatInput.IsFocused)
-                    Chat.Focus(string.Empty, Color.White);
+                Chat.FocusIgnore();
 
             // F10 — friends list
             if (input.WasKeyPressed(Keys.F10))
@@ -852,7 +903,10 @@ public sealed partial class WorldScreen
 
         // Darkness overlay state — must update before Draw
         if (DarknessRenderer.IsActive)
+        {
+            DarknessRenderer.SetLightSources(GatherLightSources());
             DarknessRenderer.Update(Camera, WorldHud.ViewportBounds);
+        }
     }
 
     /// <summary>
@@ -876,4 +930,35 @@ public sealed partial class WorldScreen
         => TextPopup.Show(
             "This is a test NonScrollWindow popup.\n\nNonScrollWindow and ScrollWindow are identical in the original client — same dialog frame, scrollbar, and close button.\n\nLine 1\nLine 2\nLine 3\nLine 4\nLine 5\nLine 6\nLine 7\nLine 8\nLine 9\nLine 10\nLine 11\nLine 12\nLine 13\nLine 14\nLine 15\nLine 16\nLine 17\nLine 18\nLine 19\nLine 20",
             PopupStyle.NonScroll);
+
+    private ReadOnlySpan<LightSource> GatherLightSources()
+    {
+        if (MapFile is null || !CurrentMapFlags.HasFlag(MapFlags.Darkness))
+            return ReadOnlySpan<LightSource>.Empty;
+
+        var count = 0;
+
+        foreach (var entity in WorldState.GetSortedEntities())
+        {
+            if (entity.LanternSize == LanternSize.None)
+                continue;
+
+            var mask = DataContext.LightMasks.Get(entity.LanternSize);
+
+            if (mask is null)
+                continue;
+
+            var tileWorld = Camera.TileToWorld(entity.TileX, entity.TileY, MapFile.Height);
+            var tileCenterX = tileWorld.X + DaLibConstants.HALF_TILE_WIDTH;
+            var tileCenterY = tileWorld.Y + DaLibConstants.HALF_TILE_HEIGHT;
+            var screenPos = Camera.WorldToScreen(new Vector2(tileCenterX + entity.VisualOffset.X, tileCenterY + entity.VisualOffset.Y));
+
+            if (count >= LightSourceBuffer.Length)
+                Array.Resize(ref LightSourceBuffer, LightSourceBuffer.Length * 2);
+
+            LightSourceBuffer[count++] = new LightSource(screenPos, mask);
+        }
+
+        return LightSourceBuffer.AsSpan(0, count);
+    }
 }

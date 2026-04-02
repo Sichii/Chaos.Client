@@ -27,6 +27,7 @@ public sealed class OtherProfileTabControl : PrefabPanel
     private readonly Dictionary<StatusBookTab, PrefabPanel?> TabPages = new();
 
     private StatusBookTab ActiveTab = StatusBookTab.Equipment;
+    private bool GroupButtonWired;
 
     public UIButton? CloseButton { get; }
 
@@ -145,6 +146,7 @@ public sealed class OtherProfileTabControl : PrefabPanel
     }
 
     public new void Hide() => Visible = false;
+    public event Action<string>? OnGroupInviteRequested;
 
     /// <summary>
     ///     Populates and shows the other player's profile.
@@ -156,6 +158,12 @@ public sealed class OtherProfileTabControl : PrefabPanel
 
         if (equipPage is not null)
         {
+            if (!GroupButtonWired)
+            {
+                equipPage.OnGroupInviteRequested += name => OnGroupInviteRequested?.Invoke(name);
+                GroupButtonWired = true;
+            }
+
             equipPage.SetPlayerInfo(
                 args.Name,
                 args.DisplayClass,

@@ -22,8 +22,10 @@ public sealed class MailListControl : PrefabPanel
     private const int POSTID_CHARS = 6;
     private const int AUTHOR_CHARS = 17;
     private const int DATE_CHARS = 7;
+    private const int PREFIX_CHARS = POSTID_CHARS + AUTHOR_CHARS + DATE_CHARS;
 
     private readonly Rectangle MailListRect;
+    private readonly int MaxSubjectChars;
     private readonly int MaxVisibleRows;
     private readonly UILabel[] RowLabels;
     private readonly ScrollBarControl ScrollBar;
@@ -110,6 +112,7 @@ public sealed class MailListControl : PrefabPanel
 
         // Row labels — one per visible row, columns via fixed-width string formatting
         var usableWidth = MailListRect.Width - ScrollBarControl.DEFAULT_WIDTH;
+        MaxSubjectChars = Math.Max(0, (usableWidth - TEXT_INDENT) / TextRenderer.CHAR_WIDTH - PREFIX_CHARS);
 
         RowLabels = new UILabel[MaxVisibleRows];
 
@@ -129,9 +132,6 @@ public sealed class MailListControl : PrefabPanel
         }
     }
 
-    /// <summary>
-    ///     Appends additional entries from a subsequent page to the existing list.
-    /// </summary>
     public void AppendEntries(List<MailEntry> entries)
     {
         Entries.AddRange(entries);
@@ -150,8 +150,12 @@ public sealed class MailListControl : PrefabPanel
         base.Draw(spriteBatch);
     }
 
-    private static string FormatRow(MailEntry entry)
-        => $"{entry.PostId,-POSTID_CHARS}{entry.Author,-AUTHOR_CHARS}{entry.Month + "/" + entry.Day,-DATE_CHARS}{entry.Subject}";
+    private string FormatRow(MailEntry entry)
+    {
+        var subject = entry.Subject.Length > MaxSubjectChars ? entry.Subject[..MaxSubjectChars] : entry.Subject;
+
+        return $"{entry.PostId,-POSTID_CHARS}{entry.Author,-AUTHOR_CHARS}{entry.Month + "/" + entry.Day,-DATE_CHARS}{subject}";
+    }
 
     public override void Hide() => Visible = false;
 
@@ -196,6 +200,25 @@ public sealed class MailListControl : PrefabPanel
             } else
                 RowLabels[i].Text = string.Empty;
         }
+    }
+
+    /// <summary>
+    ///     Appends additional entries from a subsequent page to the existing list.
+    /// </summary>
+    public void RemoveEntry(short postId)
+    {
+        var index = Entries.FindIndex(e => e.PostId == postId);
+
+        if (index < 0)
+            return;
+
+        Entries.RemoveAt(index);
+
+        if (SelectedIndex >= Entries.Count)
+            SelectedIndex = Entries.Count - 1;
+
+        DataVersion++;
+        UpdateScrollBar();
     }
 
     public void SetViewportBounds(Rectangle viewport)

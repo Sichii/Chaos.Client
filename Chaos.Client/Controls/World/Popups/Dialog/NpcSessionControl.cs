@@ -150,7 +150,7 @@ public sealed class NpcSessionControl : PrefabPanel
             Width = textRect.Width,
             Height = 3 * TextRenderer.CHAR_HEIGHT + 2,
             WordWrap = true,
-            ForegroundColor = Color.White
+            ForegroundColor = TextColors.Default
         };
 
         AddChild(DialogTextLabel);

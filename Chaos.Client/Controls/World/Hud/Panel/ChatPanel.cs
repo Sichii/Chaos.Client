@@ -18,7 +18,6 @@ public sealed class ChatPanel : ExpandablePanel
     private const int MAX_CHAT_LINES = 200;
     private const int GLYPH_HEIGHT = 12;
     private readonly List<ChatLine> ChatLog = [];
-    private readonly UILabel[] Lines;
     private readonly Rectangle NormalDisplayBounds;
     private readonly int PanelOriginX;
     private readonly int PanelOriginY;
@@ -26,6 +25,7 @@ public sealed class ChatPanel : ExpandablePanel
 
     private Rectangle DisplayBounds;
     private Rectangle ExpandedDisplayBounds;
+    private UILabel[] Lines;
     private int LogVersion;
     private int MaxVisibleLines;
     private int RenderedVersion = -1;
@@ -125,7 +125,40 @@ public sealed class ChatPanel : ExpandablePanel
     {
         ExpandedDisplayBounds = expandedBounds;
 
+        // Clear the normal background so ExpandYOffset is computed from panel Height, not the
+        // texture height (which is the same as the expanded texture, yielding ExpandYOffset=0).
+        Background = null;
+        Height = panelBounds.Height;
+
         ConfigureExpand(expandedBackground);
+
+        // Create additional labels needed for the expanded line count
+        var expandedMaxLines = expandedBounds.Height / GLYPH_HEIGHT;
+
+        if (expandedMaxLines > Lines.Length)
+        {
+            var relX = NormalDisplayBounds.X - PanelOriginX;
+            var relY = NormalDisplayBounds.Y - PanelOriginY;
+            var oldCount = Lines.Length;
+            Array.Resize(ref Lines, expandedMaxLines);
+
+            for (var i = oldCount; i < expandedMaxLines; i++)
+            {
+                Lines[i] = new UILabel
+                {
+                    Name = $"ChatLine{i}",
+                    X = relX,
+                    Y = relY + NormalDisplayBounds.Height - (MaxVisibleLines - i) * GLYPH_HEIGHT,
+                    Width = NormalDisplayBounds.Width,
+                    Height = GLYPH_HEIGHT,
+                    PaddingLeft = 0,
+                    PaddingTop = 0,
+                    Visible = false
+                };
+
+                AddChild(Lines[i]);
+            }
+        }
 
         // In the large HUD, the compact chat area is too small for a scrollbar
         ScrollBar.Visible = false;
@@ -182,12 +215,17 @@ public sealed class ChatPanel : ExpandablePanel
 
     public override void SetExpanded(bool expanded)
     {
+        // Base handles ExpandYOffset child shift
         base.SetExpanded(expanded);
 
         DisplayBounds = expanded ? ExpandedDisplayBounds : NormalDisplayBounds;
-        MaxVisibleLines = DisplayBounds.Height > 0 ? DisplayBounds.Height / GLYPH_HEIGHT : 0;
+        MaxVisibleLines = Math.Min(DisplayBounds.Height / GLYPH_HEIGHT, Lines.Length);
         ScrollBar.Visible = expanded;
-        RepositionLabels();
+        ScrollBar.Height = DisplayBounds.Height;
+
+        // Show/hide labels based on current line count
+        for (var i = 0; i < Lines.Length; i++)
+            Lines[i].Visible = i < MaxVisibleLines;
 
         // Force re-render with new line count
         LogVersion++;
@@ -202,7 +240,7 @@ public sealed class ChatPanel : ExpandablePanel
 
         if ((input.ScrollDelta != 0) && (ChatLog.Count > MaxVisibleLines))
         {
-            ScrollOffset = Math.Clamp(ScrollOffset - input.ScrollDelta, 0, ChatLog.Count - MaxVisibleLines);
+            ScrollOffset = Math.Clamp(ScrollOffset + input.ScrollDelta, 0, ChatLog.Count - MaxVisibleLines);
             ScrollBar.Value = ScrollOffset;
             LogVersion++;
         }

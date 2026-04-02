@@ -50,7 +50,7 @@ public sealed class WorldListControl : PrefabPanel
     private SlideAnimator Slide;
     private ushort TotalOnline;
 
-    public string PlayerName { get; set; } = string.Empty;
+    private static string PlayerName => WorldState.PlayerName;
 
     public WorldListControl()
         : base("_nusers", false)
@@ -278,12 +278,15 @@ public sealed class WorldListControl : PrefabPanel
         if (color == WorldListColor.Invisble)
             return Color.Transparent;
 
+        if (color == WorldListColor.White)
+            return LegendColors.White;
+
         return LegendColors.Get((int)color);
     }
 
     public event Action? OnClose;
 
-    private void OnWorldListChanged() => Show(WorldState.WorldList.Entries, WorldState.WorldList.TotalOnline, PlayerName);
+    private void OnWorldListChanged() => Show(WorldState.WorldList.Entries, WorldState.WorldList.TotalOnline);
 
     private void RefreshRowEntries()
     {
@@ -323,11 +326,10 @@ public sealed class WorldListControl : PrefabPanel
         Y = viewport.Y;
     }
 
-    public void Show(IReadOnlyList<WorldListEntry> entries, ushort totalOnline, string playerName = "")
+    public void Show(IReadOnlyList<WorldListEntry> entries, ushort totalOnline)
     {
         AllEntries = entries;
         TotalOnline = totalOnline;
-        PlayerName = playerName;
         ActiveTab = 0;
         TabButtons[0].IsSelected = true;
         ScrollOffset = 0;

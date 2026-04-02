@@ -10,8 +10,8 @@ namespace Chaos.Client.Controls.World.Popups;
 
 /// <summary>
 ///     Chant line editor popup using lssbook prefab. Shows skill/spell icon, name, level, and text inputs for chant lines.
-///     Skills have 1 line, spells have one per CastLine. OK saves, Cancel discards. Uses butt001.epf for buttons. MidImage
-///     (sstext.epf) is tiled vertically for multi-line spells.
+///     Skills have 1 line, spells have one per CastLine. OK saves, Cancel discards. Uses butt001.epf for buttons.
+///     Uses 3-part composite background: TopImage + tiled MidImage + BotImage.
 /// </summary>
 public sealed class ChantEditControl : PrefabPanel
 {
@@ -34,12 +34,13 @@ public sealed class ChantEditControl : PrefabPanel
 
     private readonly UIImage? Icon;
     private readonly UILabel? LevelLabel;
-    private readonly UIImage? MidImage;
+    private readonly Texture2D? MidTexture;
     private readonly UILabel? NameLabel;
 
     private readonly UIButton? OkButton;
 
     private readonly UITextBox[] TextInputs;
+    private readonly UIImage? TopImage;
 
     private byte EditingSlot;
     private bool IsSpell;
@@ -54,9 +55,18 @@ public sealed class ChantEditControl : PrefabPanel
         Width = PANEL_WIDTH;
         Height = TOP_HEIGHT + MID_HEIGHT + BOT_HEIGHT;
 
-        // Find mid and bot images from prefab
-        MidImage = CreateImage("MidImage");
+        // 3-part composite background: TopImage, tiled MidImage, BotImage
+        TopImage = CreateImage("TopImage");
         BotImage = CreateImage("BotImage");
+
+        // MidImage is tiled vertically — store the texture directly instead of using a UIImage child
+        if (PrefabSet.Contains("MidImage"))
+        {
+            var midPrefab = PrefabSet["MidImage"];
+
+            if (midPrefab.Images.Count > 0)
+                MidTexture = UiRenderer.Instance!.GetPrefabTexture(PrefabSet.Name, "MidImage", 0);
+        }
 
         // Get OK/Cancel rects from prefab for positioning, then create custom buttons with butt001.epf
         var okRect = GetRect("OK");
@@ -156,6 +166,28 @@ public sealed class ChantEditControl : PrefabPanel
         base.Dispose();
     }
 
+    public override void Draw(SpriteBatch spriteBatch)
+    {
+        if (!Visible)
+            return;
+
+        // Tile MidImage between TopImage and BotImage
+        if (MidTexture is not null && (LineCount > 0))
+        {
+            var midStartY = ScreenY + TOP_HEIGHT;
+
+            for (var i = 0; i < LineCount; i++)
+                AtlasHelper.Draw(
+                    spriteBatch,
+                    MidTexture,
+                    new Vector2(ScreenX, midStartY + i * MID_HEIGHT),
+                    Color.White);
+        }
+
+        // Draw children (TopImage, BotImage, text inputs, buttons, labels, icon)
+        base.Draw(spriteBatch);
+    }
+
     public override void Hide()
     {
         Visible = false;
@@ -202,16 +234,8 @@ public sealed class ChantEditControl : PrefabPanel
                 TextInputs[i].IsFocused = false;
             }
 
-        // Reposition mid images, bot image, and buttons for the line count
+        // Reposition bot image and buttons for the line count
         var totalMidHeight = LineCount * MID_HEIGHT;
-
-        if (MidImage is not null)
-        {
-            MidImage.Visible = LineCount > 0;
-            MidImage.Height = totalMidHeight;
-            MidImage.Y = TOP_HEIGHT;
-        }
-
         var botY = TOP_HEIGHT + totalMidHeight;
 
         if (BotImage is not null)

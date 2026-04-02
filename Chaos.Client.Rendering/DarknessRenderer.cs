@@ -29,10 +29,14 @@ public sealed class DarknessRenderer : IDisposable
     private string CurrentLightType = "default";
     private Color DarknessColor;
     private HeaFile? HeaFile;
+    private bool IsDarkMap;
     private LightLevel LastLightLevel;
+    private int LastLightSourceHash;
     private int LastOffsetX = int.MinValue;
     private int LastOffsetY = int.MinValue;
     private LightMetadata? LightData;
+    private int LightSourceCount;
+    private LightSource[] LightSources = [];
     private Color[]? Pixels;
     private Texture2D? Texture;
 
@@ -222,6 +226,11 @@ public sealed class DarknessRenderer : IDisposable
         {
             Alpha = (32 - props.Alpha) / 32f;
             DarknessColor = new Color(props.R, props.G, props.B);
+        } else if (IsDarkMap)
+        {
+            // Dark map with no light metadata — pure black darkness
+            Alpha = 1f;
+            DarknessColor = Color.Black;
         } else
         {
             Alpha = 0f;
@@ -246,8 +255,9 @@ public sealed class DarknessRenderer : IDisposable
     /// <summary>
     ///     Called on map change. Looks up the map's light type and loads the HEA file if one exists.
     /// </summary>
-    public void OnMapChanged(short mapId)
+    public void OnMapChanged(short mapId, bool isDarkMap)
     {
+        IsDarkMap = isDarkMap;
         CurrentLightType = LightData?.MapLightTypes.TryGetValue(mapId, out var lightType) is true ? lightType : "default";
 
         Alpha = 0f;
@@ -270,6 +280,50 @@ public sealed class DarknessRenderer : IDisposable
     ///     before MapInfo (e.g. initial login).
     /// </summary>
     public void ReapplyLightLevel() => OnLightLevel(LastLightLevel);
+
+    private void RebuildFlatWithLights(Rectangle viewport)
+    {
+        var vpWidth = viewport.Width;
+        var vpHeight = viewport.Height;
+
+        if ((vpWidth <= 0) || (vpHeight <= 0))
+            return;
+
+        // Dirty check — skip rebuild if light sources haven't changed
+        if (LastOffsetX != int.MinValue)
+            return;
+
+        var pixelCount = vpWidth * vpHeight;
+
+        if (Texture is null || Texture.IsDisposed || (Texture.Width != vpWidth) || (Texture.Height != vpHeight))
+        {
+            Texture?.Dispose();
+            Texture = new Texture2D(Device, vpWidth, vpHeight);
+        }
+
+        if (Pixels is null || (Pixels.Length < pixelCount))
+            Pixels = new Color[pixelCount];
+
+        // Fill with flat darkness — use same alpha encoding as ComputePixelsFromCache
+        var ambientAlpha32 = (byte)(32 * (1f - Alpha));
+        var flatAlpha = (byte)(255 - ambientAlpha32 * 255 / 32);
+
+        var darkColor = new Color(
+            DarknessColor.R,
+            DarknessColor.G,
+            DarknessColor.B,
+            flatAlpha);
+
+        for (var i = 0; i < pixelCount; i++)
+            Pixels[i] = darkColor;
+
+        // Stamp light sources
+        StampLightSources(vpWidth, vpHeight);
+
+        Texture.SetData(Pixels, 0, pixelCount);
+        LastOffsetX = 0;
+        LastOffsetY = 0;
+    }
 
     private void RebuildTexture(Camera camera, Rectangle viewport = default)
     {
@@ -392,6 +446,9 @@ public sealed class DarknessRenderer : IDisposable
             vpHeight,
             ambientAlpha32);
 
+        // Stamp lantern/dynamic light sources via max-blend
+        StampLightSources(vpWidth, vpHeight);
+
         Texture.SetData(Pixels, 0, pixelCount);
         LastOffsetX = worldOffsetX;
         LastOffsetY = worldOffsetY;
@@ -401,6 +458,47 @@ public sealed class DarknessRenderer : IDisposable
     ///     Reloads light metadata from disk. Call after metadata sync completes.
     /// </summary>
     public void ReloadMetadata() => LightData = DataContext.MetaFiles.GetLightMetadata();
+
+    /// <summary>
+    ///     Sets the light sources for the current frame. Call before Update() each frame. Light sources are screen-space
+    ///     positioned masks that brighten the darkness overlay via max-blend.
+    /// </summary>
+    public void SetLightSources(ReadOnlySpan<LightSource> sources)
+    {
+        if (sources.Length > LightSources.Length)
+            LightSources = new LightSource[sources.Length];
+
+        sources.CopyTo(LightSources);
+        LightSourceCount = sources.Length;
+
+        // Compute a cheap hash to detect changes — position + count
+        var hash = LightSourceCount;
+
+        for (var i = 0; i < LightSourceCount; i++)
+        {
+            var src = LightSources[i];
+
+            hash = HashCode.Combine(
+                hash,
+                (int)src.ScreenPosition.X,
+                (int)src.ScreenPosition.Y,
+                src.Mask.Width);
+        }
+
+        if (hash != LastLightSourceHash)
+        {
+            LastLightSourceHash = hash;
+            LastOffsetX = int.MinValue;
+            LastOffsetY = int.MinValue;
+        }
+
+        // Clean up flat-dark texture when no longer needed
+        if ((LightSourceCount == 0) && HeaFile is null)
+        {
+            DisposeTexture();
+            Pixels = null;
+        }
+    }
 
     private void ShiftAndDecodeRows(
         byte[,] cache,
@@ -447,6 +545,70 @@ public sealed class DarknessRenderer : IDisposable
         }
     }
 
+    private void StampLightSources(int vpWidth, int vpHeight)
+    {
+        if (LightSourceCount == 0)
+            return;
+
+        var pixels = Pixels!;
+        var darkR = DarknessColor.R;
+        var darkG = DarknessColor.G;
+        var darkB = DarknessColor.B;
+
+        for (var i = 0; i < LightSourceCount; i++)
+        {
+            var source = LightSources[i];
+            var mask = source.Mask;
+
+            // Mask rect centered on screen position
+            var maskLeft = (int)source.ScreenPosition.X - mask.Width / 2;
+            var maskTop = (int)source.ScreenPosition.Y - mask.Height / 2;
+
+            // Clip to viewport
+            var startX = Math.Max(0, -maskLeft);
+            var startY = Math.Max(0, -maskTop);
+            var endX = Math.Min(mask.Width, vpWidth - maskLeft);
+            var endY = Math.Min(mask.Height, vpHeight - maskTop);
+
+            if ((startX >= endX) || (startY >= endY))
+                continue;
+
+            for (var my = startY; my < endY; my++)
+            {
+                var vpY = maskTop + my;
+                var maskRowOffset = my * mask.Width;
+                var pixelRowOffset = vpY * vpWidth;
+
+                for (var mx = startX; mx < endX; mx++)
+                {
+                    var maskValue = mask.Pixels[maskRowOffset + mx];
+
+                    if (maskValue == 0)
+                        continue;
+
+                    var vpX = maskLeft + mx;
+                    var pixelIndex = pixelRowOffset + vpX;
+
+                    // Reverse the existing alpha to get the current effective 0-32 value
+                    var currentAlpha = pixels[pixelIndex].A;
+                    var currentEffective = (byte)(32 - currentAlpha * 32 / 255);
+
+                    if (maskValue <= currentEffective)
+                        continue;
+
+                    // Recompute the pixel with the brighter value
+                    var newAlpha = (byte)(255 - maskValue * 255 / 32);
+
+                    pixels[pixelIndex] = new Color(
+                        darkR,
+                        darkG,
+                        darkB,
+                        newAlpha);
+                }
+            }
+        }
+    }
+
     private static HeaFile? TryLoadHeaFile(short mapId)
     {
         var heaName = $"{mapId:D6}";
@@ -469,9 +631,12 @@ public sealed class DarknessRenderer : IDisposable
     /// </summary>
     public void Update(Camera camera, Rectangle viewport)
     {
-        if (HeaFile is null || (Alpha <= 0f))
+        if (Alpha <= 0f)
             return;
 
-        RebuildTexture(camera, viewport);
+        if (HeaFile is not null)
+            RebuildTexture(camera, viewport);
+        else if (LightSourceCount > 0)
+            RebuildFlatWithLights(viewport);
     }
 }

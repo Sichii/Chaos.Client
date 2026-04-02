@@ -323,6 +323,7 @@ public sealed partial class WorldScreen
             PendingDeleteAction = () =>
             {
                 Game.Connection.SendBoardInteraction(BoardRequestType.Delete, ArticleList.BoardId, postId);
+                ArticleList.RemoveEntry(postId);
             };
 
             DeleteConfirm.Show("Delete this post?");
@@ -380,6 +381,7 @@ public sealed partial class WorldScreen
             PendingDeleteAction = () =>
             {
                 Game.Connection.SendBoardInteraction(BoardRequestType.Delete, MailList.BoardId, postId);
+                MailList.RemoveEntry(postId);
             };
 
             DeleteConfirm.Show("Delete this post?");
@@ -600,8 +602,14 @@ public sealed partial class WorldScreen
         if (hud.HelpButton is not null)
             hud.HelpButton.OnClick += () => HotkeyHelp.Show();
 
+        if (hud.SettingsButton is not null)
+            hud.SettingsButton.OnClick += () => SettingsDialog.Show();
+
         if (hud.GroupButton is not null)
             hud.GroupButton.OnClick += () => GroupPanel.Show();
+
+        if (hud.GroupIndicator is not null)
+            hud.GroupIndicator.OnClick += () => Game.Connection.ToggleGroup();
 
         if (hud.UsersButton is not null)
         {
@@ -673,8 +681,10 @@ public sealed partial class WorldScreen
         hud.SkillBookAlt.OnSlotSwapped += (s, t) => Game.Connection.SwapSlot(PanelType.SkillBook, s, t);
         hud.SpellBook.OnSlotClicked += HandleSpellSlotClicked;
         hud.SpellBook.OnSlotSwapped += (s, t) => Game.Connection.SwapSlot(PanelType.SpellBook, s, t);
+        hud.SpellBook.OnSlotDroppedOutside += HandleSpellSlotDropped;
         hud.SpellBookAlt.OnSlotClicked += HandleSpellSlotClicked;
         hud.SpellBookAlt.OnSlotSwapped += (s, t) => Game.Connection.SwapSlot(PanelType.SpellBook, s, t);
+        hud.SpellBookAlt.OnSlotDroppedOutside += HandleSpellSlotDropped;
 
         WireAbilityRightClicks(hud.SkillBook);
         WireAbilityRightClicks(hud.SkillBookAlt);

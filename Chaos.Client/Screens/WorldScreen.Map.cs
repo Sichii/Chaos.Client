@@ -2,6 +2,7 @@
 using Chaos.Client.Collections;
 using Chaos.Client.Data;
 using Chaos.Client.Systems;
+using Chaos.DarkAges.Definitions;
 using Chaos.Geometry;
 using Chaos.Geometry.Abstractions;
 using Chaos.Networking.Entities.Server;
@@ -43,6 +44,7 @@ public sealed partial class WorldScreen
         MapPreloaded = false;
         AwaitingMapData = false;
         CurrentMapId = args.MapId;
+        CurrentMapFlags = (MapFlags)args.Flags;
         MapLoading.Show();
 
         // Local file missing, corrupt, or checksum mismatch — request from server
@@ -62,7 +64,7 @@ public sealed partial class WorldScreen
         Game.ItemRenderer.Clear();
 
         // Reset darkness state and load HEA light map for the new map
-        DarknessRenderer.OnMapChanged(args.MapId);
+        DarknessRenderer.OnMapChanged(args.MapId, CurrentMapFlags.HasFlag(MapFlags.Darkness));
 
         UpdateHuds(h => h.SetZoneName(args.Name));
     }

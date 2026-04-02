@@ -29,6 +29,9 @@ public sealed class ChaosGame : Game
     private int CursorOffsetY;
     private Texture2D? CursorTexture;
     internal volatile bool GcRequested;
+    private int HandCursorOffsetX;
+    private int HandCursorOffsetY;
+    private Texture2D? HandCursorTexture;
     private bool MetaSyncStarted;
     private RenderTarget2D RenderTarget = null!;
     private bool ResizingInProgress;
@@ -44,6 +47,8 @@ public sealed class ChaosGame : Game
     ///     The screen manager that owns the active screen stack.
     /// </summary>
     public ScreenManager Screens { get; private set; } = null!;
+
+    public bool UseHandCursor { get; set; }
 
     /// <summary>
     ///     Shared aisling renderer for compositing player/NPC equipment layers.
@@ -101,8 +106,8 @@ public sealed class ChaosGame : Game
         // Wire state events to WorldState at startup so state is tracked
         // even during world entry (before WorldScreen is created)
         WorldState.SubscribeTo(Connection);
-        Connection.OnDisplayVisibleEntities += args => WorldState.AddOrUpdateVisibleEntities(args);
-        Connection.OnDisplayAisling += args => WorldState.AddOrUpdateAisling(args);
+        Connection.OnDisplayVisibleEntities += WorldState.AddOrUpdateVisibleEntities;
+        Connection.OnDisplayAisling += WorldState.AddOrUpdateAisling;
 
         // RemoveEntity wired in WorldScreen — it needs to capture the creature sprite for
         // the death dissolve animation before removing the entity from WorldState.
@@ -149,10 +154,12 @@ public sealed class ChaosGame : Game
         // Custom cursor — drawn in virtual space so it aligns with game content
         if (CursorTexture is not null)
         {
+            var activeCursor = UseHandCursor && HandCursorTexture is not null ? HandCursorTexture : CursorTexture;
+            var offsetX = UseHandCursor && HandCursorTexture is not null ? HandCursorOffsetX : CursorOffsetX;
+            var offsetY = UseHandCursor && HandCursorTexture is not null ? HandCursorOffsetY : CursorOffsetY;
+
             SpriteBatch.Begin(samplerState: GlobalSettings.Sampler);
-
-            SpriteBatch.Draw(CursorTexture, new Vector2(Input.MouseX - CursorOffsetX, Input.MouseY - CursorOffsetY), Color.White);
-
+            SpriteBatch.Draw(activeCursor, new Vector2(Input.MouseX - offsetX, Input.MouseY - offsetY), Color.White);
             SpriteBatch.End();
         }
 
@@ -183,6 +190,28 @@ public sealed class ChaosGame : Game
 
             GC.WaitForPendingFinalizers();
         }
+    }
+
+    private static (int X, int Y) FindCursorHotspot(Texture2D texture)
+    {
+        var pixels = new Color[texture.Width * texture.Height];
+        texture.GetData(pixels);
+
+        var hotX = texture.Width;
+        var hotY = texture.Height;
+
+        for (var y = 0; y < texture.Height; y++)
+            for (var x = 0; x < texture.Width; x++)
+                if (pixels[y * texture.Width + x].A > 0)
+                {
+                    if (x < hotX)
+                        hotX = x;
+
+                    if (y < hotY)
+                        hotY = y;
+                }
+
+        return (hotX, hotY);
     }
 
     protected override void Initialize()
@@ -222,25 +251,13 @@ public sealed class ChaosGame : Game
         if (CursorTexture is not null)
         {
             IsMouseVisible = false;
-
-            // Scan for the top-left most non-transparent pixel to find the arrow tip
-            var pixels = new Color[CursorTexture.Width * CursorTexture.Height];
-            CursorTexture.GetData(pixels);
-
-            CursorOffsetX = CursorTexture.Width;
-            CursorOffsetY = CursorTexture.Height;
-
-            for (var y = 0; y < CursorTexture.Height; y++)
-                for (var x = 0; x < CursorTexture.Width; x++)
-                    if (pixels[y * CursorTexture.Width + x].A > 0)
-                    {
-                        if (x < CursorOffsetX)
-                            CursorOffsetX = x;
-
-                        if (y < CursorOffsetY)
-                            CursorOffsetY = y;
-                    }
+            (CursorOffsetX, CursorOffsetY) = FindCursorHotspot(CursorTexture);
         }
+
+        HandCursorTexture = UiRenderer.Instance!.GetEpfTexture("mouse.epf", 1);
+
+        if (HandCursorTexture is not null)
+            (HandCursorOffsetX, HandCursorOffsetY) = FindCursorHotspot(HandCursorTexture);
     }
 
     #region Aspect Ratio Constraint

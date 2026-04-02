@@ -132,6 +132,44 @@ public sealed partial class WorldScreen
                 spriteBatch.End();
             }
 
+            // Blind overlay — full black over the viewport when the player is blinded
+            if (WorldState.Attributes.Current?.Blind is true)
+            {
+                spriteBatch.Begin(
+                    blendState: BlendState.AlphaBlend,
+                    samplerState: GlobalSettings.Sampler,
+                    rasterizerState: ScissorRasterizerState);
+                RenderHelper.DrawRect(spriteBatch, WorldHud.ViewportBounds, Color.Black);
+                spriteBatch.End();
+            }
+
+            // Blind overlay — black out viewport, then redraw only the player character
+            if (WorldState.Attributes.Current?.Blind is true)
+            {
+                spriteBatch.Begin(
+                    blendState: BlendState.AlphaBlend,
+                    samplerState: GlobalSettings.Sampler,
+                    rasterizerState: ScissorRasterizerState);
+                RenderHelper.DrawRect(spriteBatch, WorldHud.ViewportBounds, Color.Black);
+                spriteBatch.End();
+
+                var player = WorldState.GetPlayerEntity();
+
+                if (player is not null)
+                {
+                    spriteBatch.Begin(
+                        SpriteSortMode.Immediate,
+                        BlendState.AlphaBlend,
+                        GlobalSettings.Sampler,
+                        null,
+                        ScissorRasterizerState,
+                        null,
+                        transform);
+                    DrawEntity(spriteBatch, player);
+                    spriteBatch.End();
+                }
+            }
+
             // Snapshot draw count before debug draws so the reported count excludes debug visualizations
             DebugOverlay.SnapshotDrawCount();
 
@@ -341,7 +379,7 @@ public sealed partial class WorldScreen
             var anchorX = dying.Flip ? dying.Texture.Width - texCenterX : texCenterX;
 
             var drawX = tileCenterX - anchorX;
-            var drawY = tileCenterY - texCenterY;
+            var drawY = tileCenterY - texCenterY + dying.CenterYOffset;
             var screenPos = Camera.WorldToScreen(new Vector2(drawX, drawY));
 
             var effects = dying.Flip ? SpriteEffects.FlipHorizontally : SpriteEffects.None;
@@ -594,7 +632,8 @@ public sealed partial class WorldScreen
             tileCenterX,
             tileCenterY,
             entity.VisualOffset,
-            tint);
+            tint,
+            entity.IsDead);
 
         return Game.AislingRenderer.Draw(spriteBatch, Camera, in drawParams);
     }

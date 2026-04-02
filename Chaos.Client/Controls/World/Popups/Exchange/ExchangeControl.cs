@@ -28,15 +28,15 @@ public sealed class ExchangeControl : PrefabPanel
     private readonly ExchangeItemControl[] YourItems = new ExchangeItemControl[MAX_ITEMS_PER_SIDE];
     private readonly UILabel? YourMoneyLabel;
 
-    /// <summary>
-    ///     The player's own name, used for the left side label. Set from WorldScreen after DisplayAisling.
-    /// </summary>
-    public string PlayerName { get; set; } = string.Empty;
-
     public UIButton? CancelButton { get; }
     public UIButton? OkButton { get; }
 
     public uint OtherUserId => WorldState.Exchange.OtherUserId;
+
+    /// <summary>
+    ///     The player's own name, used for the left side label. Set from WorldScreen after DisplayAisling.
+    /// </summary>
+    private static string PlayerName => WorldState.PlayerName;
 
     public ExchangeControl(Rectangle viewportBounds)
         : base("_nexch")
@@ -49,7 +49,11 @@ public sealed class ExchangeControl : PrefabPanel
         CancelButton = CreateButton("Cancel");
 
         if (OkButton is not null)
-            OkButton.OnClick += () => OnOk?.Invoke();
+            OkButton.OnClick += () =>
+            {
+                OkButton.Enabled = false;
+                OnOk?.Invoke();
+            };
 
         if (CancelButton is not null)
             CancelButton.OnClick += () => OnCancel?.Invoke();
@@ -163,6 +167,9 @@ public sealed class ExchangeControl : PrefabPanel
         MyMoneyLabel?.Text = "0";
         YourMoneyLabel?.Text = "0";
         YourAckImage?.Visible = false;
+
+        if (OkButton is not null)
+            OkButton.Enabled = true;
 
         // Center vertically in viewport
         Y = ViewportBounds.Y + (ViewportBounds.Height - Height) / 2;

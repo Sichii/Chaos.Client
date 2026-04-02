@@ -358,6 +358,20 @@ public sealed class ChatBubble : UIImage
             border);
     }
 
+    private static string? FindLastColorCode(string line)
+    {
+        string? last = null;
+
+        for (var i = 0; i < (line.Length - 2); i++)
+            if (TextRenderer.IsColorCode(line, i))
+            {
+                last = line[i..(i + 3)];
+                i += 2;
+            }
+
+        return last;
+    }
+
     private static int GetBubbleInset(
         int row,
         int height,
@@ -405,6 +419,7 @@ public sealed class ChatBubble : UIImage
         }
 
         var remaining = text.Trim();
+        string? activeColorCode = null;
 
         while (remaining.Length > 0)
         {
@@ -433,8 +448,15 @@ public sealed class ChatBubble : UIImage
 
             lines.Add(line);
 
+            // Track the last color code in this line so the next line inherits it
+            activeColorCode = FindLastColorCode(line) ?? activeColorCode;
+
             remaining = remaining[line.Length..]
                 .TrimStart();
+
+            // Prepend the active color code to the next line so it carries over
+            if (activeColorCode is not null && (remaining.Length > 0))
+                remaining = activeColorCode + remaining;
         }
 
         return lines;

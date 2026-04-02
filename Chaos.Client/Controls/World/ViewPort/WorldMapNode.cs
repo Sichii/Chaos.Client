@@ -61,7 +61,8 @@ public sealed class WorldMapNode : UIPanel
             Y = Height - GLYPH_HEIGHT,
             Width = textWidth,
             Height = GLYPH_HEIGHT,
-            Text = text
+            Text = text,
+            ForegroundColor = Color.White
         };
 
         AddChild(Label);

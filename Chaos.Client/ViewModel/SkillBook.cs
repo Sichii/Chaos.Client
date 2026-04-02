@@ -1,3 +1,7 @@
+#region
+using Chaos.Extensions.Common;
+#endregion
+
 namespace Chaos.Client.ViewModel;
 
 /// <summary>
@@ -82,13 +86,11 @@ public sealed class SkillBook
             if (!Slots[i].IsOccupied || slotName is null)
                 continue;
 
-            if (slotName.Equals(name, StringComparison.OrdinalIgnoreCase))
+            if (slotName.EqualsI(name))
                 return true;
 
             // Prefix match for leveled skills (e.g., "swimming Lv.5")
-            if (slotName.StartsWith(name, StringComparison.OrdinalIgnoreCase)
-                && (slotName.Length > name.Length)
-                && (slotName[name.Length] == ' '))
+            if (slotName.StartsWithI(name) && (slotName.Length > name.Length) && (slotName[name.Length] == ' '))
                 return true;
         }
 

@@ -39,6 +39,7 @@ public abstract class PanelBase : ExpandablePanel
 
     // Expand state (slot-specific)
     private int ExpandedVisibleSlots;
+    private PanelSlot? LastDropTarget;
 
     // Hover tracking
     private PanelSlot? LastHoveredSlot;
@@ -285,15 +286,17 @@ public abstract class PanelBase : ExpandablePanel
         if ((expanded == IsExpanded) || (ExpandedVisibleSlots == 0))
             return;
 
-        var yShift = expanded ? -ExpandYOffset - CompactGridPadding : ExpandYOffset + CompactGridPadding;
-
+        // Base handles the ExpandYOffset shift for all children
         base.SetExpanded(expanded);
+
+        // Apply additional CompactGridPadding shift for large HUD compact backgrounds
+        var padShift = expanded ? -CompactGridPadding : CompactGridPadding;
 
         var targetSlots = expanded ? ExpandedVisibleSlots : NormalVisibleSlots;
 
         for (var i = 0; i < Slots.Length; i++)
         {
-            Slots[i].Y += yShift;
+            Slots[i].Y += padShift;
             Slots[i].Visible = i < targetSlots;
         }
 
@@ -355,6 +358,15 @@ public abstract class PanelBase : ExpandablePanel
             DragMouseX = input.MouseX;
             DragY = input.MouseY;
 
+            // Show drop target border on hovered slot during drag
+            if (LastDropTarget is not null)
+                LastDropTarget.IsDropTarget = false;
+
+            LastDropTarget = hoveredSlot;
+
+            if (LastDropTarget is not null)
+                LastDropTarget.IsDropTarget = true;
+
             if (!input.IsLeftButtonHeld)
             {
                 if (DragSource is not null)
@@ -365,6 +377,10 @@ public abstract class PanelBase : ExpandablePanel
                         OnSlotDroppedOutside?.Invoke(DragSource.Slot, input.MouseX, input.MouseY);
                 }
 
+                if (LastDropTarget is not null)
+                    LastDropTarget.IsDropTarget = false;
+
+                LastDropTarget = null;
                 IsDragging = false;
                 DragSource = null;
             }

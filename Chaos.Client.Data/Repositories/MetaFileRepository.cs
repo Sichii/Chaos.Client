@@ -4,6 +4,7 @@ using System.Collections.Frozen;
 using System.IO.Compression;
 using System.Text;
 using Chaos.Client.Data.Models;
+using Chaos.Extensions.Common;
 using DALib.Data;
 using DALib.Extensions;
 #endregion
@@ -42,7 +43,7 @@ public sealed class MetaFileRepository
 
         var files = Directory.GetFiles(MetaFileDirectory)
                              .Select(f => (Path: f, Name: Path.GetFileName(f)))
-                             .Where(f => f.Name.StartsWith("ItemInfo", StringComparison.OrdinalIgnoreCase))
+                             .Where(f => f.Name.StartsWithI("ItemInfo"))
                              .Select(f => (f.Path, Parsed: ushort.TryParse(f.Name.AsSpan("ItemInfo".Length), out var n), Number: n))
                              .Where(f => f.Parsed)
                              .ToArray();
@@ -112,7 +113,7 @@ public sealed class MetaFileRepository
         {
             var fileName = Path.GetFileName(filePath);
 
-            if (!fileName.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
+            if (!fileName.StartsWithI(prefix))
                 continue;
 
             try
