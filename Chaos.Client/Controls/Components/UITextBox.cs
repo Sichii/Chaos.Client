@@ -81,9 +81,6 @@ public class UITextBox : UIElement
 
     public int MaxLength { get; set; } = 12;
 
-    public int PaddingX { get; set; } = 2;
-    public int PaddingY { get; set; } = 2;
-
     /// <summary>
     ///     Non-editable prefix rendered before the editable text (e.g. "Name: " for chat). Not included in <see cref="Text" />
     ///     and cannot be deleted by the user.
@@ -125,7 +122,15 @@ public class UITextBox : UIElement
 
     public int SelectionStart => Math.Min(SelectionAnchor, CursorPosition);
 
-    private int VisibleLineCount => (Height - PaddingY * 2) / TextRenderer.CHAR_HEIGHT;
+    private int VisibleLineCount => (Height - PaddingTop + PaddingBottom) / TextRenderer.CHAR_HEIGHT;
+
+    public UITextBox()
+    {
+        PaddingLeft = 2;
+        PaddingRight = 2;
+        PaddingTop = 2;
+        PaddingBottom = 2;
+    }
 
     /// <summary>
     ///     Ensures cursor and anchor are within valid range after external Text changes.
@@ -143,7 +148,7 @@ public class UITextBox : UIElement
 
     private void ComputeLineLayout()
     {
-        var innerWidth = Width - PaddingX * 2;
+        var innerWidth = Width - PaddingLeft + PaddingRight;
 
         if ((innerWidth == CachedLayoutWidth) && (Text == CachedLayoutText))
             return;
@@ -232,8 +237,8 @@ public class UITextBox : UIElement
     {
         var sx = ScreenX;
         var sy = ScreenY;
-        var textX = sx + PaddingX;
-        var textY = sy + PaddingY;
+        var textX = sx + PaddingLeft;
+        var textY = sy + PaddingTop;
         var firstLine = FirstVisibleLine;
         var visibleCount = VisibleLineCount;
         var lastLine = Math.Min(firstLine + visibleCount, LineStarts.Count);
@@ -305,8 +310,8 @@ public class UITextBox : UIElement
         var displayText = IsMasked ? new string('*', Text.Length) : Text;
         var sx = ScreenX;
         var sy = ScreenY;
-        var textY = sy + PaddingY;
-        var textHeight = Height - PaddingY * 2;
+        var textY = sy + PaddingTop;
+        var textHeight = Height - PaddingTop + PaddingBottom;
 
         // Prefix offset — non-editable text rendered before editable content
         var prefixWidth = 0;
@@ -316,10 +321,10 @@ public class UITextBox : UIElement
             prefixWidth = TextRenderer.MeasureWidth(Prefix);
             PrefixTextElement ??= new TextElement();
             PrefixTextElement.Update(Prefix, ForegroundColor);
-            PrefixTextElement.Draw(spriteBatch, new Vector2(sx + PaddingX, textY));
+            PrefixTextElement.Draw(spriteBatch, new Vector2(sx + PaddingLeft, textY));
         }
 
-        var textStartX = sx + PaddingX + prefixWidth;
+        var textStartX = sx + PaddingLeft + prefixWidth;
 
         // Selection highlight
         if (HasSelection && (displayText.Length > 0))
@@ -356,9 +361,9 @@ public class UITextBox : UIElement
             TextElement.Draw(
                 spriteBatch,
                 new Rectangle(
-                    sx + PaddingX,
+                    sx + PaddingLeft,
                     textY,
-                    Width - PaddingX * 2,
+                    Width - PaddingLeft + PaddingRight,
                     textHeight));
         } else
         {
@@ -603,7 +608,7 @@ public class UITextBox : UIElement
             if (IsMultiLine)
                 clickPos = HitTestMultiLine(input.MouseX, input.MouseY);
             else
-                clickPos = HitTestCursorPosition(input.MouseX - ScreenX - PaddingX);
+                clickPos = HitTestCursorPosition(input.MouseX - ScreenX - PaddingLeft);
 
             if (shift && IsFocused && IsSelectable)
 
@@ -633,7 +638,7 @@ public class UITextBox : UIElement
             if (IsMultiLine)
                 dragPos = HitTestMultiLine(input.MouseX, input.MouseY);
             else
-                dragPos = HitTestCursorPosition(input.MouseX - ScreenX - PaddingX);
+                dragPos = HitTestCursorPosition(input.MouseX - ScreenX - PaddingLeft);
 
             if (dragPos != CursorPosition)
             {
@@ -771,11 +776,11 @@ public class UITextBox : UIElement
 
     private int HitTestMultiLine(int mouseX, int mouseY)
     {
-        var localY = mouseY - ScreenY - PaddingY;
+        var localY = mouseY - ScreenY - PaddingTop;
         var clickLine = FirstVisibleLine + localY / TextRenderer.CHAR_HEIGHT;
         clickLine = Math.Clamp(clickLine, 0, LineStarts.Count - 1);
         var lineText = GetLineText(clickLine);
-        var localX = mouseX - ScreenX - PaddingX;
+        var localX = mouseX - ScreenX - PaddingLeft;
         var colInLine = HitTestCursorPosition(localX, lineText);
 
         return LineStarts[clickLine] + colInLine;

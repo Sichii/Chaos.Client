@@ -58,8 +58,10 @@ public sealed class ArticleSendControl : PrefabPanel
             IsFocusable = true,
             IsSelectable = true,
             MaxLength = 10000,
-            PaddingX = 0,
-            PaddingY = 0,
+            PaddingLeft = 0,
+            PaddingRight = 0,
+            PaddingTop = 0,
+            PaddingBottom = 0,
             ForegroundColor = Color.White
         };
 

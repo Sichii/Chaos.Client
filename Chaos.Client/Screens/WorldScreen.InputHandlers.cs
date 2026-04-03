@@ -622,6 +622,18 @@ public sealed partial class WorldScreen
         var sameTile = LeftClickTracker.Click(tileX, tileY);
         var isDoubleClick = Game.Input.WasLeftButtonDoubleClicked && sameTile;
 
+        // Check group box text overlays first — they sit above entity hitboxes
+        var groupBoxHit = Overlays.GetGroupBoxAtScreen(mouseX, mouseY);
+
+        if (groupBoxHit.HasValue)
+        {
+            (var entityId, var entityName) = groupBoxHit.Value;
+
+            Game.Connection.SendGroupInvite(ClientGroupSwitch.ViewGroupBox, entityName);
+
+            return;
+        }
+
         if (isDoubleClick)
         {
             // Double-click: interact with entities (use hitbox detection, not tile lookup)

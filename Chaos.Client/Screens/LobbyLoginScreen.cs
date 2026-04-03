@@ -9,6 +9,7 @@ using Chaos.Client.Controls.LobbyLogin;
 using Chaos.Client.Data;
 using Chaos.Client.Networking;
 using Chaos.Client.Networking.Definitions;
+using Chaos.Client.Systems;
 using Chaos.Cryptography;
 using Chaos.DarkAges.Definitions;
 using Chaos.Networking.Entities.Server;
@@ -400,7 +401,12 @@ public sealed class LobbyLoginScreen : IScreen
         LoginControl.Visible = false;
         SetStatus("Logging in...", Color.LightBlue);
         WorldState.PlayerName = username;
-        Game.Connection.Login(username, password);
+
+        Game.Connection.Login(
+            username,
+            password,
+            MachineIdentity.ClientId1,
+            MachineIdentity.ClientId2);
     }
 
     private void OnLoginCancelClicked()

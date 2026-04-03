@@ -104,6 +104,7 @@ public sealed class WorldListControl : PrefabPanel
             PaddingTop = 0
         };
 
+        TotalNumLabel.ForegroundColor = Color.White;
         TotalNumLabel.Text = "0";
         AddChild(TotalNumLabel);
 
@@ -175,6 +176,7 @@ public sealed class WorldListControl : PrefabPanel
                 PaddingTop = 0
             };
 
+            TabCountLabels[i].ForegroundColor = Color.White;
             AddChild(TabCountLabels[i]);
         }
 
@@ -337,6 +339,7 @@ public sealed class WorldListControl : PrefabPanel
         ApplyFilter();
         UpdateCountLabels();
         AutoScrollToSelf();
+        ScrollBar.Value = ScrollOffset;
         RowsDirty = true;
 
         if (!Visible)

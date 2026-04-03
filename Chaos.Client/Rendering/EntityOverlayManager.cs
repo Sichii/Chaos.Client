@@ -6,13 +6,14 @@ using Chaos.Client.Models;
 using Chaos.DarkAges.Definitions;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
+using Microsoft.Xna.Framework.Input;
 #endregion
 
 namespace Chaos.Client.Rendering;
 
 /// <summary>
-///     Manages all entity-anchored overlays: chat bubbles, health bars, name tags, and chant overlays. Each overlay is
-///     keyed by entity ID. Chat bubbles and chant overlays interlock — adding one replaces the other.
+///     Manages all entity-anchored overlays: chat bubbles, health bars, name tags, group box texts, and chant overlays.
+///     Each overlay is keyed by entity ID. Chat bubbles and chant overlays interlock — adding one replaces the other.
 /// </summary>
 public sealed class EntityOverlayManager
 {
@@ -21,10 +22,14 @@ public sealed class EntityOverlayManager
 
     // Name tag Y offset from entity tile center (above health bars)
     private const int NAME_TAG_Y_OFFSET = 72;
+
+    // Group box Y offset — sits 2px above name tags
+    private const int GROUP_BOX_Y_OFFSET = 74;
     private static readonly Color NAME_TAG_SHADOW_COLOR = new(20, 20, 20);
     private readonly Dictionary<uint, ChantOverlay> ChantOverlays = new();
 
     private readonly Dictionary<uint, ChatBubble> ChatBubbles = new();
+    private readonly Dictionary<uint, GroupBox> GroupBoxes = new();
     private readonly Dictionary<uint, HealthBar> HealthBars = new();
     private readonly Dictionary<uint, TextElement> NameTagCache = new();
 
@@ -88,11 +93,12 @@ public sealed class EntityOverlayManager
         ChantOverlays.Clear();
 
         NameTagCache.Clear();
+        GroupBoxes.Clear();
     }
 
     /// <summary>
     ///     Draws all overlays. Call within a SpriteBatch Begin/End block with camera transform applied. Draw order: chant
-    ///     overlays → health bars → name tags → chat bubbles (top-most last).
+    ///     overlays → health bars → name tags → group box texts → chat bubbles (top-most last).
     /// </summary>
     public void Draw(
         SpriteBatch spriteBatch,
@@ -118,8 +124,59 @@ public sealed class EntityOverlayManager
             hoveredEntityId,
             playerEntityId);
 
+        DrawGroupBoxTexts(
+            spriteBatch,
+            camera,
+            mapHeight,
+            sortedEntities);
+
         foreach (var bubble in ChatBubbles.Values)
             bubble.Draw(spriteBatch);
+    }
+
+    private void DrawGroupBoxTexts(
+        SpriteBatch spriteBatch,
+        Camera camera,
+        int mapHeight,
+        IReadOnlyList<WorldEntity> sortedEntities)
+    {
+        // Determine which group box (if any) the mouse is over, using positions from previous frame
+        var mouseState = Mouse.GetState();
+
+        var hoveredGroupBoxId = GetGroupBoxAtScreen(mouseState.X, mouseState.Y)
+            ?.EntityId;
+
+        for (var i = 0; i < sortedEntities.Count; i++)
+        {
+            var entity = sortedEntities[i];
+
+            if (entity.Type != ClientEntityType.Aisling)
+                continue;
+
+            if (string.IsNullOrEmpty(entity.GroupBoxText))
+                continue;
+
+            if (!GroupBoxes.TryGetValue(entity.Id, out var groupBox))
+            {
+                groupBox = new GroupBox(entity.Id);
+                GroupBoxes[entity.Id] = groupBox;
+            }
+
+            groupBox.UpdateText(entity.GroupBoxText);
+            groupBox.IsHovered = hoveredGroupBoxId == entity.Id;
+
+            // Position panel centered on entity, bottom edge at Y offset
+            var tileWorld = Camera.TileToWorld(entity.TileX, entity.TileY, mapHeight);
+            var entityWorldX = tileWorld.X + DaLibConstants.HALF_TILE_WIDTH + entity.VisualOffset.X;
+            var entityWorldY = tileWorld.Y + DaLibConstants.HALF_TILE_HEIGHT + entity.VisualOffset.Y - GROUP_BOX_Y_OFFSET;
+
+            var screenPos = camera.WorldToScreen(
+                new Vector2(entityWorldX - GroupBox.PANEL_WIDTH / 2f, entityWorldY - GroupBox.PANEL_HEIGHT));
+
+            groupBox.X = (int)screenPos.X;
+            groupBox.Y = (int)screenPos.Y;
+            groupBox.Draw(spriteBatch);
+        }
     }
 
     private void DrawNameTags(
@@ -155,7 +212,7 @@ public sealed class EntityOverlayManager
                 NameTagStyle.Hostile       => new Color(255, 128, 0),
                 _ when isMerchant          => new Color(123, 166, 247),
                 NameTagStyle.FriendlyHover => new Color(123, 166, 247),
-                _                          => Color.White
+                _                          => TextColors.Default
             };
 
             if (!NameTagCache.TryGetValue(entity.Id, out var cachedText))
@@ -178,6 +235,31 @@ public sealed class EntityOverlayManager
         }
     }
 
+    /// <summary>
+    ///     Returns the entity ID and name if the given screen point hits a group box overlay. Used for click-to-view.
+    /// </summary>
+    public (uint EntityId, string EntityName)? GetGroupBoxAtScreen(int screenX, int screenY)
+    {
+        foreach ((var entityId, var groupBox) in GroupBoxes)
+        {
+            var rect = new Rectangle(
+                groupBox.ScreenX,
+                groupBox.ScreenY,
+                GroupBox.PANEL_WIDTH,
+                GroupBox.PANEL_HEIGHT);
+
+            if (!rect.Contains(screenX, screenY))
+                continue;
+
+            var entity = WorldState.GetEntity(entityId);
+
+            if (entity is not null && !string.IsNullOrEmpty(entity.Name))
+                return (entityId, entity.Name);
+        }
+
+        return null;
+    }
+
     private void RemoveChantOverlay(uint entityId)
     {
         if (ChantOverlays.Remove(entityId, out var existing))
@@ -191,12 +273,13 @@ public sealed class EntityOverlayManager
     }
 
     /// <summary>
-    ///     Removes all overlays for a given entity (name tag, chat bubble, health bar, chant). Call when an entity is removed
-    ///     from the world.
+    ///     Removes all overlays for a given entity (name tag, group box, chat bubble, health bar, chant). Call when an entity
+    ///     is removed from the world.
     /// </summary>
     public void RemoveEntity(uint entityId)
     {
         NameTagCache.Remove(entityId);
+        GroupBoxes.Remove(entityId);
         RemoveChatBubble(entityId);
         RemoveChantOverlay(entityId);
 

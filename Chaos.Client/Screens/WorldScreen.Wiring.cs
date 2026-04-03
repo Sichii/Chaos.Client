@@ -606,7 +606,7 @@ public sealed partial class WorldScreen
             hud.SettingsButton.OnClick += () => SettingsDialog.Show();
 
         if (hud.GroupButton is not null)
-            hud.GroupButton.OnClick += () => GroupPanel.Show();
+            hud.GroupButton.OnClick += () => GroupPanel.ShowMembers();
 
         if (hud.GroupIndicator is not null)
             hud.GroupIndicator.OnClick += () => Game.Connection.ToggleGroup();

@@ -77,6 +77,12 @@ public sealed class WorldEntity
     public RestPosition RestPosition { get; set; }
     public ushort SpriteId { get; set; }
 
+    /// <summary>
+    ///     Number of walk frames in the swim animation for this entity's gender. Set by UpdateEntityWaterState when on a
+    ///     swimming tile. Used by AnimationSystem to determine walk duration while swimming.
+    /// </summary>
+    public int SwimWalkFrames { get; set; }
+
     // Position
     public int TileX { get; set; }
     public int TileY { get; set; }

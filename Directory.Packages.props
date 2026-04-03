@@ -1,13 +1,13 @@
 <Project>
   <ItemGroup>
-    <PackageVersion Include="Chaos.Common" Version="1.10.1"/>
-    <PackageVersion Include="Chaos.DarkAges" Version="1.10.1"/>
-    <PackageVersion Include="Chaos.Geometry" Version="1.10.1"/>
-    <PackageVersion Include="Chaos.Networking" Version="1.10.1"/>
-    <PackageVersion Include="Chaos.Pathfinding" Version="1.10.1"/>
-    <PackageVersion Include="Microsoft.Extensions.Caching.Memory" Version="10.0.5"/>
-    <PackageVersion Include="NAudio" Version="2.3.0"/>
-    <PackageVersion Include="MonoGame.Framework.DesktopGL" Version="3.8.4.1"/>
-    <PackageVersion Include="Nerdbank.GitVersioning" Version="3.6.133"/>
+      <PackageVersion Include="Chaos.Common" Version="1.11.0-preview-0006-g5fa0615989"/>
+      <PackageVersion Include="Chaos.DarkAges" Version="1.11.0-preview-0006-g5fa0615989"/>
+      <PackageVersion Include="Chaos.Geometry" Version="1.11.0-preview-0006-g5fa0615989"/>
+      <PackageVersion Include="Chaos.Networking" Version="1.11.0-preview-0006-g5fa0615989"/>
+      <PackageVersion Include="Chaos.Pathfinding" Version="1.11.0-preview-0006-g5fa0615989"/>
+      <PackageVersion Include="Microsoft.Extensions.Caching.Memory" Version="10.0.5"/>
+      <PackageVersion Include="NAudio" Version="2.3.0"/>
+      <PackageVersion Include="MonoGame.Framework.DesktopGL" Version="3.8.4.1"/>
+      <PackageVersion Include="Nerdbank.GitVersioning" Version="3.6.133"/>
   </ItemGroup>
 </Project>

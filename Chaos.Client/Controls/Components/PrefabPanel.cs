@@ -179,11 +179,12 @@ public abstract class PrefabPanel : UIPanel
         var cache = UiRenderer.Instance!;
         Texture2D[] frames;
 
-        // Single-entry IMAGE lines in control files encode the frame count, not a frame index.
-        // Load all frames (0 through count-1) from the referenced SPF file.
+        // Single-entry IMAGE lines in control files encode the last frame index.
+        // Load all frames (0 through frameIndex inclusive) from the referenced SPF file.
         if (prefab.Control.Images is { Count: 1 } rawImages && (rawImages[0].FrameIndex > 1))
         {
-            (var imageName, var frameCount) = rawImages[0];
+            (var imageName, var lastFrameIndex) = rawImages[0];
+            var frameCount = lastFrameIndex + 1;
             frames = new Texture2D[frameCount];
 
             for (var i = 0; i < frameCount; i++)

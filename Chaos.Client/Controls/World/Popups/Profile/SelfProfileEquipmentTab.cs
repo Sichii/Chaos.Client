@@ -458,8 +458,8 @@ public sealed class SelfProfileEquipmentTab : PrefabPanel
             TooltipLabel.Text = hovered.ItemName;
 
             var textWidth = TextRenderer.MeasureWidth(hovered.ItemName);
-            var tipW = textWidth + TooltipLabel.PaddingLeft * 2;
-            var tipH = 12 + TooltipLabel.PaddingTop * 2;
+            var tipW = textWidth + TooltipLabel.PaddingLeft + TooltipLabel.PaddingRight;
+            var tipH = 12 + TooltipLabel.PaddingTop + TooltipLabel.PaddingBottom;
             var tipX = mx - tipW / 2;
             var tipY = my + 20;
 

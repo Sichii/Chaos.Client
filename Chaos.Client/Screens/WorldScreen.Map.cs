@@ -27,6 +27,16 @@ public sealed partial class WorldScreen
         if ((args.MapId == CurrentMapId) && MapFile is not null)
         {
             ClearTransientState();
+
+            // Re-evaluate darkness only if the flag actually changed
+            var newFlags = (MapFlags)args.Flags;
+
+            if (newFlags != CurrentMapFlags)
+            {
+                CurrentMapFlags = newFlags;
+                DarknessRenderer.OnMapChanged(args.MapId, CurrentMapFlags.HasFlag(MapFlags.Darkness));
+            }
+
             UpdateHuds(h => h.SetZoneName(args.Name));
 
             return;

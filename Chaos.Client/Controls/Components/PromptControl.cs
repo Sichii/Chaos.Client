@@ -18,8 +18,10 @@ public sealed class PromptControl : UITextBox
         BackgroundColor = Color.White;
         FocusedBackgroundColor = Color.White;
         ForegroundColor = Color.Black;
-        PaddingX = 1;
-        PaddingY = 1;
+        PaddingLeft = 1;
+        PaddingRight = 1;
+        PaddingTop = 1;
+        PaddingBottom = 1;
         MaxLength = 12;
     }
 

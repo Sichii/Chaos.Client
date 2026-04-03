@@ -273,10 +273,20 @@ public sealed partial class WorldScreen
                 gndAttr.G,
                 gndAttr.B,
                 gndAttr.A);
+
+            // Cache swim walk frame count for animation timing
+            if (gndAttr.IsWalkBlocking)
+            {
+                var isFemale = entity.Appearance?.Gender == Gender.Female;
+                var swimFrameCount = Game.AislingRenderer.GetSwimFrameCount(isFemale);
+                var framesPerDir = swimFrameCount / 2;
+                entity.SwimWalkFrames = Math.Max(framesPerDir - 1, 1);
+            }
         } else
         {
             entity.IsOnSwimmingTile = false;
             entity.GroundPaintHeight = 0;
+            entity.SwimWalkFrames = 0;
         }
     }
     #endregion

@@ -202,7 +202,7 @@ Authoritative state objects exposed as static properties on WorldState, updated 
 - HUD has two implementations behind `IWorldHud`: `WorldHudControl` (classic compact) and `LargeWorldHudControl` (expanded)
 - HUD tab panels share the center-bottom area via `ShowTab(HudTab)` -- only one visible at a time
 - World controls organized into subdirectories: `Hud/`, `Hud/Panel/`, `Hud/Panel/Slots/`, `Popups/`, `Popups/Boards/`, `Popups/Dialog/`, `Popups/Exchange/`, `Popups/Options/`, `Popups/Profile/`, `Popups/WorldList/`, `ViewPort/`
-- Hotkeys: A=Inventory, S=Skills, D=Spells, Shift+S/D=Alt panels, F=Chat, Shift+F=MessageHistory, G=Stats, Shift+G=ExtendedStats, H=Tools, T/F9=FocusChat, Tab=TabMap, F1=Help, F3=Macros, F4=Settings, F5=Refresh, F7=Mail, F8=Group, F10=Friends
+- Hotkeys: A=Inventory, S=Skills, D=Spells, Shift+S/D=Alt panels, F=Chat, Shift+F=MessageHistory, G=Stats, Shift+G=ExtendedStats, H=Tools, F9=Ignore, Tab=TabMap, F1=Help, F3=Macros, F4=Settings, F5=Refresh, F7=Mail, F8=Group, F10=Friends
 - Grid panels use `PanelBase` -> `PanelSlot` with slot number overlays and cooldown rendering
 - Server-driven UI: many panels (exchange, dialog, equipment, profile) are populated by server packets, not client state
 - Emote hotkeys: Ctrl+1-0/- (BodyAnimation 9-19), Ctrl+Alt+1-0/- (23-33), Alt+1-0/- (34-44)

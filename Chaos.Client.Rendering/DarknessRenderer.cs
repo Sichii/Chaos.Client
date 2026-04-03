@@ -260,8 +260,17 @@ public sealed class DarknessRenderer : IDisposable
         IsDarkMap = isDarkMap;
         CurrentLightType = LightData?.MapLightTypes.TryGetValue(mapId, out var lightType) is true ? lightType : "default";
 
-        Alpha = 0f;
-        DarknessColor = Color.Transparent;
+        // Dark maps start dark immediately — light metadata can refine via OnLightLevel
+        if (isDarkMap)
+        {
+            Alpha = 1f;
+            DarknessColor = Color.Black;
+        } else
+        {
+            Alpha = 0f;
+            DarknessColor = Color.Transparent;
+        }
+
         LastOffsetX = int.MinValue;
         LastOffsetY = int.MinValue;
         DisposeTexture();

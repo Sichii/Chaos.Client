@@ -4,12 +4,12 @@
   },
   "permissions": {
     "allow": [
-      "mcp__serena__find_symbol"
+      "mcp__serena__find_symbol",
+      "Bash(dotnet build:*)"
     ],
     "deny": [],
     "ask": []
   },
-  "prefersReducedMotion": true,
   "hooks": {
     "SessionStart": [
       {
@@ -31,5 +31,6 @@
         ]
       }
     ]
-  }
+  },
+  "prefersReducedMotion": true
 }

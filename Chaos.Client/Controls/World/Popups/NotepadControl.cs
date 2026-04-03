@@ -57,8 +57,10 @@ public sealed class NotepadControl : UIPanel
             IsReadOnly = false,
             IsSelectable = true,
             ForegroundColor = Color.Black,
-            PaddingX = 2,
-            PaddingY = 2,
+            PaddingLeft = 2,
+            PaddingRight = 2,
+            PaddingTop = 2,
+            PaddingBottom = 2,
             Visible = false,
             ZIndex = 1
         };

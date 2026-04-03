@@ -428,7 +428,7 @@ public sealed class NpcSessionControl : PrefabPanel
     private void ScrollText(int direction)
     {
         var totalLines = DialogTextLabel.ContentHeight / TextRenderer.CHAR_HEIGHT;
-        var innerH = DialogTextLabel.Height - DialogTextLabel.PaddingTop * 2;
+        var innerH = DialogTextLabel.Height - DialogTextLabel.PaddingTop + DialogTextLabel.PaddingBottom;
         var visibleLines = innerH / TextRenderer.CHAR_HEIGHT;
         var maxScroll = Math.Max(0, totalLines - visibleLines);
 
@@ -728,7 +728,7 @@ public sealed class NpcSessionControl : PrefabPanel
     private void UpdateScrollButtons()
     {
         var totalLines = DialogTextLabel.ContentHeight / TextRenderer.CHAR_HEIGHT;
-        var innerH = DialogTextLabel.Height - DialogTextLabel.PaddingTop * 2;
+        var innerH = DialogTextLabel.Height - DialogTextLabel.PaddingTop + DialogTextLabel.PaddingBottom;
         var visibleLines = innerH / TextRenderer.CHAR_HEIGHT;
 
         if (totalLines <= visibleLines)

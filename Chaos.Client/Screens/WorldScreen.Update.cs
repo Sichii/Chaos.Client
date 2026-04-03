@@ -351,6 +351,13 @@ public sealed partial class WorldScreen
             return;
         }
 
+        if (GroupBoxViewer.Visible)
+        {
+            GroupBoxViewer.Update(gameTime, input);
+
+            return;
+        }
+
         if (WorldList.Visible)
         {
             WorldList.Update(gameTime, input);
@@ -754,7 +761,7 @@ public sealed partial class WorldScreen
 
             // F8 — group panel
             if (input.WasKeyPressed(Keys.F8))
-                GroupPanel.Show();
+                GroupPanel.ShowMembers();
 
             // F9 — ignore list management
             if (input.WasKeyPressed(Keys.F9))

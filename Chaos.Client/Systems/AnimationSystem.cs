@@ -43,14 +43,17 @@ public static class AnimationSystem
         bool isLocalPlayer = false,
         int? walkFrameOverride = null)
     {
-        var frameCount = walkFrameOverride ?? DEFAULT_WALK_FRAMES;
+        // Swimming is not a form — use swim animation frame count and normal walk speed on water tiles
+        var swimming = entity.IsOnSwimmingTile && (entity.SwimWalkFrames > 0);
+
+        var frameCount = swimming ? entity.SwimWalkFrames : walkFrameOverride ?? DEFAULT_WALK_FRAMES;
 
         entity.AnimState = EntityAnimState.Walking;
         entity.AnimFrameIndex = 0;
         entity.AnimElapsedMs = 0;
         entity.AnimFrameCount = frameCount;
 
-        entity.AnimFrameIntervalMs = isCreature
+        entity.AnimFrameIntervalMs = isCreature && !swimming
             ? entity.Type == ClientEntityType.Aisling ? MORPHED_AISLING_WALK_FRAME_MS : CREATURE_WALK_FRAME_MS
             : isLocalPlayer
                 ? DEFAULT_WALK_FRAME_MS

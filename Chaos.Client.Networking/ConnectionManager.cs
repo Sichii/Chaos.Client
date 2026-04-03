@@ -345,7 +345,7 @@ public sealed class ConnectionManager : IDisposable
         string name,
         string password,
         uint clientId1 = 1,
-        ushort clientId2 = 1)
+        uint clientId2 = 1)
     {
         if (State != ConnectionState.Login)
             return;
@@ -358,7 +358,8 @@ public sealed class ConnectionManager : IDisposable
                 Name = name,
                 Password = password,
                 ClientId1 = clientId1,
-                ClientId2 = clientId2
+                ClientId2 = clientId2,
+                IsValid = true
             });
     }
 
@@ -882,6 +883,43 @@ public sealed class ConnectionManager : IDisposable
             new ChantArgs
             {
                 ChantMessage = message
+            });
+    }
+
+    /// <summary>
+    ///     Sends a CreateGroupbox request with recruitment configuration.
+    /// </summary>
+    public void SendCreateGroupBox(
+        string name,
+        string note,
+        byte minLevel,
+        byte maxLevel,
+        byte maxWarriors,
+        byte maxWizards,
+        byte maxRogues,
+        byte maxPriests,
+        byte maxMonks)
+    {
+        if (State != ConnectionState.World)
+            return;
+
+        Client.Send(
+            new GroupInviteArgs
+            {
+                ClientGroupSwitch = ClientGroupSwitch.CreateGroupbox,
+                TargetName = name,
+                GroupBoxInfo = new CreateGroupBoxInfo
+                {
+                    Name = name,
+                    Note = note,
+                    MinLevel = minLevel,
+                    MaxLevel = maxLevel,
+                    MaxWarriors = maxWarriors,
+                    MaxWizards = maxWizards,
+                    MaxRogues = maxRogues,
+                    MaxPriests = maxPriests,
+                    MaxMonks = maxMonks
+                }
             });
     }
 

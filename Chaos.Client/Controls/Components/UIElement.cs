@@ -22,6 +22,10 @@ public abstract class UIElement : IDisposable
     public bool Enabled { get; set; } = true;
     public int Height { get; set; }
     public string Name { get; init; } = string.Empty;
+    public int PaddingBottom { get; set; }
+    public int PaddingLeft { get; set; }
+    public int PaddingRight { get; set; }
+    public int PaddingTop { get; set; }
     public UIPanel? Parent { get; internal set; }
 
     public bool Visible

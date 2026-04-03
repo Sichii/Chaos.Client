@@ -644,7 +644,17 @@ public sealed partial class WorldScreen
 
             case ServerGroupSwitch.ShowGroupBox:
             {
-                WorldState.Chat.AddOrangeBarMessage($"{sourceName} has an open group box.");
+                if (invite.GroupBoxInfo is not { } groupBoxInfo)
+                {
+                    WorldState.Chat.AddOrangeBarMessage($"{sourceName} has an open group box.");
+
+                    break;
+                }
+
+                if (sourceName.EqualsI(WorldState.PlayerName))
+                    GroupPanel.ShowRecruitOwnerEdit(groupBoxInfo);
+                else
+                    GroupBoxViewer.ShowAsViewer(sourceName, groupBoxInfo);
 
                 break;
             }

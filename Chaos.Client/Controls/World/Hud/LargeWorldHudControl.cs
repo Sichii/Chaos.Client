@@ -88,8 +88,10 @@ public sealed class LargeWorldHudControl : PrefabPanel, IWorldHud
         // Chat input
         ChatInput = CreateTextBox("SAY", 255)!;
         ChatInput.IsFocusable = false;
-        ChatInput.PaddingX = 1;
-        ChatInput.PaddingY = 1;
+        ChatInput.PaddingLeft = 1;
+        ChatInput.PaddingRight = 1;
+        ChatInput.PaddingTop = 1;
+        ChatInput.PaddingBottom = 1;
 
         ChatInput.FocusedBackgroundColor = new Color(
             0,

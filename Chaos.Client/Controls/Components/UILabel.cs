@@ -29,9 +29,6 @@ public class UILabel : UIElement
         set => Invalidate(TextElement.Text, value);
     }
 
-    public int PaddingLeft { get; set; } = 1;
-    public int PaddingTop { get; set; } = 1;
-
     /// <summary>
     ///     Vertical scroll offset in pixels for wrapped text content.
     /// </summary>
@@ -53,6 +50,14 @@ public class UILabel : UIElement
     /// </summary>
     public int ContentHeight => TextElement.Height;
 
+    public UILabel()
+    {
+        PaddingLeft = 1;
+        PaddingRight = 1;
+        PaddingTop = 1;
+        PaddingBottom = 1;
+    }
+
     public override void Draw(SpriteBatch spriteBatch)
     {
         if (!Visible || !TextElement.HasContent)
@@ -62,8 +67,8 @@ public class UILabel : UIElement
 
         var innerX = ScreenX + PaddingLeft;
         var innerY = ScreenY + PaddingTop;
-        var innerW = Width - PaddingLeft * 2;
-        var innerH = Height - PaddingTop * 2;
+        var innerW = Width - PaddingLeft - PaddingRight;
+        var innerH = Height - PaddingTop - PaddingBottom;
 
         if (TextElement.WrappedLines is not null)
         {
@@ -95,7 +100,7 @@ public class UILabel : UIElement
     private void Invalidate(string text, Color color)
     {
         if (WordWrap)
-            TextElement.UpdateWrapped(text, Width - PaddingLeft * 2, color);
+            TextElement.UpdateWrapped(text, Width - PaddingLeft - PaddingRight, color);
         else if (Shadowed)
             TextElement.UpdateShadowed(text, color, Color.Black);
         else

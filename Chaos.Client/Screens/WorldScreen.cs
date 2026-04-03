@@ -92,11 +92,12 @@ public sealed partial class WorldScreen : IScreen
 
     private ChaosGame Game = null!;
     private GoldExchangeControl GoldDrop = null!;
+    private GroupRecruitPanel GroupBoxViewer = null!;
 
     // True when J was pressed — the next SelfProfile response triggers group highlighting instead of opening the panel
     private bool GroupHighlightRequested;
     private float GroupHighlightTimer;
-    private GroupControl GroupPanel = null!;
+    private GroupMainControl GroupPanel = null!;
     private HotkeyHelpControl HotkeyHelp = null!;
     private PanelSlot? HoveredInventorySlot;
     private bool IsGameMaster;
@@ -371,8 +372,37 @@ public sealed partial class WorldScreen : IScreen
 
         HotkeyHelp = new HotkeyHelpControl();
 
-        GroupPanel = new GroupControl();
-        GroupPanel.OnKick += name => Game.Connection.SendGroupInvite(ClientGroupSwitch.TryInvite, name);
+        GroupPanel = new GroupMainControl();
+
+        GroupPanel.MembersPanel.OnKick += name => Game.Connection.SendGroupInvite(ClientGroupSwitch.TryInvite, name);
+
+        GroupPanel.RecruitPanel.OnCreateGroupBox += (
+            name,
+            note,
+            minLvl,
+            maxLvl,
+            maxW,
+            maxWiz,
+            maxR,
+            maxP,
+            maxM) => Game.Connection.SendCreateGroupBox(
+            name,
+            note,
+            minLvl,
+            maxLvl,
+            maxW,
+            maxWiz,
+            maxR,
+            maxP,
+            maxM);
+
+        GroupPanel.RecruitPanel.OnRemoveGroupBox += () => Game.Connection.SendGroupInvite(ClientGroupSwitch.RemoveGroupBox);
+
+        GroupPanel.RecruitPanel.OnRequestJoin += name => Game.Connection.SendGroupInvite(ClientGroupSwitch.RequestToJoin, name);
+
+        GroupBoxViewer = new GroupRecruitPanel(center: true);
+
+        GroupBoxViewer.OnRequestJoin += name => Game.Connection.SendGroupInvite(ClientGroupSwitch.RequestToJoin, name);
 
         WorldList = new WorldListControl
         {
@@ -600,6 +630,7 @@ public sealed partial class WorldScreen : IScreen
         Root.AddChild(MacroMenu);
         Root.AddChild(HotkeyHelp);
         Root.AddChild(GroupPanel);
+        Root.AddChild(GroupBoxViewer);
         Root.AddChild(WorldList);
         Root.AddChild(FriendsList);
         Root.AddChild(Exchange);
