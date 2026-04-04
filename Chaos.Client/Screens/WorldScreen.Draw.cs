@@ -240,6 +240,7 @@ public sealed partial class WorldScreen
         // Pass 2: UI overlay — full screen, no transform
         spriteBatch.Begin(samplerState: GlobalSettings.Sampler);
         Root!.Draw(spriteBatch);
+        TownMap.Draw(spriteBatch);
         DrawDragIcon(spriteBatch);
         spriteBatch.End();
     }
@@ -597,6 +598,20 @@ public sealed partial class WorldScreen
                 tileCenterY,
                 entity.VisualOffset);
         }
+
+        // Rest position override — single SPF sprite replaces all aisling layers
+        if (entity.RestPosition != RestPosition.None)
+            return Game.AislingRenderer.DrawResting(
+                spriteBatch,
+                Camera,
+                entity.Appearance?.Gender == Gender.Female,
+                entity.RestPosition,
+                isFrontFacing,
+                flip,
+                tileCenterX,
+                tileCenterY,
+                entity.VisualOffset,
+                entity.ActiveEmoteFrame);
 
         var emotionFrame = entity.ActiveEmoteFrame;
         var groundPaintHeight = entity.IsOnSwimmingTile ? 0 : entity.GroundPaintHeight;

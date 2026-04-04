@@ -4,6 +4,7 @@ using Chaos.Client.Data.Models;
 using Chaos.Client.Data.Utilities;
 using Chaos.DarkAges.Definitions;
 using DALib.Data;
+using DALib.Definitions;
 using DALib.Drawing;
 using DALib.Drawing.Virtualized;
 using SkiaSharp;
@@ -181,4 +182,118 @@ public sealed class AislingDrawDataRepository
 
         return true;
     }
+
+    #region Swimming
+    /// <summary>
+    ///     Bundles an EPF file, its palette, and precomputed max frame width for swimming sprite rendering.
+    /// </summary>
+    public readonly record struct SwimSpriteData(EpfFile Epf, Palette Palette, int MaxFrameWidth);
+
+    private const string SWIM_MALE_EPF = "mb00501.epf";
+    private const string SWIM_FEMALE_EPF = "wb00501.epf";
+
+    private SwimSpriteData? SwimFemaleData;
+    private SwimSpriteData? SwimMaleData;
+    private bool SwimLoaded;
+
+    /// <summary>
+    ///     Gets the swimming sprite data for a gender, loading lazily on first access. Returns null if unavailable.
+    /// </summary>
+    public SwimSpriteData? GetSwimData(bool isFemale)
+    {
+        EnsureSwimLoaded();
+
+        return isFemale ? SwimFemaleData : SwimMaleData;
+    }
+
+    private void EnsureSwimLoaded()
+    {
+        if (SwimLoaded)
+            return;
+
+        SwimLoaded = true;
+
+        if (DatArchives.Khanmad.TryGetValue(SWIM_MALE_EPF, out var maleEntry)
+            && maleEntry.TryGetNumericIdentifier(out var maleId, 3))
+        {
+            var epf = EpfFile.FromEntry(maleEntry);
+            var palette = PalB.GetPaletteForId(maleId, KhanPalOverrideType.Male);
+
+            if (palette is not null)
+                SwimMaleData = new SwimSpriteData(epf, palette, epf.Max(f => f.PixelWidth + Math.Max((int)f.Left, 0)));
+        }
+
+        if (DatArchives.Khanwad.TryGetValue(SWIM_FEMALE_EPF, out var femaleEntry)
+            && femaleEntry.TryGetNumericIdentifier(out var femaleId, 3))
+        {
+            var epf = EpfFile.FromEntry(femaleEntry);
+            var palette = PalB.GetPaletteForId(femaleId, KhanPalOverrideType.Female);
+
+            if (palette is not null)
+                SwimFemaleData = new SwimSpriteData(epf, palette, epf.Max(f => f.PixelWidth + Math.Max((int)f.Left, 0)));
+        }
+    }
+    #endregion
+
+    #region Rest Position
+    private readonly SpfFile?[] RestFemaleEmoteSpf = new SpfFile?[4];
+    private readonly SpfFile?[] RestFemaleSpf = new SpfFile?[4];
+    private readonly SpfFile?[] RestMaleEmoteSpf = new SpfFile?[4];
+    private readonly SpfFile?[] RestMaleSpf = new SpfFile?[4];
+    private bool RestLoaded;
+
+    /// <summary>
+    ///     Gets a rest position SPF file for the given gender, position, and variant. Returns null if unavailable.
+    /// </summary>
+    public SpfFile? GetRestSpf(bool isFemale, int position, bool isEmote)
+    {
+        EnsureRestLoaded();
+
+        if (position is < 1 or > 3)
+            return null;
+
+        if (isEmote)
+            return isFemale ? RestFemaleEmoteSpf[position] : RestMaleEmoteSpf[position];
+
+        return isFemale ? RestFemaleSpf[position] : RestMaleSpf[position];
+    }
+
+    private void EnsureRestLoaded()
+    {
+        if (RestLoaded)
+            return;
+
+        RestLoaded = true;
+
+        for (var i = 1; i <= 3; i++)
+        {
+            if (DatArchives.Khanmad.TryGetValue($"m_r_{i:D3}.spf", out var maleEntry))
+                RestMaleSpf[i] = SpfFile.FromEntry(maleEntry);
+
+            if (DatArchives.Khanmad.TryGetValue($"m_r_{i:D3}e.spf", out var maleEmoteEntry))
+                RestMaleEmoteSpf[i] = SpfFile.FromEntry(maleEmoteEntry);
+
+            if (DatArchives.Khanwad.TryGetValue($"w_r_{i:D3}.spf", out var femaleEntry))
+                RestFemaleSpf[i] = SpfFile.FromEntry(femaleEntry);
+
+            if (DatArchives.Khanwad.TryGetValue($"w_r_{i:D3}e.spf", out var femaleEmoteEntry))
+                RestFemaleEmoteSpf[i] = SpfFile.FromEntry(femaleEmoteEntry);
+        }
+    }
+    #endregion
+
+    #region Emotions
+    /// <summary>
+    ///     The emotion overlay EPF (emot01.epf) from the Legend archive.
+    /// </summary>
+    public EpfView? EmotionsEpf { get; } = LoadEmotionsEpf();
+
+    private static EpfView? LoadEmotionsEpf()
+    {
+        if (!DatArchives.Legend.TryGetValue("emot01.epf", out var entry))
+            return null;
+
+        return EpfView.FromEntry(entry);
+    }
+    #endregion
 }

@@ -150,6 +150,7 @@ public sealed partial class WorldScreen : IScreen
     private Texture2D? TileCursorTexture;
     private IWorldHud WorldHud = null!;
     private WorldListControl WorldList = null!;
+    private TownMap TownMap = null!;
     private WorldMap WorldMap = null!;
 
     /// <inheritdoc />
@@ -593,6 +594,8 @@ public sealed partial class WorldScreen : IScreen
         {
             ZIndex = 2
         };
+
+        TownMap = new TownMap();
 
         MapLoading = new MapLoadingBar
         {

@@ -1025,6 +1025,7 @@ public sealed partial class WorldScreen
         QueuedWalkDirection = null;
         Pathfinding.Clear();
         WorldMap.HideMap();
+        TownMap.Hide();
     }
 
     // --- Health / effects / light ---

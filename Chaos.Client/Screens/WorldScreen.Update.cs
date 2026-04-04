@@ -269,6 +269,10 @@ public sealed partial class WorldScreen
                     WorldHud.EmoteButton.IsSelected = false;
 
                 toggleCloseHandled = true;
+            } else if (input.WasKeyPressed(Keys.T) && TownMap.Visible)
+            {
+                TownMap.Hide();
+                toggleCloseHandled = true;
             }
         }
 
@@ -506,6 +510,13 @@ public sealed partial class WorldScreen
         if (WorldMap.Visible)
         {
             WorldMap.Update(gameTime, input);
+
+            return;
+        }
+
+        if (TownMap.Visible)
+        {
+            TownMap.Update(gameTime, input);
 
             return;
         }
@@ -810,6 +821,10 @@ public sealed partial class WorldScreen
             // B — pick up item from under player, or from the tile in front
             if (input.WasKeyPressed(Keys.B))
                 TryPickupItem();
+
+            // T — town map toggle
+            if (input.WasKeyPressed(Keys.T) && player is not null)
+                TownMap.Show(CurrentMapId, player.TileX, player.TileY);
 
             // Emote hotkeys: Ctrl/Alt/Ctrl+Alt + number row → body animations 9-44
             if (HandleEmoteHotkeys(input))

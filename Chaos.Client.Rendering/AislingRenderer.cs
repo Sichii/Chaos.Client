@@ -185,36 +185,29 @@ public sealed class AislingRenderer : IDisposable
         LayerSlot.Acc3C
     ];
 
-    private const string SWIM_MALE_EPF = "mb00501.epf";
-    private const string SWIM_FEMALE_EPF = "wb00501.epf";
-
     private const float GHOST_ALPHA = 0.15f;
 
     private readonly Dictionary<uint, CompositeEntry> CompositeCache = new();
 
     private readonly AislingDrawDataRepository DrawData = DataContext.AislingDrawData;
-    private readonly EpfView? EmotionsEpf = LoadEmotionsEpf();
     private readonly Dictionary<Texture2D, Texture2D> GroupTintCache = new();
     private readonly Dictionary<LayerCacheKey, AislingLayerTexture> LayerTextureCache = new();
     private readonly LayerInfo?[] RenderLayers = new LayerInfo?[(int)LayerSlot.Count];
+    private readonly Dictionary<int, Texture2D> RestFemaleEmoteFrameCache = new();
+    private readonly Dictionary<int, Texture2D> RestFemaleFrameCache = new();
+    private readonly Dictionary<int, Texture2D> RestMaleEmoteFrameCache = new();
+    private readonly Dictionary<int, Texture2D> RestMaleFrameCache = new();
     private readonly Dictionary<int, Texture2D> SwimFemaleFrameCache = new();
 
     private readonly Dictionary<int, Texture2D> SwimMaleFrameCache = new();
     private readonly Dictionary<Texture2D, Texture2D> TintedTextureCache = new();
-
-    private EpfFile? SwimFemaleEpf;
-    private int SwimFemaleMaxWidth;
-    private Palette? SwimFemalePalette;
-    private bool SwimLoaded;
-    private EpfFile? SwimMaleEpf;
-    private int SwimMaleMaxWidth;
-    private Palette? SwimMalePalette;
 
     /// <inheritdoc />
     public void Dispose()
     {
         ClearCache();
         ClearLayerCache();
+        ClearRestCache();
         ClearSwimCache();
         ClearCompositeCache();
         ClearGroupTintCache();
@@ -435,14 +428,6 @@ public sealed class AislingRenderer : IDisposable
             _    => frameIndex >= 5
         };
 
-    private static EpfView? LoadEmotionsEpf()
-    {
-        if (!DatArchives.Legend.TryGetValue("emot01.epf", out var entry))
-            return null;
-
-        return EpfView.FromEntry(entry);
-    }
-
     /// <summary>
     ///     Removes a single entity's cached composite. Call when an entity leaves the map.
     /// </summary>
@@ -523,9 +508,11 @@ public sealed class AislingRenderer : IDisposable
             idleFallbackFrame);
 
         // Emotion overlay — only on front-facing frames
-        if (isFront && (emotionFrame >= 0) && EmotionsEpf is not null && (emotionFrame < EmotionsEpf.Count))
+        var emotionsEpf = DrawData.EmotionsEpf;
+
+        if (isFront && (emotionFrame >= 0) && emotionsEpf is not null && (emotionFrame < emotionsEpf.Count))
         {
-            var frame = EmotionsEpf[emotionFrame];
+            var frame = emotionsEpf[emotionFrame];
 
             if (DrawData.BodyPalettes.TryGetValue(appearance.BodyColor, out var palette))
             {
@@ -988,9 +975,11 @@ public sealed class AislingRenderer : IDisposable
                 idleFallbackFrame);
 
             // Emotion overlay — only on front-facing frames
-            if (isFront && (emotionFrame >= 0) && EmotionsEpf is not null && (emotionFrame < EmotionsEpf.Count))
+            var emotionsEpf = DrawData.EmotionsEpf;
+
+            if (isFront && (emotionFrame >= 0) && emotionsEpf is not null && (emotionFrame < emotionsEpf.Count))
             {
-                var frame = EmotionsEpf[emotionFrame];
+                var frame = emotionsEpf[emotionFrame];
 
                 if (DrawData.BodyPalettes.TryGetValue(appearance.BodyColor, out var palette))
                 {
@@ -1384,39 +1373,14 @@ public sealed class AislingRenderer : IDisposable
     #endregion
 
     #region Swimming
-    private void EnsureSwimLoaded()
-    {
-        if (SwimLoaded)
-            return;
-
-        SwimLoaded = true;
-
-        var palLookup = PaletteLookup.FromArchive("palb", DatArchives.Khanpal);
-
-        if (DatArchives.Khanmad.TryGetValue(SWIM_MALE_EPF, out var maleEntry) && maleEntry.TryGetNumericIdentifier(out var maleId, 3))
-        {
-            SwimMaleEpf = EpfFile.FromEntry(maleEntry);
-            SwimMalePalette = palLookup.GetPaletteForId(maleId, KhanPalOverrideType.Male);
-            SwimMaleMaxWidth = SwimMaleEpf.Max(f => f.PixelWidth + Math.Max((int)f.Left, 0));
-        }
-
-        if (DatArchives.Khanwad.TryGetValue(SWIM_FEMALE_EPF, out var femaleEntry)
-            && femaleEntry.TryGetNumericIdentifier(out var femaleId, 3))
-        {
-            SwimFemaleEpf = EpfFile.FromEntry(femaleEntry);
-            SwimFemalePalette = palLookup.GetPaletteForId(femaleId, KhanPalOverrideType.Female);
-            SwimFemaleMaxWidth = SwimFemaleEpf.Max(f => f.PixelWidth + Math.Max((int)f.Left, 0));
-        }
-    }
-
     /// <summary>
     ///     Gets the max frame width across all swimming frames for a gender. Used for consistent horizontal centering.
     /// </summary>
     public int GetSwimMaxFrameWidth(bool isFemale)
     {
-        EnsureSwimLoaded();
+        var data = DrawData.GetSwimData(isFemale);
 
-        return isFemale ? SwimFemaleMaxWidth : SwimMaleMaxWidth;
+        return data?.MaxFrameWidth ?? 0;
     }
 
     /// <summary>
@@ -1424,11 +1388,9 @@ public sealed class AislingRenderer : IDisposable
     /// </summary>
     public int GetSwimFrameCount(bool isFemale)
     {
-        EnsureSwimLoaded();
+        var data = DrawData.GetSwimData(isFemale);
 
-        var epf = isFemale ? SwimFemaleEpf : SwimMaleEpf;
-
-        return epf?.Count ?? 0;
+        return data?.Epf.Count ?? 0;
     }
 
     /// <summary>
@@ -1436,24 +1398,22 @@ public sealed class AislingRenderer : IDisposable
     /// </summary>
     public Texture2D? GetSwimFrame(bool isFemale, int frameIndex)
     {
-        EnsureSwimLoaded();
+        var data = DrawData.GetSwimData(isFemale);
 
-        var epf = isFemale ? SwimFemaleEpf : SwimMaleEpf;
-        var palette = isFemale ? SwimFemalePalette : SwimMalePalette;
+        if (data is not { } swim)
+            return null;
+
+        if ((frameIndex < 0) || (frameIndex >= swim.Epf.Count))
+            return null;
+
         var cache = isFemale ? SwimFemaleFrameCache : SwimMaleFrameCache;
-
-        if (epf is null || palette is null)
-            return null;
-
-        if ((frameIndex < 0) || (frameIndex >= epf.Count))
-            return null;
 
         if (cache.TryGetValue(frameIndex, out var cached))
             return cached;
 
-        var frame = epf[frameIndex];
+        var frame = swim.Epf[frameIndex];
 
-        using var image = Graphics.RenderImage(frame, palette);
+        using var image = Graphics.RenderImage(frame, swim.Palette);
 
         if (image is null)
             return null;
@@ -1523,6 +1483,140 @@ public sealed class AislingRenderer : IDisposable
 
         SwimMaleFrameCache.Clear();
         SwimFemaleFrameCache.Clear();
+    }
+    #endregion
+
+    #region Rest Position
+    /// <summary>
+    ///     Gets a cached rest position frame texture. Base SPFs have 2 frames: frame 0 = away (Up/Left), frame 1 = front
+    ///     (Right/Down). Emote SPFs have 42 front-facing frames matching emot01.epf indices.
+    /// </summary>
+    public Texture2D? GetRestFrame(bool isFemale, RestPosition restPos, bool isFrontFacing, int emoteFrame = -1)
+    {
+        var pos = (int)restPos;
+
+        if (pos is < 1 or > 3)
+            return null;
+
+        // Front-facing with active emote: use the emote SPF composite
+        if (isFrontFacing && (emoteFrame >= 0))
+        {
+            var emoteSpf = DrawData.GetRestSpf(isFemale, pos, isEmote: true);
+
+            if (emoteSpf is not null && (emoteFrame < emoteSpf.Count))
+            {
+                var emoteCache = isFemale ? RestFemaleEmoteFrameCache : RestMaleEmoteFrameCache;
+                var emoteCacheKey = pos * 100 + emoteFrame;
+
+                if (emoteCache.TryGetValue(emoteCacheKey, out var emoteCached))
+                    return emoteCached;
+
+                var emoteSpfFrame = emoteSpf[emoteFrame];
+
+                using var emoteImage = emoteSpf.Format == SpfFormatType.Colorized
+                    ? Graphics.RenderImage(emoteSpfFrame)
+                    : Graphics.RenderImage(emoteSpfFrame, emoteSpf.PrimaryColors!);
+
+                if (emoteImage is not null)
+                {
+                    var emoteTexture = TextureConverter.ToTexture2D(emoteImage);
+                    emoteCache[emoteCacheKey] = emoteTexture;
+
+                    return emoteTexture;
+                }
+            }
+        }
+
+        // Base rest sprite
+        var spf = DrawData.GetRestSpf(isFemale, pos, isEmote: false);
+
+        if (spf is null || spf.Count < 2)
+            return null;
+
+        var frameIndex = isFrontFacing ? 1 : 0;
+        var cacheKey = pos * 10 + frameIndex;
+        var cache = isFemale ? RestFemaleFrameCache : RestMaleFrameCache;
+
+        if (cache.TryGetValue(cacheKey, out var cached))
+            return cached;
+
+        var frame = spf[frameIndex];
+
+        using var image = spf.Format == SpfFormatType.Colorized
+            ? Graphics.RenderImage(frame)
+            : Graphics.RenderImage(frame, spf.PrimaryColors!);
+
+        if (image is null)
+            return null;
+
+        var texture = TextureConverter.ToTexture2D(image);
+        cache[cacheKey] = texture;
+
+        return texture;
+    }
+
+    /// <summary>
+    ///     Draws a rest position sprite (Kneel/Lay/Sprawl) for an aisling. When front-facing with an active emote, renders the
+    ///     full body+emote composite from the "e" SPF variant. Otherwise renders the base rest SPF. Emotes are only visible
+    ///     from the front — away-facing always shows the plain rest sprite.
+    /// </summary>
+    public int DrawResting(
+        SpriteBatch batch,
+        Camera camera,
+        bool isFemale,
+        RestPosition restPos,
+        bool isFrontFacing,
+        bool flip,
+        float tileCenterX,
+        float tileCenterY,
+        Vector2 visualOffset,
+        int emoteFrame = -1)
+    {
+        var texture = GetRestFrame(isFemale, restPos, isFrontFacing, emoteFrame);
+
+        if (texture is null)
+            return 0;
+
+        var drawX = tileCenterX + visualOffset.X - texture.Width / 2f;
+        var drawY = tileCenterY + visualOffset.Y - CANVAS_CENTER_Y;
+        var screenPos = camera.WorldToScreen(new Vector2(drawX, drawY));
+        var effects = flip ? SpriteEffects.FlipHorizontally : SpriteEffects.None;
+
+        batch.Draw(
+            texture,
+            screenPos,
+            null,
+            Color.White,
+            0f,
+            Vector2.Zero,
+            1f,
+            effects,
+            0f);
+
+        return (int)screenPos.Y + texture.Height;
+    }
+
+    /// <summary>
+    ///     Clears all cached rest position frame textures.
+    /// </summary>
+    public void ClearRestCache()
+    {
+        foreach (var tex in RestMaleFrameCache.Values)
+            tex.Dispose();
+
+        foreach (var tex in RestFemaleFrameCache.Values)
+            tex.Dispose();
+
+        foreach (var tex in RestMaleEmoteFrameCache.Values)
+            tex.Dispose();
+
+        foreach (var tex in RestFemaleEmoteFrameCache.Values)
+            tex.Dispose();
+
+        RestMaleFrameCache.Clear();
+        RestFemaleFrameCache.Clear();
+        RestMaleEmoteFrameCache.Clear();
+        RestFemaleEmoteFrameCache.Clear();
     }
     #endregion
 

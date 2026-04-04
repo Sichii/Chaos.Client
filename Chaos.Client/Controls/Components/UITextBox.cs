@@ -344,7 +344,7 @@ public class UITextBox : UIElement
                     selStartX,
                     textY,
                     selWidth,
-                    textHeight),
+                    TextRenderer.CHAR_HEIGHT),
                 new Color(
                     80,
                     120,
@@ -386,7 +386,7 @@ public class UITextBox : UIElement
                 cursorX,
                 textY,
                 CURSOR_WIDTH,
-                textHeight),
+                TextRenderer.CHAR_HEIGHT),
             Color.White);
     }
 

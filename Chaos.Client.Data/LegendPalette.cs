@@ -75,5 +75,10 @@ public static class LegendPalette
         return TextColorMap[index];
     }
 
+    /// <summary>
+    ///     Returns the raw Palette instance for rendering EPF frames that require legend.pal.
+    /// </summary>
+    public static Palette GetPalette() => Palette;
+
     public static void Initialize() => Palette = Palette.FromEntry(DatArchives.Legend["legend.pal"]);
 }

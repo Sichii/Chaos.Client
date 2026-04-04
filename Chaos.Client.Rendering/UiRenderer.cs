@@ -290,6 +290,27 @@ public sealed class UiRenderer : IDisposable
     }
 
     /// <summary>
+    ///     Loads a single EPF frame from national.dat (legend.pal) and caches the resulting texture.
+    /// </summary>
+    public Texture2D GetNationalEpfTexture(string fileName, int frameIndex = 0)
+    {
+        var key = $"nepf:{fileName}:{frameIndex}";
+
+        if (Cache.TryGetValue(key, out var cached))
+            return cached;
+
+        using var image = DataContext.UserControls.GetNationalEpfImage(fileName, frameIndex);
+
+        if (image is null)
+            return MissingTexture;
+
+        var texture = Convert(image);
+        Cache[key] = texture;
+
+        return texture;
+    }
+
+    /// <summary>
     ///     Loads a single SPF frame from national.dat and caches the resulting texture.
     /// </summary>
     public Texture2D GetNationalSpfTexture(string fileName, int frameIndex = 0)

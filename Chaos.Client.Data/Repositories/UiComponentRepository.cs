@@ -225,6 +225,35 @@ public sealed class UiComponentRepository : RepositoryBase
     }
 
     /// <summary>
+    ///     Loads a single frame from an EPF file in national.dat rendered with legend.pal.
+    /// </summary>
+    public SKImage? GetNationalEpfImage(string fileName, int frameIndex = 0)
+    {
+        if (!DatArchives.National.TryGetValue(fileName, out var entry))
+            return null;
+
+        var epf = EpfView.FromEntry(entry);
+
+        if ((frameIndex < 0) || (frameIndex >= epf.Count))
+            return null;
+
+        return Graphics.RenderImage(epf[frameIndex], LegendPalette.GetPalette());
+    }
+
+    /// <summary>
+    ///     Returns the total frame count of an EPF file in national.dat, or 0 if not found.
+    /// </summary>
+    public int GetNationalEpfFrameCount(string fileName)
+    {
+        if (!DatArchives.National.TryGetValue(fileName, out var entry))
+            return 0;
+
+        var epf = EpfView.FromEntry(entry);
+
+        return epf.Count;
+    }
+
+    /// <summary>
     ///     Loads a single frame from an SPF file in national.dat as an SKImage.
     /// </summary>
     public SKImage? GetNationalSpfImage(string fileName, int frameIndex = 0)
