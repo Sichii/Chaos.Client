@@ -70,7 +70,7 @@ public sealed class MailSendControl : PrefabPanel
             PaddingRight = 0,
             PaddingTop = 0,
             PaddingBottom = 0,
-            ForegroundColor = Color.White
+            ForegroundColor = TextColors.Default
         };
 
         AddChild(BodyBox);

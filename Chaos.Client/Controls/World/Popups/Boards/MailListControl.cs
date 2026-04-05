@@ -193,7 +193,7 @@ public sealed class MailListControl : PrefabPanel
                 var entry = Entries[entryIndex];
                 var isSelected = entryIndex == SelectedIndex;
 
-                var textColor = isSelected ? new Color(100, 149, 237) : Color.White;
+                var textColor = isSelected ? new Color(100, 149, 237) : TextColors.Default;
 
                 RowLabels[i].ForegroundColor = textColor;
                 RowLabels[i].Text = FormatRow(entry);

@@ -120,7 +120,7 @@ public sealed class BoardListControl : PrefabPanel
 
             if (boardIndex < Boards.Count)
             {
-                var textColor = boardIndex == SelectedIndex ? new Color(100, 149, 237) : Color.White;
+                var textColor = boardIndex == SelectedIndex ? new Color(100, 149, 237) : TextColors.Default;
 
                 RowLabels[i].ForegroundColor = textColor;
                 RowLabels[i].Text = Boards[boardIndex].Name;

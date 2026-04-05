@@ -760,7 +760,7 @@ public sealed partial class WorldScreen
             StatusBook.ClearEvents();
 
         // Family info
-        StatusBook.SetFamilyInfo(args.Name, args.SpouseName ?? string.Empty);
+        StatusBook.SetFamilyInfo(args.SpouseName ?? string.Empty);
         LoadPlayerFamilyList();
 
         // Paperdoll — render the player's full aisling at south-facing idle
@@ -783,7 +783,7 @@ public sealed partial class WorldScreen
             {
                 var spouseName = args.GroupString[SPOUSE_PREFIX.Length..]
                                      .Trim();
-                StatusBook.SetFamilyInfo(args.Name, spouseName);
+                StatusBook.SetFamilyInfo(spouseName);
                 WorldState.Group.Clear();
             } else
                 WorldState.Group.Clear();

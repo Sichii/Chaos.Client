@@ -79,8 +79,7 @@ public sealed partial class WorldScreen
         (var tileX, var tileY) = ScreenToTile(mouseX, mouseY);
         var entity = GetEntityAtScreen(mouseX, mouseY);
 
-        var droppedOnEntity = entity is not null
-                              && entity.Type is ClientEntityType.Aisling or ClientEntityType.Creature
+        var droppedOnEntity = entity?.Type is ClientEntityType.Aisling or ClientEntityType.Creature
                               && (entity.Id != Game.Connection.AislingId);
 
         // Gold bag (slot 0) — show the gold amount popup
@@ -192,7 +191,7 @@ public sealed partial class WorldScreen
     {
         var entity = GetEntityAtScreen(mouseX, mouseY);
 
-        if (entity is null || entity.Type is not (ClientEntityType.Aisling or ClientEntityType.Creature))
+        if (entity?.Type is not (ClientEntityType.Aisling or ClientEntityType.Creature))
             return;
 
         HandleSpellSlotClicked(slot);
@@ -653,7 +652,7 @@ public sealed partial class WorldScreen
             // Single click: check for entity at hitbox first, then tile interaction
             var entity = GetEntityAtScreen(mouseX, mouseY);
 
-            if (entity is not null && entity.Type is ClientEntityType.Aisling or ClientEntityType.Creature)
+            if (entity?.Type is ClientEntityType.Aisling or ClientEntityType.Creature)
                 Game.Connection.ClickEntity(entity.Id);
             else if (TileHasForeground(tileX, tileY))
                 Game.Connection.ClickTile(tileX, tileY);
@@ -733,7 +732,7 @@ public sealed partial class WorldScreen
         {
             var entity = WorldState.GetEntityAt(tileX, tileY);
 
-            if (entity is not null && entity.Type is ClientEntityType.Aisling or ClientEntityType.Creature)
+            if (entity?.Type is ClientEntityType.Aisling or ClientEntityType.Creature)
             {
                 Pathfinding.SetEntityTarget(entity.Id);
                 PathfindToEntity(player, entity);

@@ -43,6 +43,8 @@ public sealed class LobbyLoginScreen : IScreen
     private IReadOnlyList<ServerTableEntry> ServerList = [];
     private ServerSelectControl ServerSelectControl = null!;
 
+    private UIButton? LastClickedButton;
+
     // UI panels
     private LobbyLoginControl StartPanel = null!;
     private UILabel StatusLabel = null!;
@@ -96,6 +98,20 @@ public sealed class LobbyLoginScreen : IScreen
         StartPanel.PasswordButton?.OnClick += OnPasswordClicked;
         StartPanel.CreditButton?.OnClick += OnCreditClicked;
         StartPanel.HomepageButton?.OnClick += OnHomepageClicked;
+
+        // Track last-clicked start panel button so Enter can repeat it
+        foreach (var btn in (UIButton?[]) [
+                     StartPanel.ContinueButton,
+                     StartPanel.ExitButton,
+                     StartPanel.SubmitCreateButton,
+                     StartPanel.PasswordButton,
+                     StartPanel.CreditButton,
+                     StartPanel.HomepageButton
+                 ])
+        {
+            if (btn is not null)
+                btn.OnClick += () => LastClickedButton = btn;
+        }
 
         LoginControl.OkButton?.OnClick += OnLoginOkClicked;
         LoginControl.CancelButton?.OnClick += OnLoginCancelClicked;
@@ -187,6 +203,20 @@ public sealed class LobbyLoginScreen : IScreen
         if (PopupMessage.Visible)
         {
             PopupMessage.Update(gameTime, input);
+
+            return;
+        }
+
+        // Enter repeats the last-clicked start button when no sub-control is open
+        if (input.WasKeyPressed(Keys.Enter)
+            && LastClickedButton is { Enabled: true }
+            && !LoginControl.Visible
+            && !ServerSelectControl.Visible
+            && !CharCreateControl.Visible
+            && !PasswordChangeControl.Visible
+            && !UITextBox.IsAnyFocused)
+        {
+            LastClickedButton.PerformClick();
 
             return;
         }

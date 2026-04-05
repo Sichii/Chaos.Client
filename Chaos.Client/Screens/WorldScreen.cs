@@ -557,13 +557,16 @@ public sealed partial class WorldScreen : IScreen
             Game.Connection.SendSocialStatus(status);
             StatusBook.SetEmoticonState((byte)status, status.ToString());
 
-            var emoteIcon = UiRenderer.Instance?.GetSpfTexture("_nemots.spf", (int)status);
+            var emoteIcon = UiRenderer.Instance?.GetEpfTexture("emot000.epf", (int)status * 3);
 
             if (emoteIcon is not null)
                 UpdateHuds(h =>
                 {
                     if (h.EmoteButton is not null)
+                    {
                         h.EmoteButton.NormalTexture = emoteIcon;
+                        h.EmoteButton.SelectedTexture = emoteIcon;
+                    }
                 });
         };
 

@@ -156,7 +156,7 @@ public sealed class SettingsControl : PrefabPanel
             _ => $"{baseName} :{(value ? "ON" : "OFF")}"
         };
 
-        SettingLabels[index].ForegroundColor = Color.White;
+        SettingLabels[index].ForegroundColor = TextColors.Default;
         SettingLabels[index].Text = text;
     }
 

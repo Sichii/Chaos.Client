@@ -14,30 +14,6 @@ namespace Chaos.Client.Screens;
 
 public sealed partial class WorldScreen
 {
-    private static readonly string[] TEST_TEXTS =
-    [
-        "Hello adventurer, what brings you here today?",
-        "The darkness grows stronger in the west...",
-        "Would you like to hear a tale of old?",
-        "I have wares if you have coin.",
-        "Be careful out there, the wolves are restless.",
-        "Welcome to my shop! Take a look around."
-    ];
-
-    private static readonly string[] TEST_OPTIONS =
-    [
-        "Buy supplies",
-        "Sell items",
-        "Ask about the dungeon",
-        "Request a quest",
-        "Learn a skill",
-        "Hear a rumor",
-        "Trade gems",
-        "Repair equipment",
-        "Check the board",
-        "Say goodbye"
-    ];
-
     public void Update(GameTime gameTime)
     {
         if (PendingLoginSwitch)
@@ -230,6 +206,31 @@ public sealed partial class WorldScreen
         // Camera follows player's visual position (tile + walk interpolation offset)
         FollowPlayerCamera();
 
+        // Viewport-layer updates — must always run regardless of which UI panel has input focus
+        // so that the world keeps animating visually behind open windows.
+        if (MapFile is not null)
+            Overlays.Update(
+                gameTime,
+                input,
+                Camera,
+                MapFile.Height);
+
+        if (DarknessRenderer.IsActive)
+        {
+            DarknessRenderer.SetLightSources(GatherLightSources());
+            DarknessRenderer.Update(Camera, WorldHud.ViewportBounds);
+        }
+
+        // Tooltip follows cursor — always reposition regardless of active panel
+        if (ItemTooltip.Visible)
+        {
+            var rightX = input.MouseX + 15;
+
+            ItemTooltip.X = (rightX + ItemTooltip.Width) <= ChaosGame.VIRTUAL_WIDTH ? rightX : input.MouseX - ItemTooltip.Width;
+
+            ItemTooltip.Y = Math.Clamp(input.MouseY + 15, 0, ChaosGame.VIRTUAL_HEIGHT - ItemTooltip.Height);
+        }
+
         // Toggle hotkeys — processed before overlay blocks so they work when the toggled panel is the active overlay
         var toggleCloseHandled = false;
 
@@ -276,28 +277,14 @@ public sealed partial class WorldScreen
             }
         }
 
-        // Overlay panels get first priority for input
-        if (NpcSession.Visible)
-        {
-            NpcSession.Update(gameTime, input);
+        // ─── Exclusive input panels ─── first visible panel gets input, everything else blocked
 
-            // Update tooltip position to follow cursor (merchant item hover)
-            if (ItemTooltip.Visible)
-            {
-                var rightX = input.MouseX + 15;
-
-                ItemTooltip.X = (rightX + ItemTooltip.Width) <= ChaosGame.VIRTUAL_WIDTH ? rightX : input.MouseX - ItemTooltip.Width;
-
-                ItemTooltip.Y = Math.Clamp(input.MouseY + 15, 0, ChaosGame.VIRTUAL_HEIGHT - ItemTooltip.Height);
-            }
-
+        if (UpdateExclusive(NpcSession, gameTime, input))
             return;
-        }
 
+        // MainOptions has sub-panel routing — child panels get input priority when open
         if (MainOptions.Visible)
         {
-            // Sub-panels slide out from MainOptions — update them alongside it
-            // If a sub-panel is open, it gets input priority (consumes Escape before MainOptions)
             var subPanelOpen = false;
 
             if (MacroMenu.Visible)
@@ -320,82 +307,42 @@ public sealed partial class WorldScreen
             return;
         }
 
-        if (SettingsDialog.Visible)
-        {
-            SettingsDialog.Update(gameTime, input);
-
+        if (UpdateExclusive(SettingsDialog, gameTime, input))
             return;
-        }
 
-        if (ChantEdit.Visible)
-        {
-            ChantEdit.Update(gameTime, input);
-
+        if (UpdateExclusive(ChantEdit, gameTime, input))
             return;
-        }
 
-        if (MacroMenu.Visible)
-        {
-            MacroMenu.Update(gameTime, input);
-
+        if (UpdateExclusive(MacroMenu, gameTime, input))
             return;
-        }
 
-        if (HotkeyHelp.Visible)
-        {
-            HotkeyHelp.Update(gameTime, input);
-
+        if (UpdateExclusive(HotkeyHelp, gameTime, input))
             return;
-        }
 
-        if (GroupPanel.Visible)
-        {
-            GroupPanel.Update(gameTime, input);
-
+        if (UpdateExclusive(GroupPanel, gameTime, input))
             return;
-        }
 
-        if (GroupBoxViewer.Visible)
-        {
-            GroupBoxViewer.Update(gameTime, input);
-
+        if (UpdateExclusive(GroupBoxViewer, gameTime, input))
             return;
-        }
 
-        if (WorldList.Visible)
-        {
-            WorldList.Update(gameTime, input);
-
+        if (UpdateExclusive(WorldList, gameTime, input))
             return;
-        }
 
-        if (FriendsList.Visible)
-        {
-            FriendsList.Update(gameTime, input);
-
+        if (UpdateExclusive(FriendsList, gameTime, input))
             return;
-        }
 
-        if (WorldHud.Prompt.Visible)
-        {
-            WorldHud.Prompt.Update(gameTime, input);
-
+        if (UpdateExclusive(WorldHud.Prompt, gameTime, input))
             return;
-        }
 
-        if (GoldDrop.Visible)
-        {
-            GoldDrop.Update(gameTime, input);
-
+        if (UpdateExclusive(GoldDrop, gameTime, input))
             return;
-        }
 
+        // Exchange also updates HUD for drag-and-drop and handles gold click
         if (Exchange.Visible)
         {
             ((UIPanel)WorldHud).Update(gameTime, input);
             Exchange.Update(gameTime, input);
 
-            // Allow setting gold by clicking MyMoney area — shows gold amount popup
             if (input.WasLeftButtonPressed && Exchange.IsMyMoneyClicked(input.MouseX, input.MouseY))
             {
                 ExchangeAmountSlot = null;
@@ -405,78 +352,37 @@ public sealed partial class WorldScreen
             return;
         }
 
-        if (DeleteConfirm.Visible)
-        {
-            DeleteConfirm.Update(gameTime, input);
-
+        if (UpdateExclusive(DeleteConfirm, gameTime, input))
             return;
-        }
 
-        if (ArticleSend.Visible)
-        {
-            ArticleSend.Update(gameTime, input);
-
+        if (UpdateExclusive(ArticleSend, gameTime, input))
             return;
-        }
 
-        if (MailSend.Visible)
-        {
-            MailSend.Update(gameTime, input);
-
+        if (UpdateExclusive(MailSend, gameTime, input))
             return;
-        }
 
-        if (ArticleRead.Visible)
-        {
-            ArticleRead.Update(gameTime, input);
-
+        if (UpdateExclusive(ArticleRead, gameTime, input))
             return;
-        }
 
-        if (MailRead.Visible)
-        {
-            MailRead.Update(gameTime, input);
-
+        if (UpdateExclusive(MailRead, gameTime, input))
             return;
-        }
 
-        if (ArticleList.Visible)
-        {
-            ArticleList.Update(gameTime, input);
-
+        if (UpdateExclusive(ArticleList, gameTime, input))
             return;
-        }
 
-        if (MailList.Visible)
-        {
-            MailList.Update(gameTime, input);
-
+        if (UpdateExclusive(MailList, gameTime, input))
             return;
-        }
 
-        if (BoardList.Visible)
-        {
-            BoardList.Update(gameTime, input);
-
+        if (UpdateExclusive(BoardList, gameTime, input))
             return;
-        }
 
-        if (TextPopup.Visible)
-        {
-            TextPopup.Update(gameTime, input);
-
+        if (UpdateExclusive(TextPopup, gameTime, input))
             return;
-        }
 
-        if (Notepad.Visible)
-        {
-            Notepad.Update(gameTime, input);
-
+        if (UpdateExclusive(Notepad, gameTime, input))
             return;
-        }
 
-        // Modal popup check — find the topmost visible modal and give it exclusive input.
-        // All other controls still update (animations, cooldowns) but with suppressed input.
+        // ─── Modal popup check ─── topmost modal gets real input, everything below gets suppressed
         var modal = FindVisibleModal();
 
         if (modal is not null)
@@ -491,62 +397,39 @@ public sealed partial class WorldScreen
             ItemTooltip.Hide();
         }
 
+        // ─── Post-modal panels ─── may receive suppressed input when a modal is on top
+
+        // StatusBook also updates HUD for drag-and-drop
         if (StatusBook.Visible)
         {
-            // HUD panels still receive input while the status book is open (drag-and-drop)
             ((UIPanel)WorldHud).Update(gameTime, input);
             StatusBook.Update(gameTime, input);
 
             return;
         }
 
-        if (OtherProfile.Visible)
-        {
-            OtherProfile.Update(gameTime, input);
-
+        if (UpdateExclusive(OtherProfile, gameTime, input))
             return;
-        }
 
-        if (WorldMap.Visible)
-        {
-            WorldMap.Update(gameTime, input);
-
+        if (UpdateExclusive(WorldMap, gameTime, input))
             return;
-        }
 
-        if (TownMap.Visible)
-        {
-            TownMap.Update(gameTime, input);
-
+        if (UpdateExclusive(TownMap, gameTime, input))
             return;
-        }
 
-        if (SocialStatusPicker.Visible)
-        {
-            SocialStatusPicker.Update(gameTime, input);
-
+        if (UpdateExclusive(SocialStatusPicker, gameTime, input))
             return;
-        }
 
-        if (AislingPopup.Visible)
-        {
-            AislingPopup.Update(gameTime, input);
-
+        if (UpdateExclusive(AislingPopup, gameTime, input))
             return;
-        }
 
-        // Context menu gets priority when visible
-        if (ContextMenu.Visible)
-        {
-            ContextMenu.Update(gameTime, input);
-
+        if (UpdateExclusive(ContextMenu, gameTime, input))
             return;
-        }
 
         // Track which entity the mouse is hovering over (for name tags, tint highlight, targeting)
         var hoverEntity = GetEntityAtScreen(input.MouseX, input.MouseY);
 
-        var newHoveredId = hoverEntity is not null && hoverEntity.Type is ClientEntityType.Aisling or ClientEntityType.Creature
+        var newHoveredId = hoverEntity?.Type is ClientEntityType.Aisling or ClientEntityType.Creature
             ? hoverEntity.Id
             : (uint?)null;
 
@@ -575,7 +458,7 @@ public sealed partial class WorldScreen
             // Click to select target, or cancel if clicking on nothing
             if (input.WasLeftButtonPressed)
             {
-                if (hoverEntity is not null && hoverEntity.Type is ClientEntityType.Aisling or ClientEntityType.Creature)
+                if (hoverEntity?.Type is ClientEntityType.Aisling or ClientEntityType.Creature)
                     CastingSystem.SelectTarget(
                         hoverEntity.Id,
                         hoverEntity.TileX,
@@ -613,14 +496,21 @@ public sealed partial class WorldScreen
             {
                 var c = textInput[0];
 
-                if (c is 'a' or 'A')
-                    Chat.TransitionIgnoreAdd();
-                else if (c is 'd' or 'D')
-                    Chat.TransitionIgnoreRemove();
-                else if (c == '?')
+                switch (c)
                 {
-                    Game.Connection.SendIgnoreRequest();
-                    Chat.Unfocus();
+                    case 'a' or 'A':
+                        Chat.TransitionIgnoreAdd();
+
+                        break;
+                    case 'd' or 'D':
+                        Chat.TransitionIgnoreRemove();
+
+                        break;
+                    case '?':
+                        Game.Connection.SendIgnoreRequest();
+                        Chat.Unfocus();
+
+                        break;
                 }
 
                 // Suppress all text input during mode selection so characters don't reach the textbox
@@ -634,7 +524,6 @@ public sealed partial class WorldScreen
             if (WorldHud.ChatInput.IsFocused)
             {
                 var message = WorldHud.ChatInput.Text.Trim();
-                var prefix = WorldHud.ChatInput.Prefix;
 
                 // Ignore phase 2: submit the typed name for add/remove
                 if (Chat.IgnorePhase is IgnorePhase.AddName or IgnorePhase.RemoveName)
@@ -782,10 +671,6 @@ public sealed partial class WorldScreen
             if (input.WasKeyPressed(Keys.F10))
                 FriendsList.Show();
 
-            // F11 — debug dialog test
-            if (input.WasKeyPressed(Keys.F11))
-                FireTestDialog();
-
             // / — swap HUD layout (small ↔ large)
             if (input.WasKeyPressed(Keys.OemQuestion) && !shift)
                 SwapHudLayout();
@@ -902,33 +787,22 @@ public sealed partial class WorldScreen
 
         ((UIPanel)WorldHud).Update(gameTime, input);
 
-        // Update tooltip position to follow cursor
-        if (ItemTooltip.Visible)
-        {
-            var rightX = input.MouseX + 15;
-
-            ItemTooltip.X = (rightX + ItemTooltip.Width) <= ChaosGame.VIRTUAL_WIDTH ? rightX : input.MouseX - ItemTooltip.Width;
-
-            ItemTooltip.Y = Math.Clamp(input.MouseY + 15, 0, ChaosGame.VIRTUAL_HEIGHT - ItemTooltip.Height);
-        }
-
         // Track highlighted entity when dragging a panel item over the world viewport
         UpdateDragHighlight(input);
 
-        // Update overlays — tick timers, update screen positions, remove expired
-        if (MapFile is not null)
-            Overlays.Update(
-                gameTime,
-                input,
-                Camera,
-                MapFile.Height);
+    }
 
-        // Darkness overlay state — must update before Draw
-        if (DarknessRenderer.IsActive)
-        {
-            DarknessRenderer.SetLightSources(GatherLightSources());
-            DarknessRenderer.Update(Camera, WorldHud.ViewportBounds);
-        }
+    /// <summary>
+    ///     If the element is visible, gives it input focus (calls Update) and signals the caller to return.
+    /// </summary>
+    private static bool UpdateExclusive(UIElement element, GameTime gameTime, InputBuffer input)
+    {
+        if (!element.Visible)
+            return false;
+
+        element.Update(gameTime, input);
+
+        return true;
     }
 
     /// <summary>
@@ -947,11 +821,6 @@ public sealed partial class WorldScreen
 
         return best;
     }
-
-    private void FireTestDialog()
-        => TextPopup.Show(
-            "This is a test NonScrollWindow popup.\n\nNonScrollWindow and ScrollWindow are identical in the original client — same dialog frame, scrollbar, and close button.\n\nLine 1\nLine 2\nLine 3\nLine 4\nLine 5\nLine 6\nLine 7\nLine 8\nLine 9\nLine 10\nLine 11\nLine 12\nLine 13\nLine 14\nLine 15\nLine 16\nLine 17\nLine 18\nLine 19\nLine 20",
-            PopupStyle.NonScroll);
 
     private ReadOnlySpan<LightSource> GatherLightSources()
     {

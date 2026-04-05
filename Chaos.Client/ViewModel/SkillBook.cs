@@ -176,8 +176,23 @@ public sealed class SkillBook
         internal static readonly SkillSlotData Empty;
 
         /// <summary>
+        ///     Parsed ability name without the level suffix (e.g. "beag ioc" from "beag ioc (Lev:25/50)").
+        /// </summary>
+        public string? AbilityName { get; } = ParseAbilityName(Name);
+
+        /// <summary>
         ///     True if this slot contains a skill (has a sprite assigned).
         /// </summary>
         public bool IsOccupied => Sprite > 0;
+
+        private static string? ParseAbilityName(string? name)
+        {
+            if (string.IsNullOrEmpty(name))
+                return null;
+
+            var levIndex = name.LastIndexOf("(Lev:", StringComparison.Ordinal);
+
+            return levIndex > 0 ? name[..levIndex].TrimEnd() : name;
+        }
     }
 }

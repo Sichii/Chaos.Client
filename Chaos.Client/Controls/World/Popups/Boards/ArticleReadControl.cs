@@ -71,6 +71,20 @@ public sealed class ArticleReadControl : PrefabPanel
         var contentRect = GetRect("Content");
         VisibleHeight = contentRect.Height;
 
+        BodyLabel = new UILabel
+        {
+            X = contentRect.X,
+            Y = contentRect.Y,
+            Width = contentRect.Width - ScrollBarControl.DEFAULT_WIDTH,
+            Height = contentRect.Height,
+            PaddingLeft = 0,
+            PaddingTop = 0,
+            WordWrap = true,
+            ForegroundColor = TextColors.Default
+        };
+
+        AddChild(BodyLabel);
+
         ScrollBar = new ScrollBarControl
         {
             Name = "ScrollBar",
@@ -85,20 +99,6 @@ public sealed class ArticleReadControl : PrefabPanel
         };
 
         AddChild(ScrollBar);
-
-        BodyLabel = new UILabel
-        {
-            X = contentRect.X,
-            Y = contentRect.Y,
-            Width = contentRect.Width - ScrollBarControl.DEFAULT_WIDTH,
-            Height = contentRect.Height,
-            PaddingLeft = 0,
-            PaddingTop = 0,
-            WordWrap = true,
-            ForegroundColor = Color.White
-        };
-
-        AddChild(BodyLabel);
     }
 
     public override void Hide() => Visible = false;

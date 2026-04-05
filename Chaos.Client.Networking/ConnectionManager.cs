@@ -1018,7 +1018,7 @@ public sealed class ConnectionManager : IDisposable
             new GroupInviteArgs
             {
                 ClientGroupSwitch = action,
-                TargetName = targetName
+                TargetName = targetName ?? string.Empty
             });
     }
 

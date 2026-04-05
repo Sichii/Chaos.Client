@@ -201,7 +201,7 @@ public sealed class ArticleListControl : PrefabPanel
                     ? new Color(100, 149, 237)
                     : entry.IsHighlighted
                         ? Color.Yellow
-                        : Color.White;
+                        : TextColors.Default;
 
                 RowLabels[i].ForegroundColor = textColor;
                 RowLabels[i].Text = FormatRow(entry);

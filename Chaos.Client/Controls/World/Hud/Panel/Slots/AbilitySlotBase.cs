@@ -44,8 +44,7 @@ public abstract class AbilitySlotControl : PanelSlot
 
         if (levIndex > 0)
         {
-            AbilityName = name[..levIndex]
-                .TrimEnd();
+            AbilityName = name[..levIndex].TrimEnd();
 
             var levStart = levIndex + 5;
             var levEnd = name.IndexOf(')', levStart);

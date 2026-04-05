@@ -216,7 +216,7 @@ public sealed class SelfProfileAbilityMetadataTab : PrefabPanel
         {
             ref readonly var slot = ref WorldState.SpellBook.GetSlot(i);
 
-            if (slot.IsOccupied && slot.Name.EqualsI(name))
+            if (slot.IsOccupied && slot.AbilityName.EqualsI(name))
                 return true;
         }
 
@@ -225,7 +225,7 @@ public sealed class SelfProfileAbilityMetadataTab : PrefabPanel
         {
             ref readonly var slot = ref WorldState.SkillBook.GetSlot(i);
 
-            if (slot.IsOccupied && slot.Name.EqualsI(name))
+            if (slot.IsOccupied && slot.AbilityName.EqualsI(name))
                 return true;
         }
 
@@ -276,7 +276,7 @@ public sealed class SelfProfileAbilityMetadataTab : PrefabPanel
             {
                 ref readonly var slot = ref WorldState.SpellBook.GetSlot(i);
 
-                if (slot.IsOccupied && slot.Name.EqualsI(entry.Name))
+                if (slot.IsOccupied && slot.AbilityName.EqualsI(entry.Name))
                     return AbilityIconState.Known;
             }
         else
@@ -284,7 +284,7 @@ public sealed class SelfProfileAbilityMetadataTab : PrefabPanel
             {
                 ref readonly var slot = ref WorldState.SkillBook.GetSlot(i);
 
-                if (slot.IsOccupied && slot.Name.EqualsI(entry.Name))
+                if (slot.IsOccupied && slot.AbilityName.EqualsI(entry.Name))
                     return AbilityIconState.Known;
             }
 

@@ -1,4 +1,5 @@
 #region
+using Chaos.Client.Collections;
 using Chaos.Client.Controls.Components;
 using Chaos.Client.Data.Models;
 #endregion
@@ -21,6 +22,10 @@ public sealed class SelfProfileFamilyTab : PrefabPanel
         Visible = false;
 
         SelfLabel = CreateLabel("Self");
+
+        if (SelfLabel is not null)
+            SelfLabel.Text = WorldState.PlayerName;
+
         FamilyLabel = CreateLabel("Family");
 
         for (var i = 0; i < 10; i++)
@@ -43,11 +48,11 @@ public sealed class SelfProfileFamilyTab : PrefabPanel
         };
 
     /// <summary>
-    ///     Updates the player and spouse names.
+    ///     Updates the spouse name and refreshes the player name from WorldState.
     /// </summary>
-    public void SetFamilyInfo(string selfName, string spouseName)
+    public void SetFamilyInfo(string spouseName)
     {
-        SelfLabel?.Text = selfName;
+        SelfLabel?.Text = WorldState.PlayerName;
         FamilyLabel?.Text = spouseName;
     }
 

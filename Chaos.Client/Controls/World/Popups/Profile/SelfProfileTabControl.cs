@@ -290,10 +290,10 @@ public sealed class SelfProfileTabControl : PrefabPanel
     /// <summary>
     ///     Updates the Family tab with player and spouse information.
     /// </summary>
-    public void SetFamilyInfo(string selfName, string spouseName)
+    public void SetFamilyInfo(string spouseName)
     {
         if (GetOrCreatePage<SelfProfileFamilyTab>(StatusBookTab.Family) is { } page)
-            page.SetFamilyInfo(selfName, spouseName);
+            page.SetFamilyInfo(spouseName);
     }
 
     public FamilyList? GetFamilyMembers()
