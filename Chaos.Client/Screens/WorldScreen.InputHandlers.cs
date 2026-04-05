@@ -344,9 +344,11 @@ public sealed partial class WorldScreen
 
                 if (macroText.Length > 0)
                 {
-                    Chat.Focus(string.Empty, Color.White);
+                    Chat.Focus($"{WorldHud.PlayerName}: ", Color.White);
                     WorldHud.ChatInput.Text = macroText;
                     WorldHud.ChatInput.CursorPosition = macroText.Length;
+                    WorldHud.ChatInput.ClearSelection();
+                    input.Suppressed = true;
                 }
 
                 break;
@@ -652,7 +654,7 @@ public sealed partial class WorldScreen
             // Single click: check for entity at hitbox first, then tile interaction
             var entity = GetEntityAtScreen(mouseX, mouseY);
 
-            if (entity?.Type is ClientEntityType.Aisling or ClientEntityType.Creature)
+            if (entity?.Type is ClientEntityType.Creature)
                 Game.Connection.ClickEntity(entity.Id);
             else if (TileHasForeground(tileX, tileY))
                 Game.Connection.ClickTile(tileX, tileY);

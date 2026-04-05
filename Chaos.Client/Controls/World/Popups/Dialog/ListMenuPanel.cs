@@ -432,7 +432,7 @@ public sealed class ListMenuPanel : FramedDialogPanel
             var row = (my - sy) / ROW_HEIGHT;
             var col = (mx - sx) / ColumnWidth;
 
-            if ((col >= 0) && (col < COLUMN_COUNT))
+            if (col is >= 0 and < COLUMN_COUNT)
             {
                 var entryIndex = (ScrollOffset + row) * COLUMN_COUNT + col;
 

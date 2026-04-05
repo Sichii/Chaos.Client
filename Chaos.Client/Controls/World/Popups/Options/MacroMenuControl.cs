@@ -81,7 +81,7 @@ public sealed class MacroMenuControl : PrefabPanel
     /// <summary>
     ///     Returns the macro value for the given slot index, or empty string if out of range.
     /// </summary>
-    public string GetMacroValue(int index) => (index >= 0) && (index < MAX_MACROS) ? MacroTextBoxes[index].Text : string.Empty;
+    public string GetMacroValue(int index) => index is >= 0 and < MAX_MACROS ? MacroTextBoxes[index].Text : string.Empty;
 
     /// <summary>
     ///     Returns the macro values for all slots.

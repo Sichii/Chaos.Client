@@ -1,4 +1,5 @@
 #region
+using Chaos.Client.Utilities;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using Microsoft.Xna.Framework.Input;
@@ -17,9 +18,12 @@ public class UITextBox : UIElement
     private readonly TextElement TextElement = new();
     private string CachedLayoutText = string.Empty;
     private int CachedLayoutWidth;
+    private int ClickCount;
     private double CursorTimer;
     private bool CursorVisible;
     private bool Dragging;
+    private int LastClickPosition = -1;
+    private double LastClickTime;
     private List<int> LineStarts = [0];
     private TextElement? PrefixTextElement;
     private int SelectionAnchor;
@@ -207,6 +211,8 @@ public class UITextBox : UIElement
             LineStarts.Add(Text.Length);
     }
 
+    public void ClearSelection() => SelectionAnchor = CursorPosition;
+
     private void DeleteSelection()
     {
         if (!HasSelection)
@@ -242,7 +248,7 @@ public class UITextBox : UIElement
         var firstLine = FirstVisibleLine;
         var visibleCount = VisibleLineCount;
         var lastLine = Math.Min(firstLine + visibleCount, LineStarts.Count);
-        var selStart = SelectionStart;
+        var selStart = SnapSelectionBoundary(SelectionStart);
         var selEnd = SelectionEnd;
 
         for (var i = firstLine; i < lastLine; i++)
@@ -252,28 +258,30 @@ public class UITextBox : UIElement
             var lineStartIdx = LineStarts[i];
             var lineEndIdx = lineStartIdx + lineText.Length;
 
-            if (HasSelection && (selStart < lineEndIdx) && (selEnd > lineStartIdx))
+            if (HasSelection && (selStart < lineEndIdx) && (selEnd > lineStartIdx) && (lineText.Length > 0))
             {
                 var hlStart = Math.Max(selStart, lineStartIdx) - lineStartIdx;
                 var hlEnd = Math.Min(selEnd, lineEndIdx) - lineStartIdx;
+
+                // Pre-selection segment
+                if (hlStart > 0)
+                    TextRenderer.DrawText(spriteBatch, new Vector2(textX, lineY), lineText[..hlStart], ForegroundColor, ColorCodesEnabled);
+
+                // Selection segment: white rect + black text
                 var hlX = textX + (hlStart > 0 ? TextRenderer.MeasureWidth(lineText[..hlStart]) : 0);
-                var hlWidth = TextRenderer.MeasureWidth(lineText[hlStart..hlEnd]);
+                var hlText = lineText[hlStart..hlEnd];
+                var hlWidth = TextRenderer.MeasureWidth(hlText);
 
-                DrawRect(
-                    spriteBatch,
-                    new Rectangle(
-                        hlX,
-                        lineY,
-                        hlWidth,
-                        TextRenderer.CHAR_HEIGHT),
-                    new Color(
-                        80,
-                        120,
-                        200,
-                        150));
-            }
+                DrawRect(spriteBatch, new Rectangle(hlX, lineY, hlWidth, TextRenderer.CHAR_HEIGHT), Color.White);
+                TextRenderer.DrawText(spriteBatch, new Vector2(hlX, lineY), hlText, Color.Black, ColorCodesEnabled);
 
-            if (lineText.Length > 0)
+                // Post-selection segment
+                if (hlEnd < lineText.Length)
+                {
+                    var postX = hlX + hlWidth;
+                    TextRenderer.DrawText(spriteBatch, new Vector2(postX, lineY), lineText[hlEnd..], ForegroundColor, ColorCodesEnabled);
+                }
+            } else if (lineText.Length > 0)
                 TextRenderer.DrawText(
                     spriteBatch,
                     new Vector2(textX, lineY),
@@ -326,49 +334,49 @@ public class UITextBox : UIElement
 
         var textStartX = sx + PaddingLeft + prefixWidth;
 
-        // Selection highlight
         if (HasSelection && (displayText.Length > 0))
         {
-            var selStart = Math.Min(SelectionStart, displayText.Length);
+            var selStart = SnapSelectionBoundary(Math.Min(SelectionStart, displayText.Length));
             var selEnd = Math.Min(SelectionEnd, displayText.Length);
-            var selStartX = textStartX;
 
+            // Pre-selection segment
             if (selStart > 0)
-                selStartX += TextRenderer.MeasureWidth(displayText[..selStart]);
+                TextRenderer.DrawText(spriteBatch, new Vector2(textStartX, textY), displayText[..selStart], ForegroundColor, ColorCodesEnabled);
 
-            var selWidth = TextRenderer.MeasureWidth(displayText[selStart..selEnd]);
+            // Selection segment: white rect + black text
+            var selStartX = textStartX + (selStart > 0 ? TextRenderer.MeasureWidth(displayText[..selStart]) : 0);
+            var selText = displayText[selStart..selEnd];
+            var selWidth = TextRenderer.MeasureWidth(selText);
 
-            DrawRect(
-                spriteBatch,
-                new Rectangle(
-                    selStartX,
-                    textY,
-                    selWidth,
-                    TextRenderer.CHAR_HEIGHT),
-                new Color(
-                    80,
-                    120,
-                    200,
-                    150));
-        }
+            DrawRect(spriteBatch, new Rectangle(selStartX, textY, selWidth, TextRenderer.CHAR_HEIGHT), Color.White);
+            TextRenderer.DrawText(spriteBatch, new Vector2(selStartX, textY), selText, Color.Black, ColorCodesEnabled);
 
-        TextElement.Update(displayText, ForegroundColor);
-
-        if ((Alignment != TextAlignment.Left) && !IsFocused)
-        {
-            TextElement.Alignment = Alignment;
-
-            TextElement.Draw(
-                spriteBatch,
-                new Rectangle(
-                    sx + PaddingLeft,
-                    textY,
-                    Width - PaddingLeft + PaddingRight,
-                    textHeight));
+            // Post-selection segment
+            if (selEnd < displayText.Length)
+            {
+                var postX = selStartX + selWidth;
+                TextRenderer.DrawText(spriteBatch, new Vector2(postX, textY), displayText[selEnd..], ForegroundColor, ColorCodesEnabled);
+            }
         } else
         {
-            TextElement.Alignment = TextAlignment.Left;
-            TextElement.Draw(spriteBatch, new Vector2(textStartX, textY));
+            TextElement.Update(displayText, ForegroundColor);
+
+            if ((Alignment != TextAlignment.Left) && !IsFocused)
+            {
+                TextElement.Alignment = Alignment;
+
+                TextElement.Draw(
+                    spriteBatch,
+                    new Rectangle(
+                        sx + PaddingLeft,
+                        textY,
+                        Width - PaddingLeft + PaddingRight,
+                        textHeight));
+            } else
+            {
+                TextElement.Alignment = TextAlignment.Left;
+                TextElement.Draw(spriteBatch, new Vector2(textStartX, textY));
+            }
         }
 
         if (!IsFocused || !CursorVisible || IsReadOnly)
@@ -431,7 +439,7 @@ public class UITextBox : UIElement
         while ((i > 0) && (Text[i - 1] != ' '))
             i--;
 
-        return i;
+        return SnapPastColorCode(i);
     }
 
     private int FindWordBoundaryRight(int from)
@@ -447,7 +455,102 @@ public class UITextBox : UIElement
         while ((i < Text.Length) && (Text[i] == ' '))
             i++;
 
-        return i;
+        return SnapPastColorCode(i);
+    }
+
+    /// <summary>
+    ///     If position lands inside a {=x} color code, snap forward past it.
+    ///     Returns position unchanged if not inside a color code.
+    /// </summary>
+    private int SnapPastColorCode(int position)
+    {
+        if (!ColorCodesEnabled || (position <= 0) || (position >= Text.Length))
+            return position;
+
+        // At index 2 of a 3-char {=x} code (position - 2 is the '{')
+        if ((position >= 2) && TextRenderer.IsColorCode(Text, position - 2))
+            return Math.Min(position + 1, Text.Length);
+
+        // At index 1 of a 3-char {=x} code (position - 1 is the '{')
+        if ((position >= 1) && ((position + 1) < Text.Length) && TextRenderer.IsColorCode(Text, position - 1))
+            return Math.Min(position + 2, Text.Length);
+
+        return position;
+    }
+
+    /// <summary>
+    ///     Snaps a selection boundary to not split a color code. If position lands inside
+    ///     a {=x} code, adjusts it to the start of the code (for segment splitting).
+    /// </summary>
+    private int SnapSelectionBoundary(int position)
+    {
+        if (!ColorCodesEnabled || (position <= 0) || (position >= Text.Length))
+            return position;
+
+        // At index 2 of a 3-char {=x} code
+        if ((position >= 2) && TextRenderer.IsColorCode(Text, position - 2))
+            return position - 2;
+
+        // At index 1 of a 3-char {=x} code
+        if ((position >= 1) && ((position + 1) < Text.Length) && TextRenderer.IsColorCode(Text, position - 1))
+            return position - 1;
+
+        return position;
+    }
+
+    /// <summary>
+    ///     Moves position left, skipping entirely over any {=x} color code.
+    /// </summary>
+    private int StepLeft(int position)
+    {
+        if (position <= 0)
+            return 0;
+
+        // If the character before us is the end of a color code, skip the whole code
+        if (ColorCodesEnabled && (position >= 3) && TextRenderer.IsColorCode(Text, position - 3))
+            return position - 3;
+
+        return position - 1;
+    }
+
+    /// <summary>
+    ///     Moves position right, skipping entirely over any {=x} color code.
+    /// </summary>
+    private int StepRight(int position)
+    {
+        if (position >= Text.Length)
+            return Text.Length;
+
+        // If we're at the start of a color code, skip the whole code
+        if (ColorCodesEnabled && TextRenderer.IsColorCode(Text, position))
+            return Math.Min(position + 3, Text.Length);
+
+        return position + 1;
+    }
+
+    /// <summary>
+    ///     Strips {=x} color codes from text for clipboard operations.
+    /// </summary>
+    private static string StripColorCodes(string text)
+    {
+        if (string.IsNullOrEmpty(text))
+            return text;
+
+        var sb = new System.Text.StringBuilder(text.Length);
+
+        for (var i = 0; i < text.Length; i++)
+        {
+            if (TextRenderer.IsColorCode(text, i))
+            {
+                i += 2;
+
+                continue;
+            }
+
+            sb.Append(text[i]);
+        }
+
+        return sb.ToString();
     }
 
     private int GetLineForPosition(int position)
@@ -488,11 +591,12 @@ public class UITextBox : UIElement
             DeleteSelection();
         else if (CursorPosition > 0)
         {
-            // Capture target position before mutating Text
-            var newPos = CursorPosition - 1;
-            Text = Text.Remove(newPos, 1);
-            CursorPosition = newPos;
-            SelectionAnchor = newPos;
+            // Delete the entire color code atomically if the cursor is right after one
+            var stepPos = StepLeft(CursorPosition);
+            var deleteCount = CursorPosition - stepPos;
+            Text = Text.Remove(stepPos, deleteCount);
+            CursorPosition = stepPos;
+            SelectionAnchor = stepPos;
         }
 
         ResetCursor();
@@ -500,13 +604,51 @@ public class UITextBox : UIElement
 
     private void HandleEditing(InputBuffer input, bool ctrl)
     {
-        // Delete key
+        // Ctrl+Delete — delete word forward
+        if (ctrl && input.WasKeyPressed(Keys.Delete) && !IsReadOnly)
+        {
+            if (HasSelection)
+                DeleteSelection();
+            else if (CursorPosition < Text.Length)
+            {
+                var wordEnd = FindWordBoundaryRight(CursorPosition);
+                Text = Text.Remove(CursorPosition, wordEnd - CursorPosition);
+            }
+
+            ResetCursor();
+
+            return;
+        }
+
+        // Ctrl+Backspace — delete word backward
+        if (ctrl && input.WasKeyPressed(Keys.Back) && !IsReadOnly)
+        {
+            if (HasSelection)
+                DeleteSelection();
+            else if (CursorPosition > 0)
+            {
+                var wordStart = FindWordBoundaryLeft(CursorPosition);
+                Text = Text.Remove(wordStart, CursorPosition - wordStart);
+                CursorPosition = wordStart;
+                SelectionAnchor = wordStart;
+            }
+
+            ResetCursor();
+
+            return;
+        }
+
+        // Delete key (non-ctrl)
         if (input.WasKeyPressed(Keys.Delete) && !IsReadOnly)
         {
             if (HasSelection)
                 DeleteSelection();
             else if (CursorPosition < Text.Length)
-                Text = Text.Remove(CursorPosition, 1);
+            {
+                // Delete the entire color code atomically if the cursor is at the start of one
+                var stepPos = StepRight(CursorPosition);
+                Text = Text.Remove(CursorPosition, stepPos - CursorPosition);
+            }
 
             ResetCursor();
         }
@@ -598,10 +740,10 @@ public class UITextBox : UIElement
         }
     }
 
-    private void HandleMouse(InputBuffer input, bool shift)
+    private void HandleMouse(GameTime gameTime, InputBuffer input, bool shift)
     {
         // Mouse down — focus, set cursor, begin drag
-        if (IsFocusable && input.WasLeftButtonPressed && ContainsPoint(input.MouseX, input.MouseY))
+        if ((IsFocusable || IsFocused) && input.WasLeftButtonPressed && ContainsPoint(input.MouseX, input.MouseY))
         {
             int clickPos;
 
@@ -610,11 +752,36 @@ public class UITextBox : UIElement
             else
                 clickPos = HitTestCursorPosition(input.MouseX - ScreenX - PaddingLeft);
 
-            if (shift && IsFocused && IsSelectable)
+            var now = gameTime.TotalGameTime.TotalMilliseconds;
 
-                // Shift+click extends selection — anchor stays, cursor moves
-                CursorPosition = clickPos;
+            if ((now - LastClickTime < 400) && (clickPos == LastClickPosition))
+                ClickCount++;
             else
+                ClickCount = 1;
+
+            LastClickTime = now;
+            LastClickPosition = clickPos;
+
+            if (ClickCount == 3)
+            {
+                if (IsMultiLine)
+                {
+                    var line = GetLineForPosition(clickPos);
+                    SelectionAnchor = LineStarts[line];
+                    var lineText = GetLineText(line);
+                    CursorPosition = LineStarts[line] + lineText.Length;
+                } else
+                    SelectAll();
+
+                ClickCount = 0;
+            } else if (ClickCount == 2)
+            {
+                SelectionAnchor = FindWordBoundaryLeft(clickPos);
+                CursorPosition = FindWordBoundaryRight(clickPos);
+            } else if (shift && IsFocused && IsSelectable)
+            {
+                CursorPosition = clickPos;
+            } else
             {
                 CursorPosition = clickPos;
                 SelectionAnchor = clickPos;
@@ -659,7 +826,7 @@ public class UITextBox : UIElement
             if (!shift && HasSelection)
                 MoveCursor(SelectionStart, false);
             else if (CursorPosition > 0)
-                MoveCursor(ctrl ? FindWordBoundaryLeft(CursorPosition) : CursorPosition - 1, shift);
+                MoveCursor(ctrl ? FindWordBoundaryLeft(CursorPosition) : StepLeft(CursorPosition), shift);
         }
 
         if (input.WasKeyPressed(Keys.Right))
@@ -667,39 +834,49 @@ public class UITextBox : UIElement
             if (!shift && HasSelection)
                 MoveCursor(SelectionEnd, false);
             else if (CursorPosition < Text.Length)
-                MoveCursor(ctrl ? FindWordBoundaryRight(CursorPosition) : CursorPosition + 1, shift);
+                MoveCursor(ctrl ? FindWordBoundaryRight(CursorPosition) : StepRight(CursorPosition), shift);
         }
 
-        if (IsMultiLine && input.WasKeyPressed(Keys.Up))
+        if (input.WasKeyPressed(Keys.Up))
         {
-            var cursorLine = GetLineForPosition(CursorPosition);
-
-            if (cursorLine > 0)
+            if (IsMultiLine)
             {
-                var colOffset = CursorPosition - LineStarts[cursorLine];
-                var currentLineText = GetLineText(cursorLine);
-                var colPixelX = TextRenderer.MeasureWidth(currentLineText[..Math.Min(colOffset, currentLineText.Length)]);
-                var targetLine = cursorLine - 1;
-                var targetText = GetLineText(targetLine);
-                var targetCol = HitTestCursorPosition(colPixelX, targetText);
-                MoveCursor(LineStarts[targetLine] + targetCol, shift);
-            }
+                var cursorLine = GetLineForPosition(CursorPosition);
+
+                if (cursorLine > 0)
+                {
+                    var colOffset = CursorPosition - LineStarts[cursorLine];
+                    var currentLineText = GetLineText(cursorLine);
+                    var colPixelX = TextRenderer.MeasureWidth(currentLineText[..Math.Min(colOffset, currentLineText.Length)]);
+                    var targetLine = cursorLine - 1;
+                    var targetText = GetLineText(targetLine);
+                    var targetCol = HitTestCursorPosition(colPixelX, targetText);
+                    MoveCursor(LineStarts[targetLine] + targetCol, shift);
+                } else
+                    MoveCursor(0, shift);
+            } else
+                MoveCursor(0, shift);
         }
 
-        if (IsMultiLine && input.WasKeyPressed(Keys.Down))
+        if (input.WasKeyPressed(Keys.Down))
         {
-            var cursorLine = GetLineForPosition(CursorPosition);
-
-            if ((cursorLine + 1) < LineStarts.Count)
+            if (IsMultiLine)
             {
-                var colOffset = CursorPosition - LineStarts[cursorLine];
-                var currentLineText = GetLineText(cursorLine);
-                var colPixelX = TextRenderer.MeasureWidth(currentLineText[..Math.Min(colOffset, currentLineText.Length)]);
-                var targetLine = cursorLine + 1;
-                var targetText = GetLineText(targetLine);
-                var targetCol = HitTestCursorPosition(colPixelX, targetText);
-                MoveCursor(LineStarts[targetLine] + targetCol, shift);
-            }
+                var cursorLine = GetLineForPosition(CursorPosition);
+
+                if ((cursorLine + 1) < LineStarts.Count)
+                {
+                    var colOffset = CursorPosition - LineStarts[cursorLine];
+                    var currentLineText = GetLineText(cursorLine);
+                    var colPixelX = TextRenderer.MeasureWidth(currentLineText[..Math.Min(colOffset, currentLineText.Length)]);
+                    var targetLine = cursorLine + 1;
+                    var targetText = GetLineText(targetLine);
+                    var targetCol = HitTestCursorPosition(colPixelX, targetText);
+                    MoveCursor(LineStarts[targetLine] + targetCol, shift);
+                } else
+                    MoveCursor(Text.Length, shift);
+            } else
+                MoveCursor(Text.Length, shift);
         }
 
         if (input.WasKeyPressed(Keys.Home))
@@ -726,10 +903,74 @@ public class UITextBox : UIElement
         // Ctrl+A to select all
         if (IsSelectable && ctrl && input.WasKeyPressed(Keys.A))
             SelectAll();
+
+        // Ctrl+C — copy selection to clipboard
+        if (ctrl && input.WasKeyPressed(Keys.C) && HasSelection)
+        {
+            var clipboardText = IsMasked ? new string('*', SelectionLength) : StripColorCodes(SelectedText);
+            Clipboard.SetText(clipboardText);
+        }
+
+        // Ctrl+X — cut selection to clipboard
+        if (ctrl && input.WasKeyPressed(Keys.X) && HasSelection && !IsReadOnly)
+        {
+            var clipboardText = IsMasked ? new string('*', SelectionLength) : StripColorCodes(SelectedText);
+            Clipboard.SetText(clipboardText);
+            DeleteSelection();
+            ResetCursor();
+        }
+
+        // Ctrl+V — paste from clipboard
+        if (ctrl && input.WasKeyPressed(Keys.V) && !IsReadOnly)
+            HandlePaste();
+    }
+
+    private void HandlePaste()
+    {
+        var clipText = Clipboard.GetText();
+
+        if (string.IsNullOrEmpty(clipText))
+            return;
+
+        // Strip newlines for single-line textboxes
+        if (!IsMultiLine)
+            clipText = clipText.Replace("\r", "").Replace("\n", "");
+
+        // Snapshot for potential ClampToVisibleArea revert
+        var savedText = Text;
+        var savedCursor = CursorPosition;
+        var savedAnchor = SelectionAnchor;
+
+        if (HasSelection)
+            DeleteSelection();
+
+        // Truncate to MaxLength
+        var available = MaxLength - Text.Length;
+
+        if (available <= 0)
+            return;
+
+        if (clipText.Length > available)
+            clipText = clipText[..available];
+
+        var insertPos = CursorPosition;
+        Text = Text.Insert(insertPos, clipText);
+        CursorPosition = insertPos + clipText.Length;
+        SelectionAnchor = CursorPosition;
+        ResetCursor();
+
+        if (ClampToVisibleArea && IsMultiLine && ExceedsVisibleArea())
+        {
+            Text = savedText;
+            CursorPosition = savedCursor;
+            SelectionAnchor = savedAnchor;
+            CachedLayoutText = string.Empty;
+        }
     }
 
     /// <summary>
     ///     Determines which character position the click landed on by measuring character widths.
+    ///     Skips {=x} color codes as atomic units so clicks never land inside a code.
     /// </summary>
     private int HitTestCursorPosition(int localX)
     {
@@ -741,34 +982,58 @@ public class UITextBox : UIElement
             return 0;
 
         var displayText = IsMasked ? new string('*', Text.Length) : Text;
+        var prevWidth = 0;
 
-        for (var i = 1; i <= displayText.Length; i++)
+        for (var i = 0; i < displayText.Length;)
         {
-            var charWidth = TextRenderer.MeasureWidth(displayText[..i]);
-            var prevWidth = i > 1 ? TextRenderer.MeasureWidth(displayText[..(i - 1)]) : 0;
+            // Skip color codes as atomic units — they have zero visual width
+            if (ColorCodesEnabled && TextRenderer.IsColorCode(displayText, i))
+            {
+                i += 3;
 
+                continue;
+            }
+
+            var nextI = i + 1;
+            var charWidth = prevWidth + TextRenderer.MeasureCharWidth(displayText[i]);
             var midpoint = (prevWidth + charWidth) / 2;
 
             if (localX < midpoint)
-                return i - 1;
+                return i;
+
+            prevWidth = charWidth;
+            i = nextI;
         }
 
         return displayText.Length;
     }
 
-    private static int HitTestCursorPosition(int targetPixelX, string lineText)
+    private int HitTestCursorPosition(int targetPixelX, string lineText)
     {
         if ((lineText.Length == 0) || (targetPixelX <= 0))
             return 0;
 
-        for (var i = 1; i <= lineText.Length; i++)
+        var prevWidth = 0;
+
+        for (var i = 0; i < lineText.Length;)
         {
-            var charWidth = TextRenderer.MeasureWidth(lineText[..i]);
-            var prevWidth = i > 1 ? TextRenderer.MeasureWidth(lineText[..(i - 1)]) : 0;
+            // Skip color codes as atomic units
+            if (ColorCodesEnabled && TextRenderer.IsColorCode(lineText, i))
+            {
+                i += 3;
+
+                continue;
+            }
+
+            var nextI = i + 1;
+            var charWidth = prevWidth + TextRenderer.MeasureCharWidth(lineText[i]);
             var midpoint = (prevWidth + charWidth) / 2;
 
             if (targetPixelX < midpoint)
-                return i - 1;
+                return i;
+
+            prevWidth = charWidth;
+            i = nextI;
         }
 
         return lineText.Length;
@@ -805,7 +1070,7 @@ public class UITextBox : UIElement
         if (extendSelection && !HasSelection)
             SelectionAnchor = CursorPosition;
 
-        CursorPosition = Math.Clamp(newPosition, 0, Text.Length);
+        CursorPosition = Math.Clamp(SnapPastColorCode(newPosition), 0, Text.Length);
 
         // When not extending, collapse selection by syncing anchor to new cursor position
         if (!extendSelection)
@@ -861,7 +1126,7 @@ public class UITextBox : UIElement
         var shift = input.IsKeyHeld(Keys.LeftShift) || input.IsKeyHeld(Keys.RightShift);
         var ctrl = input.IsKeyHeld(Keys.LeftControl) || input.IsKeyHeld(Keys.RightControl);
 
-        HandleMouse(input, shift);
+        HandleMouse(gameTime, input, shift);
 
         if (!IsFocused)
             return;

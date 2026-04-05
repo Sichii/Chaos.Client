@@ -28,7 +28,7 @@ public sealed class CompressedHpfFile
     ///     raw entry size for uncompressed files.
     /// </summary>
     public bool IsCompressed
-        => (RawBytes.Length >= 4) && (RawBytes[0] == 0x55) && (RawBytes[1] == 0xAA) && (RawBytes[2] == 0x02) && (RawBytes[3] == 0xFF);
+        => RawBytes is [0x55, 0xAA, 0x02, 0xFF, ..];
 
     private CompressedHpfFile(byte[] rawBytes) => RawBytes = rawBytes;
 

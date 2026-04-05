@@ -20,5 +20,6 @@
     <ItemGroup>
         <PackageReference Include="Chaos.Pathfinding"/>
         <PackageReference Include="NAudio"/>
+        <PackageReference Include="TextCopy"/>
     </ItemGroup>
 </Project>

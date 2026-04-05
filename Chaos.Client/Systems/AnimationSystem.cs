@@ -44,7 +44,7 @@ public static class AnimationSystem
         int? walkFrameOverride = null)
     {
         // Swimming is not a form — use swim animation frame count and normal walk speed on water tiles
-        var swimming = entity.IsOnSwimmingTile && (entity.SwimWalkFrames > 0);
+        var swimming = entity is { IsOnSwimmingTile: true, SwimWalkFrames: > 0 };
 
         var frameCount = swimming ? entity.SwimWalkFrames : walkFrameOverride ?? DEFAULT_WALK_FRAMES;
 

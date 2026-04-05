@@ -465,7 +465,7 @@ public sealed partial class WorldScreen
 
         var frame = spf[0];
 
-        using var image = (spf.Format == SpfFormatType.Palettized) && spf.PrimaryColors is not null
+        using var image = spf is { Format: SpfFormatType.Palettized, PrimaryColors: not null }
             ? Graphics.RenderImage(frame, spf.PrimaryColors)
             : Graphics.RenderImage(frame);
 

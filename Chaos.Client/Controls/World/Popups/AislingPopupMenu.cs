@@ -183,14 +183,14 @@ public sealed class AislingPopupMenu : UIPanel
         var optionStartY = BOX_START_Y + OPTIONS_OFFSET_Y + BOX_HEIGHT;
         var optionEndY = optionStartY + 3 * BOX_HEIGHT;
 
-        if ((localX >= BOX_X) && (localX < (BOX_X + BOX_WIDTH)) && (localY >= optionStartY) && (localY < optionEndY))
+        if (localX is >= BOX_X and < BOX_X + BOX_WIDTH && (localY >= optionStartY) && (localY < optionEndY))
             HoveredIndex = (localY - optionStartY) / BOX_HEIGHT;
         else
             HoveredIndex = -1;
 
         if (input.WasLeftButtonPressed)
         {
-            if ((HoveredIndex >= 0) && (HoveredIndex < 3))
+            if (HoveredIndex is >= 0 and < 3)
             {
                 OptionCallbacks[HoveredIndex]();
                 Hide();

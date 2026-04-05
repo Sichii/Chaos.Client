@@ -192,7 +192,7 @@ public sealed class EntityOverlayManager
         {
             var entity = sortedEntities[i];
 
-            var isMerchant = (entity.Type == ClientEntityType.Creature) && (entity.NameTagStyle == NameTagStyle.NeutralHover);
+            var isMerchant = entity is { Type: ClientEntityType.Creature, NameTagStyle: NameTagStyle.NeutralHover };
 
             if ((entity.Type != ClientEntityType.Aisling) && !isMerchant)
                 continue;
@@ -209,9 +209,9 @@ public sealed class EntityOverlayManager
 
             var nameColor = entity.NameTagStyle switch
             {
-                NameTagStyle.Hostile       => new Color(255, 128, 0),
-                _ when isMerchant          => new Color(123, 166, 247),
-                NameTagStyle.FriendlyHover => new Color(123, 166, 247),
+                NameTagStyle.Hostile       => LegendColors.Red,
+                _ when isMerchant          => LegendColors.CornflowerBlue,
+                NameTagStyle.FriendlyHover => LegendColors.Lime,
                 _                          => TextColors.Default
             };
 

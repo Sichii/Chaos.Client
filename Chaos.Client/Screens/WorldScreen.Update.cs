@@ -232,48 +232,60 @@ public sealed partial class WorldScreen
         }
 
         // Toggle hotkeys — processed before overlay blocks so they work when the toggled panel is the active overlay
-        var toggleCloseHandled = false;
-
         if (!WorldHud.ChatInput.IsFocused && !UITextBox.IsAnyFocused && !NpcSession.Visible)
         {
-            if (input.WasKeyPressed(Keys.Q) && MainOptions.Visible)
+            // Q/W/E/R toggle group — mutual exclusion: opening one closes any other
+            if (input.WasKeyPressed(Keys.Q))
             {
-                SettingsDialog.Hide();
-                MacroMenu.Hide();
-                FriendsList.Hide();
-                MainOptions.SlideClose();
-                toggleCloseHandled = true;
-            } else if (input.WasKeyPressed(Keys.W)
-                       && (BoardList.Visible
-                           || ArticleList.Visible
-                           || ArticleRead.Visible
-                           || ArticleSend.Visible
-                           || MailList.Visible
-                           || MailRead.Visible
-                           || MailSend.Visible))
+                ForceCloseOtherTogglePanels(Keys.Q);
+
+                if (MainOptions.Visible)
+                {
+                    SettingsDialog.Hide();
+                    MacroMenu.Hide();
+                    FriendsList.Hide();
+                    MainOptions.SlideClose();
+                } else
+                    MainOptions.Show();
+
+            } else if (input.WasKeyPressed(Keys.W))
             {
-                if (BoardList.Visible)
-                    BoardList.SlideClose();
+                ForceCloseOtherTogglePanels(Keys.W);
+
+                if (IsAnyBoardPanelVisible())
+                {
+                    if (BoardList.Visible)
+                        BoardList.SlideClose();
+                    else
+                        WorldState.Board.CloseSession();
+                } else
+                    Game.Connection.SendBoardInteraction(BoardRequestType.BoardList);
+
+            } else if (input.WasKeyPressed(Keys.E))
+            {
+                ForceCloseOtherTogglePanels(Keys.E);
+
+                if (WorldList.Visible)
+                    WorldList.SlideClose();
                 else
-                    WorldState.Board.CloseSession();
+                    Game.Connection.RequestWorldList();
 
-                toggleCloseHandled = true;
-            } else if (input.WasKeyPressed(Keys.E) && WorldList.Visible)
+            } else if (input.WasKeyPressed(Keys.R))
             {
-                WorldList.SlideClose();
-                toggleCloseHandled = true;
-            } else if (input.WasKeyPressed(Keys.R) && SocialStatusPicker.Visible)
-            {
-                SocialStatusPicker.Visible = false;
+                ForceCloseOtherTogglePanels(Keys.R);
 
-                if (WorldHud.EmoteButton is not null)
-                    WorldHud.EmoteButton.IsSelected = false;
+                if (SocialStatusPicker.Visible)
+                {
+                    SocialStatusPicker.Visible = false;
 
-                toggleCloseHandled = true;
+                    if (WorldHud.EmoteButton is not null)
+                        WorldHud.EmoteButton.IsSelected = false;
+                } else
+                    ToggleSocialStatusPicker();
+
             } else if (input.WasKeyPressed(Keys.T) && TownMap.Visible)
             {
                 TownMap.Hide();
-                toggleCloseHandled = true;
             }
         }
 
@@ -615,14 +627,6 @@ public sealed partial class WorldScreen
                 WorldHud.ShowTab(shift ? HudTab.ExtendedStats : HudTab.Stats);
             else if (input.WasKeyPressed(Keys.H))
                 WorldHud.ShowTab(HudTab.Tools);
-            else if (!toggleCloseHandled && input.WasKeyPressed(Keys.Q))
-                MainOptions.Show();
-            else if (!toggleCloseHandled && input.WasKeyPressed(Keys.W))
-                Game.Connection.SendBoardInteraction(BoardRequestType.BoardList);
-            else if (!toggleCloseHandled && input.WasKeyPressed(Keys.E))
-                Game.Connection.RequestWorldList();
-            else if (!toggleCloseHandled && input.WasKeyPressed(Keys.R))
-                ToggleSocialStatusPicker();
 
             // Tab — toggle tab map overlay
             if (input.WasKeyPressed(Keys.Tab))

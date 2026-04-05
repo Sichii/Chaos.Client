@@ -88,7 +88,7 @@ public abstract class PanelBase : ExpandablePanel
         GridOffsetX = gridOffsetX;
         NormalVisibleSlots = normalVisibleSlots;
         VisibleSlotCount = normalVisibleSlots;
-        SlotOffset = secondary ? normalVisibleSlots : 0;
+        SlotOffset = secondary ? DEFAULT_VISIBLE_SLOTS : 0;
 
         // Large HUD compact backgrounds (1-row) have extra top padding before the grid
         CompactGridPadding = normalVisibleSlots < DEFAULT_VISIBLE_SLOTS ? 4 : 0;

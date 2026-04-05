@@ -33,7 +33,7 @@ public sealed partial class WorldScreen
 
             // Collect transparent aisling entries (need per-entity compositing for uniform alpha)
             foreach (var entity in sortedEntities)
-                if ((entity.Type == ClientEntityType.Aisling) && entity.IsTransparent)
+                if (entity is { Type: ClientEntityType.Aisling, IsTransparent: true })
                 {
                     if (entity.Appearance is null)
                         continue;
@@ -553,7 +553,7 @@ public sealed partial class WorldScreen
         float tileCenterY)
     {
         // Morphed aislings (creature form) render as creatures — swimming overrides morphs too
-        if (entity.Appearance is null && (entity.SpriteId > 0) && !entity.IsOnSwimmingTile)
+        if (entity.Appearance is null && entity is { SpriteId: > 0, IsOnSwimmingTile: false })
             return DrawCreature(
                 spriteBatch,
                 entity,

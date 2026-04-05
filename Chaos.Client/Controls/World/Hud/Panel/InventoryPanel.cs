@@ -122,14 +122,22 @@ public sealed class InventoryPanel : PanelBase
 
     private void PositionGoldSlot(int gridIndex)
     {
-        // Match the position of the underlying slot — it already has the correct Y from expand shifts
         if (gridIndex < Slots.Length)
         {
             GoldSlot.X = Slots[gridIndex].X;
             GoldSlot.Y = Slots[gridIndex].Y;
+        } else if (Slots.Length > 0)
+        {
+            // Beyond the last real slot (e.g. 60th cell in 5-row expanded with 59 slots)
+            var lastIndex = Slots.Length - 1;
+            var colDelta = (gridIndex % COLUMNS) - (lastIndex % COLUMNS);
+            var rowDelta = (gridIndex / COLUMNS) - (lastIndex / COLUMNS);
+
+            GoldSlot.X = Slots[lastIndex].X + colDelta * CELL_WIDTH;
+            GoldSlot.Y = Slots[lastIndex].Y + rowDelta * CELL_HEIGHT;
         }
 
-        // Hide the real slot underneath the gold bag
+        // Hide the real slot underneath the gold bag (no-op when gold is beyond real slots)
         for (var i = 0; i < Slots.Length; i++)
             if (i < VisibleSlotCount)
                 Slots[i].Visible = i != gridIndex;

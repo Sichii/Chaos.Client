@@ -1,5 +1,6 @@
 #region
 using Chaos.Client.Controls.Components;
+using Chaos.Client.Definitions;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Input;
 #endregion
@@ -71,7 +72,7 @@ public sealed class EulaNoticeControl : PrefabPanel
     {
         if (AgreementTextLabel is not null)
         {
-            AgreementTextLabel.ForegroundColor = Color.White;
+            AgreementTextLabel.ForegroundColor = TextColors.Default;
             AgreementTextLabel.Text = agreementText;
             AgreementTextLabel.Visible = true;
         }

@@ -403,7 +403,7 @@ public sealed class MerchantBrowserPanel : PrefabPanel
         {
             ref readonly var slotData = ref WorldState.Inventory.GetSlot(slot);
 
-            if (slotData.IsOccupied && slotData.Name is not null)
+            if (slotData is { IsOccupied: true, Name: not null })
                 names.Add(slotData.Name);
         }
 

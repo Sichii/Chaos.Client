@@ -181,7 +181,7 @@ public abstract class PrefabPanel : UIPanel
 
         // Single-entry IMAGE lines in control files encode the last frame index.
         // Load all frames (0 through frameIndex inclusive) from the referenced SPF file.
-        if (prefab.Control.Images is { Count: 1 } rawImages && (rawImages[0].FrameIndex > 1))
+        if (prefab.Control.Images is [{ FrameIndex: > 1 } _] rawImages)
         {
             (var imageName, var lastFrameIndex) = rawImages[0];
             var frameCount = lastFrameIndex + 1;

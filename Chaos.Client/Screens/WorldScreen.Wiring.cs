@@ -7,6 +7,7 @@ using Chaos.Client.Controls.World.Popups.Options;
 using Chaos.Client.Extensions;
 using Chaos.Client.Systems;
 using Chaos.DarkAges.Definitions;
+using Microsoft.Xna.Framework.Input;
 #endregion
 
 namespace Chaos.Client.Screens;
@@ -275,6 +276,52 @@ public sealed partial class WorldScreen
             emoteBtn.IsSelected = true;
 
         SocialStatusPicker.Show();
+    }
+
+    private bool IsAnyBoardPanelVisible() =>
+        BoardList.Visible
+        || ArticleList.Visible
+        || ArticleRead.Visible
+        || ArticleSend.Visible
+        || MailList.Visible
+        || MailRead.Visible
+        || MailSend.Visible;
+
+    /// <summary>
+    ///     Force-closes all Q/W/E/R toggle panels except the one identified by <paramref name="except" />.
+    ///     Uses instant hide (no slide animation) and fires the appropriate side effects (button deselect, session close).
+    /// </summary>
+    private void ForceCloseOtherTogglePanels(Keys except)
+    {
+        if (except != Keys.Q && MainOptions.Visible)
+        {
+            SettingsDialog.Hide();
+            MacroMenu.Hide();
+            FriendsList.Hide();
+            MainOptions.Hide();
+
+            if (WorldHud.OptionButton is not null)
+                WorldHud.OptionButton.IsSelected = false;
+        }
+
+        if (except != Keys.W && IsAnyBoardPanelVisible())
+            WorldState.Board.CloseSession();
+
+        if (except != Keys.E && WorldList.Visible)
+        {
+            WorldList.Hide();
+
+            if (WorldHud.UsersButton is not null)
+                WorldHud.UsersButton.IsSelected = false;
+        }
+
+        if (except != Keys.R && SocialStatusPicker.Visible)
+        {
+            SocialStatusPicker.Visible = false;
+
+            if (WorldHud.EmoteButton is not null)
+                WorldHud.EmoteButton.IsSelected = false;
+        }
     }
 
     private void HideAllBoardControls()
@@ -606,7 +653,11 @@ public sealed partial class WorldScreen
             hud.SettingsButton.OnClick += () => SettingsDialog.Show();
 
         if (hud.GroupButton is not null)
-            hud.GroupButton.OnClick += () => GroupPanel.ShowMembers();
+            hud.GroupButton.OnClick += () =>
+            {
+                GroupPanel.ShowMembers();
+                Game.Connection.RequestSelfProfile();
+            };
 
         if (hud.GroupIndicator is not null)
             hud.GroupIndicator.OnClick += () => Game.Connection.ToggleGroup();
