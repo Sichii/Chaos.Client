@@ -405,7 +405,7 @@ public sealed class ChatBubble : UIImage
         pixels[y * stride + x] = color;
     }
 
-    public override void Update(GameTime gameTime, InputBuffer input) => ElapsedMs += (float)gameTime.ElapsedGameTime.TotalMilliseconds;
+    public override void Update(GameTime gameTime) => ElapsedMs += (float)gameTime.ElapsedGameTime.TotalMilliseconds;
 
     private static List<string> WordWrap(string text)
     {

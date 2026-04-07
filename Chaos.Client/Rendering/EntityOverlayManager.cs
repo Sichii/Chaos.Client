@@ -297,32 +297,27 @@ public sealed class EntityOverlayManager
     /// </summary>
     public void Update(
         GameTime gameTime,
-        InputBuffer input,
         Camera camera,
         int mapHeight)
     {
         UpdateChatBubbles(
             gameTime,
-            input,
             camera,
             mapHeight);
 
         UpdateChantOverlays(
             gameTime,
-            input,
             camera,
             mapHeight);
 
         UpdateHealthBars(
             gameTime,
-            input,
             camera,
             mapHeight);
     }
 
     private void UpdateChantOverlays(
         GameTime gameTime,
-        InputBuffer input,
         Camera camera,
         int mapHeight)
     {
@@ -330,8 +325,6 @@ public sealed class EntityOverlayManager
 
         foreach ((var entityId, var overlay) in ChantOverlays)
         {
-            overlay.Update(gameTime, input);
-
             if (overlay.IsExpired)
             {
                 (expired ??= []).Add(entityId);
@@ -374,7 +367,6 @@ public sealed class EntityOverlayManager
 
     private void UpdateChatBubbles(
         GameTime gameTime,
-        InputBuffer input,
         Camera camera,
         int mapHeight)
     {
@@ -382,8 +374,6 @@ public sealed class EntityOverlayManager
 
         foreach ((var entityId, var bubble) in ChatBubbles)
         {
-            bubble.Update(gameTime, input);
-
             if (bubble.IsExpired)
             {
                 (expired ??= []).Add(entityId);
@@ -426,7 +416,6 @@ public sealed class EntityOverlayManager
 
     private void UpdateHealthBars(
         GameTime gameTime,
-        InputBuffer input,
         Camera camera,
         int mapHeight)
     {
@@ -434,8 +423,6 @@ public sealed class EntityOverlayManager
 
         foreach ((var entityId, var bar) in HealthBars)
         {
-            bar.Update(gameTime, input);
-
             if (bar.IsExpired)
             {
                 (expired ??= []).Add(entityId);

@@ -21,6 +21,20 @@ public abstract class UIElement : IDisposable
 
     public bool Enabled { get; set; } = true;
     public int Height { get; set; }
+
+    /// <summary>
+    ///     When false, the element is skipped during hit-testing. Mouse events pass through
+    ///     to whatever is behind it. Default true. Set false for decorative overlays.
+    /// </summary>
+    public bool IsHitTestVisible { get; set; } = true;
+
+    /// <summary>
+    ///     When true on a UIPanel, children are still hit-tested but the panel itself is never
+    ///     returned as a hit target. Clicks that miss all children pass through to siblings
+    ///     behind this panel. Used for full-screen HUD panels with large transparent areas.
+    /// </summary>
+    public bool IsPassThrough { get; set; }
+
     public string Name { get; init; } = string.Empty;
     public int PaddingBottom { get; set; }
     public int PaddingLeft { get; set; }
@@ -243,7 +257,28 @@ public abstract class UIElement : IDisposable
     /// </summary>
     public virtual void ResetInteractionState() { }
 
-    public abstract void Update(GameTime gameTime, InputBuffer input);
+    /// <summary>
+    ///     Advances time-based state: animations, timers, slide positions.
+    ///     Called every frame for all visible elements regardless of input focus.
+    /// </summary>
+    public virtual void Update(GameTime gameTime) { }
+
+    // ── Event Handlers (dispatched by InputDispatcher) ──
+
+    public virtual void OnMouseDown(MouseDownEvent e) { }
+    public virtual void OnMouseUp(MouseUpEvent e) { }
+    public virtual void OnClick(ClickEvent e) { }
+    public virtual void OnDoubleClick(DoubleClickEvent e) { }
+    public virtual void OnMouseMove(MouseMoveEvent e) { }
+    public virtual void OnMouseScroll(MouseScrollEvent e) { }
+    public virtual void OnMouseEnter() { }
+    public virtual void OnMouseLeave() { }
+    public virtual void OnKeyDown(KeyDownEvent e) { }
+    public virtual void OnKeyUp(KeyUpEvent e) { }
+    public virtual void OnTextInput(TextInputEvent e) { }
+    public virtual void OnDragStart(DragStartEvent e) { }
+    public virtual void OnDragMove(DragMoveEvent e) { }
+    public virtual void OnDragDrop(DragDropEvent e) { }
 
     public event Action<bool>? VisibilityChanged;
 }

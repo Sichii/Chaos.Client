@@ -110,8 +110,6 @@ public sealed class GroupBox : UIPanel
         base.Draw(spriteBatch);
     }
 
-    public override void Update(GameTime gameTime, InputBuffer input) { }
-
     /// <summary>
     ///     Updates the displayed text.
     /// </summary>

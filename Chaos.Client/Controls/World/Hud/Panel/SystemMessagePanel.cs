@@ -11,7 +11,7 @@ namespace Chaos.Client.Controls.World.Hud.Panel;
 ///     Message history panel (Shift+F). Displays server message history (same text as the orange bar) in its own tab-sized
 ///     panel. Reads from the shared history list.
 /// </summary>
-public sealed class MessageHistoryPanel : ExpandablePanel
+public sealed class SystemMessagePanel : ExpandablePanel
 {
     private const int GLYPH_HEIGHT = 12;
     private readonly IReadOnlyList<string> History;
@@ -29,7 +29,7 @@ public sealed class MessageHistoryPanel : ExpandablePanel
     private int RenderedScrollOffset = -1;
     private int ScrollOffset;
 
-    public MessageHistoryPanel(Rectangle displayBounds, Rectangle panelBounds, IReadOnlyList<string> history)
+    public SystemMessagePanel(Rectangle displayBounds, Rectangle panelBounds, IReadOnlyList<string> history)
     {
         Name = "MessageHistory";
         NormalDisplayBounds = displayBounds;
@@ -182,12 +182,22 @@ public sealed class MessageHistoryPanel : ExpandablePanel
         RenderedScrollOffset = -1;
     }
 
-    public override void Update(GameTime gameTime, InputBuffer input)
+    public override void OnMouseScroll(MouseScrollEvent e)
+    {
+        if (History.Count > MaxVisibleLines)
+        {
+            ScrollOffset = Math.Clamp(ScrollOffset - e.Delta, 0, History.Count - MaxVisibleLines);
+            ScrollBar.Value = ScrollOffset;
+            e.Handled = true;
+        }
+    }
+
+    public override void Update(GameTime gameTime)
     {
         if (!Visible || !Enabled)
             return;
 
-        base.Update(gameTime, input);
+        base.Update(gameTime);
 
         // Auto-scroll to bottom when new messages arrive
         if (History.Count != LastHistoryCount)
@@ -199,12 +209,6 @@ public sealed class MessageHistoryPanel : ExpandablePanel
             ScrollBar.VisibleItems = MaxVisibleLines;
             ScrollBar.MaxValue = Math.Max(0, History.Count - MaxVisibleLines);
             ScrollBar.Value = 0;
-        }
-
-        if ((input.ScrollDelta != 0) && (History.Count > MaxVisibleLines))
-        {
-            ScrollOffset = Math.Clamp(ScrollOffset - input.ScrollDelta, 0, History.Count - MaxVisibleLines);
-            ScrollBar.Value = ScrollOffset;
         }
 
         RefreshDisplay();

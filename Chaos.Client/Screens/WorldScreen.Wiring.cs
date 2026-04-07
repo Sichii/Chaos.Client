@@ -244,7 +244,7 @@ public sealed partial class WorldScreen
     {
         if (SocialStatusPicker.Visible)
         {
-            SocialStatusPicker.Visible = false;
+            SocialStatusPicker.Hide();
 
             if (WorldHud.EmoteButton is not null)
                 WorldHud.EmoteButton.IsSelected = false;
@@ -296,7 +296,7 @@ public sealed partial class WorldScreen
         if (except != Keys.Q && MainOptions.Visible)
         {
             SettingsDialog.Hide();
-            MacroMenu.Hide();
+            MacrosList.Hide();
             FriendsList.Hide();
             MainOptions.Hide();
 
@@ -317,7 +317,7 @@ public sealed partial class WorldScreen
 
         if (except != Keys.R && SocialStatusPicker.Visible)
         {
-            SocialStatusPicker.Visible = false;
+            SocialStatusPicker.Hide();
 
             if (WorldHud.EmoteButton is not null)
                 WorldHud.EmoteButton.IsSelected = false;
@@ -333,6 +333,23 @@ public sealed partial class WorldScreen
         MailList.Hide();
         MailRead.Hide();
         MailSend.Hide();
+    }
+
+    /// <summary>
+    ///     UIPanel subclass that delegates root-level input events back to WorldScreen.
+    ///     Used as the Root panel so the dispatcher's bubble-up terminates with WorldScreen's handlers.
+    /// </summary>
+    private sealed class WorldRootPanel : UIPanel
+    {
+        private readonly WorldScreen Screen;
+
+        public WorldRootPanel(WorldScreen screen) => Screen = screen;
+
+        public override void OnKeyDown(KeyDownEvent e) => Screen.OnRootKeyDown(e);
+        public override void OnClick(ClickEvent e) => Screen.OnRootClick(e);
+        public override void OnDoubleClick(DoubleClickEvent e) => Screen.OnRootDoubleClick(e);
+        public override void OnDragMove(DragMoveEvent e) => Screen.OnRootDragMove(e);
+        public override void OnDragDrop(DragDropEvent e) => Screen.OnRootDragDrop(e);
     }
 
     private void WireBoardListControl()
@@ -629,15 +646,15 @@ public sealed partial class WorldScreen
     {
         // Layout/expand
         if (hud.ChangeLayoutButton is not null)
-            hud.ChangeLayoutButton.OnClick += SwapHudLayout;
+            hud.ChangeLayoutButton.Clicked += SwapHudLayout;
 
         if (hud.ExpandButton is not null)
-            hud.ExpandButton.OnClick += () => hud.ToggleExpand();
+            hud.ExpandButton.Clicked += () => hud.ToggleExpand();
 
         // Action buttons
         if (hud.OptionButton is not null)
         {
-            hud.OptionButton.OnClick += () =>
+            hud.OptionButton.Clicked += () =>
             {
                 hud.OptionButton!.IsSelected = true;
                 MainOptions.Show();
@@ -647,24 +664,24 @@ public sealed partial class WorldScreen
         }
 
         if (hud.HelpButton is not null)
-            hud.HelpButton.OnClick += () => HotkeyHelp.Show();
+            hud.HelpButton.Clicked += () => HotkeyHelp.Show();
 
         if (hud.SettingsButton is not null)
-            hud.SettingsButton.OnClick += () => SettingsDialog.Show();
+            hud.SettingsButton.Clicked += () => SettingsDialog.Show();
 
         if (hud.GroupButton is not null)
-            hud.GroupButton.OnClick += () =>
+            hud.GroupButton.Clicked += () =>
             {
                 GroupPanel.ShowMembers();
                 Game.Connection.RequestSelfProfile();
             };
 
         if (hud.GroupIndicator is not null)
-            hud.GroupIndicator.OnClick += () => Game.Connection.ToggleGroup();
+            hud.GroupIndicator.Clicked += () => Game.Connection.ToggleGroup();
 
         if (hud.UsersButton is not null)
         {
-            hud.UsersButton.OnClick += () =>
+            hud.UsersButton.Clicked += () =>
             {
                 if (WorldList.Visible)
                 {
@@ -680,9 +697,11 @@ public sealed partial class WorldScreen
             WorldList.OnClose += () => hud.UsersButton.IsSelected = false;
         }
 
+        WorldList.OnWhisperRequested += name => Chat.Focus($"-> {name}: ", TextColors.Whisper);
+
         if (hud.BulletinButton is not null)
         {
-            hud.BulletinButton.OnClick += () =>
+            hud.BulletinButton.Clicked += () =>
             {
                 hud.BulletinButton!.IsSelected = true;
                 Game.Connection.SendBoardInteraction(BoardRequestType.BoardList);
@@ -692,14 +711,14 @@ public sealed partial class WorldScreen
         }
 
         if (hud.LegendButton is not null)
-            hud.LegendButton.OnClick += () =>
+            hud.LegendButton.Clicked += () =>
             {
                 SelfProfileRequested = true;
                 Game.Connection.RequestSelfProfile();
             };
 
         if (hud.TownMapButton is not null)
-            hud.TownMapButton.OnClick += () =>
+            hud.TownMapButton.Clicked += () =>
             {
                 if (TownMap.Visible)
                     TownMap.Hide();
@@ -713,14 +732,14 @@ public sealed partial class WorldScreen
             };
 
         if (hud.EmoteButton is not null)
-            hud.EmoteButton.OnClick += ToggleSocialStatusPicker;
+            hud.EmoteButton.Clicked += ToggleSocialStatusPicker;
 
         if (hud.EmoteButton is not null)
             SocialStatusPicker.OnClosed += () => hud.EmoteButton.IsSelected = false;
 
         if (hud.MailButton is not null)
         {
-            hud.MailButton.OnClick += () =>
+            hud.MailButton.Clicked += () =>
             {
                 hud.MailButton!.IsSelected = true;
                 Game.Connection.SendBoardInteraction(BoardRequestType.BoardList);
@@ -804,7 +823,7 @@ public sealed partial class WorldScreen
     #region Options Dialog Wiring
     private void WireOptionsDialog()
     {
-        MainOptions.OnMacro += () => ToggleSubPanel(MacroMenu);
+        MainOptions.OnMacro += () => ToggleSubPanel(MacrosList);
         MainOptions.OnSettings += () => ToggleSubPanel(SettingsDialog);
         MainOptions.OnFriends += () => ToggleSubPanel(FriendsList);
 
@@ -835,7 +854,7 @@ public sealed partial class WorldScreen
     {
         if (panel.Visible)
             panel.Hide();
-        else if (panel is MacroMenuControl macro)
+        else if (panel is MacrosListControl macro)
             macro.SlideIn();
         else if (panel is SettingsControl settings)
             settings.SlideIn();

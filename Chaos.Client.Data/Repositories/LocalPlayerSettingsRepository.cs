@@ -24,6 +24,8 @@ public sealed class LocalPlayerSettingsRepository
     // ReSharper disable once ConditionIsAlwaysTrueOrFalseAccordingToNullableAPIContract
     public bool IsInitialized => PlayerDirectory is not null;
     public string MacroPath => Path.Combine(PlayerDirectory, MACRO_FILE);
+
+    public string GetFilePath(string fileName) => Path.Combine(PlayerDirectory, fileName);
     public string SkillBookPath => Path.Combine(PlayerDirectory, SKILL_BOOK_FILE);
     public string SpellBookPath => Path.Combine(PlayerDirectory, SPELL_BOOK_FILE);
 

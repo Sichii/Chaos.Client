@@ -1,5 +1,4 @@
 #region
-using Microsoft.Xna.Framework;
 #endregion
 
 namespace Chaos.Client.Controls.World.Hud.Panel.Slots;
@@ -57,16 +56,16 @@ public abstract class AbilitySlotControl : PanelSlot
         }
     }
 
-    public override void Update(GameTime gameTime, InputBuffer input)
+    public override void OnClick(ClickEvent e)
     {
-        if (Visible && Enabled)
+        if (e.Button == MouseButton.Right && NormalTexture is not null)
         {
-            var hovering = ContainsPoint(input.MouseX, input.MouseY);
+            OnRightClick?.Invoke(Slot);
+            e.Handled = true;
 
-            if (input.WasRightButtonPressed && hovering && NormalTexture is not null)
-                OnRightClick?.Invoke(Slot);
+            return;
         }
 
-        base.Update(gameTime, input);
+        base.OnClick(e);
     }
 }

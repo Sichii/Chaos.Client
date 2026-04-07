@@ -80,18 +80,18 @@ public sealed class EventDetailControl : PrefabPanel
         Show();
     }
 
-    public override void Update(GameTime gameTime, InputBuffer input)
+    public override void OnKeyDown(KeyDownEvent e)
     {
-        if (!Visible)
-            return;
-
-        if (input.WasLeftButtonPressed || input.WasRightButtonPressed || input.WasKeyPressed(Keys.Escape))
+        if (e.Key == Keys.Escape)
         {
             Hide();
-
-            return;
+            e.Handled = true;
         }
+    }
 
-        base.Update(gameTime, input);
+    public override void OnClick(ClickEvent e)
+    {
+        Hide();
+        e.Handled = true;
     }
 }

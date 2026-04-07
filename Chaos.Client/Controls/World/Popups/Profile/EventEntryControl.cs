@@ -1,7 +1,6 @@
 #region
 using Chaos.Client.Controls.Components;
 using Chaos.Client.Data.Models;
-using Microsoft.Xna.Framework;
 #endregion
 
 namespace Chaos.Client.Controls.World.Popups.Profile;
@@ -15,14 +14,6 @@ public sealed class EventEntryControl : PrefabPanel
     private readonly UILabel? LevelLabel;
     private readonly UILabel? NameLabel;
     private readonly UIImage? TileImage;
-
-    private bool PressedInside;
-
-    /// <summary>
-    ///     Screen-space clip bounds for click detection. When set, clicks outside this rect are ignored. Used to prevent the
-    ///     partially-visible peek row from accepting clicks in the clipped area.
-    /// </summary>
-    public Rectangle ClickClipBounds { get; set; }
 
     public EventMetadataEntry? Entry { get; private set; }
     public EventState State { get; private set; }
@@ -59,6 +50,15 @@ public sealed class EventEntryControl : PrefabPanel
     /// </summary>
     public event Action<EventMetadataEntry, EventState>? OnClicked;
 
+    public override void OnClick(ClickEvent e)
+    {
+        if (Entry is not null)
+        {
+            OnClicked?.Invoke(Entry, State);
+            e.Handled = true;
+        }
+    }
+
     public void SetEntry(EventMetadataEntry entry, EventState state)
     {
         Entry = entry;
@@ -88,25 +88,4 @@ public sealed class EventEntryControl : PrefabPanel
         Visible = true;
     }
 
-    public override void Update(GameTime gameTime, InputBuffer input)
-    {
-        if (!Visible || !Enabled || Entry is null)
-            return;
-
-        base.Update(gameTime, input);
-
-        var hovering = ContainsPoint(input.MouseX, input.MouseY)
-                       && ((ClickClipBounds == Rectangle.Empty) || ClickClipBounds.Contains(input.MouseX, input.MouseY));
-
-        if (input.WasLeftButtonPressed && hovering)
-            PressedInside = true;
-
-        if (input.WasLeftButtonReleased)
-        {
-            if (PressedInside && hovering)
-                OnClicked?.Invoke(Entry, State);
-
-            PressedInside = false;
-        }
-    }
 }

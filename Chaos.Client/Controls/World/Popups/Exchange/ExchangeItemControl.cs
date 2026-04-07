@@ -20,6 +20,7 @@ public sealed class ExchangeItemControl : UIPanel
 
     public ExchangeItemControl()
     {
+        Width = TEXT_OFFSET_X + 200;
         Height = ICON_SIZE + ICON_PADDING * 2;
         Visible = false;
 

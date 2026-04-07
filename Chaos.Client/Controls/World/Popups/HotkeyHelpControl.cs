@@ -22,13 +22,12 @@ public sealed class HotkeyHelpControl : PrefabPanel
     private readonly Texture2D?[] DetailImages = new Texture2D?[MAX_KEY_GROUPS];
 
     private readonly KeyGroupEntry[] KeyGroups = new KeyGroupEntry[MAX_KEY_GROUPS];
-    private int HoveredIndex = -1;
-
     public HotkeyHelpControl()
         : base("_nhotkem")
     {
         Name = "HotkeyHelp";
         Visible = false;
+        UsesControlStack = true;
 
         // MAIN rect — keyboard diagram position. C## key rects are relative to this.
         var mainRect = GetRect("MAIN");
@@ -45,7 +44,8 @@ public sealed class HotkeyHelpControl : PrefabPanel
                 Y = exRect.Y,
                 Width = exRect.Width,
                 Height = exRect.Height,
-                Visible = false
+                Visible = false,
+                IsHitTestVisible = false
             };
 
             AddChild(DetailDisplay);
@@ -120,7 +120,8 @@ public sealed class HotkeyHelpControl : PrefabPanel
             Width = (int)r.Width,
             Height = (int)r.Height,
             Texture = UiRenderer.Instance!.GetPrefabTexture("_nhotkey", prefab.Control.Name, 0),
-            Visible = false
+            Visible = false,
+            IsHitTestVisible = false
         };
 
         AddChild(image);
@@ -176,58 +177,67 @@ public sealed class HotkeyHelpControl : PrefabPanel
 
     private static Texture2D? TryLoadDetailImage(int index) => UiRenderer.Instance!.GetNationalSpfTexture($"_nhke{index:D2}.spf");
 
-    public override void Update(GameTime gameTime, InputBuffer input)
+    public override void OnKeyDown(KeyDownEvent e)
     {
-        if (!Visible || !Enabled)
-            return;
-
-        // Close on Escape, Enter, or right-click — NOT left-click
-        if (input.WasKeyPressed(Keys.Escape) || input.WasKeyPressed(Keys.F1) || input.WasKeyPressed(Keys.Enter))
+        if (e.Key is Keys.Escape or Keys.F1 or Keys.Enter)
         {
             Hide();
             OnClose?.Invoke();
-
-            return;
+            e.Handled = true;
         }
+    }
 
-        if (input.WasRightButtonPressed)
-        {
-            Hide();
-            OnClose?.Invoke();
+    public override void OnClick(ClickEvent e)
+    {
+        // Consume clicks so they don't pass through to the world
+        e.Handled = true;
+    }
 
+    public override void OnMouseMove(MouseMoveEvent e)
+    {
+        var newIndex = HitTestKeyGroup(e.ScreenX, e.ScreenY);
+
+        if (newIndex == HoveredIndex)
             return;
-        }
 
-        // Hover detection — find which key group the mouse is over
-        var newHovered = HitTestKeyGroup(input.MouseX, input.MouseY);
-
-        if (newHovered != HoveredIndex)
+        // Hide previous key group highlight
+        if (HoveredIndex >= 0)
         {
-            // Unhighlight previous
-            if (HoveredIndex >= 0)
-                SetKeyGroupVisible(HoveredIndex, false);
+            SetKeyGroupVisible(HoveredIndex, false);
 
-            HoveredIndex = newHovered;
-
-            // Highlight new + show detail image
-            if (HoveredIndex >= 0)
-            {
-                SetKeyGroupVisible(HoveredIndex, true);
-
-                if (DetailDisplay is not null)
-                {
-                    DetailDisplay.Texture = DetailImages[HoveredIndex];
-                    DetailDisplay.Visible = true;
-                }
-            } else if (DetailDisplay is not null)
-            {
-                DetailDisplay.Texture = null;
+            if (DetailDisplay is not null)
                 DetailDisplay.Visible = false;
+        }
+
+        HoveredIndex = newIndex;
+
+        // Show new key group highlight and detail image
+        if (HoveredIndex >= 0)
+        {
+            SetKeyGroupVisible(HoveredIndex, true);
+
+            if ((DetailDisplay is not null) && DetailImages[HoveredIndex] is { } detailTex)
+            {
+                DetailDisplay.Texture = detailTex;
+                DetailDisplay.Visible = true;
             }
         }
-
-        base.Update(gameTime, input);
     }
+
+    public override void OnMouseLeave()
+    {
+        if (HoveredIndex >= 0)
+        {
+            SetKeyGroupVisible(HoveredIndex, false);
+
+            if (DetailDisplay is not null)
+                DetailDisplay.Visible = false;
+        }
+
+        HoveredIndex = -1;
+    }
+
+    private int HoveredIndex = -1;
 
     private record struct KeyGroupEntry(UIElement? Primary, UIElement[]? SubElements);
 }

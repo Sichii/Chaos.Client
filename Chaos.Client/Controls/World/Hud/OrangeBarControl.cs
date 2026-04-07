@@ -157,38 +157,32 @@ public sealed class OrangeBarControl : UIPanel
             Lines[slot].Visible = false;
     }
 
-    public override void Update(GameTime gameTime, InputBuffer input)
+    public override void OnMouseDown(MouseDownEvent e)
     {
-        if (PaneBg is null || (WrapBounds == Rectangle.Empty))
+        if (e.Button != MouseButton.Left || PaneBg is null || WrapBounds == Rectangle.Empty)
             return;
 
-        var sx = Parent?.ScreenX ?? 0;
-        var sy = Parent?.ScreenY ?? 0;
+        IsDragging = true;
+        DragMouseStartY = e.ScreenY;
+        ExpandedLines = 0;
+        e.Handled = true;
+    }
 
-        if (!IsDragging && input.WasLeftButtonPressed)
+    public override void OnMouseMove(MouseMoveEvent e)
+    {
+        if (!IsDragging)
+            return;
+
+        var dragPixels = e.ScreenY - DragMouseStartY;
+        ExpandedLines = Math.Clamp(dragPixels / GLYPH_HEIGHT, 0, MAX_EXPAND_LINES - 1);
+    }
+
+    public override void OnMouseUp(MouseUpEvent e)
+    {
+        if (e.Button == MouseButton.Left && IsDragging)
         {
-            var mx = input.MouseX - sx;
-            var my = input.MouseY - sy;
-
-            if (WrapBounds.Contains(mx, my))
-            {
-                IsDragging = true;
-                DragMouseStartY = input.MouseY;
-                ExpandedLines = 0;
-            }
-        }
-
-        if (IsDragging)
-        {
-            if (input.IsLeftButtonHeld)
-            {
-                var dragPixels = input.MouseY - DragMouseStartY;
-                ExpandedLines = Math.Clamp(dragPixels / GLYPH_HEIGHT, 0, MAX_EXPAND_LINES - 1);
-            } else
-            {
-                IsDragging = false;
-                ExpandedLines = 0;
-            }
+            IsDragging = false;
+            ExpandedLines = 0;
         }
     }
 }

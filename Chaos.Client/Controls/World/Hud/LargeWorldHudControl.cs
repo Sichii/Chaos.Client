@@ -6,6 +6,7 @@ using Chaos.Client.Data;
 using Chaos.Client.ViewModel;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
+using Microsoft.Xna.Framework.Input;
 #endregion
 
 namespace Chaos.Client.Controls.World.Hud;
@@ -66,7 +67,6 @@ public sealed class LargeWorldHudControl : PrefabPanel, IWorldHud
     public UIButton? LegendButton { get; }
     public UIButton? MailButton { get; }
     public UIButton? OptionButton { get; }
-    public PromptControl Prompt { get; }
     public UIButton? ScreenshotButton { get; }
     public UIButton? SettingsButton { get; }
     public UIButton? TownMapButton { get; }
@@ -78,6 +78,7 @@ public sealed class LargeWorldHudControl : PrefabPanel, IWorldHud
     {
         Name = "GameHudLarge";
         Visible = false;
+        IsPassThrough = true;
 
         // Viewport rect
         ViewportBounds = GetRect("MAP");
@@ -87,7 +88,6 @@ public sealed class LargeWorldHudControl : PrefabPanel, IWorldHud
 
         // Chat input
         ChatInput = CreateTextBox("SAY", 255)!;
-        ChatInput.IsFocusable = false;
         ChatInput.PaddingLeft = 1;
         ChatInput.PaddingRight = 1;
         ChatInput.PaddingTop = 1;
@@ -98,18 +98,6 @@ public sealed class LargeWorldHudControl : PrefabPanel, IWorldHud
             0,
             0,
             160);
-
-        // Prompt
-        Prompt = new PromptControl
-        {
-            Name = "Prompt",
-            X = ChatInput.X,
-            Y = ChatInput.Y,
-            Width = ChatInput.Width,
-            Height = ChatInput.Height,
-            ZIndex = 1
-        };
-        AddChild(Prompt);
 
         // Inventory area
         InventoryBounds = GetRect("InventoryRect");
@@ -401,7 +389,7 @@ public sealed class LargeWorldHudControl : PrefabPanel, IWorldHud
         RegisterTab(HudTab.Tools, tools, tabRect);
 
         var msgHistoryBounds = GetRect("ChattingRect");
-        var msgHistoryPanel = new MessageHistoryPanel(msgHistoryBounds, tabRect, WorldState.Chat.GetOrangeBarHistory());
+        var msgHistoryPanel = new SystemMessagePanel(msgHistoryBounds, tabRect, WorldState.Chat.GetOrangeBarHistory());
         msgHistoryPanel.ConfigureExpand(chatExpandedTexture, ExpandedChatBounds, tabRect);
         RegisterTab(HudTab.MessageHistory, msgHistoryPanel, tabRect);
 
@@ -419,7 +407,7 @@ public sealed class LargeWorldHudControl : PrefabPanel, IWorldHud
             if (InventoryTabButtons[i] is not null && (i < tabMapping.Length))
             {
                 var tab = tabMapping[i];
-                InventoryTabButtons[i]!.OnClick += () => ShowTab(tab);
+                InventoryTabButtons[i]!.Clicked += () => ShowTab(tab);
             }
 
         ShowTab(HudTab.Inventory);
@@ -429,7 +417,18 @@ public sealed class LargeWorldHudControl : PrefabPanel, IWorldHud
     {
         panel.X = tabRect.X;
         panel.Y = tabRect.Y;
+
+        if (panel.Width == 0)
+            panel.Width = panel.Background?.Width ?? tabRect.Width;
+
+        if (panel.Height == 0)
+            panel.Height = panel.Background?.Height ?? tabRect.Height;
+
         panel.Visible = false;
+
+        if (panel is PanelBase panelBase)
+            panelBase.Tab = tab;
+
         TabPanels[(int)tab] = panel;
         AddChild(panel);
     }
@@ -487,6 +486,15 @@ public sealed class LargeWorldHudControl : PrefabPanel, IWorldHud
         DescriptionLabel?.Text = text ?? string.Empty;
     }
 
+    public override void OnKeyDown(KeyDownEvent e)
+    {
+        if (e.Key == Keys.Escape && ChatInput.IsFocused)
+        {
+            ChatInput.IsFocused = false;
+            e.Handled = true;
+        }
+    }
+
     public bool IsOrangeBarDragging => OrangeBar.IsDragging;
 
     /// <summary>
@@ -527,7 +535,6 @@ public sealed class LargeWorldHudControl : PrefabPanel, IWorldHud
             ExtendedTabFrame.Y += yShift;
 
         ChatInput.Y += yShift;
-        Prompt.Y += yShift;
     }
 
     public void ShowPersistentMessage(string text)

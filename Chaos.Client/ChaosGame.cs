@@ -44,6 +44,12 @@ public sealed class ChaosGame : Game
     public InputBuffer Input { get; private set; } = null!;
 
     /// <summary>
+    ///     Event-driven input dispatcher that produces discrete events from InputBuffer
+    ///     and dispatches them through the element tree via hit-testing and focus routing.
+    /// </summary>
+    public InputDispatcher Dispatcher { get; private set; } = null!;
+
+    /// <summary>
     ///     The screen manager that owns the active screen stack.
     /// </summary>
     public ScreenManager Screens { get; private set; } = null!;
@@ -233,6 +239,7 @@ public sealed class ChaosGame : Game
             SurfaceFormat.Color,
             DepthFormat.Depth24Stencil8);
         Input = new InputBuffer(this);
+        Dispatcher = new InputDispatcher(Input);
         Screens = new ScreenManager(this);
 
         TextureConverter.Device = GraphicsDevice;

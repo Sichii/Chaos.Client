@@ -32,5 +32,4 @@ public class UIImage : UIElement
             Color.White);
     }
 
-    public override void Update(GameTime gameTime, InputBuffer input) { }
 }

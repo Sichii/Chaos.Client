@@ -231,19 +231,23 @@ public sealed class ChatPanel : ExpandablePanel
         LogVersion++;
     }
 
-    public override void Update(GameTime gameTime, InputBuffer input)
+    public override void OnMouseScroll(MouseScrollEvent e)
+    {
+        if (ChatLog.Count > MaxVisibleLines)
+        {
+            ScrollOffset = Math.Clamp(ScrollOffset + e.Delta, 0, ChatLog.Count - MaxVisibleLines);
+            ScrollBar.Value = ScrollOffset;
+            LogVersion++;
+            e.Handled = true;
+        }
+    }
+
+    public override void Update(GameTime gameTime)
     {
         if (!Visible || !Enabled)
             return;
 
-        base.Update(gameTime, input);
-
-        if ((input.ScrollDelta != 0) && (ChatLog.Count > MaxVisibleLines))
-        {
-            ScrollOffset = Math.Clamp(ScrollOffset + input.ScrollDelta, 0, ChatLog.Count - MaxVisibleLines);
-            ScrollBar.Value = ScrollOffset;
-            LogVersion++;
-        }
+        base.Update(gameTime);
 
         RefreshDisplay();
     }

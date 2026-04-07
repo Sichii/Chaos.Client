@@ -39,6 +39,7 @@ public sealed class GroupControl : PrefabPanel
     {
         Name = "Group";
         Visible = false;
+        UsesControlStack = true;
 
         // Position at top-left of screen
         X = 0;
@@ -47,7 +48,7 @@ public sealed class GroupControl : PrefabPanel
         OkButton = CreateButton("BTN_OK");
 
         if (OkButton is not null)
-            OkButton.OnClick += () =>
+            OkButton.Clicked += () =>
             {
                 Hide();
                 OnClose?.Invoke();
@@ -97,7 +98,7 @@ public sealed class GroupControl : PrefabPanel
             // Capture index for the click handler
             var memberIndex = i;
 
-            quitButton.OnClick += () =>
+            quitButton.Clicked += () =>
             {
                 var members = WorldState.Group.Members;
 
@@ -173,7 +174,7 @@ public sealed class GroupControl : PrefabPanel
         }
     }
 
-    public override void Update(GameTime gameTime, InputBuffer input)
+    public override void Update(GameTime gameTime)
     {
         if (!Visible || !Enabled)
             return;
@@ -181,14 +182,16 @@ public sealed class GroupControl : PrefabPanel
         if (Dirty)
             Refresh();
 
-        if (input.WasKeyPressed(Keys.Escape))
+        base.Update(gameTime);
+    }
+
+    public override void OnKeyDown(KeyDownEvent e)
+    {
+        if (e.Key == Keys.Escape)
         {
             Hide();
             OnClose?.Invoke();
-
-            return;
+            e.Handled = true;
         }
-
-        base.Update(gameTime, input);
     }
 }

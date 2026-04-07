@@ -39,6 +39,7 @@ public sealed class AislingPopupMenu : UIPanel
     public AislingPopupMenu()
     {
         Visible = false;
+        UsesControlStack = true;
 
         NameLabel = new UILabel
         {
@@ -134,6 +135,7 @@ public sealed class AislingPopupMenu : UIPanel
 
     public void Hide()
     {
+        InputDispatcher.Instance?.RemoveControl(this);
         Visible = false;
         HoveredIndex = -1;
     }
@@ -168,39 +170,56 @@ public sealed class AislingPopupMenu : UIPanel
             Y = ChaosGame.VIRTUAL_HEIGHT - Height;
 
         HoveredIndex = -1;
+        InputDispatcher.Instance?.PushControl(this);
         Visible = true;
     }
 
-    public override void Update(GameTime gameTime, InputBuffer input)
+    public override void OnKeyDown(KeyDownEvent e)
     {
-        if (!Visible)
-            return;
-
-        var localX = input.MouseX - ScreenX;
-        var localY = input.MouseY - ScreenY;
-
-        // Options start at row 1 (row 0 is the name)
-        var optionStartY = BOX_START_Y + OPTIONS_OFFSET_Y + BOX_HEIGHT;
-        var optionEndY = optionStartY + 3 * BOX_HEIGHT;
-
-        if (localX is >= BOX_X and < BOX_X + BOX_WIDTH && (localY >= optionStartY) && (localY < optionEndY))
-            HoveredIndex = (localY - optionStartY) / BOX_HEIGHT;
-        else
-            HoveredIndex = -1;
-
-        if (input.WasLeftButtonPressed)
+        if (e.Key == Keys.Escape)
         {
-            if (HoveredIndex is >= 0 and < 3)
-            {
-                OptionCallbacks[HoveredIndex]();
-                Hide();
-            } else
-                Hide();
+            Hide();
+            e.Handled = true;
+        }
+    }
+
+    public override void OnMouseMove(MouseMoveEvent e)
+    {
+        var localX = e.ScreenX - ScreenX;
+        var localY = e.ScreenY - ScreenY;
+        var optionsStartY = BOX_START_Y + OPTIONS_OFFSET_Y + BOX_HEIGHT;
+
+        if ((localX >= BOX_X) && (localX < (BOX_X + BOX_WIDTH)) && (localY >= optionsStartY))
+        {
+            var index = (localY - optionsStartY) / BOX_HEIGHT;
+            HoveredIndex = index is >= 0 and < 3 ? index : -1;
+        } else
+            HoveredIndex = -1;
+    }
+
+    public override void OnMouseLeave()
+    {
+        HoveredIndex = -1;
+    }
+
+    public override void OnClick(ClickEvent e)
+    {
+        if (e.Button == MouseButton.Right)
+        {
+            Hide();
+            e.Handled = true;
 
             return;
         }
 
-        if (input.WasRightButtonPressed || input.WasKeyPressed(Keys.Escape))
+        if (HoveredIndex is >= 0 and < 3)
+        {
+            OptionCallbacks[HoveredIndex]();
             Hide();
+        } else
+            Hide();
+
+        e.Handled = true;
     }
+
 }

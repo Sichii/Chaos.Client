@@ -1,5 +1,6 @@
 #region
 using Chaos.Client.Controls.Components;
+using Chaos.Client.Models;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 #endregion
@@ -168,39 +169,87 @@ public class PanelSlot : UIButton
     /// <summary>
     ///     Fired on double-click. Parameter is the 1-based slot number.
     /// </summary>
-    public event Action<byte>? OnDoubleClick;
+    public event Action<byte>? DoubleClicked;
 
     /// <summary>
     ///     Fired when a drag begins on this slot. Parameter is the 1-based slot number.
     /// </summary>
-    public event Action<PanelSlot>? OnDragStart;
+    public event Action<PanelSlot>? DragStarted;
 
-    public override void Update(GameTime gameTime, InputBuffer input)
+    public override void OnMouseDown(MouseDownEvent e)
     {
-        if (!Visible || !Enabled)
+        if (e.Button == MouseButton.Left)
+            DoubleClickFired = false;
+
+        base.OnMouseDown(e);
+    }
+
+    public override void OnClick(ClickEvent e)
+    {
+        if (e.Button == MouseButton.Left)
+            e.Handled = true;
+    }
+
+    public override void OnDoubleClick(DoubleClickEvent e)
+    {
+        if (e.Button == MouseButton.Left && NormalTexture is not null && CooldownPercent <= 0)
+        {
+            DoubleClicked?.Invoke(Slot);
+            DoubleClickFired = true;
+            e.Handled = true;
+        }
+    }
+
+    public override void OnDragStart(DragStartEvent e)
+    {
+        if (NormalTexture is null || CooldownPercent > 0 || DoubleClickFired)
             return;
 
-        var hovering = ContainsPoint(input.MouseX, input.MouseY);
-
-        // Double-click detection — must happen before base.Update consumes the click
-        // Slots on cooldown cannot be activated or dragged
-        if (input.WasLeftButtonPressed && hovering && NormalTexture is not null && (CooldownPercent <= 0))
+        e.Payload = new SlotDragPayload
         {
-            if (input.WasLeftButtonDoubleClicked)
-            {
-                OnDoubleClick?.Invoke(Slot);
-                DoubleClickFired = true;
-            } else
-                DoubleClickFired = false;
+            Source = this,
+            SlotIndex = Slot,
+            SourcePanel = (Parent as PanelBase)?.Tab ?? default
+        };
+
+        DragStarted?.Invoke(this);
+    }
+
+    public override void OnDragMove(DragMoveEvent e)
+    {
+        if (e.Payload is SlotDragPayload payload && payload.Source.Parent == Parent)
+            IsDropTarget = true;
+    }
+
+    public override void OnMouseLeave()
+    {
+        base.OnMouseLeave();
+        IsDropTarget = false;
+        (Parent as PanelBase)?.ForceHoverExit();
+    }
+
+    public override void OnDragDrop(DragDropEvent e)
+    {
+        IsDropTarget = false;
+
+        if (e.Payload is not SlotDragPayload payload)
+            return;
+
+        // Only accept drops from slots within the same parent panel
+        if (Parent is not PanelBase panel || payload.Source.Parent != Parent)
+            return;
+
+        // Dropping on the same slot is a no-op — just end drag
+        if (payload.SlotIndex == Slot)
+        {
+            panel.EndDrag();
+            e.Handled = true;
+
+            return;
         }
 
-        // Drag detection — mouse held and moved away from origin
-        if (input.IsLeftButtonHeld && hovering && !DoubleClickFired && NormalTexture is not null && (CooldownPercent <= 0))
-
-            // Drag starts when the mouse moves while pressed on this slot
-            if (input.WasLeftButtonPressed)
-                OnDragStart?.Invoke(this);
-
-        base.Update(gameTime, input);
+        panel.CompleteDragSwap(Slot);
+        e.Handled = true;
     }
+
 }

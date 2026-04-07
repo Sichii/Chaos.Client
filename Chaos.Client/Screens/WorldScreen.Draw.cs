@@ -240,7 +240,6 @@ public sealed partial class WorldScreen
         // Pass 2: UI overlay — full screen, no transform
         spriteBatch.Begin(samplerState: GlobalSettings.Sampler);
         Root!.Draw(spriteBatch);
-        TownMap.Draw(spriteBatch);
         DrawDragIcon(spriteBatch);
         spriteBatch.End();
     }
@@ -865,7 +864,7 @@ public sealed partial class WorldScreen
         var tileWorld = Camera.TileToWorld(tileX, tileY, MapFile.Height);
         var tileScreen = Camera.WorldToScreen(new Vector2(tileWorld.X, tileWorld.Y));
 
-        var cursorTexture = GetDraggingPanel() is not null ? TileCursorDragTexture : TileCursorTexture;
+        var cursorTexture = Game.Dispatcher.IsDragging ? TileCursorDragTexture : TileCursorTexture;
         spriteBatch.Draw(cursorTexture!, new Vector2((int)tileScreen.X, (int)tileScreen.Y), Color.White);
     }
     #endregion

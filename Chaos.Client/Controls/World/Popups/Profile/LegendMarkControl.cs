@@ -58,5 +58,4 @@ public sealed class LegendMarkControl : UIPanel
         Label.ForegroundColor = color;
     }
 
-    public override void Update(GameTime gameTime, InputBuffer input) { }
 }

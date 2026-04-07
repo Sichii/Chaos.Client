@@ -39,6 +39,7 @@ public sealed class ProfileTextEditorControl : UIPanel
     {
         Name = "ProfileTextEditor";
         Visible = false;
+        UsesControlStack = true;
         IsModal = true;
         Width = TOTAL_WIDTH;
         Height = TOTAL_HEIGHT;
@@ -75,7 +76,7 @@ public sealed class ProfileTextEditorControl : UIPanel
             NormalTexture = okNormalTex,
             PressedTexture = okPressedTex
         };
-        OkButton.OnClick += Confirm;
+        OkButton.Clicked += Confirm;
         AddChild(OkButton);
 
         // Cancel button — bottom-right
@@ -89,7 +90,7 @@ public sealed class ProfileTextEditorControl : UIPanel
             NormalTexture = cancelNormalTex,
             PressedTexture = cancelPressedTex
         };
-        CancelButton.OnClick += Cancel;
+        CancelButton.Clicked += Cancel;
         AddChild(CancelButton);
 
         // Multiline textbox fills the area between top inset and buttons
@@ -132,6 +133,7 @@ public sealed class ProfileTextEditorControl : UIPanel
 
     public void Hide()
     {
+        InputDispatcher.Instance?.RemoveControl(this);
         TextBox.IsFocused = false;
         Visible = false;
     }
@@ -145,21 +147,16 @@ public sealed class ProfileTextEditorControl : UIPanel
         TextBox.ScrollOffset = 0;
         TextBox.IsFocused = true;
         this.CenterOnScreen();
+        InputDispatcher.Instance?.PushControl(this);
         Visible = true;
     }
 
-    public override void Update(GameTime gameTime, InputBuffer input)
+    public override void OnKeyDown(KeyDownEvent e)
     {
-        if (!Visible || !Enabled)
-            return;
-
-        if (input.WasKeyPressed(Keys.Escape))
+        if (e.Key == Keys.Escape)
         {
             Cancel();
-
-            return;
+            e.Handled = true;
         }
-
-        base.Update(gameTime, input);
     }
 }

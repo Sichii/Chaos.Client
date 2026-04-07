@@ -1,0 +1,636 @@
+#region
+using Chaos.Client.Controls.Components;
+using Microsoft.Xna.Framework;
+using Microsoft.Xna.Framework.Input;
+#endregion
+
+namespace Chaos.Client;
+
+public sealed class InputDispatcher
+{
+    private const float DOUBLE_CLICK_MS = 300f;
+    private const int DRAG_THRESHOLD_SQ = 16; // 4px squared
+
+    private readonly InputBuffer Input;
+
+    // Control stack — ordered list of panels that participate in keyboard dispatch.
+    // Last element is the "top" (active keyboard target).
+    private readonly List<UIPanel> ControlStack = [];
+
+    // Explicit focus — the single element (typically a UITextBox) that receives
+    // keyboard events before the control stack. Set via TextBoxFocusGained.
+    private UIElement? ExplicitFocusElement;
+
+    // Hover state
+    private UIElement? HoveredElement;
+
+    // Mouse capture state
+    private UIElement? CapturedElement;
+    private Point MouseDownPosition;
+    private MouseButton MouseDownButton;
+
+    // Click synthesis
+    private UIElement? LastClickTarget;
+    private float LastClickTime;
+
+    // Drag state
+    private bool DragActive;
+    private object? DragPayload;
+
+    // Previous mouse position for delta
+    private int PreviousMouseX;
+    private int PreviousMouseY;
+
+    // Pooled event instances — reused each frame to avoid per-frame allocations.
+    // Safe because dispatch is synchronous (event is fully consumed before the next dispatch).
+    private readonly MouseDownEvent MouseDown = new();
+    private readonly MouseUpEvent MouseUp = new();
+    private readonly ClickEvent Click = new();
+    private readonly DoubleClickEvent DoubleClick = new();
+    private readonly MouseMoveEvent MouseMove = new();
+    private readonly MouseScrollEvent MouseScroll = new();
+    private readonly KeyDownEvent KeyDown = new();
+    private readonly KeyUpEvent KeyUp = new();
+    private readonly TextInputEvent TextInput = new();
+    private readonly DragStartEvent DragStart = new();
+    private readonly DragMoveEvent DragMove = new();
+    private readonly DragDropEvent DragDrop = new();
+
+    /// <summary>
+    ///     Singleton accessor for use by UI controls that need to push/remove themselves
+    ///     from the control stack (e.g. PrefabPanel.Show/Hide).
+    /// </summary>
+    public static InputDispatcher? Instance { get; private set; }
+
+    public InputDispatcher(InputBuffer input)
+    {
+        Input = input;
+        Instance = this;
+        UITextBox.TextBoxFocusGained += OnTextBoxFocusGained;
+    }
+
+    /// <summary>
+    ///     Bridges UITextBox.IsFocused -> dispatcher explicit focus. When any textbox gains internal
+    ///     focus (Tab switch, programmatic set, etc.), automatically route keyboard events to it.
+    ///     No visibility check here — the two-phase dispatch handles stale focus (clears it if the
+    ///     element is not effectively visible when dispatch runs). This allows Show() methods to
+    ///     set textbox focus before calling base.Show() without losing the focus claim.
+    /// </summary>
+    private void OnTextBoxFocusGained(UITextBox textBox) => SetExplicitFocus(textBox);
+
+    // ── Explicit Focus ──
+
+    /// <summary>
+    ///     Current explicit focus target (typically a UITextBox). When set, keyboard events
+    ///     are delivered to this element first (Phase 1) before the control stack (Phase 2).
+    /// </summary>
+    public UIElement? ExplicitFocus => ExplicitFocusElement;
+
+    /// <summary>
+    ///     True when a drag operation is in progress.
+    /// </summary>
+    public bool IsDragging => DragActive;
+
+    /// <summary>
+    ///     The active drag payload, or null.
+    /// </summary>
+    public object? ActiveDragPayload => DragPayload;
+
+    /// <summary>
+    ///     Sets explicit focus to the specified element. Pass null to clear.
+    /// </summary>
+    public void SetExplicitFocus(UIElement? element) => ExplicitFocusElement = element;
+
+    /// <summary>
+    ///     Clears explicit focus.
+    /// </summary>
+    public void ClearExplicitFocus() => SetExplicitFocus(null);
+
+    // ── Control Stack ──
+
+    /// <summary>
+    ///     Pushes a panel onto the control stack. Idempotent — if already present, removes
+    ///     and re-adds to the top. The topmost panel receives keyboard events via Phase 2
+    ///     when explicit focus doesn't handle them.
+    /// </summary>
+    public void PushControl(UIPanel panel)
+    {
+        ControlStack.Remove(panel);
+        ControlStack.Add(panel);
+    }
+
+    /// <summary>
+    ///     Removes a panel from the control stack. If the removed panel contains the
+    ///     explicitly focused element, clears explicit focus.
+    /// </summary>
+    public void RemoveControl(UIPanel panel)
+    {
+        ControlStack.Remove(panel);
+
+        if (ExplicitFocusElement is not null && IsDescendantOf(panel, ExplicitFocusElement))
+            ClearExplicitFocus();
+    }
+
+    /// <summary>
+    ///     The topmost panel on the control stack, or null if the stack is empty.
+    /// </summary>
+    public UIPanel? TopControl => ControlStack.Count > 0 ? ControlStack[^1] : null;
+
+    /// <summary>
+    ///     Number of panels on the control stack.
+    /// </summary>
+    public int ControlStackCount => ControlStack.Count;
+
+    /// <summary>
+    ///     Resets all dispatcher state. Called by ScreenManager.Switch to prevent stale
+    ///     elements from persisting across screen transitions.
+    /// </summary>
+    public void Clear()
+    {
+        ControlStack.Clear();
+        ClearExplicitFocus();
+        CapturedElement = null;
+
+        DragActive = false;
+        DragPayload = null;
+        HoveredElement = null;
+    }
+
+    // ── Main Per-Frame Entry Point ──
+
+    /// <summary>
+    ///     Main per-frame entry point. Reads buffered input, produces events, dispatches them.
+    /// </summary>
+    public void ProcessInput(UIPanel root, GameTime gameTime)
+    {
+        var totalMs = (float)gameTime.TotalGameTime.TotalMilliseconds;
+        var mouseX = Input.MouseX;
+        var mouseY = Input.MouseY;
+        var modifiers = GetModifiers();
+
+        // Mouse blocking: when a textbox has explicit focus, restrict mouse events
+        // to the panel containing the focused textbox. Clicks outside are consumed.
+        var mouseBlocked = false;
+
+        if (ExplicitFocusElement is not null)
+        {
+            var containingPanel = FindContainingStackEntry(ExplicitFocusElement) ?? ExplicitFocusElement.Parent;
+
+            if (containingPanel is not null && !containingPanel.ContainsPoint(mouseX, mouseY))
+                mouseBlocked = true;
+        }
+
+        if (!mouseBlocked)
+        {
+            // ── Mouse position changed -> MouseMove + hover tracking ──
+            if ((mouseX != PreviousMouseX) || (mouseY != PreviousMouseY))
+            {
+                var deltaX = mouseX - PreviousMouseX;
+                var deltaY = mouseY - PreviousMouseY;
+                PreviousMouseX = mouseX;
+                PreviousMouseY = mouseY;
+
+                // Hit-test once for hover tracking, drag-move, and free-movement dispatch
+                var hitUnderCursor = HitTest(root, mouseX, mouseY);
+
+                if (CapturedElement is not null)
+                {
+                    // Route MouseMove to captured element (for scrollbar drag, text selection, etc.)
+                    MouseMove.Reset();
+                    MouseMove.ScreenX = mouseX;
+                    MouseMove.ScreenY = mouseY;
+                    MouseMove.DeltaX = deltaX;
+                    MouseMove.DeltaY = deltaY;
+                    MouseMove.Modifiers = modifiers;
+                    MouseMove.Target = CapturedElement;
+                    CapturedElement.OnMouseMove(MouseMove);
+
+                    // Check drag threshold
+                    if (!DragActive)
+                    {
+                        var dx = mouseX - MouseDownPosition.X;
+                        var dy = mouseY - MouseDownPosition.Y;
+
+                        if (((dx * dx) + (dy * dy)) >= DRAG_THRESHOLD_SQ)
+                        {
+                            DragStart.Reset();
+                            DragStart.ScreenX = mouseX;
+                            DragStart.ScreenY = mouseY;
+                            DragStart.Button = MouseDownButton;
+                            DragStart.Source = CapturedElement;
+                            DragStart.Target = CapturedElement;
+                            CapturedElement.OnDragStart(DragStart);
+
+                            if (DragStart.Payload is not null)
+                            {
+                                DragActive = true;
+                                DragPayload = DragStart.Payload;
+                            }
+                        }
+                    }
+
+                    // DragMove fires on element under cursor (hit-tested, not captured)
+                    if (DragActive)
+                    {
+                        DragMove.Reset();
+                        DragMove.ScreenX = mouseX;
+                        DragMove.ScreenY = mouseY;
+                        DragMove.Button = MouseDownButton;
+                        DragMove.Payload = DragPayload;
+                        DispatchBubble(hitUnderCursor ?? root, DragMove);
+                    }
+                } else
+                {
+                    // No capture — dispatch MouseMove to the hit-tested element (for hover effects)
+                    MouseMove.Reset();
+                    MouseMove.ScreenX = mouseX;
+                    MouseMove.ScreenY = mouseY;
+                    MouseMove.DeltaX = deltaX;
+                    MouseMove.DeltaY = deltaY;
+                    MouseMove.Modifiers = modifiers;
+                    DispatchBubble(hitUnderCursor ?? root, MouseMove);
+                }
+
+                // Hover tracking — reuse cached hit-test result
+                var newHover = hitUnderCursor;
+
+                if (newHover != HoveredElement)
+                {
+                    HoveredElement?.OnMouseLeave();
+                    HoveredElement = newHover;
+                    HoveredElement?.OnMouseEnter();
+                }
+            }
+
+            // ── Mouse scroll ──
+            var scrollDelta = Input.ScrollDelta;
+
+            if (scrollDelta != 0)
+            {
+                var scrollTarget = HitTest(root, mouseX, mouseY);
+
+                MouseScroll.Reset();
+                MouseScroll.ScreenX = mouseX;
+                MouseScroll.ScreenY = mouseY;
+                MouseScroll.Delta = scrollDelta;
+                MouseScroll.Modifiers = modifiers;
+                DispatchBubble(scrollTarget ?? root, MouseScroll);
+            }
+
+            // ── Mouse buttons ──
+            ProcessMouseButton(root, mouseX, mouseY, totalMs, modifiers, MouseButton.Left, Input.WasLeftButtonPressed, Input.WasLeftButtonReleased);
+            ProcessMouseButton(root, mouseX, mouseY, totalMs, modifiers, MouseButton.Right, Input.WasRightButtonPressed, Input.WasRightButtonReleased);
+        } else
+        {
+            // Mouse is blocked — still track position for delta calculation next frame
+            PreviousMouseX = mouseX;
+            PreviousMouseY = mouseY;
+        }
+
+        // ── Keyboard (always processed, never blocked by mouse blocking) ──
+        foreach (var key in Input.FramePresses)
+        {
+            KeyDown.Reset();
+            KeyDown.Key = key;
+            KeyDown.Modifiers = modifiers;
+            DispatchKeyboardEvent(root, KeyDown);
+        }
+
+        foreach (var key in Input.FrameReleases)
+        {
+            KeyUp.Reset();
+            KeyUp.Key = key;
+            KeyUp.Modifiers = modifiers;
+            DispatchKeyboardEvent(root, KeyUp);
+        }
+
+        // ── Text input ──
+        foreach (var c in Input.TextInput)
+        {
+            TextInput.Reset();
+            TextInput.Character = c;
+            DispatchKeyboardEvent(root, TextInput);
+        }
+    }
+
+    private void ProcessMouseButton(
+        UIPanel root,
+        int mouseX,
+        int mouseY,
+        float totalMs,
+        KeyModifiers modifiers,
+        MouseButton button,
+        bool wasPressed,
+        bool wasReleased)
+    {
+        if (wasPressed)
+        {
+            var target = HitTest(root, mouseX, mouseY) ?? root;
+
+            // Set capture
+            CapturedElement = target;
+
+            MouseDownPosition = new Point(mouseX, mouseY);
+            MouseDownButton = button;
+
+            MouseDown.Reset();
+            MouseDown.ScreenX = mouseX;
+            MouseDown.ScreenY = mouseY;
+            MouseDown.Button = button;
+            MouseDown.Modifiers = modifiers;
+            DispatchBubble(target, MouseDown);
+        }
+
+        if (wasReleased)
+        {
+            var wasDragging = DragActive;
+
+            // Drag drop
+            if (DragActive && (button == MouseDownButton))
+            {
+                var dropTarget = HitTest(root, mouseX, mouseY);
+
+                DragDrop.Reset();
+                DragDrop.ScreenX = mouseX;
+                DragDrop.ScreenY = mouseY;
+                DragDrop.Button = button;
+                DragDrop.Payload = DragPayload;
+                DragDrop.DropTarget = dropTarget;
+                DispatchBubble(dropTarget ?? root, DragDrop);
+
+                DragActive = false;
+                DragPayload = null;
+
+            }
+
+            // MouseUp routes to captured element
+            var upTarget = CapturedElement ?? HitTest(root, mouseX, mouseY) ?? root;
+
+            MouseUp.Reset();
+            MouseUp.ScreenX = mouseX;
+            MouseUp.ScreenY = mouseY;
+            MouseUp.Button = button;
+            MouseUp.Modifiers = modifiers;
+            DispatchBubble(upTarget, MouseUp);
+
+            // Click synthesis — cursor must still be within captured element's bounds, and no drag occurred
+            if ((CapturedElement is not null) && !wasDragging && CapturedElement.ContainsPoint(mouseX, mouseY))
+            {
+                Click.Reset();
+                Click.ScreenX = mouseX;
+                Click.ScreenY = mouseY;
+                Click.Button = button;
+                Click.Modifiers = modifiers;
+                DispatchBubble(CapturedElement, Click);
+
+                // DoubleClick synthesis
+                if ((CapturedElement == LastClickTarget) && ((totalMs - LastClickTime) < DOUBLE_CLICK_MS))
+                {
+                    DoubleClick.Reset();
+                    DoubleClick.ScreenX = mouseX;
+                    DoubleClick.ScreenY = mouseY;
+                    DoubleClick.Button = button;
+                    DoubleClick.Modifiers = modifiers;
+                    DispatchBubble(CapturedElement, DoubleClick);
+                    LastClickTarget = null;
+                    LastClickTime = 0;
+                } else
+                {
+                    LastClickTarget = CapturedElement;
+                    LastClickTime = totalMs;
+                }
+            }
+
+            // Release capture
+            CapturedElement = null;
+    
+        }
+    }
+
+    // ── Hit-Test ──
+
+    /// <summary>
+    ///     Walks the element tree top-down, deepest-child-first, highest-ZIndex-first.
+    ///     Returns the deepest visible, enabled, hit-test-visible element under the cursor, or null.
+    /// </summary>
+    public static UIElement? HitTest(UIPanel panel, int screenX, int screenY)
+    {
+        if (!panel.Visible || !panel.Enabled || !panel.IsHitTestVisible)
+            return null;
+
+        // Ensure children are sorted before hit-testing — ProcessInput runs before Update,
+        // so the sort from Update/Draw may not have run yet this frame.
+        panel.EnsureChildOrder();
+
+        // Children are sorted by ZIndex ascending — iterate in reverse for highest-first
+        var children = panel.Children;
+
+        for (var i = children.Count - 1; i >= 0; i--)
+        {
+            var child = children[i];
+
+            if (!child.Visible || !child.Enabled || !child.IsHitTestVisible)
+                continue;
+
+            if (child is UIPanel childPanel)
+            {
+                // Skip panels that don't contain the cursor — children don't extend beyond parent bounds
+                if (!childPanel.ContainsPoint(screenX, screenY))
+                    continue;
+
+                var hit = HitTest(childPanel, screenX, screenY);
+
+                if (hit is not null)
+                    return hit;
+            } else if (child.ContainsPoint(screenX, screenY))
+                return child;
+        }
+
+        // Check the panel itself — pass-through panels only match children, never themselves
+        if (!panel.IsPassThrough && panel.ContainsPoint(screenX, screenY))
+            return panel;
+
+        return null;
+    }
+
+    // ── Dispatch ──
+
+    private static void DispatchBubble(UIElement target, InputEvent e)
+    {
+        e.Target = target;
+        var current = target;
+
+        while (current is not null)
+        {
+            DispatchSingle(current, e);
+
+            if (e.Handled)
+                return;
+
+            current = current.Parent;
+        }
+    }
+
+    /// <summary>
+    ///     Two-phase keyboard dispatch. Replaces the old DispatchToFocusOrRoot.
+    ///     Phase 1: If ExplicitFocus is set and visible, deliver to it only (no bubbling).
+    ///              If handled, stop. If not handled, fall through to Phase 2.
+    ///     Phase 2: Target = TopControl or root. DispatchBubble with normal parent bubbling.
+    /// </summary>
+    private void DispatchKeyboardEvent(UIPanel root, InputEvent e)
+    {
+        // Phase 1: Explicit focus (single target, no bubbling)
+        if (ExplicitFocusElement is not null && IsEffectivelyVisible(ExplicitFocusElement))
+        {
+            DispatchSingle(ExplicitFocusElement, e);
+
+            if (e.Handled)
+                return;
+
+            // Phase 1.5: If the focused element is not a panel, bubble to its immediate
+            // parent panel. This lets parent controls handle keys their children don't
+            // (e.g. DialogTextEntryPanel closes on Escape, chat panel unfocuses on Escape).
+            if (ExplicitFocusElement is not UIPanel && ExplicitFocusElement!.Parent is { } parentPanel)
+            {
+                DispatchSingle(parentPanel, e);
+
+                if (e.Handled)
+                    return;
+            }
+        } else if (ExplicitFocusElement is not null)
+        {
+            // Explicit focus is no longer visible — clear it
+            ClearExplicitFocus();
+        }
+
+        // Phase 2: Stack dispatch with bubbling
+        var target = TopControl ?? root;
+        DispatchBubble(target, e);
+    }
+
+    private static bool IsEffectivelyVisible(UIElement element)
+    {
+        var current = element;
+
+        while (current is not null)
+        {
+            if (!current.Visible)
+                return false;
+
+            current = current.Parent;
+        }
+
+        return true;
+    }
+
+    private static void DispatchSingle(UIElement element, InputEvent e)
+    {
+        switch (e)
+        {
+            case MouseDownEvent md:
+                element.OnMouseDown(md);
+
+                break;
+            case MouseUpEvent mu:
+                element.OnMouseUp(mu);
+
+                break;
+            case ClickEvent click:
+                element.OnClick(click);
+
+                break;
+            case DoubleClickEvent dbl:
+                element.OnDoubleClick(dbl);
+
+                break;
+            case MouseMoveEvent move:
+                element.OnMouseMove(move);
+
+                break;
+            case MouseScrollEvent scroll:
+                element.OnMouseScroll(scroll);
+
+                break;
+            case KeyDownEvent kd:
+                element.OnKeyDown(kd);
+
+                break;
+            case KeyUpEvent ku:
+                element.OnKeyUp(ku);
+
+                break;
+            case TextInputEvent ti:
+                element.OnTextInput(ti);
+
+                break;
+            case DragStartEvent ds:
+                element.OnDragStart(ds);
+
+                break;
+            case DragMoveEvent dm:
+                element.OnDragMove(dm);
+
+                break;
+            case DragDropEvent dd:
+                element.OnDragDrop(dd);
+
+                break;
+        }
+    }
+
+    // ── Helpers ──
+
+    private KeyModifiers GetModifiers()
+    {
+        var mods = KeyModifiers.None;
+
+        if (Input.IsKeyHeld(Keys.LeftShift) || Input.IsKeyHeld(Keys.RightShift))
+            mods |= KeyModifiers.Shift;
+
+        if (Input.IsKeyHeld(Keys.LeftControl) || Input.IsKeyHeld(Keys.RightControl))
+            mods |= KeyModifiers.Ctrl;
+
+        if (Input.IsKeyHeld(Keys.LeftAlt) || Input.IsKeyHeld(Keys.RightAlt))
+            mods |= KeyModifiers.Alt;
+
+        return mods;
+    }
+
+    /// <summary>
+    ///     True if <paramref name="descendant" /> is a child, grandchild, etc. of <paramref name="ancestor" />.
+    ///     Unlike the old IsDescendantOrSelf, this does NOT return true when descendant == ancestor.
+    /// </summary>
+    private static bool IsDescendantOf(UIPanel ancestor, UIElement descendant)
+    {
+        var current = descendant.Parent;
+
+        while (current is not null)
+        {
+            if (current == ancestor)
+                return true;
+
+            current = current.Parent;
+        }
+
+        return false;
+    }
+
+    /// <summary>
+    ///     Walks up from the element to find the nearest ancestor that is on the control stack.
+    /// </summary>
+    private UIPanel? FindContainingStackEntry(UIElement element)
+    {
+        var current = element.Parent;
+
+        while (current is not null)
+        {
+            if (ControlStack.Contains(current))
+                return current;
+
+            current = current.Parent;
+        }
+
+        return null;
+    }
+
+}

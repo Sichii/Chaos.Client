@@ -1,13 +1,12 @@
 #region
 using Chaos.Client.Controls.Components;
-using Chaos.Client.Definitions;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Input;
 #endregion
 
 namespace Chaos.Client.Controls.LobbyLogin;
 
-public sealed class EulaNoticeControl : PrefabPanel
+public sealed class LoginNoticeControl : PrefabPanel
 {
     private readonly UILabel? AgreementTextLabel;
     private readonly int TextAreaHeight;
@@ -16,21 +15,22 @@ public sealed class EulaNoticeControl : PrefabPanel
 
     public UIButton? OkButton { get; }
 
-    public EulaNoticeControl()
+    public LoginNoticeControl()
         : base("_nagree")
     {
         Name = "AgreePanel";
         Visible = false;
+        UsesControlStack = true;
 
         // Buttons — _nagree is one of the few prefabs with actual type 3 controls
         OkButton = CreateButton("OK");
         CancelButton = CreateButton("CANCEL");
 
         if (OkButton is not null)
-            OkButton.OnClick += () => OnOk?.Invoke();
+            OkButton.Clicked += () => OnOk?.Invoke();
 
         if (CancelButton is not null)
-            CancelButton.OnClick += () => OnCancel?.Invoke();
+            CancelButton.Clicked += () => OnCancel?.Invoke();
 
         // Agreement text display region — type 7, 0 images
         var textRect = GetRect("AGREEMENTTEXT");
@@ -59,9 +59,8 @@ public sealed class EulaNoticeControl : PrefabPanel
 
     public override void Hide()
     {
-        Visible = false;
-
         AgreementTextLabel?.Visible = false;
+        base.Hide();
     }
 
     public event Action? OnCancel;
@@ -77,20 +76,24 @@ public sealed class EulaNoticeControl : PrefabPanel
             AgreementTextLabel.Visible = true;
         }
 
-        Visible = true;
+        base.Show();
     }
 
-    public override void Update(GameTime gameTime, InputBuffer input)
+    public override void OnKeyDown(KeyDownEvent e)
     {
-        if (!Visible || !Enabled)
-            return;
+        switch (e.Key)
+        {
+            case Keys.Enter:
+                OkButton?.PerformClick();
+                e.Handled = true;
 
-        if (input.WasKeyPressed(Keys.Enter))
-            OkButton?.PerformClick();
+                break;
 
-        if (input.WasKeyPressed(Keys.Escape))
-            CancelButton?.PerformClick();
+            case Keys.Escape:
+                // Intentionally blocked — Escape is a no-op during EULA display
+                e.Handled = true;
 
-        base.Update(gameTime, input);
+                break;
+        }
     }
 }

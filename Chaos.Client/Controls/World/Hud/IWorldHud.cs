@@ -34,7 +34,6 @@ public interface IWorldHud
     UIButton? MailButton { get; }
     UIButton? OptionButton { get; }
     string PlayerName { get; }
-    PromptControl Prompt { get; }
     UIButton? ScreenshotButton { get; }
     UIButton? SettingsButton { get; }
     SkillBookPanel SkillBook { get; }

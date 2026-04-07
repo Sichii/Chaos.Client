@@ -49,6 +49,7 @@ public sealed class TownMap : UIPanel
         X = (640 - FRAME_WIDTH) / 2;
         Y = (480 - FRAME_HEIGHT) / 2;
         Visible = false;
+        UsesControlStack = true;
         ZIndex = 2;
     }
 
@@ -139,6 +140,7 @@ public sealed class TownMap : UIPanel
         MarkerFrame = 0;
         MarkerTimer = 0;
         MouseDownReceived = false;
+        InputDispatcher.Instance?.PushControl(this);
         Visible = true;
     }
 
@@ -147,6 +149,7 @@ public sealed class TownMap : UIPanel
     /// </summary>
     public void Hide()
     {
+        InputDispatcher.Instance?.RemoveControl(this);
         Visible = false;
         ClearLayers();
     }
@@ -158,30 +161,34 @@ public sealed class TownMap : UIPanel
         base.Dispose();
     }
 
-    /// <inheritdoc />
-    public override void Update(GameTime gameTime, InputBuffer input)
+    public override void OnKeyDown(KeyDownEvent e)
+    {
+        if (e.Key is Keys.Escape or Keys.T)
+        {
+            Hide();
+            e.Handled = true;
+        }
+    }
+
+    public override void OnMouseDown(MouseDownEvent e)
+    {
+        MouseDownReceived = true;
+        e.Handled = true;
+    }
+
+    public override void OnMouseUp(MouseUpEvent e)
+    {
+        if (MouseDownReceived)
+        {
+            Hide();
+            e.Handled = true;
+        }
+    }
+
+    public override void Update(GameTime gameTime)
     {
         if (!Visible)
             return;
-
-        // Dismiss on Escape or T
-        if (input.WasKeyPressed(Keys.Escape) || input.WasKeyPressed(Keys.T))
-        {
-            Hide();
-
-            return;
-        }
-
-        // Dismiss on mouse click (down then up, matching original client)
-        if (input.WasLeftButtonPressed)
-            MouseDownReceived = true;
-
-        if (MouseDownReceived && input.WasLeftButtonReleased)
-        {
-            Hide();
-
-            return;
-        }
 
         // Update marker position to follow player
         var player = WorldState.GetPlayerEntity();
@@ -200,6 +207,8 @@ public sealed class TownMap : UIPanel
             if (MarkerImage is not null && MarkerFrames is not null)
                 MarkerImage.Texture = MarkerFrames[MarkerFrame];
         }
+
+        base.Update(gameTime);
     }
 
     #region Asset Loading

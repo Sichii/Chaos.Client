@@ -39,7 +39,6 @@ public abstract class PanelBase : ExpandablePanel
 
     // Expand state (slot-specific)
     private int ExpandedVisibleSlots;
-    private PanelSlot? LastDropTarget;
 
     // Hover tracking
     private PanelSlot? LastHoveredSlot;
@@ -53,6 +52,11 @@ public abstract class PanelBase : ExpandablePanel
     ///     True when the user is actively dragging a slot icon.
     /// </summary>
     public bool IsDragging { get; private set; }
+
+    /// <summary>
+    ///     The HUD tab this panel belongs to. Set by the HUD control during tab registration.
+    /// </summary>
+    public HudTab Tab { get; set; }
 
     /// <summary>
     ///     The number of currently visible grid slots.
@@ -106,6 +110,13 @@ public abstract class PanelBase : ExpandablePanel
 
         SlotNumberOverlay ??= UiRenderer.Instance!.GetSpfTexture("_ninvn.spf");
 
+        // Set panel dimensions from background or grid bounds so hit-testing works
+        if (Background is not null)
+        {
+            Width = Background.Width;
+            Height = Background.Height;
+        }
+
         // Create slot controls for all possible grid cells (visibility controlled per slot)
         var totalSlots = Math.Min(maxSlots - SlotOffset, maxSlots);
         Slots = new PanelSlot[totalSlots];
@@ -128,8 +139,8 @@ public abstract class PanelBase : ExpandablePanel
             slot.Height = ICON_SIZE;
             slot.Visible = i < normalVisibleSlots;
 
-            slot.OnDoubleClick += s => OnSlotClicked?.Invoke(s);
-            slot.OnDragStart += OnDragStarted;
+            slot.DoubleClicked += s => OnSlotClicked?.Invoke(s);
+            slot.DragStarted += OnDragStarted;
 
             Slots[i] = slot;
             AddChild(slot);
@@ -190,16 +201,6 @@ public abstract class PanelBase : ExpandablePanel
         }
     }
 
-    protected virtual PanelSlot? FindHoveredSlot(InputBuffer input)
-    {
-        for (var i = 0; (i < VisibleSlotCount) && (i < Slots.Length); i++)
-            if (Slots[i]
-                .ContainsPoint(input.MouseX, input.MouseY))
-                return Slots[i];
-
-        return null;
-    }
-
     /// <summary>
     ///     Finds the PanelSlotControl for a 1-based slot number, or null if out of range or not visible.
     /// </summary>
@@ -251,6 +252,52 @@ public abstract class PanelBase : ExpandablePanel
     {
         DragSource = source;
         IsDragging = true;
+    }
+
+    /// <summary>
+    ///     Updates the ghost icon position during a drag. Called from the root-level DragMove handler.
+    /// </summary>
+    public void UpdateDragPosition(int screenX, int screenY)
+    {
+        DragMouseX = screenX;
+        DragY = screenY;
+    }
+
+    /// <summary>
+    ///     Completes a drag-and-drop onto another slot within this panel.
+    /// </summary>
+    public void CompleteDragSwap(byte targetSlot)
+    {
+        if (!IsDragging || DragSource is null)
+            return;
+
+        var sourceSlot = DragSource.Slot;
+        EndDrag();
+        OnSlotSwapped?.Invoke(sourceSlot, targetSlot);
+    }
+
+    /// <summary>
+    ///     Completes a drag-and-drop outside the panel (into the world viewport).
+    /// </summary>
+    public void CompleteDragOutside(int screenX, int screenY)
+    {
+        if (!IsDragging || DragSource is null)
+            return;
+
+        var sourceSlot = DragSource.Slot;
+        EndDrag();
+        OnSlotDroppedOutside?.Invoke(sourceSlot, screenX, screenY);
+    }
+
+    /// <summary>
+    ///     Resets drag state without firing any events. Called when a drag is cancelled.
+    /// </summary>
+    public void EndDrag()
+    {
+        DragSource = null;
+        IsDragging = false;
+        DragMouseX = 0;
+        DragY = 0;
     }
 
     /// <summary>
@@ -327,63 +374,37 @@ public abstract class PanelBase : ExpandablePanel
             control.SlotName = name;
     }
 
-    public override void Update(GameTime gameTime, InputBuffer input)
+    public override void OnMouseMove(MouseMoveEvent e)
     {
-        base.Update(gameTime, input);
+        PanelSlot? hoveredSlot = null;
 
-        if (!Visible || !Enabled)
-        {
-            IsDragging = false;
-            DragSource = null;
-
-            return;
-        }
-
-        // Hover event — find which slot the mouse is over
-        var hoveredSlot = FindHoveredSlot(input);
-
-        if (hoveredSlot != LastHoveredSlot)
-        {
-            LastHoveredSlot = hoveredSlot;
-
-            if (hoveredSlot?.NormalTexture is not null)
-                OnSlotHoverEnter?.Invoke(hoveredSlot);
-            else
-                OnSlotHoverExit?.Invoke();
-        }
-
-        // Drag tracking
-        if (IsDragging)
-        {
-            DragMouseX = input.MouseX;
-            DragY = input.MouseY;
-
-            // Show drop target border on hovered slot during drag
-            if (LastDropTarget is not null)
-                LastDropTarget.IsDropTarget = false;
-
-            LastDropTarget = hoveredSlot;
-
-            if (LastDropTarget is not null)
-                LastDropTarget.IsDropTarget = true;
-
-            if (!input.IsLeftButtonHeld)
+        for (var i = 0; (i < VisibleSlotCount) && (i < Slots.Length); i++)
+            if (Slots[i].NormalTexture is not null && Slots[i].ContainsPoint(e.ScreenX, e.ScreenY))
             {
-                if (DragSource is not null)
-                {
-                    if (hoveredSlot is not null && (hoveredSlot != DragSource))
-                        OnSlotSwapped?.Invoke(DragSource.Slot, hoveredSlot.Slot);
-                    else if (hoveredSlot is null)
-                        OnSlotDroppedOutside?.Invoke(DragSource.Slot, input.MouseX, input.MouseY);
-                }
+                hoveredSlot = Slots[i];
 
-                if (LastDropTarget is not null)
-                    LastDropTarget.IsDropTarget = false;
-
-                LastDropTarget = null;
-                IsDragging = false;
-                DragSource = null;
+                break;
             }
-        }
+
+        if (hoveredSlot == LastHoveredSlot)
+            return;
+
+        if (LastHoveredSlot is not null)
+            OnSlotHoverExit?.Invoke();
+
+        LastHoveredSlot = hoveredSlot;
+
+        if (hoveredSlot is not null)
+            OnSlotHoverEnter?.Invoke(hoveredSlot);
     }
+
+    public override void OnMouseLeave()
+    {
+        if (LastHoveredSlot is null)
+            return;
+
+        LastHoveredSlot = null;
+        OnSlotHoverExit?.Invoke();
+    }
+
 }

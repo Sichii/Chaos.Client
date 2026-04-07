@@ -26,15 +26,16 @@ public sealed class ArticleSendControl : PrefabPanel
     {
         Name = "ArticleSend";
         Visible = false;
+        UsesControlStack = true;
 
         SendButton = CreateButton("Send");
         CancelButton = CreateButton("Cancel");
 
         if (SendButton is not null)
-            SendButton.OnClick += HandleSend;
+            SendButton.Clicked += HandleSend;
 
         if (CancelButton is not null)
-            CancelButton.OnClick += () =>
+            CancelButton.Clicked += () =>
             {
                 Hide();
                 OnCancel?.Invoke();
@@ -55,7 +56,6 @@ public sealed class ArticleSendControl : PrefabPanel
             Width = contentRect.Width,
             Height = contentRect.Height,
             IsMultiLine = true,
-            IsFocusable = true,
             IsSelectable = true,
             MaxLength = 10000,
             PaddingLeft = 0,
@@ -74,7 +74,11 @@ public sealed class ArticleSendControl : PrefabPanel
         OnSend?.Invoke(subject, BodyBox.Text);
     }
 
-    public override void Hide() => Visible = false;
+    public override void Hide()
+    {
+        InputDispatcher.Instance?.RemoveControl(this);
+        Visible = false;
+    }
 
     public event Action? OnCancel;
     public event Action<string, string>? OnSend; // subject, body
@@ -88,6 +92,7 @@ public sealed class ArticleSendControl : PrefabPanel
     public override void Show()
     {
         X = TargetX;
+        InputDispatcher.Instance?.PushControl(this);
         Visible = true;
     }
 
@@ -111,26 +116,23 @@ public sealed class ArticleSendControl : PrefabPanel
         Show();
     }
 
-    public override void Update(GameTime gameTime, InputBuffer input)
+    public override void OnKeyDown(KeyDownEvent e)
     {
-        if (!Visible || !Enabled)
-            return;
-
-        if (input.WasKeyPressed(Keys.Escape))
+        switch (e.Key)
         {
-            Hide();
-            OnCancel?.Invoke();
+            case Keys.Escape:
+                Hide();
+                OnCancel?.Invoke();
+                e.Handled = true;
 
-            return;
+                break;
+
+            case Keys.Tab when TitleBox?.IsFocused == true:
+                TitleBox.IsFocused = false;
+                BodyBox.IsFocused = true;
+                e.Handled = true;
+
+                break;
         }
-
-        // Tab out of title into body
-        if (input.WasKeyPressed(Keys.Tab) && (TitleBox?.IsFocused == true))
-        {
-            TitleBox.IsFocused = false;
-            BodyBox.IsFocused = true;
-        }
-
-        base.Update(gameTime, input);
     }
 }

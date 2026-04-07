@@ -116,98 +116,117 @@ public sealed class ScrollBarControl : UIElement
 
     public event Action<int>? OnValueChanged;
 
-    public override void Update(GameTime gameTime, InputBuffer input)
+    public override void Update(GameTime gameTime)
     {
-        if (!Visible || !Enabled || (TotalItems <= VisibleItems))
+        base.Update(gameTime);
+
+        if (!Dragging && ActiveZone is 0 or 4)
+        {
+            RepeatTimer += (float)gameTime.ElapsedGameTime.TotalMilliseconds;
+
+            if (RepeatTimer >= REPEAT_DELAY_MS)
+            {
+                RepeatTimer -= REPEAT_DELAY_MS;
+
+                if (ActiveZone == 0)
+                {
+                    Value = Math.Max(0, Value - 1);
+                    OnValueChanged?.Invoke(Value);
+                } else if (ActiveZone == 4)
+                {
+                    Value = Math.Min(MaxValue, Value + 1);
+                    OnValueChanged?.Invoke(Value);
+                }
+            }
+        }
+    }
+
+    public override void OnMouseDown(MouseDownEvent e)
+    {
+        if (e.Button != MouseButton.Left || (TotalItems <= VisibleItems))
             return;
 
         var sy = ScreenY;
         var trackStart = sy + BUTTON_SIZE;
         var trackEnd = sy + Height - BUTTON_SIZE;
         var thumbY = GetThumbY(trackStart, trackEnd);
+        var my = e.ScreenY;
 
-        if (Dragging)
+        if (my < trackStart)
         {
-            if (input.IsLeftButtonHeld)
-            {
-                var mouseY = input.MouseY - DragOffsetY;
-                var usableTrack = trackEnd - trackStart - BUTTON_SIZE;
+            ActiveZone = 0;
+            Value = Math.Max(0, Value - 1);
+            OnValueChanged?.Invoke(Value);
+        } else if (my >= trackEnd)
+        {
+            ActiveZone = 4;
+            Value = Math.Min(MaxValue, Value + 1);
+            OnValueChanged?.Invoke(Value);
+        } else if ((my >= thumbY) && (my < (thumbY + BUTTON_SIZE)))
+        {
+            ActiveZone = 2;
+            Dragging = true;
+            DragOffsetY = my - thumbY;
+        } else if (my < thumbY)
+        {
+            ActiveZone = 1;
+            Value = Math.Max(0, Value - 1);
+            OnValueChanged?.Invoke(Value);
+        } else
+        {
+            ActiveZone = 3;
+            Value = Math.Min(MaxValue, Value + 1);
+            OnValueChanged?.Invoke(Value);
+        }
 
-                if (usableTrack > 0)
-                {
-                    var ratio = Math.Clamp((float)(mouseY - trackStart) / usableTrack, 0f, 1f);
-                    var newValue = (int)(ratio * MaxValue);
+        e.Handled = true;
+    }
 
-                    if (newValue != Value)
-                    {
-                        Value = newValue;
-                        OnValueChanged?.Invoke(Value);
-                    }
-                }
-            } else
-            {
-                Dragging = false;
-                ActiveZone = -1;
-            }
-
+    public override void OnMouseMove(MouseMoveEvent e)
+    {
+        if (!Dragging)
             return;
-        }
 
-        var isNewPress = input.WasLeftButtonPressed;
-        var isHeld = input.IsLeftButtonHeld && !isNewPress;
+        var sy = ScreenY;
+        var trackStart = sy + BUTTON_SIZE;
+        var trackEnd = sy + Height - BUTTON_SIZE;
+        var usableTrack = trackEnd - trackStart - BUTTON_SIZE;
 
-        if (isHeld)
+        if (usableTrack > 0)
         {
-            RepeatTimer += (float)gameTime.ElapsedGameTime.TotalMilliseconds;
+            var mouseY = e.ScreenY - DragOffsetY;
+            var ratio = Math.Clamp((float)(mouseY - trackStart) / usableTrack, 0f, 1f);
+            var newValue = (int)(ratio * MaxValue);
 
-            if (RepeatTimer < REPEAT_DELAY_MS)
-                return;
-
-            RepeatTimer -= REPEAT_DELAY_MS;
-        }
-
-        if (isNewPress)
-            RepeatTimer = 0;
-
-        if (isNewPress || isHeld)
-        {
-            var mx = input.MouseX;
-            var my = input.MouseY;
-            var sx = ScreenX;
-
-            if ((mx < sx) || (mx >= (sx + Width)) || (my < sy) || (my >= (sy + Height)))
-                return;
-
-            if (my < trackStart)
+            if (newValue != Value)
             {
-                ActiveZone = 0;
-                Value = Math.Max(0, Value - 1);
-                OnValueChanged?.Invoke(Value);
-            } else if (my >= trackEnd)
-            {
-                ActiveZone = 4;
-                Value = Math.Min(MaxValue, Value + 1);
-                OnValueChanged?.Invoke(Value);
-            } else if ((my >= thumbY) && (my < (thumbY + BUTTON_SIZE)))
-            {
-                ActiveZone = 2;
-                Dragging = true;
-                DragOffsetY = my - thumbY;
-            } else if (my < thumbY)
-            {
-                ActiveZone = 1;
-                Value = Math.Max(0, Value - 1);
-                OnValueChanged?.Invoke(Value);
-            } else
-            {
-                ActiveZone = 3;
-                Value = Math.Min(MaxValue, Value + 1);
+                Value = newValue;
                 OnValueChanged?.Invoke(Value);
             }
         }
+    }
 
-        if (input.WasLeftButtonReleased)
+    public override void OnMouseScroll(MouseScrollEvent e)
+    {
+        if (TotalItems <= VisibleItems)
+            return;
+
+        var newValue = Math.Clamp(Value - e.Delta, 0, MaxValue);
+
+        if (newValue != Value)
         {
+            Value = newValue;
+            OnValueChanged?.Invoke(Value);
+        }
+
+        e.Handled = true;
+    }
+
+    public override void OnMouseUp(MouseUpEvent e)
+    {
+        if (e.Button == MouseButton.Left)
+        {
+            Dragging = false;
             ActiveZone = -1;
             RepeatTimer = 0;
         }

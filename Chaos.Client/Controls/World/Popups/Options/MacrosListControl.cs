@@ -13,7 +13,7 @@ namespace Chaos.Client.Controls.World.Popups.Options;
 ///     Macro editor using _nmacro prefab. Triggered by F3 key or Options → Macro button. Displays 10 editable text fields
 ///     for macro commands. Loads from player config on open, saves on close.
 /// </summary>
-public sealed class MacroMenuControl : PrefabPanel
+public sealed class MacrosListControl : PrefabPanel
 {
     private const int MAX_MACROS = 10;
     private const int ROW_HEIGHT = 21;
@@ -30,20 +30,21 @@ public sealed class MacroMenuControl : PrefabPanel
     public UIButton? CancelButton { get; }
     public UIButton? OkButton { get; }
 
-    public MacroMenuControl()
+    public MacrosListControl()
         : base("_nmacro", false)
     {
         Name = "MacroMenu";
         Visible = false;
+        UsesControlStack = true;
 
         OkButton = CreateButton("OK");
         CancelButton = CreateButton("Cancel");
 
         if (OkButton is not null)
-            OkButton.OnClick += SaveAndClose;
+            OkButton.Clicked += SaveAndClose;
 
         if (CancelButton is not null)
-            CancelButton.OnClick += Close;
+            CancelButton.Clicked += Close;
 
         for (var i = 0; i < MAX_MACROS; i++)
         {
@@ -70,8 +71,10 @@ public sealed class MacroMenuControl : PrefabPanel
     private void Close()
     {
         if (SlideMode)
+        {
+            InputDispatcher.Instance?.RemoveControl(this);
             Slide.SlideOut();
-        else
+        } else
         {
             Hide();
             OnClose?.Invoke();
@@ -98,6 +101,8 @@ public sealed class MacroMenuControl : PrefabPanel
 
     public override void Hide()
     {
+        InputDispatcher.Instance?.RemoveControl(this);
+
         if (SlideMode)
             Slide.Hide(this);
         else
@@ -144,6 +149,7 @@ public sealed class MacroMenuControl : PrefabPanel
     {
         this.CenterHorizontallyOnScreen();
         Y = 0;
+        InputDispatcher.Instance?.PushControl(this);
         Visible = true;
         SlideMode = false;
     }
@@ -157,11 +163,12 @@ public sealed class MacroMenuControl : PrefabPanel
             return;
 
         Y = SlideAnchorY;
+        InputDispatcher.Instance?.PushControl(this);
         Slide.SlideIn(this);
         SlideMode = true;
     }
 
-    public override void Update(GameTime gameTime, InputBuffer input)
+    public override void Update(GameTime gameTime)
     {
         if (!Visible || !Enabled)
             return;
@@ -173,13 +180,18 @@ public sealed class MacroMenuControl : PrefabPanel
             return;
         }
 
-        if (input.WasKeyPressed(Keys.Escape) || input.WasKeyPressed(Keys.F3))
+        base.Update(gameTime);
+    }
+
+    public override void OnKeyDown(KeyDownEvent e)
+    {
+        if (Slide.Sliding)
+            return;
+
+        if (e.Key is Keys.Escape or Keys.F3)
         {
             Close();
-
-            return;
+            e.Handled = true;
         }
-
-        base.Update(gameTime, input);
     }
 }

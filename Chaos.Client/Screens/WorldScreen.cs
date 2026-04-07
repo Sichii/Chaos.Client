@@ -60,7 +60,7 @@ public sealed partial class WorldScreen : IScreen
     private readonly PathfindingState Pathfinding = new();
     private readonly Queue<PendingWalk> PendingWalks = new();
 
-    private AbilityDetailControl AbilityDetail = null!;
+    private AbilityMetadataDetailsControl AbilityMetadataDetails = null!;
     private AislingPopupMenu AislingPopup = null!;
 
     private int AnimationTick;
@@ -108,7 +108,7 @@ public sealed partial class WorldScreen : IScreen
 
     // True while awaiting a paginated board response (append instead of replace)
     private bool LoadingMoreBoardPosts;
-    private MacroMenuControl MacroMenu = null!;
+    private MacrosListControl MacrosList = null!;
     private MailListControl MailList = null!;
     private MailReadControl MailRead = null!;
     private MailSendControl MailSend = null!;
@@ -365,11 +365,11 @@ public sealed partial class WorldScreen : IScreen
                 Game.Connection.SendOptionToggle(UserOption.Request);
         };
 
-        MacroMenu = new MacroMenuControl
+        MacrosList = new MacrosListControl
         {
             ZIndex = -3
         };
-        MacroMenu.SetSlideAnchor(optionsAnchorX, optionsAnchorY);
+        MacrosList.SetSlideAnchor(optionsAnchorX, optionsAnchorY);
 
         HotkeyHelp = new HotkeyHelpControl();
 
@@ -514,7 +514,6 @@ public sealed partial class WorldScreen : IScreen
 
         StatusBook.OnUnequip += slot => Game.Connection.Unequip(slot);
         StatusBook.OnClose += SavePlayerFamilyList;
-        StatusBook.OnClose += () => SaveProfileText(StatusBook.GetProfileText());
 
         StatusBook.OnGroupToggled += () => Game.Connection.ToggleGroup();
 
@@ -525,7 +524,7 @@ public sealed partial class WorldScreen : IScreen
 
         StatusBook.OnAbilityDetailRequested += entry =>
         {
-            AbilityDetail.ShowEntry(entry, WorldHud.ViewportBounds);
+            AbilityMetadataDetails.ShowEntry(entry, WorldHud.ViewportBounds);
         };
         StatusBook.OnEventDetailRequested += (entry, state) => EventDetail.ShowEntry(entry, state, WorldHud.ViewportBounds);
 
@@ -540,7 +539,7 @@ public sealed partial class WorldScreen : IScreen
             SaveProfileText(text);
         };
 
-        AbilityDetail = new AbilityDetailControl
+        AbilityMetadataDetails = new AbilityMetadataDetailsControl
         {
             ZIndex = 3
         };
@@ -621,7 +620,7 @@ public sealed partial class WorldScreen : IScreen
             ZIndex = 3
         };
 
-        Root = new UIPanel
+        Root = new WorldRootPanel(this)
         {
             Name = "WorldRoot",
             Width = ChaosGame.VIRTUAL_WIDTH,
@@ -633,7 +632,7 @@ public sealed partial class WorldScreen : IScreen
         Root.AddChild(ItemTooltip);
         Root.AddChild(MainOptions);
         Root.AddChild(SettingsDialog);
-        Root.AddChild(MacroMenu);
+        Root.AddChild(MacrosList);
         Root.AddChild(HotkeyHelp);
         Root.AddChild(GroupPanel);
         Root.AddChild(GroupBoxViewer);
@@ -651,7 +650,7 @@ public sealed partial class WorldScreen : IScreen
         Root.AddChild(DeleteConfirm);
         Root.AddChild(StatusBook);
         Root.AddChild(ProfileTextEditor);
-        Root.AddChild(AbilityDetail);
+        Root.AddChild(AbilityMetadataDetails);
         Root.AddChild(EventDetail);
         Root.AddChild(OtherProfile);
         Root.AddChild(TextPopup);
@@ -661,6 +660,7 @@ public sealed partial class WorldScreen : IScreen
         Root.AddChild(SocialStatusPicker);
         Root.AddChild(AislingPopup);
         Root.AddChild(ContextMenu);
+        Root.AddChild(TownMap);
         Root.AddChild(MapLoading);
         Root.AddChild(DisconnectPopup);
 
@@ -670,10 +670,10 @@ public sealed partial class WorldScreen : IScreen
         // Build UI atlas after all HUD controls are constructed
         UiRenderer.Instance?.BuildAtlas();
 
-        // Load local portrait and profile text from file
+        // Load local portrait and profile text from character folder
         var playerName = Game.Connection.AislingName;
         PlayerPortrait = LoadPortraitFile(playerName);
-        StatusBook.SetProfileText(LoadProfileText(playerName));
+        StatusBook.SetProfileText(LoadProfileText());
     }
 
     /// <inheritdoc />

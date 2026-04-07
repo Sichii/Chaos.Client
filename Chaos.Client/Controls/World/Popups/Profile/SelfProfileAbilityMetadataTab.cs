@@ -31,10 +31,10 @@ public sealed class SelfProfileAbilityMetadataTab : PrefabPanel
 
     private readonly Rectangle SkillRect;
 
-    private readonly AbilityEntryControl[] SkillRows;
+    private readonly AbilityMetadataEntryControl[] SkillRows;
     private readonly ScrollBarControl SkillScrollBar;
     private readonly Rectangle SpellRect;
-    private readonly AbilityEntryControl[] SpellRows;
+    private readonly AbilityMetadataEntryControl[] SpellRows;
     private readonly ScrollBarControl SpellScrollBar;
 
     private bool Dirty = true;
@@ -110,13 +110,13 @@ public sealed class SelfProfileAbilityMetadataTab : PrefabPanel
         Dirty = true;
     }
 
-    private AbilityEntryControl[] CreateColumn(Rectangle columnRect)
+    private AbilityMetadataEntryControl[] CreateColumn(Rectangle columnRect)
     {
-        var rows = new AbilityEntryControl[DISPLAY_ROWS];
+        var rows = new AbilityMetadataEntryControl[DISPLAY_ROWS];
 
         for (var i = 0; i < DISPLAY_ROWS; i++)
         {
-            var row = new AbilityEntryControl
+            var row = new AbilityMetadataEntryControl
             {
                 X = columnRect.X,
                 Y = columnRect.Y + i * ROW_HEIGHT,
@@ -186,7 +186,7 @@ public sealed class SelfProfileAbilityMetadataTab : PrefabPanel
     private static void DrawClippedColumn(
         SpriteBatch spriteBatch,
         GraphicsDevice device,
-        AbilityEntryControl[] rows,
+        AbilityMetadataEntryControl[] rows,
         Rectangle clipRect)
     {
         spriteBatch.End();
@@ -237,7 +237,7 @@ public sealed class SelfProfileAbilityMetadataTab : PrefabPanel
     /// </summary>
     public event Action<AbilityMetadataEntry>? OnEntryClicked;
 
-    private static void RefreshColumn(AbilityEntryControl[] rows, IReadOnlyList<AbilityMetadataEntry> entries, int scrollOffset)
+    private static void RefreshColumn(AbilityMetadataEntryControl[] rows, IReadOnlyList<AbilityMetadataEntry> entries, int scrollOffset)
     {
         for (var i = 0; i < rows.Length; i++)
         {
@@ -346,53 +346,35 @@ public sealed class SelfProfileAbilityMetadataTab : PrefabPanel
                 row.Visible = visible;
     }
 
-    public override void Update(GameTime gameTime, InputBuffer input)
+    public override void OnMouseScroll(MouseScrollEvent e)
+    {
+        var sx = ScreenX;
+        var sy = ScreenY;
+        var spellScreenRect = new Rectangle(sx + SpellRect.X, sy + SpellRect.Y, SpellRect.Width, SpellRect.Height);
+        var skillScreenRect = new Rectangle(sx + SkillRect.X, sy + SkillRect.Y, SkillRect.Width, SkillRect.Height);
+
+        if (spellScreenRect.Contains(e.ScreenX, e.ScreenY) && (SpellEntries.Count > MAX_VISIBLE_ROWS))
+        {
+            SpellScrollOffset = Math.Clamp(SpellScrollOffset - e.Delta, 0, SpellEntries.Count - MAX_VISIBLE_ROWS);
+            SpellScrollBar.Value = SpellScrollOffset;
+            Dirty = true;
+            e.Handled = true;
+        } else if (skillScreenRect.Contains(e.ScreenX, e.ScreenY) && (SkillEntries.Count > MAX_VISIBLE_ROWS))
+        {
+            SkillScrollOffset = Math.Clamp(SkillScrollOffset - e.Delta, 0, SkillEntries.Count - MAX_VISIBLE_ROWS);
+            SkillScrollBar.Value = SkillScrollOffset;
+            Dirty = true;
+            e.Handled = true;
+        }
+    }
+
+    public override void Update(GameTime gameTime)
     {
         if (!Visible || !Enabled)
             return;
 
         RefreshRows();
-
-        // Update click clip bounds so peek rows ignore clicks in the clipped area
-        var sx = ScreenX;
-        var sy = ScreenY;
-
-        var spellClip = new Rectangle(
-            sx + SpellRect.X,
-            sy + SpellRect.Y,
-            SpellRect.Width,
-            SpellRect.Height);
-
-        var skillClip = new Rectangle(
-            sx + SkillRect.X,
-            sy + SkillRect.Y,
-            SkillRect.Width,
-            SkillRect.Height);
-
-        foreach (var row in SpellRows)
-            row.ClickClipBounds = spellClip;
-
-        foreach (var row in SkillRows)
-            row.ClickClipBounds = skillClip;
-
-        base.Update(gameTime, input);
-
-        // Scroll wheel — determine which column based on mouse position
-        if (input.ScrollDelta != 0)
-        {
-            var mx = input.MouseX - ScreenX;
-
-            if ((mx >= SpellRect.X) && (mx < (SpellRect.X + SpellRect.Width)) && (SpellEntries.Count > MAX_VISIBLE_ROWS))
-            {
-                SpellScrollOffset = Math.Clamp(SpellScrollOffset - input.ScrollDelta, 0, SpellEntries.Count - MAX_VISIBLE_ROWS);
-                SpellScrollBar.Value = SpellScrollOffset;
-                Dirty = true;
-            } else if ((mx >= SkillRect.X) && (mx < (SkillRect.X + SkillRect.Width)) && (SkillEntries.Count > MAX_VISIBLE_ROWS))
-            {
-                SkillScrollOffset = Math.Clamp(SkillScrollOffset - input.ScrollDelta, 0, SkillEntries.Count - MAX_VISIBLE_ROWS);
-                SkillScrollBar.Value = SkillScrollOffset;
-                Dirty = true;
-            }
-        }
+        base.Update(gameTime);
     }
+
 }

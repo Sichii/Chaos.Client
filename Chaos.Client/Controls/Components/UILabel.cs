@@ -20,7 +20,7 @@ public class UILabel : UIElement
     private int CursorPosition;
     private int SelectionAnchor;
     private bool Dragging;
-    private double LastClickTime;
+    private long LastClickTime;
     private int LastClickPosition = -1;
     private int ClickCount;
 
@@ -500,11 +500,8 @@ public class UILabel : UIElement
         return offset;
     }
 
-    public override void Update(GameTime gameTime, InputBuffer input)
+    private void ClampPositions()
     {
-        if (!Visible || !IsSelectable)
-            return;
-
         var len = PlainText.Length;
 
         if (CursorPosition > len)
@@ -512,92 +509,117 @@ public class UILabel : UIElement
 
         if (SelectionAnchor > len)
             SelectionAnchor = len;
+    }
 
-        var shift = input.IsKeyHeld(Keys.LeftShift) || input.IsKeyHeld(Keys.RightShift);
-        var ctrl = input.IsKeyHeld(Keys.LeftControl) || input.IsKeyHeld(Keys.RightControl);
+    public override void OnMouseDown(MouseDownEvent e)
+    {
+        if (!IsSelectable || (e.Button != MouseButton.Left))
+            return;
+
+        ClampPositions();
+
         var isWrapped = TextElement.WrappedLines is not null;
 
-        // Mouse click
-        if (input.WasLeftButtonPressed && ContainsPoint(input.MouseX, input.MouseY))
+        var clickPos = isWrapped
+            ? HitTestWrapped(e.ScreenX, e.ScreenY)
+            : HitTestSingleLine(e.ScreenX);
+
+        var now = Environment.TickCount64;
+
+        if ((now - LastClickTime < 400) && (clickPos == LastClickPosition))
+            ClickCount++;
+        else
+            ClickCount = 1;
+
+        LastClickTime = now;
+        LastClickPosition = clickPos;
+
+        if (ClickCount == 3)
         {
-            var clickPos = isWrapped
-                ? HitTestWrapped(input.MouseX, input.MouseY)
-                : HitTestSingleLine(input.MouseX);
-
-            var now = gameTime.TotalGameTime.TotalMilliseconds;
-
-            if ((now - LastClickTime < 400) && (clickPos == LastClickPosition))
-                ClickCount++;
-            else
-                ClickCount = 1;
-
-            LastClickTime = now;
-            LastClickPosition = clickPos;
-
-            if (ClickCount == 3)
+            if (isWrapped)
             {
-                if (isWrapped)
-                {
-                    var line = GetWrappedLineForPosition(clickPos);
-                    SelectionAnchor = GetWrappedLineStart(line);
-                    CursorPosition = SelectionAnchor + TextElement.WrappedLines![line].Length;
-                } else
-                {
-                    SelectionAnchor = 0;
-                    CursorPosition = PlainText.Length;
-                }
-
-                ClickCount = 0;
-            } else if (ClickCount == 2)
-            {
-                SelectionAnchor = FindWordBoundaryLeft(clickPos);
-                CursorPosition = FindWordBoundaryRight(clickPos);
-            } else if (shift)
-            {
-                CursorPosition = clickPos;
+                var line = GetWrappedLineForPosition(clickPos);
+                SelectionAnchor = GetWrappedLineStart(line);
+                CursorPosition = SelectionAnchor + TextElement.WrappedLines![line].Length;
             } else
             {
-                CursorPosition = clickPos;
-                SelectionAnchor = clickPos;
+                SelectionAnchor = 0;
+                CursorPosition = PlainText.Length;
             }
 
-            Dragging = true;
-        }
-
-        // Mouse drag
-        if (Dragging && input.IsLeftButtonHeld)
+            ClickCount = 0;
+        } else if (ClickCount == 2)
         {
-            var dragPos = isWrapped
-                ? HitTestWrapped(input.MouseX, input.MouseY)
-                : HitTestSingleLine(input.MouseX);
-
-            if (dragPos != CursorPosition)
-                CursorPosition = dragPos;
+            SelectionAnchor = FindWordBoundaryLeft(clickPos);
+            CursorPosition = FindWordBoundaryRight(clickPos);
+        } else if (e.Shift)
+        {
+            CursorPosition = clickPos;
+        } else
+        {
+            CursorPosition = clickPos;
+            SelectionAnchor = clickPos;
         }
 
-        if (Dragging && !input.IsLeftButtonHeld)
+        Dragging = true;
+        e.Handled = true;
+    }
+
+    public override void OnMouseMove(MouseMoveEvent e)
+    {
+        if (!IsSelectable || !Dragging)
+            return;
+
+        var isWrapped = TextElement.WrappedLines is not null;
+
+        var dragPos = isWrapped
+            ? HitTestWrapped(e.ScreenX, e.ScreenY)
+            : HitTestSingleLine(e.ScreenX);
+
+        if (dragPos != CursorPosition)
+            CursorPosition = dragPos;
+    }
+
+    public override void OnMouseUp(MouseUpEvent e)
+    {
+        if (e.Button == MouseButton.Left)
             Dragging = false;
+    }
 
-        // Keyboard navigation
-        if (input.WasKeyPressed(Keys.Left))
-        {
-            if (!shift && HasSelection)
-                MoveCursor(SelectionStart, false);
-            else if (CursorPosition > 0)
-                MoveCursor(ctrl ? FindWordBoundaryLeft(CursorPosition) : StepLeft(CursorPosition), shift);
-        }
+    public override void OnKeyDown(KeyDownEvent e)
+    {
+        if (!IsSelectable)
+            return;
 
-        if (input.WasKeyPressed(Keys.Right))
-        {
-            if (!shift && HasSelection)
-                MoveCursor(SelectionEnd, false);
-            else if (CursorPosition < PlainText.Length)
-                MoveCursor(ctrl ? FindWordBoundaryRight(CursorPosition) : StepRight(CursorPosition), shift);
-        }
+        ClampPositions();
 
-        if (isWrapped)
+        var shift = e.Shift;
+        var ctrl = e.Ctrl;
+        var isWrapped = TextElement.WrappedLines is not null;
+
+        switch (e.Key)
         {
-            if (input.WasKeyPressed(Keys.Up))
+            case Keys.Left:
+                if (!shift && HasSelection)
+                    MoveCursor(SelectionStart, false);
+                else if (CursorPosition > 0)
+                    MoveCursor(ctrl ? FindWordBoundaryLeft(CursorPosition) : StepLeft(CursorPosition), shift);
+
+                e.Handled = true;
+
+                break;
+
+            case Keys.Right:
+                if (!shift && HasSelection)
+                    MoveCursor(SelectionEnd, false);
+                else if (CursorPosition < PlainText.Length)
+                    MoveCursor(ctrl ? FindWordBoundaryRight(CursorPosition) : StepRight(CursorPosition), shift);
+
+                e.Handled = true;
+
+                break;
+
+            case Keys.Up when isWrapped:
             {
                 var line = GetWrappedLineForPosition(CursorPosition);
 
@@ -609,9 +631,13 @@ public class UILabel : UIElement
                     var prevLineLen = TextElement.WrappedLines![line - 1].Length;
                     MoveCursor(prevLineStart + Math.Min(col, prevLineLen), shift);
                 }
+
+                e.Handled = true;
+
+                break;
             }
 
-            if (input.WasKeyPressed(Keys.Down))
+            case Keys.Down when isWrapped:
             {
                 var lines = TextElement.WrappedLines!;
                 var line = GetWrappedLineForPosition(CursorPosition);
@@ -624,38 +650,48 @@ public class UILabel : UIElement
                     var nextLineLen = lines[line + 1].Length;
                     MoveCursor(nextLineStart + Math.Min(col, nextLineLen), shift);
                 }
+
+                e.Handled = true;
+
+                break;
             }
-        }
 
-        if (input.WasKeyPressed(Keys.Home))
-        {
-            if (isWrapped && !ctrl)
-            {
-                var line = GetWrappedLineForPosition(CursorPosition);
-                MoveCursor(GetWrappedLineStart(line), shift);
-            } else
-                MoveCursor(0, shift);
-        }
+            case Keys.Home:
+                if (isWrapped && !ctrl)
+                {
+                    var line = GetWrappedLineForPosition(CursorPosition);
+                    MoveCursor(GetWrappedLineStart(line), shift);
+                } else
+                    MoveCursor(0, shift);
 
-        if (input.WasKeyPressed(Keys.End))
-        {
-            if (isWrapped && !ctrl)
-            {
-                var line = GetWrappedLineForPosition(CursorPosition);
-                MoveCursor(GetWrappedLineStart(line) + TextElement.WrappedLines![line].Length, shift);
-            } else
-                MoveCursor(PlainText.Length, shift);
-        }
+                e.Handled = true;
 
-        // Ctrl+A select all
-        if (ctrl && input.WasKeyPressed(Keys.A) && (PlainText.Length > 0))
-        {
-            SelectionAnchor = 0;
-            CursorPosition = PlainText.Length;
-        }
+                break;
 
-        // Ctrl+C copy
-        if (ctrl && input.WasKeyPressed(Keys.C) && HasSelection)
-            Clipboard.SetText(StripColorCodes(PlainText[SelectionStart..Math.Min(SelectionEnd, PlainText.Length)]));
+            case Keys.End:
+                if (isWrapped && !ctrl)
+                {
+                    var line = GetWrappedLineForPosition(CursorPosition);
+                    MoveCursor(GetWrappedLineStart(line) + TextElement.WrappedLines![line].Length, shift);
+                } else
+                    MoveCursor(PlainText.Length, shift);
+
+                e.Handled = true;
+
+                break;
+
+            case Keys.A when ctrl && PlainText.Length > 0:
+                SelectionAnchor = 0;
+                CursorPosition = PlainText.Length;
+                e.Handled = true;
+
+                break;
+
+            case Keys.C when ctrl && HasSelection:
+                Clipboard.SetText(StripColorCodes(PlainText[SelectionStart..Math.Min(SelectionEnd, PlainText.Length)]));
+                e.Handled = true;
+
+                break;
+        }
     }
 }

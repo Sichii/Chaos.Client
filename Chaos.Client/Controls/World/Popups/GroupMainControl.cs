@@ -1,7 +1,6 @@
 #region
 using Chaos.Client.Controls.Components;
 using Chaos.Networking.Entities.Server;
-using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using Microsoft.Xna.Framework.Input;
 #endregion
@@ -27,6 +26,7 @@ public sealed class GroupMainControl : PrefabPanel
     {
         Name = "GroupMain";
         Visible = false;
+        UsesControlStack = true;
         X = 0;
         Y = 0;
 
@@ -41,7 +41,7 @@ public sealed class GroupMainControl : PrefabPanel
             Tab0Button.CenterTexture = true;
             Tab0Button.SelectedTexture = Tab0Button.NormalTexture;
             Tab0Button.NormalTexture = cache.GetPrefabTexture("_ngcmain", "TAB0_S", 0);
-            Tab0Button.OnClick += () => SwitchTab(0);
+            Tab0Button.Clicked += () => SwitchTab(0);
         }
 
         Tab1Button = CreateButton("TAB1");
@@ -51,7 +51,7 @@ public sealed class GroupMainControl : PrefabPanel
             Tab1Button.CenterTexture = true;
             Tab1Button.SelectedTexture = Tab1Button.NormalTexture;
             Tab1Button.NormalTexture = cache.GetPrefabTexture("_ngcmain", "TAB1_S", 0);
-            Tab1Button.OnClick += () => SwitchTab(1);
+            Tab1Button.Clicked += () => SwitchTab(1);
         }
 
         // Create child panels — positioned at DLGFRAME rect (0,0 within the main container)
@@ -157,19 +157,13 @@ public sealed class GroupMainControl : PrefabPanel
         }
     }
 
-    public override void Update(GameTime gameTime, InputBuffer input)
+    public override void OnKeyDown(KeyDownEvent e)
     {
-        if (!Visible || !Enabled)
-            return;
-
-        if (input.WasKeyPressed(Keys.Escape))
+        if (e.Key == Keys.Escape)
         {
             Hide();
             OnClose?.Invoke();
-
-            return;
+            e.Handled = true;
         }
-
-        base.Update(gameTime, input);
     }
 }

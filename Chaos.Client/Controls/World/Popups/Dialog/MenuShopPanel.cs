@@ -18,7 +18,7 @@ namespace Chaos.Client.Controls.World.Popups.Dialog;
 ///     the Content area, item details on the right side, category tabs, and page navigation. Owned by NpcSessionControl
 ///     which handles Escape, close, and response dispatch.
 /// </summary>
-public sealed class MerchantBrowserPanel : PrefabPanel
+public sealed class MenuShopPanel : PrefabPanel
 {
     private const int ICON_SIZE = 32;
     private const int MAX_COMBINED_CHARS = 32;
@@ -60,7 +60,7 @@ public sealed class MerchantBrowserPanel : PrefabPanel
     public UIButton? TabNextButton { get; }
     public UIButton? TabPrevButton { get; }
 
-    public MerchantBrowserPanel()
+    public MenuShopPanel()
         : base("lnpcd3", false)
     {
         Name = "MerchantBrowser";
@@ -77,10 +77,10 @@ public sealed class MerchantBrowserPanel : PrefabPanel
         TabNextButton = CreateButton("TabNext");
 
         if (CloseButton is not null)
-            CloseButton.OnClick += () => OnClose?.Invoke();
+            CloseButton.Clicked += () => OnClose?.Invoke();
 
         if (PagePrevButton is not null)
-            PagePrevButton.OnClick += () =>
+            PagePrevButton.Clicked += () =>
             {
                 if (CurrentPage > 0)
                 {
@@ -90,7 +90,7 @@ public sealed class MerchantBrowserPanel : PrefabPanel
             };
 
         if (PageNextButton is not null)
-            PageNextButton.OnClick += () =>
+            PageNextButton.Clicked += () =>
             {
                 if (CurrentPage < (TotalPages - 1))
                 {
@@ -103,7 +103,7 @@ public sealed class MerchantBrowserPanel : PrefabPanel
         {
             TabPrevButton.DisabledTexture = UiRenderer.Instance!.GetSpfTexture("nd_mcp.spf", 2);
 
-            TabPrevButton.OnClick += () =>
+            TabPrevButton.Clicked += () =>
             {
                 if (TabWindowStart > 0)
                 {
@@ -117,7 +117,7 @@ public sealed class MerchantBrowserPanel : PrefabPanel
         {
             TabNextButton.DisabledTexture = UiRenderer.Instance!.GetSpfTexture("nd_mcn.spf", 2);
 
-            TabNextButton.OnClick += () =>
+            TabNextButton.Clicked += () =>
             {
                 if ((TabWindowStart + MAX_VISIBLE_TABS) < Categories.Count)
                 {
@@ -146,7 +146,7 @@ public sealed class MerchantBrowserPanel : PrefabPanel
             };
 
             var tabIndex = i;
-            tab.OnClick += () => HandleTabClick(tabIndex);
+            tab.Clicked += () => HandleTabClick(tabIndex);
             Tabs[i] = tab;
             AddChild(tab);
         }
@@ -169,7 +169,7 @@ public sealed class MerchantBrowserPanel : PrefabPanel
             };
 
             var rowIndex = i;
-            listing.OnClick += () => HandleListingClick(rowIndex);
+            listing.Clicked += () => HandleListingClick(rowIndex);
             Listings[i] = listing;
             AddChild(listing);
         }
@@ -352,6 +352,48 @@ public sealed class MerchantBrowserPanel : PrefabPanel
         Visible = false;
         ClearEntries();
         ClearDetails();
+    }
+
+    public override void OnMouseMove(MouseMoveEvent e)
+    {
+        var localX = e.ScreenX - ScreenX;
+        var localY = e.ScreenY - ScreenY;
+
+        if ((localX >= ContentRect.X)
+            && (localX < (ContentRect.X + ContentRect.Width))
+            && (localY >= ContentRect.Y)
+            && (localY < (ContentRect.Y + ContentRect.Height)))
+        {
+            var row = (localY - ContentRect.Y) / ROW_HEIGHT;
+            var filteredPosition = CurrentPage * ItemsPerPage + row;
+
+            if ((row >= 0) && (row < ItemsPerPage) && (filteredPosition < FilteredIndices.Count))
+            {
+                if (row != HoveredRow)
+                {
+                    HoveredRow = row;
+                    var absoluteIndex = FilteredIndices[filteredPosition];
+                    OnItemHoverEnter?.Invoke(Entries[absoluteIndex].Name);
+                }
+            } else if (HoveredRow >= 0)
+            {
+                HoveredRow = -1;
+                OnItemHoverExit?.Invoke();
+            }
+        } else if (HoveredRow >= 0)
+        {
+            HoveredRow = -1;
+            OnItemHoverExit?.Invoke();
+        }
+    }
+
+    public override void OnMouseLeave()
+    {
+        if (HoveredRow >= 0)
+        {
+            HoveredRow = -1;
+            OnItemHoverExit?.Invoke();
+        }
     }
 
     public event Action? OnClose;
@@ -599,49 +641,6 @@ public sealed class MerchantBrowserPanel : PrefabPanel
         Show();
     }
 
-    public override void Update(GameTime gameTime, InputBuffer input)
-    {
-        if (!Visible || !Enabled)
-            return;
-
-        // Detect which row the mouse is over
-        var newHoveredRow = -1;
-
-        for (var i = 0; i < Listings.Length; i++)
-        {
-            var listing = Listings[i];
-
-            if (listing.Visible && listing.ContainsPoint(input.MouseX, input.MouseY))
-            {
-                var filteredPosition = CurrentPage * ItemsPerPage + i;
-
-                if (filteredPosition < FilteredIndices.Count)
-                    newHoveredRow = i;
-
-                break;
-            }
-        }
-
-        if (newHoveredRow != HoveredRow)
-        {
-            if (newHoveredRow >= 0)
-            {
-                var filteredPosition = CurrentPage * ItemsPerPage + newHoveredRow;
-                var absoluteIndex = FilteredIndices[filteredPosition];
-                OnItemHoverEnter?.Invoke(Entries[absoluteIndex].Name);
-                ShowDetails(absoluteIndex);
-            } else
-            {
-                OnItemHoverExit?.Invoke();
-                ClearDetails();
-            }
-
-            HoveredRow = newHoveredRow;
-        }
-
-        base.Update(gameTime, input);
-    }
-
     private void UpdateListingStates()
     {
         var pageStart = CurrentPage * ItemsPerPage;
@@ -740,6 +739,9 @@ public sealed class MerchantBrowserPanel : PrefabPanel
 
         public MerchantListingPanel(int contentWidth)
         {
+            Width = contentWidth;
+            Height = ROW_HEIGHT;
+
             IconImage = new UIImage
             {
                 X = 4,
@@ -792,7 +794,7 @@ public sealed class MerchantBrowserPanel : PrefabPanel
             base.Draw(spriteBatch);
         }
 
-        public event Action? OnClick;
+        public event Action? Clicked;
 
         public void SetEntry(Texture2D? icon, string name, int cost)
         {
@@ -816,15 +818,10 @@ public sealed class MerchantBrowserPanel : PrefabPanel
             CostLabel.Text = costText;
         }
 
-        public override void Update(GameTime gameTime, InputBuffer input)
+        public override void OnClick(ClickEvent e)
         {
-            if (!Visible || !Enabled)
-                return;
-
-            if (ContainsPoint(input.MouseX, input.MouseY) && input.WasLeftButtonPressed)
-                OnClick?.Invoke();
-
-            base.Update(gameTime, input);
+            Clicked?.Invoke();
+            e.Handled = true;
         }
     }
 
@@ -840,6 +837,8 @@ public sealed class MerchantBrowserPanel : PrefabPanel
 
         public MerchantTab(Texture2D? normalTexture, Texture2D? selectedTexture)
         {
+            Width = TAB_WIDTH;
+            Height = TAB_HEIGHT;
             NormalBg = normalTexture;
             SelectedBg = selectedTexture;
 
@@ -873,19 +872,14 @@ public sealed class MerchantBrowserPanel : PrefabPanel
             base.Draw(spriteBatch);
         }
 
-        public event Action? OnClick;
+        public event Action? Clicked;
 
         public void SetCategory(string category) => NameLabel.Text = category;
 
-        public override void Update(GameTime gameTime, InputBuffer input)
+        public override void OnClick(ClickEvent e)
         {
-            if (!Visible || !Enabled)
-                return;
-
-            if (ContainsPoint(input.MouseX, input.MouseY) && input.WasLeftButtonPressed)
-                OnClick?.Invoke();
-
-            base.Update(gameTime, input);
+            Clicked?.Invoke();
+            e.Handled = true;
         }
     }
 }

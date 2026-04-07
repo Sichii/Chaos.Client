@@ -11,7 +11,7 @@ namespace Chaos.Client.Controls.World.Popups.Dialog;
 ///     Base class for floating dialog sub-panels that share the ornate 9-slice frame (DlgBack2.spf tiled background +
 ///     nd_f01–f08 border pieces). Subclasses add their own content controls inside the frame.
 /// </summary>
-public abstract class FramedDialogPanel : PrefabPanel
+public abstract class FramedDialogPanelBase : PrefabPanel
 {
     // Frame corner dimensions
     private const int CORNER_TL_W = 31;
@@ -23,10 +23,10 @@ public abstract class FramedDialogPanel : PrefabPanel
     private const int BORDER_BOTTOM = 47;
 
     private Texture2D? BackgroundTile;
-    private Texture2D? CornerBL;
-    private Texture2D? CornerBR;
-    private Texture2D? CornerTL;
-    private Texture2D? CornerTR;
+    private Texture2D? CornerBl;
+    private Texture2D? CornerBr;
+    private Texture2D? CornerTl;
+    private Texture2D? CornerTr;
     private Texture2D? EdgeBottomOk;
     private Texture2D? EdgeBottomRivets;
     private Texture2D? EdgeLeft;
@@ -40,7 +40,7 @@ public abstract class FramedDialogPanel : PrefabPanel
     /// </summary>
     protected UIButton? OkButton { get; set; }
 
-    protected FramedDialogPanel(string prefabName, bool center = true)
+    protected FramedDialogPanelBase(string prefabName, bool center = true)
         : base(prefabName, center)
         => Background = null;
 
@@ -118,31 +118,31 @@ public abstract class FramedDialogPanel : PrefabPanel
                 EdgeBottomOk.Height);
 
         // 3. Corners (drawn last to cover edge overlap)
-        if (CornerTL is not null)
+        if (CornerTl is not null)
             AtlasHelper.Draw(
                 spriteBatch,
-                CornerTL,
+                CornerTl,
                 new Vector2(sx, sy),
                 Color.White);
 
-        if (CornerTR is not null)
+        if (CornerTr is not null)
             AtlasHelper.Draw(
                 spriteBatch,
-                CornerTR,
+                CornerTr,
                 new Vector2(sx + w - CORNER_TR_W, sy),
                 Color.White);
 
-        if (CornerBL is not null)
+        if (CornerBl is not null)
             AtlasHelper.Draw(
                 spriteBatch,
-                CornerBL,
+                CornerBl,
                 new Vector2(sx, sy + h - CORNER_BL_H),
                 Color.White);
 
-        if (CornerBR is not null)
+        if (CornerBr is not null)
             AtlasHelper.Draw(
                 spriteBatch,
-                CornerBR,
+                CornerBr,
                 new Vector2(sx + w - CORNER_BR_W, sy + h - CORNER_BR_H),
                 Color.White);
 
@@ -171,10 +171,10 @@ public abstract class FramedDialogPanel : PrefabPanel
         if (renderer is null)
             return;
 
-        CornerTL = renderer.GetSpfTexture("nd_f01.spf");
-        CornerTR = renderer.GetSpfTexture("nd_f02.spf");
-        CornerBL = renderer.GetSpfTexture("nd_f03.spf");
-        CornerBR = renderer.GetSpfTexture("nd_f04.spf");
+        CornerTl = renderer.GetSpfTexture("nd_f01.spf");
+        CornerTr = renderer.GetSpfTexture("nd_f02.spf");
+        CornerBl = renderer.GetSpfTexture("nd_f03.spf");
+        CornerBr = renderer.GetSpfTexture("nd_f04.spf");
         EdgeTop = renderer.GetSpfTexture("nd_f05.spf");
         EdgeLeft = renderer.GetSpfTexture("nd_f06.spf");
         EdgeRight = renderer.GetSpfTexture("nd_f07.spf");

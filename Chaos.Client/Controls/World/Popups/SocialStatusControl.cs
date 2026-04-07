@@ -2,7 +2,6 @@
 using Chaos.Client.Controls.Components;
 using Chaos.Client.Data;
 using Chaos.DarkAges.Definitions;
-using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Input;
 #endregion
 
@@ -21,14 +20,13 @@ public sealed class SocialStatusControl : PrefabPanel
     private readonly UILabel? DescriptionLabel;
     private readonly UIButton?[] StatusButtons = new UIButton?[STATUS_COUNT];
     private readonly string[] StatusNames = new string[STATUS_COUNT];
-    private int HoveredIndex = -1;
-
     public SocialStatus CurrentStatus { get; private set; }
 
     public SocialStatusControl()
         : base("lemot")
     {
         Visible = false;
+        UsesControlStack = true;
         ZIndex = 2;
 
         // Load status names from msg.tbl
@@ -118,43 +116,18 @@ public sealed class SocialStatusControl : PrefabPanel
     {
         UpdateSelectedState();
         DescriptionLabel?.Text = StatusNames[(int)CurrentStatus];
+        InputDispatcher.Instance?.PushControl(this);
         Visible = true;
     }
 
-    public override void Update(GameTime gameTime, InputBuffer input)
+    public override void OnKeyDown(KeyDownEvent e)
     {
-        if (!Visible)
-            return;
-
-        if (input.WasKeyPressed(Keys.Escape))
+        if (e.Key == Keys.Escape)
         {
+            InputDispatcher.Instance?.RemoveControl(this);
             Visible = false;
             OnClosed?.Invoke();
-
-            return;
-        }
-
-        base.Update(gameTime, input);
-
-        // Track hover for description label
-        var previousHovered = HoveredIndex;
-        HoveredIndex = -1;
-
-        for (var i = 0; i < STATUS_COUNT; i++)
-            if (StatusButtons[i] is { IsHovered: true })
-            {
-                HoveredIndex = i;
-
-                break;
-            }
-
-        if (HoveredIndex != previousHovered)
-            DescriptionLabel?.Text = HoveredIndex >= 0 ? StatusNames[HoveredIndex] : StatusNames[(int)CurrentStatus];
-
-        if (input.WasLeftButtonPressed && !ContainsPoint(input.MouseX, input.MouseY))
-        {
-            Visible = false;
-            OnClosed?.Invoke();
+            e.Handled = true;
         }
     }
 
@@ -166,11 +139,12 @@ public sealed class SocialStatusControl : PrefabPanel
     }
 
     private void WireButton(UIButton btn, int index)
-        => btn.OnClick += () =>
+        => btn.Clicked += () =>
         {
             CurrentStatus = (SocialStatus)index;
             UpdateSelectedState();
             OnStatusSelected?.Invoke(CurrentStatus);
+            InputDispatcher.Instance?.RemoveControl(this);
             Visible = false;
             OnClosed?.Invoke();
         };

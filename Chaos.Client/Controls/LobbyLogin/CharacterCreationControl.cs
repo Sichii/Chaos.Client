@@ -88,6 +88,7 @@ public sealed class CharacterCreationControl : PrefabPanel
         Renderer = renderer;
         Name = "CharacterCreation";
         Visible = false;
+        UsesControlStack = true;
         X = 0;
         Y = 0;
 
@@ -100,22 +101,22 @@ public sealed class CharacterCreationControl : PrefabPanel
         HairRightButton = CreateButton("HairRight");
 
         if (OkButton is not null)
-            OkButton.OnClick += () => OnOk?.Invoke();
+            OkButton.Clicked += () => OnOk?.Invoke();
 
         if (CancelButton is not null)
-            CancelButton.OnClick += () => OnCancel?.Invoke();
+            CancelButton.Clicked += () => OnCancel?.Invoke();
 
         if (AngleLeftButton is not null)
-            AngleLeftButton.OnClick += OnAngleLeftClicked;
+            AngleLeftButton.Clicked += OnAngleLeftClicked;
 
         if (AngleRightButton is not null)
-            AngleRightButton.OnClick += OnAngleRightClicked;
+            AngleRightButton.Clicked += OnAngleRightClicked;
 
         if (HairLeftButton is not null)
-            HairLeftButton.OnClick += OnHairLeftClicked;
+            HairLeftButton.Clicked += OnHairLeftClicked;
 
         if (HairRightButton is not null)
-            HairRightButton.OnClick += OnHairRightClicked;
+            HairRightButton.Clicked += OnHairRightClicked;
 
         // Text fields
         NameField = CreateTextBox("NAME");
@@ -147,9 +148,10 @@ public sealed class CharacterCreationControl : PrefabPanel
             MaleUnselected = maleBtn.NormalTexture;
             MaleSelected = maleBtn.PressedTexture;
 
-            // Prevent button click behavior — we handle clicks manually
+            // Prevent button click behavior — we handle clicks manually via panel OnClick
             maleBtn.NormalTexture = null;
             maleBtn.PressedTexture = null;
+            maleBtn.IsHitTestVisible = false;
         }
 
         if (FemaleToggleArea is UIButton femaleBtn)
@@ -158,6 +160,7 @@ public sealed class CharacterCreationControl : PrefabPanel
             FemaleSelected = femaleBtn.PressedTexture;
             femaleBtn.NormalTexture = null;
             femaleBtn.PressedTexture = null;
+            femaleBtn.IsHitTestVisible = false;
         }
 
         // Character preview area (HUMAN rect — type 7, 0 images)
@@ -248,8 +251,6 @@ public sealed class CharacterCreationControl : PrefabPanel
 
     public override void Hide()
     {
-        Visible = false;
-
         if (NameField is not null)
         {
             NameField.IsFocused = false;
@@ -267,6 +268,8 @@ public sealed class CharacterCreationControl : PrefabPanel
             PasswordConfirmField.IsFocused = false;
             PasswordConfirmField.Text = string.Empty;
         }
+
+        base.Hide();
     }
 
     private void OnAngleLeftClicked()
@@ -381,48 +384,76 @@ public sealed class CharacterCreationControl : PrefabPanel
         WalkFrame = 0;
         WalkTimer = 0;
         PreviewDirty = true;
-        Visible = true;
+        base.Show();
     }
 
-    public override void Update(GameTime gameTime, InputBuffer input)
+    public override void OnKeyDown(KeyDownEvent e)
     {
-        if (!Visible || !Enabled)
+        switch (e.Key)
+        {
+            case Keys.Tab:
+                // Cycle focus: Name → Password → PasswordConfirm → Name
+                if (NameField?.IsFocused == true)
+                {
+                    NameField.IsFocused = false;
+                    PasswordField?.IsFocused = true;
+                } else if (PasswordField?.IsFocused == true)
+                {
+                    PasswordField.IsFocused = false;
+                    PasswordConfirmField?.IsFocused = true;
+                } else
+                {
+                    PasswordConfirmField?.IsFocused = false;
+                    NameField?.IsFocused = true;
+                }
+
+                e.Handled = true;
+
+                break;
+
+            case Keys.Enter:
+                OkButton?.PerformClick();
+                e.Handled = true;
+
+                break;
+
+            case Keys.Escape:
+                CancelButton?.PerformClick();
+                e.Handled = true;
+
+                break;
+        }
+    }
+
+    public override void OnMouseLeave()
+    {
+        MaleHovered = false;
+        FemaleHovered = false;
+    }
+
+    public override void OnMouseMove(MouseMoveEvent e)
+    {
+        MaleHovered = MaleToggleArea?.ContainsPoint(e.ScreenX, e.ScreenY) == true;
+        FemaleHovered = FemaleToggleArea?.ContainsPoint(e.ScreenX, e.ScreenY) == true;
+    }
+
+    public override void OnClick(ClickEvent e)
+    {
+        if (e.Button != MouseButton.Left)
             return;
 
-        // Tab cycles focus: Name → Password → PasswordConfirm → Name
-        if (input.WasKeyPressed(Keys.Tab))
-        {
-            if (NameField?.IsFocused == true)
-            {
-                NameField.IsFocused = false;
-                PasswordField?.IsFocused = true;
-            } else if (PasswordField?.IsFocused == true)
-            {
-                PasswordField.IsFocused = false;
-                PasswordConfirmField?.IsFocused = true;
-            } else
-            {
-                PasswordConfirmField?.IsFocused = false;
-                NameField?.IsFocused = true;
-            }
-        }
+        if (MaleHovered)
+            SetGender(Gender.Male);
+        else if (FemaleHovered)
+            SetGender(Gender.Female);
 
-        if (input.WasKeyPressed(Keys.Enter))
-            OkButton?.PerformClick();
+        HandleSwatchClick(e.ScreenX, e.ScreenY);
+    }
 
-        // Gender toggle hover + click
-        MaleHovered = MaleToggleArea?.ContainsPoint(input.MouseX, input.MouseY) == true;
-        FemaleHovered = FemaleToggleArea?.ContainsPoint(input.MouseX, input.MouseY) == true;
-
-        if (input.WasLeftButtonPressed)
-        {
-            if (MaleHovered)
-                SetGender(Gender.Male);
-            else if (FemaleHovered)
-                SetGender(Gender.Female);
-
-            HandleSwatchClick(input.MouseX, input.MouseY);
-        }
+    public override void Update(GameTime gameTime)
+    {
+        if (!Visible)
+            return;
 
         // Pre-render walk frames when appearance changes
         if (PreviewDirty)
@@ -439,7 +470,5 @@ public sealed class CharacterCreationControl : PrefabPanel
             WalkTimer -= WALK_FRAME_INTERVAL_MS;
             WalkFrame = (WalkFrame + 1) % ANIM_FRAME_COUNT;
         }
-
-        base.Update(gameTime, input);
     }
 }

@@ -10,7 +10,7 @@ namespace Chaos.Client.Controls.World.Popups.Dialog;
 ///     Text entry sub-panel for MenuType.TextEntry (2) and MenuType.TextEntryWithArgs (3). Uses lnpcd2 template with
 ///     9-slice ornate frame. Shows an "Input:" label, a text input field, and an OK button. No prolog or epilog.
 /// </summary>
-public sealed class MenuTextEntryPanel : FramedDialogPanel
+public sealed class MenuTextEntryPanel : FramedDialogPanelBase
 {
     private const int PANEL_WIDTH = 426;
     private const int PANEL_HEIGHT = 74;
@@ -39,6 +39,7 @@ public sealed class MenuTextEntryPanel : FramedDialogPanel
     {
         Name = "MenuTextEntry";
         Visible = false;
+
 
         // Compact panel — dynamic 9-slice wraps just the text entry content
         Width = PANEL_WIDTH;
@@ -84,7 +85,7 @@ public sealed class MenuTextEntryPanel : FramedDialogPanel
         {
             OkButton.X = Width - BTN_WIDTH - 20;
             OkButton.Y = Height - BTN_HEIGHT - 3;
-            OkButton.OnClick += HandleSubmit;
+            OkButton.Clicked += HandleSubmit;
         }
     }
 
@@ -117,25 +118,21 @@ public sealed class MenuTextEntryPanel : FramedDialogPanel
         Visible = true;
     }
 
-    public override void Update(GameTime gameTime, InputBuffer input)
+    public override void OnKeyDown(KeyDownEvent e)
     {
-        if (!Visible || !Enabled)
-            return;
-
-        if (input.WasKeyPressed(Keys.Escape))
+        switch (e.Key)
         {
-            OnClose?.Invoke();
+            case Keys.Escape:
+                OnClose?.Invoke();
+                e.Handled = true;
 
-            return;
+                break;
+
+            case Keys.Enter:
+                HandleSubmit();
+                e.Handled = true;
+
+                break;
         }
-
-        if (input.WasKeyPressed(Keys.Enter))
-        {
-            HandleSubmit();
-
-            return;
-        }
-
-        base.Update(gameTime, input);
     }
 }

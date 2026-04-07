@@ -50,7 +50,7 @@ public sealed class InventoryPanel : PanelBase
         };
 
         GoldSlot.SlotName = $"Gold( {WorldState.Inventory.Gold} )";
-        GoldSlot.OnDragStart += OnDragStarted;
+        GoldSlot.DragStarted += OnDragStarted;
         AddChild(GoldSlot);
 
         // Position gold at last visible cell and hide the slot underneath
@@ -69,14 +69,6 @@ public sealed class InventoryPanel : PanelBase
         WorldState.Inventory.Cleared -= OnCleared;
 
         base.Dispose();
-    }
-
-    protected override PanelSlot? FindHoveredSlot(InputBuffer input)
-    {
-        if (GoldSlot is { Visible: true } && GoldSlot.ContainsPoint(input.MouseX, input.MouseY))
-            return GoldSlot;
-
-        return base.FindHoveredSlot(input);
     }
 
     private void OnCleared()

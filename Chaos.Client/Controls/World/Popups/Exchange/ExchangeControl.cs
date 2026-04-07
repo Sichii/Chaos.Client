@@ -43,20 +43,21 @@ public sealed class ExchangeControl : PrefabPanel
     {
         Name = "Exchange";
         Visible = false;
+        UsesControlStack = true;
         ViewportBounds = viewportBounds;
 
         OkButton = CreateButton("OK");
         CancelButton = CreateButton("Cancel");
 
         if (OkButton is not null)
-            OkButton.OnClick += () =>
+            OkButton.Clicked += () =>
             {
                 OkButton.Enabled = false;
                 OnOk?.Invoke();
             };
 
         if (CancelButton is not null)
-            CancelButton.OnClick += () => OnCancel?.Invoke();
+            CancelButton.Clicked += () => OnCancel?.Invoke();
 
         MyIdLabel = CreateLabel("MyID");
         YourIdLabel = CreateLabel("YourID");
@@ -179,18 +180,12 @@ public sealed class ExchangeControl : PrefabPanel
 
     public event Action? OnOk;
 
-    public override void Update(GameTime gameTime, InputBuffer input)
+    public override void OnKeyDown(KeyDownEvent e)
     {
-        if (!Visible || !Enabled)
-            return;
-
-        if (input.WasKeyPressed(Keys.Escape))
+        if (e.Key == Keys.Escape)
         {
             OnCancel?.Invoke();
-
-            return;
+            e.Handled = true;
         }
-
-        base.Update(gameTime, input);
     }
 }

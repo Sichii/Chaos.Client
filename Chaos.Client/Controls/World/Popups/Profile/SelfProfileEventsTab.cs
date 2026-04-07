@@ -105,7 +105,7 @@ public sealed class SelfProfileEventsTab : PrefabPanel
         PrevButton = CreateButton("PREV");
 
         if (NextButton is not null)
-            NextButton.OnClick += () =>
+            NextButton.Clicked += () =>
             {
                 if (CurrentPage < (MAX_DISPLAY_PAGES - 1))
                 {
@@ -117,7 +117,7 @@ public sealed class SelfProfileEventsTab : PrefabPanel
             };
 
         if (PrevButton is not null)
-            PrevButton.OnClick += () =>
+            PrevButton.Clicked += () =>
             {
                 if (CurrentPage > 0)
                 {
@@ -382,59 +382,40 @@ public sealed class SelfProfileEventsTab : PrefabPanel
                 row.Visible = visible;
     }
 
-    public override void Update(GameTime gameTime, InputBuffer input)
+    public override void OnMouseScroll(MouseScrollEvent e)
+    {
+        var sx = ScreenX;
+        var sy = ScreenY;
+        var leftScreenRect = new Rectangle(sx + LeftRect.X, sy + LeftRect.Y, LeftRect.Width, LeftRect.Height);
+        var rightScreenRect = new Rectangle(sx + RightRect.X, sy + RightRect.Y, RightRect.Width, RightRect.Height);
+
+        var leftSlot = CurrentPage * COLUMNS_PER_PAGE;
+        var rightSlot = leftSlot + 1;
+        var leftCount = leftSlot < MAX_DISPLAY_SLOTS ? DisplaySlots[leftSlot].Count : 0;
+        var rightCount = rightSlot < MAX_DISPLAY_SLOTS ? DisplaySlots[rightSlot].Count : 0;
+
+        if (leftScreenRect.Contains(e.ScreenX, e.ScreenY) && (leftCount > MAX_VISIBLE_ROWS))
+        {
+            LeftScrollOffset = Math.Clamp(LeftScrollOffset - e.Delta, 0, leftCount - MAX_VISIBLE_ROWS);
+            LeftScrollBar.Value = LeftScrollOffset;
+            Dirty = true;
+            e.Handled = true;
+        } else if (rightScreenRect.Contains(e.ScreenX, e.ScreenY) && (rightCount > MAX_VISIBLE_ROWS))
+        {
+            RightScrollOffset = Math.Clamp(RightScrollOffset - e.Delta, 0, rightCount - MAX_VISIBLE_ROWS);
+            RightScrollBar.Value = RightScrollOffset;
+            Dirty = true;
+            e.Handled = true;
+        }
+    }
+
+    public override void Update(GameTime gameTime)
     {
         if (!Visible || !Enabled)
             return;
 
         RefreshRows();
-
-        // Update click clip bounds so peek rows ignore clicks in the clipped area
-        var sx = ScreenX;
-        var sy = ScreenY;
-
-        var leftClip = new Rectangle(
-            sx + LeftRect.X,
-            sy + LeftRect.Y,
-            LeftRect.Width,
-            LeftRect.Height);
-
-        var rightClip = new Rectangle(
-            sx + RightRect.X,
-            sy + RightRect.Y,
-            RightRect.Width,
-            RightRect.Height);
-
-        foreach (var row in LeftRows)
-            row.ClickClipBounds = leftClip;
-
-        foreach (var row in RightRows)
-            row.ClickClipBounds = rightClip;
-
-        base.Update(gameTime, input);
-
-        // Scroll wheel — determine which column based on mouse position
-        if (input.ScrollDelta != 0)
-        {
-            var mx = input.MouseX - ScreenX;
-
-            var leftSlot = CurrentPage * COLUMNS_PER_PAGE;
-            var rightSlot = leftSlot + 1;
-            var leftCount = leftSlot < MAX_DISPLAY_SLOTS ? DisplaySlots[leftSlot].Count : 0;
-            var rightCount = rightSlot < MAX_DISPLAY_SLOTS ? DisplaySlots[rightSlot].Count : 0;
-
-            if ((mx >= LeftRect.X) && (mx < (LeftRect.X + LeftRect.Width)) && (leftCount > MAX_VISIBLE_ROWS))
-            {
-                LeftScrollOffset = Math.Clamp(LeftScrollOffset - input.ScrollDelta, 0, leftCount - MAX_VISIBLE_ROWS);
-                LeftScrollBar.Value = LeftScrollOffset;
-                Dirty = true;
-            } else if ((mx >= RightRect.X) && (mx < (RightRect.X + RightRect.Width)) && (rightCount > MAX_VISIBLE_ROWS))
-            {
-                RightScrollOffset = Math.Clamp(RightScrollOffset - input.ScrollDelta, 0, rightCount - MAX_VISIBLE_ROWS);
-                RightScrollBar.Value = RightScrollOffset;
-                Dirty = true;
-            }
-        }
+        base.Update(gameTime);
     }
 
     private void UpdateScrollBars()

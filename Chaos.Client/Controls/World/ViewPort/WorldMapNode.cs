@@ -139,5 +139,4 @@ public sealed class WorldMapNode : UIPanel
         Label.ForegroundColor = hovered ? HOVER_TEXT_COLOR : Color.White;
     }
 
-    public override void Update(GameTime gameTime, InputBuffer input) { }
 }

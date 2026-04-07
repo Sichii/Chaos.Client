@@ -92,8 +92,6 @@ public sealed class SelfProfileEquipmentTab : PrefabPanel
     private readonly UILabel TooltipLabel;
     private readonly UILabel? WisLabel;
     private byte EmoticonState;
-    private EquipmentSlot? HoveredSlot;
-    private EquipmentSlot? LastClickedSlot;
     private Texture2D? NationIconTexture;
     private Texture2D? PaperdollTexture;
 
@@ -149,7 +147,7 @@ public sealed class SelfProfileEquipmentTab : PrefabPanel
         {
             GroupOpenTexture = GroupBtn.NormalTexture;
             GroupBtn.PressedTexture = null;
-            GroupBtn.OnClick += () => OnGroupToggled?.Invoke();
+            GroupBtn.Clicked += () => OnGroupToggled?.Invoke();
         }
 
         // Extract the closed-state texture from GroupBtn_Disabled for the closed state icon
@@ -197,6 +195,7 @@ public sealed class SelfProfileEquipmentTab : PrefabPanel
         {
             Name = "Tooltip",
             Visible = false,
+            IsHitTestVisible = false,
             PaddingLeft = 1,
             PaddingTop = 1,
             BackgroundColor = new Color(
@@ -412,73 +411,6 @@ public sealed class SelfProfileEquipmentTab : PrefabPanel
         visual.Image.Texture = texture;
     }
 
-    public override void Update(GameTime gameTime, InputBuffer input)
-    {
-        if (!Visible || !Enabled)
-            return;
-
-        base.Update(gameTime, input);
-
-        // Hover detection for equipment slot tooltips
-        HoveredSlot = null;
-        var mx = input.MouseX;
-        var my = input.MouseY;
-
-        foreach ((var slot, var visual) in SlotVisuals)
-        {
-            if (visual.ItemTexture is null)
-                continue;
-
-            if (visual.Image.ContainsPoint(mx, my))
-            {
-                HoveredSlot = slot;
-
-                break;
-            }
-        }
-
-        // Profile text label click detection
-        if (input.WasLeftButtonPressed && (PortraitTextLabel?.ContainsPoint(mx, my) == true))
-            OnProfileTextClicked?.Invoke();
-
-        // Double-click detection for unequip
-        if (input.WasLeftButtonPressed && HoveredSlot.HasValue)
-        {
-            if (input.WasLeftButtonDoubleClicked && (HoveredSlot == LastClickedSlot))
-            {
-                OnUnequip?.Invoke(HoveredSlot.Value);
-                LastClickedSlot = null;
-            } else
-                LastClickedSlot = HoveredSlot;
-        }
-
-        // Position tooltip label at cursor
-        if (HoveredSlot.HasValue && SlotVisuals.TryGetValue(HoveredSlot.Value, out var hovered) && (hovered.ItemName.Length > 0))
-        {
-            TooltipLabel.Text = hovered.ItemName;
-
-            var textWidth = TextRenderer.MeasureWidth(hovered.ItemName);
-            var tipW = textWidth + TooltipLabel.PaddingLeft + TooltipLabel.PaddingRight;
-            var tipH = 12 + TooltipLabel.PaddingTop + TooltipLabel.PaddingBottom;
-            var tipX = mx - tipW / 2;
-            var tipY = my + 20;
-
-            if ((tipX + tipW) > 640)
-                tipX = 640 - tipW;
-
-            if ((tipY + tipH) > 480)
-                tipY = 480 - tipH;
-
-            // Convert screen-space position to parent-relative
-            TooltipLabel.X = tipX - ScreenX;
-            TooltipLabel.Y = tipY - ScreenY;
-            TooltipLabel.Width = tipW;
-            TooltipLabel.Height = tipH;
-            TooltipLabel.Visible = true;
-        } else
-            TooltipLabel.Visible = false;
-    }
-
     /// <summary>
     ///     Updates the stat display labels on the equipment page.
     /// </summary>
@@ -496,6 +428,63 @@ public sealed class SelfProfileEquipmentTab : PrefabPanel
         ConLabel?.Text = $"{con}";
         DexLabel?.Text = $"{dex}";
         AcLabel?.Text = $"{ac}";
+    }
+
+    public override void OnMouseMove(MouseMoveEvent e)
+    {
+        EquipmentSlot? foundSlot = null;
+        string? foundName = null;
+
+        foreach ((var slot, var visual) in SlotVisuals)
+        {
+            if (visual.Image.ContainsPoint(e.ScreenX, e.ScreenY) && (visual.ItemTexture is not null))
+            {
+                foundSlot = slot;
+                foundName = visual.ItemName;
+
+                break;
+            }
+        }
+
+        if (foundSlot is not null && !string.IsNullOrEmpty(foundName))
+        {
+            TooltipLabel.Text = foundName;
+            TooltipLabel.Width = TextRenderer.MeasureWidth(foundName) + 4;
+            TooltipLabel.Height = TextRenderer.CHAR_HEIGHT + 4;
+            TooltipLabel.X = e.ScreenX - ScreenX + 12;
+            TooltipLabel.Y = e.ScreenY - ScreenY + 12;
+            TooltipLabel.Visible = true;
+        } else
+            TooltipLabel.Visible = false;
+    }
+
+    public override void OnMouseLeave()
+    {
+        TooltipLabel.Visible = false;
+    }
+
+    public override void OnClick(ClickEvent e)
+    {
+        if (e.Button != MouseButton.Left)
+            return;
+
+        foreach ((var slot, var visual) in SlotVisuals)
+        {
+            if (visual.Image.ContainsPoint(e.ScreenX, e.ScreenY) && (visual.ItemTexture is not null))
+            {
+                OnUnequip?.Invoke(slot);
+                e.Handled = true;
+
+                return;
+            }
+        }
+
+        // Check if portrait text area was clicked
+        if (PortraitTextLabel is not null && PortraitTextLabel.ContainsPoint(e.ScreenX, e.ScreenY))
+        {
+            OnProfileTextClicked?.Invoke();
+            e.Handled = true;
+        }
     }
 
     private sealed class EquipmentSlotVisual

@@ -123,9 +123,9 @@ public sealed class SpellBookPanel : PanelBase
         return cache.GetTintedTexture($"spell:{spriteId}", cache.GetSpellIcon(spriteId));
     }
 
-    public override void Update(GameTime gameTime, InputBuffer input)
+    public override void Update(GameTime gameTime)
     {
-        base.Update(gameTime, input);
+        base.Update(gameTime);
 
         // Read cooldown state each frame — swap style: fully on or off
         for (var i = 0; (i < VisibleSlotCount) && (i < Slots.Length); i++)

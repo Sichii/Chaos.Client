@@ -71,6 +71,7 @@ public sealed class ScreenManager : IDisposable
         while (Screens.Count > 0)
             RemoveTop();
 
+        Game.Dispatcher.Clear();
         Push(screen);
     }
 

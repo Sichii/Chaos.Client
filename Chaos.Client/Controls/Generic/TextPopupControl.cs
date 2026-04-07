@@ -46,6 +46,7 @@ public sealed class TextPopupControl : UIPanel
     {
         Name = "TextPopup";
         Visible = false;
+        UsesControlStack = true;
         X = POPUP_X;
         Y = POPUP_Y;
         Width = POPUP_WIDTH;
@@ -75,7 +76,7 @@ public sealed class TextPopupControl : UIPanel
             NormalTexture = closeNormalTex,
             PressedTexture = closePressedTex
         };
-        CloseButton.OnClick += Hide;
+        CloseButton.Clicked += Hide;
         AddChild(CloseButton);
 
         // Scrollbar — right side, above the close button
@@ -88,6 +89,7 @@ public sealed class TextPopupControl : UIPanel
             Height = scrollHeight,
             Visible = false
         };
+        Scrollbar.OnValueChanged += value => TextLabel.ScrollOffset = value * TextRenderer.CHAR_HEIGHT;
         AddChild(Scrollbar);
 
         LoadBackgrounds();
@@ -95,6 +97,7 @@ public sealed class TextPopupControl : UIPanel
 
     public void Hide()
     {
+        InputDispatcher.Instance?.RemoveControl(this);
         Visible = false;
         OnClose?.Invoke();
     }
@@ -162,34 +165,34 @@ public sealed class TextPopupControl : UIPanel
         Scrollbar.TotalItems = totalLines;
         Scrollbar.VisibleItems = visibleLines;
 
+        InputDispatcher.Instance?.PushControl(this);
         Visible = true;
     }
 
-    public override void Update(GameTime gameTime, InputBuffer input)
+    public override void OnKeyDown(KeyDownEvent e)
     {
-        if (!Visible || !Enabled)
-            return;
-
-        if (input.WasKeyPressed(Keys.Escape))
+        if (e.Key == Keys.Escape)
         {
             Hide();
+            e.Handled = true;
+        }
+    }
 
+    public override void OnMouseScroll(MouseScrollEvent e)
+    {
+        if (TextLabel.ContentHeight <= TextLabel.Height)
             return;
-        }
 
-        // Mouse wheel scrolling (all styles)
-        if ((input.ScrollDelta != 0) && (TextLabel.ContentHeight > TextLabel.Height))
-        {
-            var visibleLines = TextLabel.Height / TextRenderer.CHAR_HEIGHT;
-            var totalLines = TextLabel.ContentHeight / TextRenderer.CHAR_HEIGHT;
-            var maxScroll = Math.Max(0, totalLines - visibleLines);
+        var visibleLines = TextLabel.Height / TextRenderer.CHAR_HEIGHT;
+        var totalLines = TextLabel.ContentHeight / TextRenderer.CHAR_HEIGHT;
+        var maxScroll = Math.Max(0, totalLines - visibleLines);
+        var newValue = Math.Clamp(Scrollbar.Value - e.Delta, 0, maxScroll);
 
-            Scrollbar.Value = Math.Clamp(Scrollbar.Value - input.ScrollDelta, 0, maxScroll);
-        }
+        if (newValue == Scrollbar.Value)
+            return;
 
-        // Sync label scroll from scrollbar interaction (arrow clicks, thumb drag)
-        TextLabel.ScrollOffset = Scrollbar.Value * TextRenderer.CHAR_HEIGHT;
-
-        base.Update(gameTime, input);
+        Scrollbar.Value = newValue;
+        TextLabel.ScrollOffset = newValue * TextRenderer.CHAR_HEIGHT;
+        e.Handled = true;
     }
 }

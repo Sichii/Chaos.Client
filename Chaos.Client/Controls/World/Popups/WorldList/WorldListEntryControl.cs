@@ -22,6 +22,7 @@ public sealed class WorldListEntryControl : UIPanel
 
     public WorldListEntryControl(int rowWidth)
     {
+        Width = rowWidth;
         Height = 12;
 
         TitleLabel = new UILabel
@@ -70,11 +71,25 @@ public sealed class WorldListEntryControl : UIPanel
         Visible = false;
     }
 
+    public string? PlayerName { get; private set; }
+
+    public event Action<string>? OnWhisper;
+
+    public override void OnDoubleClick(DoubleClickEvent e)
+    {
+        if (e.Button == MouseButton.Left && PlayerName is not null)
+        {
+            OnWhisper?.Invoke(PlayerName);
+            e.Handled = true;
+        }
+    }
+
     public void SetEntry(WorldListEntry entry, Texture2D? statusIcon, Color nameColor)
     {
         TitleLabel.Text = entry.Title ?? string.Empty;
         NameLabel.ForegroundColor = nameColor;
         NameLabel.Text = entry.Name;
+        PlayerName = entry.Name;
         Icon.Texture = statusIcon;
         Visible = true;
     }

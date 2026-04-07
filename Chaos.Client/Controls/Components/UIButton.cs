@@ -7,9 +7,6 @@ namespace Chaos.Client.Controls.Components;
 
 public class UIButton : UIElement
 {
-    // True when mouse was pressed down while hovering this button
-    private bool PressedInside;
-
     /// <summary>
     ///     When true, textures smaller than the element's Width/Height are drawn centered. The element stays the size of the
     ///     largest texture. Used for buttons with differently-sized textures per state (e.g. status book tabs: small normal,
@@ -95,46 +92,46 @@ public class UIButton : UIElement
             Color.White);
     }
 
-    public event Action? OnClick;
+    public event Action? Clicked;
 
-    public void PerformClick() => OnClick?.Invoke();
+    public void PerformClick() => Clicked?.Invoke();
 
     public override void ResetInteractionState()
     {
         IsHovered = false;
         IsPressed = false;
         IsSelected = false;
-        PressedInside = false;
     }
 
-    public override void Update(GameTime gameTime, InputBuffer input)
+    public override void OnMouseEnter() => IsHovered = true;
+
+    public override void OnMouseLeave()
     {
-        if (!Visible || !Enabled)
-        {
-            IsHovered = false;
-            IsPressed = false;
-            PressedInside = false;
+        IsHovered = false;
+        IsPressed = false;
+    }
 
-            return;
+    public override void OnMouseDown(MouseDownEvent e)
+    {
+        if (e.Button == MouseButton.Left)
+        {
+            IsPressed = true;
+            e.Handled = true;
         }
+    }
 
-        var hovering = ContainsPoint(input.MouseX, input.MouseY);
-        IsHovered = hovering;
+    public override void OnMouseUp(MouseUpEvent e)
+    {
+        if (e.Button == MouseButton.Left)
+            IsPressed = false;
+    }
 
-        // Track press origin — only buttons pressed while hovering can fire
-        if (input.WasLeftButtonPressed && hovering)
-            PressedInside = true;
-
-        // Show pressed visual while held inside the button
-        IsPressed = PressedInside && input.IsLeftButtonHeld && hovering;
-
-        // Fire on release if the press originated inside and cursor is still inside
-        if (input.WasLeftButtonReleased)
+    public override void OnClick(ClickEvent e)
+    {
+        if (e.Button == MouseButton.Left)
         {
-            if (PressedInside && hovering)
-                OnClick?.Invoke();
-
-            PressedInside = false;
+            Clicked?.Invoke();
+            e.Handled = true;
         }
     }
 }

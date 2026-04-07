@@ -124,9 +124,9 @@ public sealed class SkillBookPanel : PanelBase
         return cache.GetTintedTexture($"skill:{spriteId}", cache.GetSkillIcon(spriteId));
     }
 
-    public override void Update(GameTime gameTime, InputBuffer input)
+    public override void Update(GameTime gameTime)
     {
-        base.Update(gameTime, input);
+        base.Update(gameTime);
 
         // Read cooldown state each frame — progressive style: grey base with blue overlay
         for (var i = 0; (i < VisibleSlotCount) && (i < Slots.Length); i++)

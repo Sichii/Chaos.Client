@@ -11,7 +11,7 @@ namespace Chaos.Client.Controls.World.Popups.Dialog;
 ///     Dual-field ID/password entry sub-panel for DialogType.Protected (9). Uses the shared ornate frame with manual layout
 ///     for prompt, ID field, password field (masked), and OK button. Right-aligned, bottom-anchored above the dialog bar.
 /// </summary>
-public sealed class ProtectedEntryPanel : FramedDialogPanel
+public sealed class DialogProtectedTextEntryPanel : FramedDialogPanelBase
 {
     private const int BOTTOM_ANCHOR_Y = 372;
     private const int PANEL_WIDTH = 426;
@@ -27,11 +27,12 @@ public sealed class ProtectedEntryPanel : FramedDialogPanel
     private readonly TextElement PasswordLabelText = new();
     private readonly TextElement PrologText = new();
 
-    public ProtectedEntryPanel()
+    public DialogProtectedTextEntryPanel()
         : base("lnpcd2", false)
     {
         Name = "ProtectedEntry";
         Visible = false;
+
 
         Width = PANEL_WIDTH;
         Height = PANEL_HEIGHT;
@@ -78,7 +79,7 @@ public sealed class ProtectedEntryPanel : FramedDialogPanel
         {
             OkButton.X = Width - 61 - 20;
             OkButton.Y = Height - 22 - 3;
-            OkButton.OnClick += HandleSubmit;
+            OkButton.Clicked += HandleSubmit;
         }
     }
 
@@ -133,39 +134,36 @@ public sealed class ProtectedEntryPanel : FramedDialogPanel
         Show();
     }
 
-    public override void Update(GameTime gameTime, InputBuffer input)
+    public override void OnKeyDown(KeyDownEvent e)
     {
-        if (!Visible || !Enabled)
-            return;
-
-        if (input.WasKeyPressed(Keys.Escape))
+        switch (e.Key)
         {
-            OnClose?.Invoke();
+            case Keys.Escape:
+                OnClose?.Invoke();
+                e.Handled = true;
 
-            return;
+                break;
+
+            case Keys.Enter:
+                HandleSubmit();
+                e.Handled = true;
+
+                break;
+
+            case Keys.Tab:
+                if (IdField.IsFocused)
+                {
+                    IdField.IsFocused = false;
+                    PasswordField.IsFocused = true;
+                } else
+                {
+                    PasswordField.IsFocused = false;
+                    IdField.IsFocused = true;
+                }
+
+                e.Handled = true;
+
+                break;
         }
-
-        if (input.WasKeyPressed(Keys.Enter))
-        {
-            HandleSubmit();
-
-            return;
-        }
-
-        // Tab between fields
-        if (input.WasKeyPressed(Keys.Tab))
-        {
-            if (IdField.IsFocused)
-            {
-                IdField.IsFocused = false;
-                PasswordField.IsFocused = true;
-            } else
-            {
-                PasswordField.IsFocused = false;
-                IdField.IsFocused = true;
-            }
-        }
-
-        base.Update(gameTime, input);
     }
 }

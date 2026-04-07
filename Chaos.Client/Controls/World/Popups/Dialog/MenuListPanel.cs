@@ -17,7 +17,7 @@ namespace Chaos.Client.Controls.World.Popups.Dialog;
 ///     ShowSpells menu types. Uses the lnpcd2 prefab with 9-slice frame. Each cell shows an icon and the entity name.
 ///     Visually matches NPCListMenuDialog from the original client.
 /// </summary>
-public sealed class ListMenuPanel : FramedDialogPanel
+public sealed class MenuListPanel : FramedDialogPanelBase
 {
     private const int ICON_SIZE = 32;
     private const int ROW_HEIGHT = 32;
@@ -32,7 +32,6 @@ public sealed class ListMenuPanel : FramedDialogPanel
 
     // Panel sizing
     private const int PANEL_WIDTH = 426;
-    private const int MIN_PANEL_HEIGHT = 80;
     private const int MAX_VISIBLE_ROWS = CONTENT_HEIGHT / ROW_HEIGHT;
 
     // One extra row for the partially-visible peek effect at the bottom
@@ -58,17 +57,17 @@ public sealed class ListMenuPanel : FramedDialogPanel
     private readonly ScrollBarControl ScrollBar;
 
     private int ColumnWidth;
-    private int HoveredIndex = -1;
     private int ScrollOffset;
     private int SelectedIndex = -1;
 
     private int TotalRows => (Entries.Count + COLUMN_COUNT - 1) / COLUMN_COUNT;
 
-    public ListMenuPanel()
+    public MenuListPanel()
         : base("lnpcd2", false)
     {
         Name = "ListMenu";
         Visible = false;
+
 
         OkButton = CreateButton("Btn1");
 
@@ -77,7 +76,7 @@ public sealed class ListMenuPanel : FramedDialogPanel
             OkButton.DisabledTexture = UiRenderer.Instance!.GetSpfTexture("_nbtn.spf", 5);
             OkButton.Enabled = false;
 
-            OkButton.OnClick += () =>
+            OkButton.Clicked += () =>
             {
                 if (SelectedIndex >= 0)
                     OnItemSelected?.Invoke(SelectedIndex);
@@ -182,7 +181,6 @@ public sealed class ListMenuPanel : FramedDialogPanel
         Entries.Clear();
         ScrollOffset = 0;
         SelectedIndex = -1;
-        HoveredIndex = -1;
         Visible = false;
     }
 
@@ -404,70 +402,91 @@ public sealed class ListMenuPanel : FramedDialogPanel
         Visible = true;
     }
 
-    public override void Update(GameTime gameTime, InputBuffer input)
+    public override void OnClick(ClickEvent e)
     {
-        if (!Visible || !Enabled)
+        if (e.Button != MouseButton.Left)
             return;
 
-        if (input.WasKeyPressed(Keys.Escape))
+        var localX = e.ScreenX - ScreenX - CONTENT_X;
+        var localY = e.ScreenY - ScreenY - CONTENT_Y;
+
+        if ((localX < 0) || (localX >= CONTENT_WIDTH) || (localY < 0) || (localY >= CONTENT_HEIGHT))
+            return;
+
+        var row = localY / ROW_HEIGHT;
+        var col = localX / ColumnWidth;
+
+        if ((col < 0) || (col >= COLUMN_COUNT))
+            return;
+
+        var entryIndex = (ScrollOffset + row) * COLUMN_COUNT + col;
+
+        if ((entryIndex < 0) || (entryIndex >= Entries.Count))
+            return;
+
+        SelectedIndex = entryIndex;
+        LayoutEntries();
+
+        if (OkButton is not null)
+            OkButton.Enabled = true;
+
+        e.Handled = true;
+    }
+
+    public override void OnDoubleClick(DoubleClickEvent e)
+    {
+        if (e.Button != MouseButton.Left)
+            return;
+
+        var localX = e.ScreenX - ScreenX - CONTENT_X;
+        var localY = e.ScreenY - ScreenY - CONTENT_Y;
+
+        if ((localX < 0) || (localX >= CONTENT_WIDTH) || (localY < 0) || (localY >= CONTENT_HEIGHT))
+            return;
+
+        var row = localY / ROW_HEIGHT;
+        var col = localX / ColumnWidth;
+
+        if ((col < 0) || (col >= COLUMN_COUNT))
+            return;
+
+        var entryIndex = (ScrollOffset + row) * COLUMN_COUNT + col;
+
+        if ((entryIndex < 0) || (entryIndex >= Entries.Count))
+            return;
+
+        SelectedIndex = entryIndex;
+        LayoutEntries();
+        OnItemSelected?.Invoke(SelectedIndex);
+        e.Handled = true;
+    }
+
+    public override void OnKeyDown(KeyDownEvent e)
+    {
+        if (e.Key == Keys.Escape)
         {
             Hide();
             OnClose?.Invoke();
+            e.Handled = true;
+        }
+    }
 
+    public override void OnMouseScroll(MouseScrollEvent e)
+    {
+        if (ScrollBar.TotalItems <= ScrollBar.VisibleItems)
             return;
-        }
 
-        base.Update(gameTime, input);
+        var newValue = Math.Clamp(ScrollBar.Value - e.Delta, 0, ScrollBar.MaxValue);
 
-        // Hit-test cells
-        var sx = ScreenX + CONTENT_X;
-        var sy = ScreenY + CONTENT_Y;
-        var mx = input.MouseX;
-        var my = input.MouseY;
-
-        HoveredIndex = -1;
-
-        if ((mx >= sx) && (mx < (sx + ColumnWidth * COLUMN_COUNT)) && (my >= sy) && (my < (sy + MAX_VISIBLE_ROWS * ROW_HEIGHT)))
+        if (newValue != ScrollBar.Value)
         {
-            var row = (my - sy) / ROW_HEIGHT;
-            var col = (mx - sx) / ColumnWidth;
-
-            if (col is >= 0 and < COLUMN_COUNT)
-            {
-                var entryIndex = (ScrollOffset + row) * COLUMN_COUNT + col;
-
-                if ((entryIndex >= 0) && (entryIndex < Entries.Count))
-                    HoveredIndex = entryIndex;
-            }
+            ScrollBar.Value = newValue;
+            ScrollOffset = newValue;
+            SelectedIndex = -1;
+            LayoutEntries();
         }
 
-        if (input.WasLeftButtonPressed && (HoveredIndex >= 0))
-        {
-            if (HoveredIndex == SelectedIndex)
-                OnItemSelected?.Invoke(SelectedIndex);
-            else
-            {
-                SelectedIndex = HoveredIndex;
-                UpdateSelectionState();
-
-                if (OkButton is not null)
-                    OkButton.Enabled = true;
-            }
-        }
-
-        // Mouse wheel scrolling
-        if (ScrollBar.Visible && (input.ScrollDelta != 0))
-        {
-            var delta = input.ScrollDelta > 0 ? -1 : 1;
-            var newValue = Math.Clamp(ScrollBar.Value + delta, 0, ScrollBar.MaxValue);
-
-            if (newValue != ScrollBar.Value)
-            {
-                ScrollBar.Value = newValue;
-                ScrollOffset = newValue;
-                LayoutEntries();
-            }
-        }
+        e.Handled = true;
     }
 
     private void UpdateSelectionState()
@@ -534,8 +553,6 @@ public sealed class ListMenuPanel : FramedDialogPanel
         }
 
         public void SetSelected(bool selected) => NameLabel.ForegroundColor = selected ? SELECTED_TEXT_COLOR : TextColors.Default;
-
-        public override void Update(GameTime gameTime, InputBuffer input) { }
     }
 
     private sealed record ListEntryData(

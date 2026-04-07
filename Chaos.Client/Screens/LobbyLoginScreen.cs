@@ -32,7 +32,7 @@ public sealed class LobbyLoginScreen : IScreen
     // Flow state
     private bool Connecting;
     private bool CreatingCharacter;
-    private EulaNoticeControl EulaNoticeControl = null!;
+    private LoginNoticeControl LoginNoticeControl = null!;
 
     private ChaosGame Game = null!;
     private string? HomepageUrl;
@@ -87,17 +87,17 @@ public sealed class LobbyLoginScreen : IScreen
         StartPanel = new LobbyLoginControl();
         LoginControl = new LoginControl();
         ServerSelectControl = new ServerSelectControl();
-        EulaNoticeControl = new EulaNoticeControl();
+        LoginNoticeControl = new LoginNoticeControl();
         CharCreateControl = new CharacterCreationControl(Game.AislingRenderer);
         PasswordChangeControl = new PasswordChangeControl();
 
         // Wire button events
-        StartPanel.ContinueButton?.OnClick += OnContinueClicked;
-        StartPanel.ExitButton?.OnClick += OnExitClicked;
-        StartPanel.SubmitCreateButton?.OnClick += OnCreateClicked;
-        StartPanel.PasswordButton?.OnClick += OnPasswordClicked;
-        StartPanel.CreditButton?.OnClick += OnCreditClicked;
-        StartPanel.HomepageButton?.OnClick += OnHomepageClicked;
+        StartPanel.ContinueButton?.Clicked += OnContinueClicked;
+        StartPanel.ExitButton?.Clicked += OnExitClicked;
+        StartPanel.SubmitCreateButton?.Clicked += OnCreateClicked;
+        StartPanel.PasswordButton?.Clicked += OnPasswordClicked;
+        StartPanel.CreditButton?.Clicked += OnCreditClicked;
+        StartPanel.HomepageButton?.Clicked += OnHomepageClicked;
 
         // Track last-clicked start panel button so Enter can repeat it
         foreach (var btn in (UIButton?[]) [
@@ -110,16 +110,16 @@ public sealed class LobbyLoginScreen : IScreen
                  ])
         {
             if (btn is not null)
-                btn.OnClick += () => LastClickedButton = btn;
+                btn.Clicked += () => LastClickedButton = btn;
         }
 
-        LoginControl.OkButton?.OnClick += OnLoginOkClicked;
-        LoginControl.CancelButton?.OnClick += OnLoginCancelClicked;
+        LoginControl.OkButton?.Clicked += OnLoginOkClicked;
+        LoginControl.CancelButton?.Clicked += OnLoginCancelClicked;
 
         ServerSelectControl.OnServerSelected += OnServerSelected;
 
-        EulaNoticeControl.OnOk += OnEulaAccepted;
-        EulaNoticeControl.OnCancel += OnEulaCancelled;
+        LoginNoticeControl.OnOk += OnLoginAccepted;
+        LoginNoticeControl.OnCancel += OnLoginCancelled;
 
         CharCreateControl.OnOk += OnCharCreateOkClicked;
         CharCreateControl.OnCancel += OnCharCreateCancelClicked;
@@ -144,7 +144,7 @@ public sealed class LobbyLoginScreen : IScreen
             ZIndex = 2
         };
 
-        Root = new UIPanel
+        Root = new LobbyRootPanel
         {
             Name = "LobbyRoot",
             Width = ChaosGame.VIRTUAL_WIDTH,
@@ -153,7 +153,7 @@ public sealed class LobbyLoginScreen : IScreen
         Root.AddChild(StartPanel);
         Root.AddChild(LoginControl);
         Root.AddChild(ServerSelectControl);
-        Root.AddChild(EulaNoticeControl);
+        Root.AddChild(LoginNoticeControl);
         Root.AddChild(CharCreateControl);
         Root.AddChild(PasswordChangeControl);
         Root.AddChild(PopupMessage);
@@ -161,6 +161,8 @@ public sealed class LobbyLoginScreen : IScreen
 
         // Build UI atlas after all login controls are constructed
         UiRenderer.Instance?.BuildAtlas();
+
+        WireRootInputHandlers();
 
         if (ReturningFromWorld)
         {
@@ -197,97 +199,19 @@ public sealed class LobbyLoginScreen : IScreen
             return;
         }
 
-        var input = Game.Input;
-
-        // Popup message takes absolute priority
-        if (PopupMessage.Visible)
-        {
-            PopupMessage.Update(gameTime, input);
-
-            return;
-        }
-
-        // Enter repeats the last-clicked start button when no sub-control is open
-        if (input.WasKeyPressed(Keys.Enter)
-            && LastClickedButton is { Enabled: true }
-            && !LoginControl.Visible
-            && !ServerSelectControl.Visible
-            && !CharCreateControl.Visible
-            && !PasswordChangeControl.Visible
-            && !UITextBox.IsAnyFocused)
-        {
-            LastClickedButton.PerformClick();
-
-            return;
-        }
-
-        // Escape dismisses the topmost dialog (but not the EULA — that requires an explicit button)
-        if (input.WasKeyPressed(Keys.Escape))
-        {
-            if (EulaNoticeControl.Visible)
-                return;
-
-            if (PasswordChangeControl.Visible)
-            {
-                OnPasswordChangeCancelClicked();
-
-                return;
-            }
-
-            if (CharCreateControl.Visible)
-            {
-                OnCharCreateCancelClicked();
-
-                return;
-            }
-
-            if (LoginControl.Visible)
-            {
-                LoginControl.Hide();
-                StartPanel.SetButtonsEnabled(true);
-
-                return;
-            }
-
-            if (ServerSelectControl.Visible)
-                ServerSelectControl.Visible = false;
-
-            // Escape with nothing open — do nothing (Exit button exists for quitting)
-            return;
-        }
-
-        // EULA panel takes priority over all other controls
-        if (EulaNoticeControl.Visible)
-        {
-            EulaNoticeControl.Update(gameTime, input);
-
-            return;
-        }
-
-        // Character creation is a full-screen overlay
-        if (CharCreateControl.Visible)
-        {
-            CharCreateControl.Update(gameTime, input);
-
-            return;
-        }
-
-        StartPanel.Update(gameTime, input);
-
-        if (PasswordChangeControl.Visible)
-            PasswordChangeControl.Update(gameTime, input);
-
-        if (LoginControl.Visible)
-            LoginControl.Update(gameTime, input);
-
-        if (ServerSelectControl.Visible)
-            ServerSelectControl.Update(gameTime, input);
+        Game.Dispatcher.ProcessInput(Root!, gameTime);
+        Root!.Update(gameTime);
     }
 
     private void SetStatus(string message, Color color)
     {
         StatusLabel.ForegroundColor = color;
         StatusLabel.Text = message;
+    }
+
+    private void WireRootInputHandlers()
+    {
+        ((LobbyRootPanel)Root!).Screen = this;
     }
 
     #region Button Handlers
@@ -667,16 +591,16 @@ public sealed class LobbyLoginScreen : IScreen
 
         var noticeText = DecompressNotice(args.Data);
 
-        EulaNoticeControl.Show(noticeText);
+        LoginNoticeControl.Show(noticeText);
     }
 
-    private void OnEulaAccepted()
+    private void OnLoginAccepted()
     {
-        EulaNoticeControl.Hide();
+        LoginNoticeControl.Hide();
         StartPanel.EnableButtons();
     }
 
-    private void OnEulaCancelled() => Game.Exit();
+    private void OnLoginCancelled() => Game.Exit();
 
     private string DecompressNotice(byte[] compressedData)
     {
@@ -698,4 +622,40 @@ public sealed class LobbyLoginScreen : IScreen
             HomepageUrl = args.Message;
     }
     #endregion
+
+    /// <summary>
+    ///     Root panel for LobbyLoginScreen. Handles Enter-to-repeat and ServerSelect Escape dismiss
+    ///     at the root level when no focused sub-panel claims keyboard input.
+    /// </summary>
+    private sealed class LobbyRootPanel : UIPanel
+    {
+        public LobbyLoginScreen? Screen { get; set; }
+
+        public override void OnKeyDown(KeyDownEvent e)
+        {
+            if (Screen is null)
+                return;
+
+            // Enter — repeat last-clicked button when no sub-control is open
+            if (e.Key == Keys.Enter
+                && Screen.LastClickedButton is { Enabled: true }
+                && !Screen.LoginControl.Visible
+                && !Screen.ServerSelectControl.Visible
+                && !Screen.CharCreateControl.Visible
+                && !Screen.PasswordChangeControl.Visible)
+            {
+                Screen.LastClickedButton.PerformClick();
+                e.Handled = true;
+
+                return;
+            }
+
+            // Escape — dismiss ServerSelectControl when it is visible and nothing else claims focus
+            if (e.Key == Keys.Escape && Screen.ServerSelectControl.Visible)
+            {
+                Screen.ServerSelectControl.Visible = false;
+                e.Handled = true;
+            }
+        }
+    }
 }

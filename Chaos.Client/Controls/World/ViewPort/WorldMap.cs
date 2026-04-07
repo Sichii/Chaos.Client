@@ -116,46 +116,56 @@ public sealed class WorldMap : UIPanel
         Visible = true;
     }
 
-    public override void Update(GameTime gameTime, InputBuffer input)
+    public override void OnKeyDown(KeyDownEvent e)
     {
-        if (!Visible)
-            return;
-
-        // Escape to close
-        if (input.WasKeyPressed(Keys.Escape))
+        if (e.Key == Keys.Escape)
         {
             HideMap();
-
-            return;
+            e.Handled = true;
         }
+    }
 
-        // Track hover via box bounds only
-        var previousHovered = HoveredNodeIndex;
+    public override void OnMouseMove(MouseMoveEvent e)
+    {
+        var previousIndex = HoveredNodeIndex;
         HoveredNodeIndex = -1;
 
         for (var i = 0; i < NodeControls.Count; i++)
-            if (NodeControls[i]
-                .ContainsBoxPoint(input.MouseX, input.MouseY))
+        {
+            var node = NodeControls[i];
+            var nx = node.ScreenX;
+            var ny = node.ScreenY;
+
+            if ((e.ScreenX >= nx) && (e.ScreenX < (nx + node.Width)) && (e.ScreenY >= ny) && (e.ScreenY < (ny + node.Height)))
             {
                 HoveredNodeIndex = i;
 
                 break;
             }
-
-        // Update hover visuals only when changed
-        if (previousHovered != HoveredNodeIndex)
-        {
-            if ((previousHovered >= 0) && (previousHovered < NodeControls.Count))
-                NodeControls[previousHovered]
-                    .SetHovered(false);
-
-            if (HoveredNodeIndex >= 0)
-                NodeControls[HoveredNodeIndex]
-                    .SetHovered(true);
         }
 
-        // Click on box — send to server, map stays visible until MapChangePending
-        if (input.WasLeftButtonPressed && (HoveredNodeIndex >= 0))
+        if (HoveredNodeIndex != previousIndex)
+        {
+            if (previousIndex >= 0)
+                NodeControls[previousIndex].SetHovered(false);
+
+            if (HoveredNodeIndex >= 0)
+                NodeControls[HoveredNodeIndex].SetHovered(true);
+        }
+    }
+
+    public override void OnMouseLeave()
+    {
+        if (HoveredNodeIndex >= 0)
+        {
+            NodeControls[HoveredNodeIndex].SetHovered(false);
+            HoveredNodeIndex = -1;
+        }
+    }
+
+    public override void OnClick(ClickEvent e)
+    {
+        if (HoveredNodeIndex >= 0)
         {
             var control = NodeControls[HoveredNodeIndex];
 
@@ -164,6 +174,9 @@ public sealed class WorldMap : UIPanel
                 control.DestX,
                 control.DestY,
                 control.CheckSum);
+
+            e.Handled = true;
         }
     }
+
 }

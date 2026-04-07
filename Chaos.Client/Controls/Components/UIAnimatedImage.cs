@@ -40,7 +40,7 @@ public class UIAnimatedImage : UIElement
             Color.White);
     }
 
-    public override void Update(GameTime gameTime, InputBuffer input)
+    public override void Update(GameTime gameTime)
     {
         if (Frames.Length <= 1)
             return;

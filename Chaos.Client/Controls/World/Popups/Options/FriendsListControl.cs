@@ -43,15 +43,16 @@ public sealed class FriendsListControl : PrefabPanel
     {
         Name = "FriendsList";
         Visible = false;
+        UsesControlStack = true;
 
         CancelButton = CreateButton("Cancel");
         OkButton = CreateButton("OK");
 
         if (CancelButton is not null)
-            CancelButton.OnClick += Close;
+            CancelButton.Clicked += Close;
 
         if (OkButton is not null)
-            OkButton.OnClick += CloseWithOk;
+            OkButton.Clicked += CloseWithOk;
 
         // Column rects from prefab
         LeftColumnRect = GetRect("TextTopLeft");
@@ -106,8 +107,10 @@ public sealed class FriendsListControl : PrefabPanel
         ClosedWithOk = false;
 
         if (SlideMode)
+        {
+            InputDispatcher.Instance?.RemoveControl(this);
             Slide.SlideOut();
-        else
+        } else
         {
             Hide();
             OnClose?.Invoke();
@@ -119,8 +122,10 @@ public sealed class FriendsListControl : PrefabPanel
         ClosedWithOk = true;
 
         if (SlideMode)
+        {
+            InputDispatcher.Instance?.RemoveControl(this);
             Slide.SlideOut();
-        else
+        } else
         {
             OnOk?.Invoke();
             Hide();
@@ -148,6 +153,8 @@ public sealed class FriendsListControl : PrefabPanel
 
     public override void Hide()
     {
+        InputDispatcher.Instance?.RemoveControl(this);
+
         if (SlideMode)
             Slide.Hide(this);
         else
@@ -210,6 +217,7 @@ public sealed class FriendsListControl : PrefabPanel
     {
         this.CenterHorizontallyOnScreen();
         Y = 0;
+        InputDispatcher.Instance?.PushControl(this);
         Visible = true;
         SlideMode = false;
     }
@@ -223,11 +231,12 @@ public sealed class FriendsListControl : PrefabPanel
             return;
 
         Y = SlideAnchorY;
+        InputDispatcher.Instance?.PushControl(this);
         Slide.SlideIn(this);
         SlideMode = true;
     }
 
-    public override void Update(GameTime gameTime, InputBuffer input)
+    public override void Update(GameTime gameTime)
     {
         if (!Visible || !Enabled)
             return;
@@ -242,13 +251,18 @@ public sealed class FriendsListControl : PrefabPanel
             return;
         }
 
-        if (input.WasKeyPressed(Keys.Escape))
+        base.Update(gameTime);
+    }
+
+    public override void OnKeyDown(KeyDownEvent e)
+    {
+        if (Slide.Sliding)
+            return;
+
+        if (e.Key == Keys.Escape)
         {
             Close();
-
-            return;
+            e.Handled = true;
         }
-
-        base.Update(gameTime, input);
     }
 }

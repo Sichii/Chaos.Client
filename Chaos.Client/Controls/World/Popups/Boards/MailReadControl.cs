@@ -37,6 +37,7 @@ public sealed class MailReadControl : PrefabPanel
     {
         Name = "MailRead";
         Visible = false;
+        UsesControlStack = true;
 
         PrevButton = CreateButton("Prev");
         NextButton = CreateButton("Next");
@@ -47,25 +48,25 @@ public sealed class MailReadControl : PrefabPanel
         QuitButton = CreateButton("Quit");
 
         if (QuitButton is not null)
-            QuitButton.OnClick += () => OnQuit?.Invoke();
+            QuitButton.Clicked += () => OnQuit?.Invoke();
 
         if (UpButton is not null)
-            UpButton.OnClick += () => OnUp?.Invoke();
+            UpButton.Clicked += () => OnUp?.Invoke();
 
         if (PrevButton is not null)
-            PrevButton.OnClick += () => OnPrev?.Invoke();
+            PrevButton.Clicked += () => OnPrev?.Invoke();
 
         if (NextButton is not null)
-            NextButton.OnClick += () => OnNext?.Invoke();
+            NextButton.Clicked += () => OnNext?.Invoke();
 
         if (NewButton is not null)
-            NewButton.OnClick += () => OnNewMail?.Invoke();
+            NewButton.Clicked += () => OnNewMail?.Invoke();
 
         if (ReplyButton is not null)
-            ReplyButton.OnClick += () => OnReplyPost?.Invoke(CurrentPostId);
+            ReplyButton.Clicked += () => OnReplyPost?.Invoke(CurrentPostId);
 
         if (DeleteButton is not null)
-            DeleteButton.OnClick += () => OnDeletePost?.Invoke(CurrentPostId);
+            DeleteButton.Clicked += () => OnDeletePost?.Invoke(CurrentPostId);
 
         // Labels
         AuthorLabel = CreateLabel("Author");
@@ -106,7 +107,11 @@ public sealed class MailReadControl : PrefabPanel
         AddChild(ScrollBar);
     }
 
-    public override void Hide() => Visible = false;
+    public override void Hide()
+    {
+        InputDispatcher.Instance?.RemoveControl(this);
+        Visible = false;
+    }
 
     public event Action<short>? OnDeletePost;
     public event Action? OnNewMail;
@@ -125,6 +130,7 @@ public sealed class MailReadControl : PrefabPanel
     public override void Show()
     {
         X = TargetX;
+        InputDispatcher.Instance?.PushControl(this);
         Visible = true;
     }
 
@@ -157,29 +163,29 @@ public sealed class MailReadControl : PrefabPanel
         Show();
     }
 
-    public override void Update(GameTime gameTime, InputBuffer input)
+    public override void OnKeyDown(KeyDownEvent e)
     {
-        if (!Visible || !Enabled)
-            return;
-
-        if (input.WasKeyPressed(Keys.Escape))
+        if (e.Key == Keys.Escape)
         {
             OnUp?.Invoke();
+            e.Handled = true;
+        }
+    }
 
+    public override void OnMouseScroll(MouseScrollEvent e)
+    {
+        if (ScrollBar.TotalItems <= ScrollBar.VisibleItems)
             return;
-        }
 
-        base.Update(gameTime, input);
+        var newValue = Math.Clamp(ScrollBar.Value - e.Delta, 0, ScrollBar.MaxValue);
 
-        // Scroll wheel
-        if (input.ScrollDelta != 0)
+        if (newValue != ScrollBar.Value)
         {
-            var maxLines = Math.Max(0, BodyLabel.ContentHeight / TextRenderer.CHAR_HEIGHT - VisibleHeight / TextRenderer.CHAR_HEIGHT);
-            var lineOffset = BodyLabel.ScrollOffset / TextRenderer.CHAR_HEIGHT;
-            lineOffset = Math.Clamp(lineOffset - input.ScrollDelta, 0, maxLines);
-            BodyLabel.ScrollOffset = lineOffset * TextRenderer.CHAR_HEIGHT;
-            ScrollBar.Value = lineOffset;
+            ScrollBar.Value = newValue;
+            BodyLabel.ScrollOffset = newValue * TextRenderer.CHAR_HEIGHT;
         }
+
+        e.Handled = true;
     }
 
     private void UpdateScrollBar()

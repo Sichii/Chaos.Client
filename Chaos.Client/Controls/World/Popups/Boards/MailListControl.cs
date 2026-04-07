@@ -53,6 +53,7 @@ public sealed class MailListControl : PrefabPanel
     {
         Name = "MailList";
         Visible = false;
+        UsesControlStack = true;
 
         ViewButton = CreateButton("View");
         NewButton = CreateButton("New");
@@ -62,34 +63,34 @@ public sealed class MailListControl : PrefabPanel
         QuitButton = CreateButton("Quit");
 
         if (QuitButton is not null)
-            QuitButton.OnClick += () => OnClose?.Invoke();
+            QuitButton.Clicked += () => OnClose?.Invoke();
 
         if (ViewButton is not null)
-            ViewButton.OnClick += () =>
+            ViewButton.Clicked += () =>
             {
                 if ((SelectedIndex >= 0) && (SelectedIndex < Entries.Count))
                     OnViewPost?.Invoke(Entries[SelectedIndex].PostId);
             };
 
         if (NewButton is not null)
-            NewButton.OnClick += () => OnNewMail?.Invoke();
+            NewButton.Clicked += () => OnNewMail?.Invoke();
 
         if (ReplyButton is not null)
-            ReplyButton.OnClick += () =>
+            ReplyButton.Clicked += () =>
             {
                 if ((SelectedIndex >= 0) && (SelectedIndex < Entries.Count))
                     OnReplyPost?.Invoke(Entries[SelectedIndex].PostId);
             };
 
         if (DeleteButton is not null)
-            DeleteButton.OnClick += () =>
+            DeleteButton.Clicked += () =>
             {
                 if ((SelectedIndex >= 0) && (SelectedIndex < Entries.Count))
                     OnDeletePost?.Invoke(Entries[SelectedIndex].PostId);
             };
 
         if (UpButton is not null)
-            UpButton.OnClick += () => OnUp?.Invoke();
+            UpButton.Clicked += () => OnUp?.Invoke();
 
         MailListRect = GetRect("MailList");
         MaxVisibleRows = MailListRect.Height > 0 ? MailListRect.Height / ROW_HEIGHT : 0;
@@ -157,7 +158,11 @@ public sealed class MailListControl : PrefabPanel
         return $"{entry.PostId,-POSTID_CHARS}{entry.Author,-AUTHOR_CHARS}{entry.Month + "/" + entry.Day,-DATE_CHARS}{subject}";
     }
 
-    public override void Hide() => Visible = false;
+    public override void Hide()
+    {
+        InputDispatcher.Instance?.RemoveControl(this);
+        Visible = false;
+    }
 
     public event Action? OnClose;
     public event Action<short>? OnDeletePost;
@@ -230,6 +235,7 @@ public sealed class MailListControl : PrefabPanel
     public override void Show()
     {
         X = TargetX;
+        InputDispatcher.Instance?.PushControl(this);
         Visible = true;
     }
 
@@ -250,60 +256,96 @@ public sealed class MailListControl : PrefabPanel
         Show();
     }
 
-    public override void Update(GameTime gameTime, InputBuffer input)
+    public override void OnClick(ClickEvent e)
     {
-        if (!Visible || !Enabled)
+        if (e.Button != MouseButton.Left)
             return;
 
-        if (input.WasKeyPressed(Keys.Escape))
+        var localX = e.ScreenX - ScreenX - MailListRect.X;
+        var localY = e.ScreenY - ScreenY - MailListRect.Y;
+
+        if ((localX < 0) || (localX >= MailListRect.Width) || (localY < 0) || (localY >= MailListRect.Height))
+            return;
+
+        var row = localY / ROW_HEIGHT;
+
+        if ((row < 0) || (row >= MaxVisibleRows))
+            return;
+
+        var entryIndex = ScrollOffset + row;
+
+        // "Load More" row
+        if (HasMorePosts && (entryIndex == Entries.Count))
+        {
+            if (Entries.Count > 0)
+                OnLoadMorePosts?.Invoke(Entries[^1].PostId);
+
+            e.Handled = true;
+
+            return;
+        }
+
+        if ((entryIndex < 0) || (entryIndex >= Entries.Count))
+            return;
+
+        SelectedIndex = entryIndex;
+        DataVersion++;
+        UpdateButtonStates();
+        e.Handled = true;
+    }
+
+    public override void OnDoubleClick(DoubleClickEvent e)
+    {
+        if (e.Button != MouseButton.Left)
+            return;
+
+        var localX = e.ScreenX - ScreenX - MailListRect.X;
+        var localY = e.ScreenY - ScreenY - MailListRect.Y;
+
+        if ((localX < 0) || (localX >= MailListRect.Width) || (localY < 0) || (localY >= MailListRect.Height))
+            return;
+
+        var row = localY / ROW_HEIGHT;
+
+        if ((row < 0) || (row >= MaxVisibleRows))
+            return;
+
+        var entryIndex = ScrollOffset + row;
+
+        if ((entryIndex < 0) || (entryIndex >= Entries.Count))
+            return;
+
+        SelectedIndex = entryIndex;
+        DataVersion++;
+        UpdateButtonStates();
+        OnViewPost?.Invoke(Entries[entryIndex].PostId);
+        e.Handled = true;
+    }
+
+    public override void OnKeyDown(KeyDownEvent e)
+    {
+        if (e.Key == Keys.Escape)
         {
             OnUp?.Invoke();
+            e.Handled = true;
+        }
+    }
 
+    public override void OnMouseScroll(MouseScrollEvent e)
+    {
+        if (ScrollBar.TotalItems <= ScrollBar.VisibleItems)
             return;
-        }
 
-        base.Update(gameTime, input);
+        var newValue = Math.Clamp(ScrollBar.Value - e.Delta, 0, ScrollBar.MaxValue);
 
-        var totalRows = Entries.Count + (HasMorePosts ? 1 : 0);
-
-        // Click to select row or trigger "Load More"
-        if (input.WasLeftButtonPressed)
+        if (newValue != ScrollBar.Value)
         {
-            var mx = input.MouseX - ScreenX - MailListRect.X;
-            var my = input.MouseY - ScreenY - MailListRect.Y;
-
-            if ((mx >= 0) && (mx < (MailListRect.Width - 16)) && (my >= 0) && (my < MailListRect.Height))
-            {
-                var row = my / ROW_HEIGHT;
-                var entryIndex = ScrollOffset + row;
-
-                // Clicked the "Load More" virtual row
-                if (HasMorePosts && (entryIndex == Entries.Count) && (Entries.Count > 0))
-                {
-                    var lastPostId = Entries[^1].PostId;
-                    OnLoadMorePosts?.Invoke(lastPostId);
-                } else if (entryIndex < Entries.Count)
-                {
-                    if (input.WasLeftButtonDoubleClicked && (entryIndex == SelectedIndex))
-                    {
-                        OnViewPost?.Invoke(Entries[entryIndex].PostId);
-                    } else
-                    {
-                        SelectedIndex = entryIndex;
-                        DataVersion++;
-                        UpdateButtonStates();
-                    }
-                }
-            }
-        }
-
-        // Scroll wheel
-        if ((input.ScrollDelta != 0) && (totalRows > MaxVisibleRows))
-        {
-            ScrollOffset = Math.Clamp(ScrollOffset - input.ScrollDelta, 0, totalRows - MaxVisibleRows);
-            ScrollBar.Value = ScrollOffset;
+            ScrollBar.Value = newValue;
+            ScrollOffset = newValue;
             DataVersion++;
         }
+
+        e.Handled = true;
     }
 
     private void UpdateButtonStates()

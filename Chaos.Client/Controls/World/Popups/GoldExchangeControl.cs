@@ -28,6 +28,7 @@ public sealed class GoldExchangeControl : PrefabPanel
     {
         Name = "GoldExchange";
         Visible = false;
+        UsesControlStack = true;
 
         OkButton = CreateButton("OK");
         CancelButton = CreateButton("Cancel");
@@ -40,10 +41,10 @@ public sealed class GoldExchangeControl : PrefabPanel
         titleLabel?.Text = "Gold amount to drop?";
 
         if (OkButton is not null)
-            OkButton.OnClick += Confirm;
+            OkButton.Clicked += Confirm;
 
         if (CancelButton is not null)
-            CancelButton.OnClick += Cancel;
+            CancelButton.Clicked += Cancel;
     }
 
     private void Cancel() => Hide();
@@ -73,7 +74,7 @@ public sealed class GoldExchangeControl : PrefabPanel
             AmountTextBox.IsFocused = true;
         }
 
-        Visible = true;
+        base.Show();
     }
 
     public void ShowForTarget(uint? entityId, int tileX, int tileY)
@@ -84,25 +85,21 @@ public sealed class GoldExchangeControl : PrefabPanel
         Show();
     }
 
-    public override void Update(GameTime gameTime, InputBuffer input)
+    public override void OnKeyDown(KeyDownEvent e)
     {
-        if (!Visible || !Enabled)
-            return;
-
-        if (input.WasKeyPressed(Keys.Escape))
+        switch (e.Key)
         {
-            Hide();
+            case Keys.Escape:
+                Hide();
+                e.Handled = true;
 
-            return;
+                break;
+
+            case Keys.Enter:
+                Confirm();
+                e.Handled = true;
+
+                break;
         }
-
-        if (input.WasKeyPressed(Keys.Enter))
-        {
-            Confirm();
-
-            return;
-        }
-
-        base.Update(gameTime, input);
     }
 }

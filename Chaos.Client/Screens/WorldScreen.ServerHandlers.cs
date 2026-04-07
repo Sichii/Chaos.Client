@@ -38,6 +38,8 @@ public sealed partial class WorldScreen
             LoadPlayerFriendList();
             LoadPlayerMacros();
             WorldState.ReloadChants();
+            PlayerPortrait = LoadPortraitFile(args.Name);
+            StatusBook.SetProfileText(LoadProfileText());
         }
 
         // Check for idle animation ("04") frames on this aisling's body
@@ -667,15 +669,15 @@ public sealed partial class WorldScreen
 
     private static byte[] LoadPortraitFile(string name)
     {
-        if (string.IsNullOrEmpty(name))
+        if (!DataContext.LocalPlayerSettings.IsInitialized || string.IsNullOrEmpty(name))
             return [];
 
-        var jpgPath = Path.Combine(GlobalSettings.DataPath, $"{name}.jpg");
+        var jpgPath = DataContext.LocalPlayerSettings.GetFilePath($"{name}.jpg");
 
         if (File.Exists(jpgPath))
             return File.ReadAllBytes(jpgPath);
 
-        var noExtPath = Path.Combine(GlobalSettings.DataPath, name);
+        var noExtPath = DataContext.LocalPlayerSettings.GetFilePath(name);
 
         if (File.Exists(noExtPath))
             return File.ReadAllBytes(noExtPath);
@@ -683,24 +685,22 @@ public sealed partial class WorldScreen
         return [];
     }
 
-    private static string LoadProfileText(string name)
+    private static string LoadProfileText()
     {
-        if (string.IsNullOrEmpty(name))
+        if (!DataContext.LocalPlayerSettings.IsInitialized)
             return string.Empty;
 
-        var profilePath = Path.Combine(GlobalSettings.DataPath, $"{name}.txt");
+        var profilePath = DataContext.LocalPlayerSettings.GetFilePath("profile.txt");
 
         return File.Exists(profilePath) ? File.ReadAllText(profilePath) : string.Empty;
     }
 
-    private void SaveProfileText(string text)
+    private static void SaveProfileText(string text)
     {
-        var name = Game.Connection.AislingName;
-
-        if (string.IsNullOrEmpty(name))
+        if (!DataContext.LocalPlayerSettings.IsInitialized)
             return;
 
-        var profilePath = Path.Combine(GlobalSettings.DataPath, $"{name}.txt");
+        var profilePath = DataContext.LocalPlayerSettings.GetFilePath("profile.txt");
         File.WriteAllText(profilePath, text);
     }
 

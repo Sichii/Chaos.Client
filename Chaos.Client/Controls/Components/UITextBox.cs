@@ -12,6 +12,7 @@ public class UITextBox : UIElement
 {
     private const int CURSOR_BLINK_MS = 530;
     private const int CURSOR_WIDTH = 1;
+    private const long TRIPLE_CLICK_MS = 400;
 
     private static UITextBox? FocusedTextBox;
 
@@ -22,10 +23,12 @@ public class UITextBox : UIElement
     private double CursorTimer;
     private bool CursorVisible;
     private bool Dragging;
+    private long LastClickTime;
     private int LastClickPosition = -1;
-    private double LastClickTime;
     private List<int> LineStarts = [0];
     private TextElement? PrefixTextElement;
+    private Color? SavedFocusedBackgroundColor;
+    private int SavedMaxLength;
     private int SelectionAnchor;
     public TextAlignment Alignment { get; set; } = TextAlignment.Left;
 
@@ -53,8 +56,6 @@ public class UITextBox : UIElement
 
     public Color ForegroundColor { get; set; } = LegendColors.Silver;
 
-    public bool IsFocusable { get; set; } = true;
-
     public bool IsFocused
     {
         get;
@@ -73,17 +74,43 @@ public class UITextBox : UIElement
                     FocusedTextBox.IsFocused = false;
 
                 FocusedTextBox = this;
+                TextBoxFocusGained?.Invoke(this);
             } else if (FocusedTextBox == this)
                 FocusedTextBox = null;
         }
     }
 
+    /// <summary>
+    ///     Fired when any UITextBox gains focus via IsFocused becoming true.
+    ///     The InputDispatcher subscribes to this to keep keyboard routing in sync.
+    /// </summary>
+    public static event Action<UITextBox>? TextBoxFocusGained;
+
     public bool IsMasked { get; set; }
     public bool IsMultiLine { get; set; }
+
+    /// <summary>
+    ///     When true, this textbox is in prompt mode -- it shows a prefix and accepts short input (e.g. item drop count,
+    ///     spell targeting). The styling changes to white background with black text, and MaxLength is temporarily reduced.
+    ///     Enter confirms, Escape cancels.
+    /// </summary>
+    public bool IsPromptMode { get; private set; }
+
     public bool IsReadOnly { get; set; }
+
+    /// <summary>
+    ///     When true, Tab key cycles focus to the next sibling UITextBox with IsTabStop=true
+    ///     instead of inserting a tab character. The parent panel handles the actual cycling.
+    /// </summary>
+    public bool IsTabStop { get; set; }
     public bool IsSelectable { get; set; } = true;
 
     public int MaxLength { get; set; } = 12;
+
+    /// <summary>
+    ///     Fired when the user presses Enter while in prompt mode. Parameter is the typed text.
+    /// </summary>
+    public Action<string>? OnPromptConfirm { get; set; }
 
     /// <summary>
     ///     Non-editable prefix rendered before the editable text (e.g. "Name: " for chat). Not included in <see cref="Text" />
@@ -134,6 +161,44 @@ public class UITextBox : UIElement
         PaddingRight = 2;
         PaddingTop = 2;
         PaddingBottom = 2;
+    }
+
+    /// <summary>
+    ///     Cancels prompt mode, restoring the textbox to its normal state. Clears the callback, prefix, text, and focus.
+    /// </summary>
+    public void CancelPrompt()
+    {
+        if (!IsPromptMode)
+            return;
+
+        IsPromptMode = false;
+        OnPromptConfirm = null;
+        MaxLength = SavedMaxLength;
+        FocusedBackgroundColor = SavedFocusedBackgroundColor;
+        BackgroundColor = null;
+        ForegroundColor = LegendColors.Silver;
+        Prefix = string.Empty;
+        Text = string.Empty;
+        IsFocused = false;
+    }
+
+    /// <summary>
+    ///     Enters prompt mode: shows a prefix, clears text, focuses the textbox, and applies prompt styling (white background,
+    ///     black text, max 12 chars). Callers should set <see cref="OnPromptConfirm" /> after calling this.
+    /// </summary>
+    public void ShowPrompt(string prefix)
+    {
+        IsPromptMode = true;
+        OnPromptConfirm = null;
+        SavedMaxLength = MaxLength;
+        SavedFocusedBackgroundColor = FocusedBackgroundColor;
+        MaxLength = 12;
+        FocusedBackgroundColor = Color.White;
+        BackgroundColor = Color.White;
+        ForegroundColor = Color.Black;
+        Prefix = prefix;
+        Text = string.Empty;
+        IsFocused = true;
     }
 
     /// <summary>
@@ -602,376 +667,6 @@ public class UITextBox : UIElement
         ResetCursor();
     }
 
-    private void HandleEditing(InputBuffer input, bool ctrl)
-    {
-        // Ctrl+Delete — delete word forward
-        if (ctrl && input.WasKeyPressed(Keys.Delete) && !IsReadOnly)
-        {
-            if (HasSelection)
-                DeleteSelection();
-            else if (CursorPosition < Text.Length)
-            {
-                var wordEnd = FindWordBoundaryRight(CursorPosition);
-                Text = Text.Remove(CursorPosition, wordEnd - CursorPosition);
-            }
-
-            ResetCursor();
-
-            return;
-        }
-
-        // Ctrl+Backspace — delete word backward
-        if (ctrl && input.WasKeyPressed(Keys.Back) && !IsReadOnly)
-        {
-            if (HasSelection)
-                DeleteSelection();
-            else if (CursorPosition > 0)
-            {
-                var wordStart = FindWordBoundaryLeft(CursorPosition);
-                Text = Text.Remove(wordStart, CursorPosition - wordStart);
-                CursorPosition = wordStart;
-                SelectionAnchor = wordStart;
-            }
-
-            ResetCursor();
-
-            return;
-        }
-
-        // Delete key (non-ctrl)
-        if (input.WasKeyPressed(Keys.Delete) && !IsReadOnly)
-        {
-            if (HasSelection)
-                DeleteSelection();
-            else if (CursorPosition < Text.Length)
-            {
-                // Delete the entire color code atomically if the cursor is at the start of one
-                var stepPos = StepRight(CursorPosition);
-                Text = Text.Remove(CursorPosition, stepPos - CursorPosition);
-            }
-
-            ResetCursor();
-        }
-
-        if (IsReadOnly)
-            return;
-
-        // Ctrl+A handled in navigation, skip 'a' character input when ctrl is held
-        if (ctrl)
-            return;
-
-        var clamp = ClampToVisibleArea && IsMultiLine;
-
-        foreach (var c in input.TextInput)
-        {
-            if (c == '\b')
-            {
-                HandleBackspace();
-
-                continue;
-            }
-
-            if ((c == '\r') || (c == '\n'))
-            {
-                if (IsMultiLine)
-                {
-                    // Snapshot state before additive mutation for potential overflow revert
-                    var savedText = Text;
-                    var savedCursor = CursorPosition;
-                    var savedAnchor = SelectionAnchor;
-
-                    if (HasSelection)
-                        DeleteSelection();
-
-                    if (Text.Length < MaxLength)
-                    {
-                        var nlInsertPos = CursorPosition;
-                        Text = Text.Insert(nlInsertPos, "\n");
-                        CursorPosition = nlInsertPos + 1;
-                        SelectionAnchor = CursorPosition;
-                        ResetCursor();
-                    }
-
-                    if (clamp && ExceedsVisibleArea())
-                    {
-                        Text = savedText;
-                        CursorPosition = savedCursor;
-                        SelectionAnchor = savedAnchor;
-                        CachedLayoutText = string.Empty;
-                    }
-                }
-
-                continue;
-            }
-
-            // Tab signals focus transfer — parent handles the actual transfer
-            if (c == '\t')
-                continue;
-
-            if (char.IsControl(c))
-                continue;
-
-            // Snapshot state before additive mutation for potential overflow revert
-            var priorText = Text;
-            var priorCursor = CursorPosition;
-            var priorAnchor = SelectionAnchor;
-
-            // Replace selection with typed character
-            if (HasSelection)
-                DeleteSelection();
-
-            if (Text.Length >= MaxLength)
-                continue;
-
-            // Capture position before mutation to avoid setter interactions
-            var insertPos = CursorPosition;
-            Text = Text.Insert(insertPos, c.ToString());
-            CursorPosition = insertPos + 1;
-            SelectionAnchor = CursorPosition;
-            ResetCursor();
-
-            if (clamp && ExceedsVisibleArea())
-            {
-                Text = priorText;
-                CursorPosition = priorCursor;
-                SelectionAnchor = priorAnchor;
-                CachedLayoutText = string.Empty;
-            }
-        }
-    }
-
-    private void HandleMouse(GameTime gameTime, InputBuffer input, bool shift)
-    {
-        // Mouse down — focus, set cursor, begin drag
-        if ((IsFocusable || IsFocused) && input.WasLeftButtonPressed && ContainsPoint(input.MouseX, input.MouseY))
-        {
-            int clickPos;
-
-            if (IsMultiLine)
-                clickPos = HitTestMultiLine(input.MouseX, input.MouseY);
-            else
-                clickPos = HitTestCursorPosition(input.MouseX - ScreenX - PaddingLeft);
-
-            var now = gameTime.TotalGameTime.TotalMilliseconds;
-
-            if ((now - LastClickTime < 400) && (clickPos == LastClickPosition))
-                ClickCount++;
-            else
-                ClickCount = 1;
-
-            LastClickTime = now;
-            LastClickPosition = clickPos;
-
-            if (ClickCount == 3)
-            {
-                if (IsMultiLine)
-                {
-                    var line = GetLineForPosition(clickPos);
-                    SelectionAnchor = LineStarts[line];
-                    var lineText = GetLineText(line);
-                    CursorPosition = LineStarts[line] + lineText.Length;
-                } else
-                    SelectAll();
-
-                ClickCount = 0;
-            } else if (ClickCount == 2)
-            {
-                SelectionAnchor = FindWordBoundaryLeft(clickPos);
-                CursorPosition = FindWordBoundaryRight(clickPos);
-            } else if (shift && IsFocused && IsSelectable)
-            {
-                CursorPosition = clickPos;
-            } else
-            {
-                CursorPosition = clickPos;
-                SelectionAnchor = clickPos;
-            }
-
-            Dragging = true;
-            ResetCursor();
-
-            if (!IsFocused)
-            {
-                IsFocused = true;
-                OnFocused?.Invoke(this);
-            }
-        }
-
-        // Mouse drag — extend selection
-        if (Dragging && IsSelectable && input.IsLeftButtonHeld)
-        {
-            int dragPos;
-
-            if (IsMultiLine)
-                dragPos = HitTestMultiLine(input.MouseX, input.MouseY);
-            else
-                dragPos = HitTestCursorPosition(input.MouseX - ScreenX - PaddingLeft);
-
-            if (dragPos != CursorPosition)
-            {
-                CursorPosition = dragPos;
-                ResetCursor();
-            }
-        }
-
-        // Mouse released — end drag
-        if (Dragging && !input.IsLeftButtonHeld)
-            Dragging = false;
-    }
-
-    private void HandleNavigation(InputBuffer input, bool shift, bool ctrl)
-    {
-        if (input.WasKeyPressed(Keys.Left))
-        {
-            if (!shift && HasSelection)
-                MoveCursor(SelectionStart, false);
-            else if (CursorPosition > 0)
-                MoveCursor(ctrl ? FindWordBoundaryLeft(CursorPosition) : StepLeft(CursorPosition), shift);
-        }
-
-        if (input.WasKeyPressed(Keys.Right))
-        {
-            if (!shift && HasSelection)
-                MoveCursor(SelectionEnd, false);
-            else if (CursorPosition < Text.Length)
-                MoveCursor(ctrl ? FindWordBoundaryRight(CursorPosition) : StepRight(CursorPosition), shift);
-        }
-
-        if (input.WasKeyPressed(Keys.Up))
-        {
-            if (IsMultiLine)
-            {
-                var cursorLine = GetLineForPosition(CursorPosition);
-
-                if (cursorLine > 0)
-                {
-                    var colOffset = CursorPosition - LineStarts[cursorLine];
-                    var currentLineText = GetLineText(cursorLine);
-                    var colPixelX = TextRenderer.MeasureWidth(currentLineText[..Math.Min(colOffset, currentLineText.Length)]);
-                    var targetLine = cursorLine - 1;
-                    var targetText = GetLineText(targetLine);
-                    var targetCol = HitTestCursorPosition(colPixelX, targetText);
-                    MoveCursor(LineStarts[targetLine] + targetCol, shift);
-                } else
-                    MoveCursor(0, shift);
-            } else
-                MoveCursor(0, shift);
-        }
-
-        if (input.WasKeyPressed(Keys.Down))
-        {
-            if (IsMultiLine)
-            {
-                var cursorLine = GetLineForPosition(CursorPosition);
-
-                if ((cursorLine + 1) < LineStarts.Count)
-                {
-                    var colOffset = CursorPosition - LineStarts[cursorLine];
-                    var currentLineText = GetLineText(cursorLine);
-                    var colPixelX = TextRenderer.MeasureWidth(currentLineText[..Math.Min(colOffset, currentLineText.Length)]);
-                    var targetLine = cursorLine + 1;
-                    var targetText = GetLineText(targetLine);
-                    var targetCol = HitTestCursorPosition(colPixelX, targetText);
-                    MoveCursor(LineStarts[targetLine] + targetCol, shift);
-                } else
-                    MoveCursor(Text.Length, shift);
-            } else
-                MoveCursor(Text.Length, shift);
-        }
-
-        if (input.WasKeyPressed(Keys.Home))
-        {
-            if (IsMultiLine && !ctrl)
-            {
-                var cursorLine = GetLineForPosition(CursorPosition);
-                MoveCursor(LineStarts[cursorLine], shift);
-            } else
-                MoveCursor(0, shift);
-        }
-
-        if (input.WasKeyPressed(Keys.End))
-        {
-            if (IsMultiLine && !ctrl)
-            {
-                var cursorLine = GetLineForPosition(CursorPosition);
-                var lineText = GetLineText(cursorLine);
-                MoveCursor(LineStarts[cursorLine] + lineText.Length, shift);
-            } else
-                MoveCursor(Text.Length, shift);
-        }
-
-        // Ctrl+A to select all
-        if (IsSelectable && ctrl && input.WasKeyPressed(Keys.A))
-            SelectAll();
-
-        // Ctrl+C — copy selection to clipboard
-        if (ctrl && input.WasKeyPressed(Keys.C) && HasSelection)
-        {
-            var clipboardText = IsMasked ? new string('*', SelectionLength) : StripColorCodes(SelectedText);
-            Clipboard.SetText(clipboardText);
-        }
-
-        // Ctrl+X — cut selection to clipboard
-        if (ctrl && input.WasKeyPressed(Keys.X) && HasSelection && !IsReadOnly)
-        {
-            var clipboardText = IsMasked ? new string('*', SelectionLength) : StripColorCodes(SelectedText);
-            Clipboard.SetText(clipboardText);
-            DeleteSelection();
-            ResetCursor();
-        }
-
-        // Ctrl+V — paste from clipboard
-        if (ctrl && input.WasKeyPressed(Keys.V) && !IsReadOnly)
-            HandlePaste();
-    }
-
-    private void HandlePaste()
-    {
-        var clipText = Clipboard.GetText();
-
-        if (string.IsNullOrEmpty(clipText))
-            return;
-
-        // Strip newlines for single-line textboxes
-        if (!IsMultiLine)
-            clipText = clipText.Replace("\r", "").Replace("\n", "");
-
-        // Snapshot for potential ClampToVisibleArea revert
-        var savedText = Text;
-        var savedCursor = CursorPosition;
-        var savedAnchor = SelectionAnchor;
-
-        if (HasSelection)
-            DeleteSelection();
-
-        // Truncate to MaxLength
-        var available = MaxLength - Text.Length;
-
-        if (available <= 0)
-            return;
-
-        if (clipText.Length > available)
-            clipText = clipText[..available];
-
-        var insertPos = CursorPosition;
-        Text = Text.Insert(insertPos, clipText);
-        CursorPosition = insertPos + clipText.Length;
-        SelectionAnchor = CursorPosition;
-        ResetCursor();
-
-        if (ClampToVisibleArea && IsMultiLine && ExceedsVisibleArea())
-        {
-            Text = savedText;
-            CursorPosition = savedCursor;
-            SelectionAnchor = savedAnchor;
-            CachedLayoutText = string.Empty;
-        }
-    }
-
-    /// <summary>
-    ///     Determines which character position the click landed on by measuring character widths.
-    ///     Skips {=x} color codes as atomic units so clicks never land inside a code.
-    /// </summary>
     private int HitTestCursorPosition(int localX)
     {
         // Offset by prefix width when focused
@@ -1051,6 +746,14 @@ public class UITextBox : UIElement
         return LineStarts[clickLine] + colInLine;
     }
 
+    private int HitTestFromScreenPos(int screenX, int screenY)
+    {
+        if (IsMultiLine)
+            return HitTestMultiLine(screenX, screenY);
+
+        return HitTestCursorPosition(screenX - ScreenX - PaddingLeft);
+    }
+
     private static bool IsEffectivelyVisible(UIElement element)
     {
         for (var current = element; current is not null; current = current.Parent)
@@ -1081,6 +784,49 @@ public class UITextBox : UIElement
 
     public event Action<UITextBox>? OnFocused;
 
+    private void HandlePaste()
+    {
+        var clipText = Clipboard.GetText();
+
+        if (string.IsNullOrEmpty(clipText))
+            return;
+
+        // Strip newlines for single-line textboxes
+        if (!IsMultiLine)
+            clipText = clipText.Replace("\r", "").Replace("\n", "");
+
+        // Snapshot for potential ClampToVisibleArea revert
+        var savedText = Text;
+        var savedCursor = CursorPosition;
+        var savedAnchor = SelectionAnchor;
+
+        if (HasSelection)
+            DeleteSelection();
+
+        // Truncate to MaxLength
+        var available = MaxLength - Text.Length;
+
+        if (available <= 0)
+            return;
+
+        if (clipText.Length > available)
+            clipText = clipText[..available];
+
+        var insertPos = CursorPosition;
+        Text = Text.Insert(insertPos, clipText);
+        CursorPosition = insertPos + clipText.Length;
+        SelectionAnchor = CursorPosition;
+        ResetCursor();
+
+        if (ClampToVisibleArea && IsMultiLine && ExceedsVisibleArea())
+        {
+            Text = savedText;
+            CursorPosition = savedCursor;
+            SelectionAnchor = savedAnchor;
+            CachedLayoutText = string.Empty;
+        }
+    }
+
     private void ResetCursor()
     {
         CursorVisible = true;
@@ -1104,7 +850,7 @@ public class UITextBox : UIElement
         CursorPosition = Text.Length;
     }
 
-    public override void Update(GameTime gameTime, InputBuffer input)
+    public override void Update(GameTime gameTime)
     {
         if (!Visible || !Enabled)
             return;
@@ -1113,27 +859,397 @@ public class UITextBox : UIElement
         ClampPositions();
 
         if (IsMultiLine)
-        {
             ComputeLineLayout();
 
-            if (IsFocused && (input.ScrollDelta != 0))
-            {
-                var maxScroll = Math.Max(0, (LineStarts.Count - VisibleLineCount) * TextRenderer.CHAR_HEIGHT);
-                ScrollOffset = Math.Clamp(ScrollOffset - input.ScrollDelta * TextRenderer.CHAR_HEIGHT, 0, maxScroll);
-            }
+        if (IsFocused)
+            UpdateCursorBlink(gameTime);
+    }
+
+    // ── Event Handlers ──
+
+    public override void OnMouseDown(MouseDownEvent e)
+    {
+        if (e.Button != MouseButton.Left)
+            return;
+
+        var clickPos = HitTestFromScreenPos(e.ScreenX, e.ScreenY);
+
+        if (e.Shift && IsFocused && IsSelectable)
+        {
+            // Shift+click extends selection to the click position
+            CursorPosition = clickPos;
+        } else
+        {
+            CursorPosition = clickPos;
+            SelectionAnchor = clickPos;
         }
 
-        var shift = input.IsKeyHeld(Keys.LeftShift) || input.IsKeyHeld(Keys.RightShift);
-        var ctrl = input.IsKeyHeld(Keys.LeftControl) || input.IsKeyHeld(Keys.RightControl);
+        Dragging = true;
+        ResetCursor();
 
-        HandleMouse(gameTime, input, shift);
+        if (!IsFocused)
+        {
+            IsFocused = true;
+            OnFocused?.Invoke(this);
+        }
 
+        e.Handled = true;
+    }
+
+    public override void OnClick(ClickEvent e)
+    {
+        if (e.Button != MouseButton.Left)
+            return;
+
+        var clickPos = HitTestFromScreenPos(e.ScreenX, e.ScreenY);
+        var now = Environment.TickCount64;
+
+        // Track click count for triple-click detection
+        if (((now - LastClickTime) < TRIPLE_CLICK_MS) && (clickPos == LastClickPosition))
+            ClickCount++;
+        else
+            ClickCount = 1;
+
+        LastClickTime = now;
+        LastClickPosition = clickPos;
+
+        // Triple-click: select line (multiline) or select all (single-line)
+        if (ClickCount >= 3)
+        {
+            if (IsMultiLine)
+            {
+                var line = GetLineForPosition(clickPos);
+                SelectionAnchor = LineStarts[line];
+                var lineText = GetLineText(line);
+                CursorPosition = LineStarts[line] + lineText.Length;
+            } else
+                SelectAll();
+
+            ClickCount = 0;
+            e.Handled = true;
+        }
+    }
+
+    public override void OnDoubleClick(DoubleClickEvent e)
+    {
+        if (e.Button != MouseButton.Left)
+            return;
+
+        var clickPos = HitTestFromScreenPos(e.ScreenX, e.ScreenY);
+        SelectionAnchor = FindWordBoundaryLeft(clickPos);
+        CursorPosition = FindWordBoundaryRight(clickPos);
+
+        // Bump click count so the next click within the window triggers triple-click
+        ClickCount = 2;
+        e.Handled = true;
+    }
+
+    public override void OnMouseMove(MouseMoveEvent e)
+    {
+        if (!Dragging || !IsSelectable)
+            return;
+
+        var dragPos = HitTestFromScreenPos(e.ScreenX, e.ScreenY);
+
+        if (dragPos != CursorPosition)
+        {
+            CursorPosition = dragPos;
+            ResetCursor();
+        }
+    }
+
+    public override void OnMouseUp(MouseUpEvent e)
+    {
+        if (e.Button == MouseButton.Left)
+            Dragging = false;
+    }
+
+    public override void OnMouseScroll(MouseScrollEvent e)
+    {
+        if (!IsMultiLine || !IsFocused)
+            return;
+
+        var maxScroll = Math.Max(0, (LineStarts.Count - VisibleLineCount) * TextRenderer.CHAR_HEIGHT);
+        ScrollOffset = Math.Clamp(ScrollOffset - e.Delta * TextRenderer.CHAR_HEIGHT, 0, maxScroll);
+        e.Handled = true;
+    }
+
+    public override void OnKeyDown(KeyDownEvent e)
+    {
         if (!IsFocused)
             return;
 
-        UpdateCursorBlink(gameTime);
-        HandleNavigation(input, shift, ctrl);
-        HandleEditing(input, ctrl);
+        var shift = e.Shift;
+        var ctrl = e.Ctrl;
+
+        switch (e.Key)
+        {
+            // ── Navigation ──
+            case Keys.Left:
+                if (!shift && HasSelection)
+                    MoveCursor(SelectionStart, false);
+                else if (CursorPosition > 0)
+                    MoveCursor(ctrl ? FindWordBoundaryLeft(CursorPosition) : StepLeft(CursorPosition), shift);
+
+                e.Handled = true;
+
+                break;
+
+            case Keys.Right:
+                if (!shift && HasSelection)
+                    MoveCursor(SelectionEnd, false);
+                else if (CursorPosition < Text.Length)
+                    MoveCursor(ctrl ? FindWordBoundaryRight(CursorPosition) : StepRight(CursorPosition), shift);
+
+                e.Handled = true;
+
+                break;
+
+            case Keys.Up:
+                if (IsMultiLine)
+                {
+                    var cursorLine = GetLineForPosition(CursorPosition);
+
+                    if (cursorLine > 0)
+                    {
+                        var colOffset = CursorPosition - LineStarts[cursorLine];
+                        var currentLineText = GetLineText(cursorLine);
+                        var colPixelX = TextRenderer.MeasureWidth(currentLineText[..Math.Min(colOffset, currentLineText.Length)]);
+                        var targetLine = cursorLine - 1;
+                        var targetText = GetLineText(targetLine);
+                        var targetCol = HitTestCursorPosition(colPixelX, targetText);
+                        MoveCursor(LineStarts[targetLine] + targetCol, shift);
+                    } else
+                        MoveCursor(0, shift);
+                } else
+                    MoveCursor(0, shift);
+
+                e.Handled = true;
+
+                break;
+
+            case Keys.Down:
+                if (IsMultiLine)
+                {
+                    var cursorLine = GetLineForPosition(CursorPosition);
+
+                    if ((cursorLine + 1) < LineStarts.Count)
+                    {
+                        var colOffset = CursorPosition - LineStarts[cursorLine];
+                        var currentLineText = GetLineText(cursorLine);
+                        var colPixelX = TextRenderer.MeasureWidth(currentLineText[..Math.Min(colOffset, currentLineText.Length)]);
+                        var targetLine = cursorLine + 1;
+                        var targetText = GetLineText(targetLine);
+                        var targetCol = HitTestCursorPosition(colPixelX, targetText);
+                        MoveCursor(LineStarts[targetLine] + targetCol, shift);
+                    } else
+                        MoveCursor(Text.Length, shift);
+                } else
+                    MoveCursor(Text.Length, shift);
+
+                e.Handled = true;
+
+                break;
+
+            case Keys.Home:
+                if (IsMultiLine && !ctrl)
+                {
+                    var cursorLine = GetLineForPosition(CursorPosition);
+                    MoveCursor(LineStarts[cursorLine], shift);
+                } else
+                    MoveCursor(0, shift);
+
+                e.Handled = true;
+
+                break;
+
+            case Keys.End:
+                if (IsMultiLine && !ctrl)
+                {
+                    var cursorLine = GetLineForPosition(CursorPosition);
+                    var lineText = GetLineText(cursorLine);
+                    MoveCursor(LineStarts[cursorLine] + lineText.Length, shift);
+                } else
+                    MoveCursor(Text.Length, shift);
+
+                e.Handled = true;
+
+                break;
+
+            // ── Selection / Clipboard ──
+            case Keys.A when ctrl && IsSelectable:
+                SelectAll();
+                e.Handled = true;
+
+                break;
+
+            case Keys.C when ctrl && HasSelection:
+            {
+                var clipboardText = IsMasked ? new string('*', SelectionLength) : StripColorCodes(SelectedText);
+                Clipboard.SetText(clipboardText);
+                e.Handled = true;
+
+                break;
+            }
+
+            case Keys.X when ctrl && HasSelection && !IsReadOnly:
+            {
+                var clipboardText = IsMasked ? new string('*', SelectionLength) : StripColorCodes(SelectedText);
+                Clipboard.SetText(clipboardText);
+                DeleteSelection();
+                ResetCursor();
+                e.Handled = true;
+
+                break;
+            }
+
+            case Keys.V when ctrl && !IsReadOnly:
+                HandlePaste();
+                e.Handled = true;
+
+                break;
+
+            // ── Editing ──
+            case Keys.Delete when ctrl && !IsReadOnly:
+                if (HasSelection)
+                    DeleteSelection();
+                else if (CursorPosition < Text.Length)
+                {
+                    var wordEnd = FindWordBoundaryRight(CursorPosition);
+                    Text = Text.Remove(CursorPosition, wordEnd - CursorPosition);
+                }
+
+                ResetCursor();
+                e.Handled = true;
+
+                break;
+
+            case Keys.Delete when !IsReadOnly:
+                if (HasSelection)
+                    DeleteSelection();
+                else if (CursorPosition < Text.Length)
+                {
+                    // Delete the entire color code atomically if the cursor is at the start of one
+                    var stepPos = StepRight(CursorPosition);
+                    Text = Text.Remove(CursorPosition, stepPos - CursorPosition);
+                }
+
+                ResetCursor();
+                e.Handled = true;
+
+                break;
+
+            case Keys.Back when ctrl && !IsReadOnly:
+                if (HasSelection)
+                    DeleteSelection();
+                else if (CursorPosition > 0)
+                {
+                    var wordStart = FindWordBoundaryLeft(CursorPosition);
+                    Text = Text.Remove(wordStart, CursorPosition - wordStart);
+                    CursorPosition = wordStart;
+                    SelectionAnchor = wordStart;
+                }
+
+                ResetCursor();
+                e.Handled = true;
+
+                break;
+
+            case Keys.Back when !IsReadOnly:
+                HandleBackspace();
+                e.Handled = true;
+
+                break;
+        }
+
+        if (IsMultiLine)
+            EnsureCursorVisible();
+    }
+
+    public override void OnTextInput(TextInputEvent e)
+    {
+        if (!IsFocused || IsReadOnly)
+            return;
+
+        var c = e.Character;
+
+        // Backspace handled in OnKeyDown
+        if (c == '\b')
+            return;
+
+        // Tab cycles focus when IsTabStop is set — parent handles the actual transfer
+        if (c == '\t' && IsTabStop)
+            return;
+
+        if ((c == '\r') || (c == '\n'))
+        {
+            if (!IsMultiLine)
+                return;
+
+            // Snapshot state before additive mutation for potential overflow revert
+            var savedText = Text;
+            var savedCursor = CursorPosition;
+            var savedAnchor = SelectionAnchor;
+
+            if (HasSelection)
+                DeleteSelection();
+
+            if (Text.Length < MaxLength)
+            {
+                var nlInsertPos = CursorPosition;
+                Text = Text.Insert(nlInsertPos, "\n");
+                CursorPosition = nlInsertPos + 1;
+                SelectionAnchor = CursorPosition;
+                ResetCursor();
+            }
+
+            if (ClampToVisibleArea && IsMultiLine && ExceedsVisibleArea())
+            {
+                Text = savedText;
+                CursorPosition = savedCursor;
+                SelectionAnchor = savedAnchor;
+                CachedLayoutText = string.Empty;
+            }
+
+            e.Handled = true;
+
+            if (IsMultiLine)
+                EnsureCursorVisible();
+
+            return;
+        }
+
+        if (char.IsControl(c))
+            return;
+
+        // Snapshot state before additive mutation for potential overflow revert
+        var priorText = Text;
+        var priorCursor = CursorPosition;
+        var priorAnchor = SelectionAnchor;
+
+        // Replace selection with typed character
+        if (HasSelection)
+            DeleteSelection();
+
+        if (Text.Length >= MaxLength)
+            return;
+
+        // Capture position before mutation to avoid setter interactions
+        var insertPos = CursorPosition;
+        Text = Text.Insert(insertPos, c.ToString());
+        CursorPosition = insertPos + 1;
+        SelectionAnchor = CursorPosition;
+        ResetCursor();
+
+        if (ClampToVisibleArea && IsMultiLine && ExceedsVisibleArea())
+        {
+            Text = priorText;
+            CursorPosition = priorCursor;
+            SelectionAnchor = priorAnchor;
+            CachedLayoutText = string.Empty;
+        }
+
+        e.Handled = true;
 
         if (IsMultiLine)
             EnsureCursorVisible();

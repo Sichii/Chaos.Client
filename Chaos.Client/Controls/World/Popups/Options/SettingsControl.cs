@@ -43,15 +43,16 @@ public sealed class SettingsControl : PrefabPanel
         Options = options;
         Name = "Settings";
         Visible = false;
+        UsesControlStack = true;
 
         OkButton = CreateButton("OK");
         CancelButton = CreateButton("Cancel");
 
         if (OkButton is not null)
-            OkButton.OnClick += Close;
+            OkButton.Clicked += Close;
 
         if (CancelButton is not null)
-            CancelButton.OnClick += Close;
+            CancelButton.Clicked += Close;
 
         // Create per-setting number buttons from _nsettb.spf (2 frames per setting: normal, pressed)
         // 2-column layout: settings 0-9 in left column, 10-12 in right column
@@ -76,7 +77,7 @@ public sealed class SettingsControl : PrefabPanel
                 PressedTexture = cache.GetSpfTexture("_nsettb.spf", pressedIdx)
             };
 
-            btn.OnClick += () => Options.Toggle(settingIndex);
+            btn.Clicked += () => Options.Toggle(settingIndex);
 
             AddChild(btn);
 
@@ -114,8 +115,10 @@ public sealed class SettingsControl : PrefabPanel
     private void Close()
     {
         if (SlideMode)
+        {
+            InputDispatcher.Instance?.RemoveControl(this);
             Slide.SlideOut();
-        else
+        } else
         {
             Hide();
             OnClose?.Invoke();
@@ -124,6 +127,8 @@ public sealed class SettingsControl : PrefabPanel
 
     public override void Hide()
     {
+        InputDispatcher.Instance?.RemoveControl(this);
+
         if (SlideMode)
             Slide.Hide(this);
         else
@@ -182,6 +187,7 @@ public sealed class SettingsControl : PrefabPanel
     {
         this.CenterHorizontallyOnScreen();
         Y = 0;
+        InputDispatcher.Instance?.PushControl(this);
         Visible = true;
         SlideMode = false;
     }
@@ -195,11 +201,12 @@ public sealed class SettingsControl : PrefabPanel
             return;
 
         Y = SlideAnchorY;
+        InputDispatcher.Instance?.PushControl(this);
         Slide.SlideIn(this);
         SlideMode = true;
     }
 
-    public override void Update(GameTime gameTime, InputBuffer input)
+    public override void Update(GameTime gameTime)
     {
         if (!Visible || !Enabled)
             return;
@@ -211,13 +218,18 @@ public sealed class SettingsControl : PrefabPanel
             return;
         }
 
-        if (input.WasKeyPressed(Keys.Escape) || input.WasKeyPressed(Keys.F4))
+        base.Update(gameTime);
+    }
+
+    public override void OnKeyDown(KeyDownEvent e)
+    {
+        if (Slide.Sliding)
+            return;
+
+        if (e.Key is Keys.Escape or Keys.F4)
         {
             Close();
-
-            return;
+            e.Handled = true;
         }
-
-        base.Update(gameTime, input);
     }
 }

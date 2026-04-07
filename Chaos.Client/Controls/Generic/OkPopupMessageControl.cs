@@ -43,6 +43,7 @@ public sealed class OkPopupMessageControl : UIPanel
     {
         Name = "PopupMessage";
         Visible = false;
+        UsesControlStack = true;
 
         // Load background tile
         using var bgTile = DataContext.UserControls.GetSpfImage("DlgBack2.spf");
@@ -101,7 +102,7 @@ public sealed class OkPopupMessageControl : UIPanel
                 NormalTexture = cancelNormalTex,
                 PressedTexture = cancelPressedTex
             };
-            CancelButton.OnClick += () => OnCancel?.Invoke();
+            CancelButton.Clicked += () => OnCancel?.Invoke();
             AddChild(CancelButton);
 
             okX = CancelButton.X - okWidth - BUTTON_MARGIN;
@@ -121,7 +122,7 @@ public sealed class OkPopupMessageControl : UIPanel
             NormalTexture = okNormalTex,
             PressedTexture = okPressedTex
         };
-        OkButton.OnClick += () => OnOk?.Invoke();
+        OkButton.Clicked += () => OnOk?.Invoke();
         AddChild(OkButton);
     }
 
@@ -142,6 +143,7 @@ public sealed class OkPopupMessageControl : UIPanel
 
     public void Hide()
     {
+        InputDispatcher.Instance?.RemoveControl(this);
         Visible = false;
         MessageLines = null;
     }
@@ -158,25 +160,24 @@ public sealed class OkPopupMessageControl : UIPanel
         MessageLines = lines;
         MessageTextX = ContentX - 9;
         MessageTextY = ContentY + (ContentHeight - textHeight) / 2 - 10;
+        InputDispatcher.Instance?.PushControl(this);
         Visible = true;
     }
 
-    public override void Update(GameTime gameTime, InputBuffer input)
+    public override void OnKeyDown(KeyDownEvent e)
     {
-        if (!Visible || !Enabled)
-            return;
-
-        if (input.WasKeyPressed(Keys.Enter))
+        if (e.Key == Keys.Enter)
+        {
             OkButton.PerformClick();
-
-        if (input.WasKeyPressed(Keys.Escape))
+            e.Handled = true;
+        } else if (e.Key == Keys.Escape)
         {
             if (CancelButton is not null)
                 CancelButton.PerformClick();
             else
                 OkButton.PerformClick();
-        }
 
-        base.Update(gameTime, input);
+            e.Handled = true;
+        }
     }
 }

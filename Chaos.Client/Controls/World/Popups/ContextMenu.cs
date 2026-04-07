@@ -29,6 +29,7 @@ public sealed class ContextMenu : UIPanel
     public ContextMenu()
     {
         Visible = false;
+        UsesControlStack = true;
 
         BackgroundColor = new Color(
             0,
@@ -61,6 +62,7 @@ public sealed class ContextMenu : UIPanel
 
     public void Hide()
     {
+        InputDispatcher.Instance?.RemoveControl(this);
         Visible = false;
         ClearItems();
     }
@@ -112,40 +114,51 @@ public sealed class ContextMenu : UIPanel
             Y = ChaosGame.VIRTUAL_HEIGHT - Height;
 
         HoveredIndex = -1;
+        InputDispatcher.Instance?.PushControl(this);
         Visible = true;
     }
 
-    public override void Update(GameTime gameTime, InputBuffer input)
+    public override void OnKeyDown(KeyDownEvent e)
     {
-        if (!Visible)
-            return;
-
-        var localX = input.MouseX - ScreenX;
-        var localY = input.MouseY - ScreenY;
-
-        // Check hover
-        if ((localX >= 0) && (localX < Width) && (localY >= PADDING_Y) && (localY < (Height - PADDING_Y)))
-            HoveredIndex = (localY - PADDING_Y) / ITEM_HEIGHT;
-        else
-            HoveredIndex = -1;
-
-        // Left click — select option or dismiss
-        if (input.WasLeftButtonPressed)
+        if (e.Key == Keys.Escape)
         {
-            if ((HoveredIndex >= 0) && (HoveredIndex < Items.Count))
-            {
-                Items[HoveredIndex]
-                    .Callback();
-                Hide();
-            } else
-                Hide();
+            Hide();
+            e.Handled = true;
+        }
+    }
+
+    public override void OnMouseMove(MouseMoveEvent e)
+    {
+        var localY = e.ScreenY - ScreenY;
+        var index = (localY - PADDING_Y) / ITEM_HEIGHT;
+
+        HoveredIndex = (index >= 0) && (index < Items.Count) ? index : -1;
+    }
+
+    public override void OnMouseLeave()
+    {
+        HoveredIndex = -1;
+    }
+
+    public override void OnClick(ClickEvent e)
+    {
+        if (e.Button == MouseButton.Right)
+        {
+            Hide();
+            e.Handled = true;
 
             return;
         }
 
-        // Right click or Escape — dismiss
-        if (input.WasRightButtonPressed || input.WasKeyPressed(Keys.Escape))
+        if ((HoveredIndex >= 0) && (HoveredIndex < Items.Count))
+        {
+            Items[HoveredIndex]
+                .Callback();
             Hide();
+        } else
+            Hide();
+
+        e.Handled = true;
     }
 
     private record struct MenuItem(UILabel Label, Action Callback);

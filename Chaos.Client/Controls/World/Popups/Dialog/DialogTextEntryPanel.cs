@@ -11,7 +11,7 @@ namespace Chaos.Client.Controls.World.Popups.Dialog;
 ///     text input field, optional text below (Epilog), and an OK button. Used for DialogType.TextEntry (4) and
 ///     DialogType.Speak (5).
 /// </summary>
-public sealed class DialogTextEntryPanel : FramedDialogPanel
+public sealed class DialogTextEntryPanel : FramedDialogPanelBase
 {
     private const int BOTTOM_ANCHOR_Y = 372;
     private readonly UILabel? EpilogLabel;
@@ -24,6 +24,7 @@ public sealed class DialogTextEntryPanel : FramedDialogPanel
         Name = "DialogTextEntry";
         Visible = false;
 
+
         // Right-aligned, bottom-anchored above dialog bar (same position as option menu)
         X = ChaosGame.VIRTUAL_WIDTH - Width;
         Y = BOTTOM_ANCHOR_Y - Height;
@@ -34,7 +35,7 @@ public sealed class DialogTextEntryPanel : FramedDialogPanel
         OkButton = CreateButton("Btn1");
 
         if (OkButton is not null)
-            OkButton.OnClick += HandleSubmit;
+            OkButton.Clicked += HandleSubmit;
 
         if (TextInput is not null)
         {
@@ -85,25 +86,21 @@ public sealed class DialogTextEntryPanel : FramedDialogPanel
         Show();
     }
 
-    public override void Update(GameTime gameTime, InputBuffer input)
+    public override void OnKeyDown(KeyDownEvent e)
     {
-        if (!Visible || !Enabled)
-            return;
-
-        if (input.WasKeyPressed(Keys.Escape))
+        switch (e.Key)
         {
-            OnClose?.Invoke();
+            case Keys.Escape:
+                OnClose?.Invoke();
+                e.Handled = true;
 
-            return;
+                break;
+
+            case Keys.Enter:
+                HandleSubmit();
+                e.Handled = true;
+
+                break;
         }
-
-        if (input.WasKeyPressed(Keys.Enter))
-        {
-            HandleSubmit();
-
-            return;
-        }
-
-        base.Update(gameTime, input);
     }
 }

@@ -153,19 +153,14 @@ public sealed class SelfProfileLegendTab : PrefabPanel
         DataVersion++;
     }
 
-    public override void Update(GameTime gameTime, InputBuffer input)
+    public override void OnMouseScroll(MouseScrollEvent e)
     {
-        if (!Visible || !Enabled)
-            return;
-
-        base.Update(gameTime, input);
-
-        // Scroll wheel
-        if ((input.ScrollDelta != 0) && (Marks.Count > MAX_VISIBLE_ROWS))
+        if (Marks.Count > MAX_VISIBLE_ROWS)
         {
-            ScrollOffset = Math.Clamp(ScrollOffset - input.ScrollDelta, 0, Marks.Count - MAX_VISIBLE_ROWS);
+            ScrollOffset = Math.Clamp(ScrollOffset - e.Delta, 0, Marks.Count - MAX_VISIBLE_ROWS);
             ScrollBar.Value = ScrollOffset;
             DataVersion++;
+            e.Handled = true;
         }
     }
 }

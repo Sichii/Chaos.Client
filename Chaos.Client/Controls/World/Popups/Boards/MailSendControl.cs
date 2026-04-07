@@ -32,15 +32,16 @@ public sealed class MailSendControl : PrefabPanel
     {
         Name = "MailSend";
         Visible = false;
+        UsesControlStack = true;
 
         SendButton = CreateButton("Send");
         CancelButton = CreateButton("Cancel");
 
         if (SendButton is not null)
-            SendButton.OnClick += HandleSend;
+            SendButton.Clicked += HandleSend;
 
         if (CancelButton is not null)
-            CancelButton.OnClick += () =>
+            CancelButton.Clicked += () =>
             {
                 Hide();
                 OnCancel?.Invoke();
@@ -63,7 +64,6 @@ public sealed class MailSendControl : PrefabPanel
             Width = contentRect.Width,
             Height = contentRect.Height,
             IsMultiLine = true,
-            IsFocusable = true,
             IsSelectable = true,
             MaxLength = 10000,
             PaddingLeft = 0,
@@ -87,7 +87,11 @@ public sealed class MailSendControl : PrefabPanel
         OnSend?.Invoke(recipient, subject, BodyBox.Text);
     }
 
-    public override void Hide() => Visible = false;
+    public override void Hide()
+    {
+        InputDispatcher.Instance?.RemoveControl(this);
+        Visible = false;
+    }
 
     public event Action? OnCancel;
 
@@ -102,6 +106,7 @@ public sealed class MailSendControl : PrefabPanel
     public override void Show()
     {
         X = TargetX;
+        InputDispatcher.Instance?.PushControl(this);
         Visible = true;
     }
 
@@ -131,48 +136,48 @@ public sealed class MailSendControl : PrefabPanel
             TitleBox.IsFocused = true;
     }
 
-    public override void Update(GameTime gameTime, InputBuffer input)
+    public override void OnKeyDown(KeyDownEvent e)
     {
-        if (!Visible || !Enabled)
-            return;
-
-        if (input.WasKeyPressed(Keys.Escape))
+        switch (e.Key)
         {
-            Hide();
-            OnCancel?.Invoke();
+            case Keys.Escape:
+                Hide();
+                OnCancel?.Invoke();
+                e.Handled = true;
 
-            return;
-        }
+                break;
 
-        // Tab navigation: Receiver → Title → BodyBox
-        if (input.WasKeyPressed(Keys.Tab))
-        {
-            if (ReceiverEditBox?.IsFocused == true)
-            {
+            case Keys.Tab:
+                if (ReceiverEditBox?.IsFocused == true)
+                {
+                    ReceiverEditBox.IsFocused = false;
+
+                    if (TitleBox is not null)
+                        TitleBox.IsFocused = true;
+                    else
+                        BodyBox.IsFocused = true;
+
+                    e.Handled = true;
+                } else if (TitleBox?.IsFocused == true)
+                {
+                    TitleBox.IsFocused = false;
+                    BodyBox.IsFocused = true;
+                    e.Handled = true;
+                }
+
+                break;
+
+            case Keys.Enter when ReceiverEditBox?.IsFocused == true:
                 ReceiverEditBox.IsFocused = false;
 
                 if (TitleBox is not null)
                     TitleBox.IsFocused = true;
                 else
                     BodyBox.IsFocused = true;
-            } else if (TitleBox?.IsFocused == true)
-            {
-                TitleBox.IsFocused = false;
-                BodyBox.IsFocused = true;
-            }
+
+                e.Handled = true;
+
+                break;
         }
-
-        // Enter in receiver → focus title (or body if no title)
-        if ((ReceiverEditBox?.IsFocused == true) && input.WasKeyPressed(Keys.Enter))
-        {
-            ReceiverEditBox.IsFocused = false;
-
-            if (TitleBox is not null)
-                TitleBox.IsFocused = true;
-            else
-                BodyBox.IsFocused = true;
-        }
-
-        base.Update(gameTime, input);
     }
 }

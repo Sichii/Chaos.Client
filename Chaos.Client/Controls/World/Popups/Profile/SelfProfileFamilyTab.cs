@@ -29,7 +29,12 @@ public sealed class SelfProfileFamilyTab : PrefabPanel
         FamilyLabel = CreateLabel("Family");
 
         for (var i = 0; i < 10; i++)
+        {
             TextFields[i] = CreateTextBox($"Text{i}");
+
+            if (TextFields[i] is not null)
+                TextFields[i]!.IsTabStop = true;
+        }
     }
 
     public FamilyList GetFamilyMembers()

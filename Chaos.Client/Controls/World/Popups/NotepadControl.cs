@@ -47,13 +47,13 @@ public sealed class NotepadControl : UIPanel
     {
         Name = "Notepad";
         Visible = false;
+        UsesControlStack = true;
 
         ContentBox = new UITextBox
         {
             Name = "NotepadContent",
             IsMultiLine = true,
             MaxLength = MAX_MESSAGE_LENGTH,
-            IsFocusable = true,
             IsReadOnly = false,
             IsSelectable = true,
             ForegroundColor = Color.Black,
@@ -94,6 +94,7 @@ public sealed class NotepadControl : UIPanel
             OnSave?.Invoke(EditSlot, text);
         }
 
+        InputDispatcher.Instance?.RemoveControl(this);
         Visible = false;
         ContentBox.IsFocused = false;
         ContentBox.Visible = false;
@@ -310,6 +311,7 @@ public sealed class NotepadControl : UIPanel
         ContentBox.IsFocused = true;
 
         ReadonlyLabel.Visible = false;
+        InputDispatcher.Instance?.PushControl(this);
         Visible = true;
     }
 
@@ -331,6 +333,7 @@ public sealed class NotepadControl : UIPanel
 
         ContentBox.Visible = false;
         ContentBox.IsFocused = false;
+        InputDispatcher.Instance?.PushControl(this);
         Visible = true;
     }
 
@@ -387,30 +390,27 @@ public sealed class NotepadControl : UIPanel
             canvas.DrawImage(piece, x, y);
     }
 
-    public override void Update(GameTime gameTime, InputBuffer input)
+    public override void OnKeyDown(KeyDownEvent e)
     {
-        if (!Visible || !Enabled)
-            return;
-
-        // Escape closes (sends text if editable)
-        if (input.WasKeyPressed(Keys.Escape))
+        if (e.Key == Keys.Escape)
         {
             Close();
-
-            return;
+            e.Handled = true;
         }
+    }
 
-        if (IsEditable)
-        {
-            base.Update(gameTime, input);
-        } else if ((input.ScrollDelta != 0) && (ReadonlyLabel.ContentHeight > ReadonlyLabel.Height))
+    public override void OnMouseScroll(MouseScrollEvent e)
+    {
+        if (!IsEditable && (ReadonlyLabel.ContentHeight > ReadonlyLabel.Height))
         {
             var maxScroll = Math.Max(0, ReadonlyLabel.ContentHeight - ReadonlyLabel.Height);
 
             ReadonlyLabel.ScrollOffset = Math.Clamp(
-                ReadonlyLabel.ScrollOffset - input.ScrollDelta * TextRenderer.CHAR_HEIGHT,
+                ReadonlyLabel.ScrollOffset - e.Delta * TextRenderer.CHAR_HEIGHT,
                 0,
                 maxScroll);
+
+            e.Handled = true;
         }
     }
 }

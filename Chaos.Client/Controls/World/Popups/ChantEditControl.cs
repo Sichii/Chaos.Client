@@ -51,6 +51,7 @@ public sealed class ChantEditControl : PrefabPanel
     {
         Name = "ChantEdit";
         Visible = false;
+        UsesControlStack = true;
 
         Width = PANEL_WIDTH;
         Height = TOP_HEIGHT + MID_HEIGHT + BOT_HEIGHT;
@@ -87,10 +88,10 @@ public sealed class ChantEditControl : PrefabPanel
             cancelRect != Rectangle.Empty ? cancelRect.Y : 116);
 
         if (OkButton is not null)
-            OkButton.OnClick += Confirm;
+            OkButton.Clicked += Confirm;
 
         if (CancelButton is not null)
-            CancelButton.OnClick += Cancel;
+            CancelButton.Clicked += Cancel;
 
         NameLabel = CreateLabel("Name");
         LevelLabel = CreateLabel("Level");
@@ -190,10 +191,10 @@ public sealed class ChantEditControl : PrefabPanel
 
     public override void Hide()
     {
-        Visible = false;
-
         if (Icon is not null)
             Icon.Texture = null;
+
+        base.Hide();
     }
 
     /// <summary>
@@ -250,39 +251,38 @@ public sealed class ChantEditControl : PrefabPanel
         Height = TOP_HEIGHT + totalMidHeight + BOT_HEIGHT;
         this.CenterOnScreen();
 
-        Visible = true;
+        base.Show();
     }
 
-    public override void Update(GameTime gameTime, InputBuffer input)
+    public override void OnKeyDown(KeyDownEvent e)
     {
-        if (!Visible || !Enabled)
-            return;
-
-        if (input.WasKeyPressed(Keys.Escape))
+        switch (e.Key)
         {
-            Cancel();
+            case Keys.Escape:
+                Cancel();
+                e.Handled = true;
 
-            return;
+                break;
+
+            case Keys.Enter:
+                Confirm();
+                e.Handled = true;
+
+                break;
+
+            case Keys.Tab when LineCount > 1:
+                for (var i = 0; i < LineCount; i++)
+                    if (TextInputs[i].IsFocused)
+                    {
+                        TextInputs[i].IsFocused = false;
+                        TextInputs[(i + 1) % LineCount].IsFocused = true;
+
+                        break;
+                    }
+
+                e.Handled = true;
+
+                break;
         }
-
-        if (input.WasKeyPressed(Keys.Enter))
-        {
-            Confirm();
-
-            return;
-        }
-
-        // Tab cycles focus between text inputs
-        if (input.WasKeyPressed(Keys.Tab) && (LineCount > 1))
-            for (var i = 0; i < LineCount; i++)
-                if (TextInputs[i].IsFocused)
-                {
-                    TextInputs[i].IsFocused = false;
-                    TextInputs[(i + 1) % LineCount].IsFocused = true;
-
-                    break;
-                }
-
-        base.Update(gameTime, input);
     }
 }

@@ -15,9 +15,9 @@ namespace Chaos.Client.Controls.World.Popups.Profile;
 ///     Detail popup for a skill/spell entry (_nui_ske prefab). Shows icon, name, level, stat requirements, prerequisites,
 ///     and description. Dismisses on any click or Escape.
 /// </summary>
-public sealed class AbilityDetailControl : PrefabPanel
+public sealed class AbilityMetadataDetailsControl : PrefabPanel
 {
-    private static readonly Color UnmetColor = new(206, 0, 16);
+    private static readonly Color UnmetColor = LegendColors.Scarlet;
     private readonly UILabel? ConLabel;
     private readonly UILabel? DescLabel;
     private readonly UILabel? DexLabel;
@@ -30,7 +30,7 @@ public sealed class AbilityDetailControl : PrefabPanel
     private readonly UILabel? Sub2Label;
     private readonly UILabel? WisLabel;
 
-    public AbilityDetailControl()
+    public AbilityMetadataDetailsControl()
         : base("_nui_ske")
     {
         Visible = false;
@@ -163,18 +163,18 @@ public sealed class AbilityDetailControl : PrefabPanel
         Show();
     }
 
-    public override void Update(GameTime gameTime, InputBuffer input)
+    public override void OnKeyDown(KeyDownEvent e)
     {
-        if (!Visible)
-            return;
-
-        if (input.WasLeftButtonPressed || input.WasRightButtonPressed || input.WasKeyPressed(Keys.Escape))
+        if (e.Key == Keys.Escape)
         {
             Hide();
-
-            return;
+            e.Handled = true;
         }
+    }
 
-        base.Update(gameTime, input);
+    public override void OnClick(ClickEvent e)
+    {
+        Hide();
+        e.Handled = true;
     }
 }

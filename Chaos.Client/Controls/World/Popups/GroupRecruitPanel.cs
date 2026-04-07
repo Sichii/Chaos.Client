@@ -1,7 +1,6 @@
 #region
 using Chaos.Client.Controls.Components;
 using Chaos.Networking.Entities.Server;
-using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using Microsoft.Xna.Framework.Input;
 #endregion
@@ -61,6 +60,7 @@ public sealed class GroupRecruitPanel : PrefabPanel
     {
         Name = "GroupRecruit";
         Visible = false;
+        UsesControlStack = true;
 
         // Text fields from prefab
         TitleField = CreateTextBox("TITLE", 24);
@@ -167,19 +167,19 @@ public sealed class GroupRecruitPanel : PrefabPanel
 
         // Button events
         if (BeginButton is not null)
-            BeginButton.OnClick += HandleCreate;
+            BeginButton.Clicked += HandleCreate;
 
         if (ModifyButton is not null)
-            ModifyButton.OnClick += HandleCreate;
+            ModifyButton.Clicked += HandleCreate;
 
         if (ResetButton is not null)
-            ResetButton.OnClick += HandleReset;
+            ResetButton.Clicked += HandleReset;
 
         if (CancelButton is not null)
-            CancelButton.OnClick += HandleCancel;
+            CancelButton.Clicked += HandleCancel;
 
         if (QueryJoinButton is not null)
-            QueryJoinButton.OnClick += HandleQueryJoin;
+            QueryJoinButton.Clicked += HandleQueryJoin;
     }
 
     public override void Draw(SpriteBatch spriteBatch)
@@ -472,19 +472,13 @@ public sealed class GroupRecruitPanel : PrefabPanel
         Show();
     }
 
-    public override void Update(GameTime gameTime, InputBuffer input)
+    public override void OnKeyDown(KeyDownEvent e)
     {
-        if (!Visible || !Enabled)
-            return;
-
-        if (input.WasKeyPressed(Keys.Escape))
+        if (e.Key == Keys.Escape)
         {
             Hide();
             OnClose?.Invoke();
-
-            return;
+            e.Handled = true;
         }
-
-        base.Update(gameTime, input);
     }
 }

@@ -36,6 +36,7 @@ public sealed class OtherProfileTabControl : PrefabPanel
     {
         Name = "OtherProfile";
         Visible = false;
+        UsesControlStack = true;
         X = 0;
         Y = 0;
 
@@ -45,7 +46,7 @@ public sealed class OtherProfileTabControl : PrefabPanel
         CloseButton = CreateButton("TAB_CLOSE");
 
         if (CloseButton is not null)
-            CloseButton.OnClick += Hide;
+            CloseButton.Clicked += Hide;
 
         // Only create Equipment + Legend tab buttons
         var cache = UiRenderer.Instance!;
@@ -77,7 +78,7 @@ public sealed class OtherProfileTabControl : PrefabPanel
             tabBtn.NormalTexture = cache.GetSpfTexture("_nui_tb1.spf", frameIndex);
 
             var capturedTab = tab;
-            tabBtn.OnClick += () => SwitchTab(capturedTab);
+            tabBtn.Clicked += () => SwitchTab(capturedTab);
 
             tabBtn.IsSelected = tab == ActiveTab;
             tabBtn.ZIndex = 1;
@@ -145,7 +146,11 @@ public sealed class OtherProfileTabControl : PrefabPanel
         return page as T;
     }
 
-    public new void Hide() => Visible = false;
+    public new void Hide()
+    {
+        InputDispatcher.Instance?.RemoveControl(this);
+        Visible = false;
+    }
     public event Action<string>? OnGroupInviteRequested;
 
     /// <summary>
@@ -176,6 +181,9 @@ public sealed class OtherProfileTabControl : PrefabPanel
             equipPage.SetNation((byte)args.Nation);
             equipPage.SetEmoticonState((byte)args.SocialStatus, args.SocialStatus.ToString());
 
+            equipPage.SetProfileText(args.ProfileText ?? string.Empty);
+            equipPage.SetPortrait(args.Portrait);
+
             // Paperdoll from the entity's current appearance on the map
             var entity = WorldState.GetEntity(args.Id);
 
@@ -189,6 +197,7 @@ public sealed class OtherProfileTabControl : PrefabPanel
         legendPage?.SetMarks(legendMarks);
 
         SwitchTab(StatusBookTab.Equipment);
+        InputDispatcher.Instance?.PushControl(this);
         Visible = true;
     }
 
@@ -227,18 +236,12 @@ public sealed class OtherProfileTabControl : PrefabPanel
         page?.Visible = true;
     }
 
-    public override void Update(GameTime gameTime, InputBuffer input)
+    public override void OnKeyDown(KeyDownEvent e)
     {
-        if (!Visible || !Enabled)
-            return;
-
-        if (input.WasKeyPressed(Keys.Escape))
+        if (e.Key == Keys.Escape)
         {
             Hide();
-
-            return;
+            e.Handled = true;
         }
-
-        base.Update(gameTime, input);
     }
 }

@@ -274,7 +274,13 @@ public abstract class PrefabPanel : UIPanel
             (int)r.Height);
     }
 
-    public virtual void Hide() => Visible = false;
+    public virtual void Hide()
+    {
+        if (UsesControlStack)
+            InputDispatcher.Instance?.RemoveControl(this);
+
+        Visible = false;
+    }
 
     /// <summary>
     ///     If a child with the given name already exists and is of type T, returns it. Otherwise removes and disposes all
@@ -306,5 +312,11 @@ public abstract class PrefabPanel : UIPanel
         return reusable;
     }
 
-    public virtual void Show() => Visible = true;
+    public virtual void Show()
+    {
+        if (UsesControlStack)
+            InputDispatcher.Instance?.PushControl(this);
+
+        Visible = true;
+    }
 }

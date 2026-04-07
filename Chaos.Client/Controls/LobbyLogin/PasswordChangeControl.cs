@@ -1,6 +1,5 @@
 #region
 using Chaos.Client.Controls.Components;
-using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Input;
 #endregion
 
@@ -20,16 +19,17 @@ public sealed class PasswordChangeControl : PrefabPanel
     {
         Name = "PasswordChange";
         Visible = false;
+        UsesControlStack = true;
 
         // Buttons
         OkButton = CreateButton("OK");
         CancelButton = CreateButton("Cancel");
 
         if (OkButton is not null)
-            OkButton.OnClick += () => OnOk?.Invoke();
+            OkButton.Clicked += () => OnOk?.Invoke();
 
         if (CancelButton is not null)
-            CancelButton.OnClick += () => OnCancel?.Invoke();
+            CancelButton.Clicked += () => OnCancel?.Invoke();
 
         // Text fields — type 7 with 0 images, manually created
         NameField = CreateTextBox("Name");
@@ -81,8 +81,8 @@ public sealed class PasswordChangeControl : PrefabPanel
 
     public override void Hide()
     {
-        Visible = false;
         ClearFields();
+        base.Hide();
     }
 
     public event Action? OnCancel;
@@ -110,42 +110,48 @@ public sealed class PasswordChangeControl : PrefabPanel
 
         NameField?.IsFocused = true;
 
-        Visible = true;
+        base.Show();
     }
 
-    public override void Update(GameTime gameTime, InputBuffer input)
+    public override void OnKeyDown(KeyDownEvent e)
     {
-        if (!Visible || !Enabled)
-            return;
-
-        // Tab cycles focus through all 4 fields
-        if (input.WasKeyPressed(Keys.Tab))
+        switch (e.Key)
         {
-            if (NameField?.IsFocused == true)
-            {
-                NameField.IsFocused = false;
-                CurrentPasswordField?.IsFocused = true;
-            } else if (CurrentPasswordField?.IsFocused == true)
-            {
-                CurrentPasswordField.IsFocused = false;
-                NewPasswordField?.IsFocused = true;
-            } else if (NewPasswordField?.IsFocused == true)
-            {
-                NewPasswordField.IsFocused = false;
-                ConfirmPasswordField?.IsFocused = true;
-            } else
-            {
-                ConfirmPasswordField?.IsFocused = false;
-                NameField?.IsFocused = true;
-            }
+            case Keys.Tab:
+                // Cycle focus through all 4 fields: Name → CurrentPassword → NewPassword → Confirm → Name
+                if (NameField?.IsFocused == true)
+                {
+                    NameField.IsFocused = false;
+                    CurrentPasswordField?.IsFocused = true;
+                } else if (CurrentPasswordField?.IsFocused == true)
+                {
+                    CurrentPasswordField.IsFocused = false;
+                    NewPasswordField?.IsFocused = true;
+                } else if (NewPasswordField?.IsFocused == true)
+                {
+                    NewPasswordField.IsFocused = false;
+                    ConfirmPasswordField?.IsFocused = true;
+                } else
+                {
+                    ConfirmPasswordField?.IsFocused = false;
+                    NameField?.IsFocused = true;
+                }
+
+                e.Handled = true;
+
+                break;
+
+            case Keys.Enter:
+                OkButton?.PerformClick();
+                e.Handled = true;
+
+                break;
+
+            case Keys.Escape:
+                CancelButton?.PerformClick();
+                e.Handled = true;
+
+                break;
         }
-
-        if (input.WasKeyPressed(Keys.Enter))
-            OkButton?.PerformClick();
-
-        if (input.WasKeyPressed(Keys.Escape))
-            CancelButton?.PerformClick();
-
-        base.Update(gameTime, input);
     }
 }

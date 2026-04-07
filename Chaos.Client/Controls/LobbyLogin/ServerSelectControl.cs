@@ -73,19 +73,11 @@ public sealed class ServerSelectControl : PrefabPanel
         }
     }
 
-    public override void Update(GameTime gameTime, InputBuffer input)
+    public override void OnClick(ClickEvent e)
     {
-        if (!Visible || !Enabled)
+        if (e.Button != MouseButton.Left)
             return;
 
-        base.Update(gameTime, input);
-
-        // Check for click on a server row
-        if (!input.WasLeftButtonPressed)
-            return;
-
-        var mouseX = input.MouseX;
-        var mouseY = input.MouseY;
         var panelScreenX = ScreenX;
         var panelScreenY = ScreenY;
 
@@ -93,12 +85,13 @@ public sealed class ServerSelectControl : PrefabPanel
         {
             var rowY = panelScreenY + FIRST_ROW_Y + i * ROW_HEIGHT;
 
-            if ((mouseX >= (panelScreenX + NAME_X))
-                && (mouseX < (panelScreenX + Width))
-                && (mouseY >= rowY)
-                && (mouseY < (rowY + ROW_HEIGHT)))
+            if ((e.ScreenX >= (panelScreenX + NAME_X))
+                && (e.ScreenX < (panelScreenX + Width))
+                && (e.ScreenY >= rowY)
+                && (e.ScreenY < (rowY + ROW_HEIGHT)))
             {
                 OnServerSelected?.Invoke(Servers[i].Id);
+                e.Handled = true;
 
                 return;
             }

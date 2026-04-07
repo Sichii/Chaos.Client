@@ -8,6 +8,7 @@ using Chaos.Client.Extensions;
 using Chaos.Client.Models;
 using Chaos.Client.Systems;
 using Chaos.DarkAges.Definitions;
+using Chaos.Geometry.Abstractions.Definitions;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Input;
 using Pathfinder = Chaos.Client.Systems.Pathfinder;
@@ -103,25 +104,22 @@ public sealed partial class WorldScreen
 
         if (invSlot.Stackable)
         {
-            WorldHud.Prompt.ShowPrompt($"Number of items to drop [ 0 - {(int)invSlot.Count} ]: ");
+            WorldHud.ChatInput.ShowPrompt($"Number of items to drop [ 0 - {(int)invSlot.Count} ]: ");
+            Game.Dispatcher.SetExplicitFocus(WorldHud.ChatInput);
 
             var capturedSlot = slot;
             var capturedX = tileX;
             var capturedY = tileY;
 
-            void OnPromptConfirm(string text)
+            WorldHud.ChatInput.OnPromptConfirm = text =>
             {
-                WorldHud.Prompt.OnConfirm -= OnPromptConfirm;
-
                 if (int.TryParse(text, out var count) && (count > 0))
                     Game.Connection.DropItem(
                         capturedSlot,
                         capturedX,
                         capturedY,
                         count);
-            }
-
-            WorldHud.Prompt.OnConfirm += OnPromptConfirm;
+            };
 
             return;
         }
@@ -237,72 +235,52 @@ public sealed partial class WorldScreen
         BodyAnimation.Wave
     ];
 
-    private bool HandleEmoteHotkeys(InputBuffer input)
+    private bool HandleEmoteHotkey(KeyDownEvent e)
     {
-        var ctrl = input.IsKeyHeld(Keys.LeftControl) || input.IsKeyHeld(Keys.RightControl);
-        var alt = input.IsKeyHeld(Keys.LeftAlt) || input.IsKeyHeld(Keys.RightAlt);
-
-        if (!ctrl && !alt)
+        if (!e.Ctrl && !e.Alt)
             return false;
 
-        var keyIndex = -1;
-
-        for (var i = 0; i < EmoteKeys.Length; i++)
-            if (input.WasKeyPressed(EmoteKeys[i]))
-            {
-                keyIndex = i;
-
-                break;
-            }
+        var keyIndex = Array.IndexOf(EmoteKeys, e.Key);
 
         if (keyIndex < 0)
             return false;
 
         BodyAnimation bodyAnimation;
 
-        if (ctrl && !alt)
+        if (e.Ctrl && !e.Alt)
             bodyAnimation = CtrlEmotes[keyIndex];
-        else if (ctrl && alt)
+        else if (e.Ctrl && e.Alt)
             bodyAnimation = (BodyAnimation)(23 + keyIndex);
         else
             bodyAnimation = (BodyAnimation)(34 + keyIndex);
 
         Game.Connection.SendEmote(bodyAnimation);
+        e.Handled = true;
 
         return true;
     }
 
-    private void HandleSlotHotkeys(InputBuffer input)
+    private bool HandleSlotHotkey(KeyDownEvent e)
     {
-        var slot = -1;
-
-        if (input.WasKeyPressed(Keys.D1))
-            slot = 1;
-        else if (input.WasKeyPressed(Keys.D2))
-            slot = 2;
-        else if (input.WasKeyPressed(Keys.D3))
-            slot = 3;
-        else if (input.WasKeyPressed(Keys.D4))
-            slot = 4;
-        else if (input.WasKeyPressed(Keys.D5))
-            slot = 5;
-        else if (input.WasKeyPressed(Keys.D6))
-            slot = 6;
-        else if (input.WasKeyPressed(Keys.D7))
-            slot = 7;
-        else if (input.WasKeyPressed(Keys.D8))
-            slot = 8;
-        else if (input.WasKeyPressed(Keys.D9))
-            slot = 9;
-        else if (input.WasKeyPressed(Keys.D0))
-            slot = 10;
-        else if (input.WasKeyPressed(Keys.OemMinus))
-            slot = 11;
-        else if (input.WasKeyPressed(Keys.OemPlus))
-            slot = 12;
+        var slot = e.Key switch
+        {
+            Keys.D1       => 1,
+            Keys.D2       => 2,
+            Keys.D3       => 3,
+            Keys.D4       => 4,
+            Keys.D5       => 5,
+            Keys.D6       => 6,
+            Keys.D7       => 7,
+            Keys.D8       => 8,
+            Keys.D9       => 9,
+            Keys.D0       => 10,
+            Keys.OemMinus => 11,
+            Keys.OemPlus  => 12,
+            _             => -1
+        };
 
         if (slot < 0)
-            return;
+            return false;
 
         var byteSlot = (byte)slot;
 
@@ -335,25 +313,32 @@ public sealed partial class WorldScreen
 
             case HudTab.Tools:
                 // TODO: left half = world skills (slots 73-78), right half = world spells (slots 73-78)
-                break;
+                return false;
 
             case HudTab.Chat:
             case HudTab.MessageHistory:
             {
-                var macroText = MacroMenu.GetMacroValue(slot - 1);
+                var macroText = MacrosList.GetMacroValue(slot - 1);
 
                 if (macroText.Length > 0)
                 {
                     Chat.Focus($"{WorldHud.PlayerName}: ", Color.White);
+                    Game.Dispatcher.SetExplicitFocus(WorldHud.ChatInput);
                     WorldHud.ChatInput.Text = macroText;
                     WorldHud.ChatInput.CursorPosition = macroText.Length;
                     WorldHud.ChatInput.ClearSelection();
-                    input.Suppressed = true;
                 }
 
                 break;
             }
+
+            default:
+                return false;
         }
+
+        e.Handled = true;
+
+        return true;
     }
 
     // --- Chant editing ---
@@ -440,6 +425,7 @@ public sealed partial class WorldScreen
     {
         var family = DataContext.LocalPlayerSettings.LoadFamilyList();
         StatusBook.SetFamilyMembers(family);
+        WorldList.SetFamilyNames(family);
     }
 
     private void SavePlayerFamilyList()
@@ -447,7 +433,10 @@ public sealed partial class WorldScreen
         var family = StatusBook.GetFamilyMembers();
 
         if (family is not null)
+        {
             DataContext.LocalPlayerSettings.SaveFamilyList(family);
+            WorldList.SetFamilyNames(family);
+        }
     }
 
     private void LoadPlayerFriendList()
@@ -457,18 +446,20 @@ public sealed partial class WorldScreen
         var entries = names.Select(n => new FriendEntry(n, false))
                            .ToList();
         FriendsList.SetFriends(entries);
+        WorldList.SetFriendNames(names);
     }
 
     private void SavePlayerFriendList()
     {
         var names = FriendsList.GetFriendNames();
         DataContext.LocalPlayerSettings.SaveFriendList(names);
+        WorldList.SetFriendNames(names);
     }
 
     private void LoadPlayerMacros()
     {
         var macros = DataContext.LocalPlayerSettings.LoadMacros();
-        MacroMenu.SetMacros(macros);
+        MacrosList.SetMacros(macros);
     }
 
     private void SaveSkillChants()
@@ -516,32 +507,665 @@ public sealed partial class WorldScreen
     }
     #endregion
 
-    #region Click Handling
+    #region Root Event Handlers
+
     /// <summary>
-    ///     Handles left-click within the viewport area — picks the entity at the click position.
+    ///     Handles keyboard input that bubbles up to the root panel (no focused element consumed it).
+    ///     Contains all game hotkeys, chat focus, movement, emotes, and slot actions.
     /// </summary>
-    private void UpdateDragHighlight(InputBuffer input)
+    private void OnRootKeyDown(KeyDownEvent e)
     {
-        if (GetDraggingPanel() is null || MapFile is null)
+        // Casting mode: Escape cancels targeting
+        if (CastingSystem.IsTargeting && (e.Key == Keys.Escape))
+        {
+            CastingSystem.Reset();
+            e.Handled = true;
+
+            return;
+        }
+
+        // Prompt mode: Enter confirms, Escape cancels (takes priority over normal chat handling)
+        if (WorldHud.ChatInput.IsPromptMode)
+        {
+            if (e.Key == Keys.Enter)
+            {
+                var text = WorldHud.ChatInput.Text;
+                var callback = WorldHud.ChatInput.OnPromptConfirm;
+                WorldHud.ChatInput.CancelPrompt();
+                Game.Dispatcher.ClearExplicitFocus();
+                callback?.Invoke(text);
+                e.Handled = true;
+
+                return;
+            }
+
+            if (e.Key == Keys.Escape)
+            {
+                WorldHud.ChatInput.CancelPrompt();
+                Game.Dispatcher.ClearExplicitFocus();
+                e.Handled = true;
+
+                return;
+            }
+
+            return;
+        }
+
+        // Enter — toggle chat focus / send message
+        if (e.Key == Keys.Enter)
+        {
+            if (WorldHud.ChatInput.IsFocused)
+            {
+                var message = WorldHud.ChatInput.Text.Trim();
+
+                // Ignore phase 2: submit the typed name for add/remove
+                if (Chat.IgnorePhase is IgnorePhase.AddName or IgnorePhase.RemoveName)
+                {
+                    if (message.Length > 0)
+                    {
+                        if (Chat.IgnorePhase == IgnorePhase.AddName)
+                            Game.Connection.SendAddIgnore(message);
+                        else
+                            Game.Connection.SendRemoveIgnore(message);
+                    }
+
+                    Chat.Unfocus();
+                    Game.Dispatcher.ClearExplicitFocus();
+                }
+
+                // Whisper phase 1: resolve target name, transition to phase 2
+                else if (Chat.IsWhisperNamePhase)
+                {
+                    var targetName = message.Length > 0 ? message : Chat.GetBracketedWhisperTarget();
+
+                    if (targetName.Length > 0)
+                    {
+                        WorldHud.ChatInput.Prefix = $"-> {targetName}: ";
+                        WorldHud.ChatInput.Text = string.Empty;
+                    }
+                } else
+                {
+                    Chat.Dispatch(message);
+                    WorldHud.ChatInput.Text = string.Empty;
+                    Chat.Unfocus();
+                    Game.Dispatcher.ClearExplicitFocus();
+                }
+            } else
+            {
+                Chat.Focus($"{WorldHud.PlayerName}: ", Color.White);
+                Game.Dispatcher.SetExplicitFocus(WorldHud.ChatInput);
+            }
+
+            e.Handled = true;
+
+            return;
+        }
+
+        // Escape — unfocus chat
+        if (e.Key == Keys.Escape && WorldHud.ChatInput.IsFocused)
+        {
+            Chat.Unfocus();
+            Game.Dispatcher.ClearExplicitFocus();
+            e.Handled = true;
+
+            return;
+        }
+
+        // Stack guard: suppress all game hotkeys when a popup is active
+        if (Game.Dispatcher.ControlStackCount > 0)
             return;
 
-        var entity = GetEntityAtScreen(input.MouseX, input.MouseY);
+        // Q/W/E/R/T toggle group
+        if (e.Key == Keys.Q)
+        {
+            ForceCloseOtherTogglePanels(Keys.Q);
 
-        // When dragging inventory items, don't highlight the player (drop goes to ground instead)
-        var isItemDrag = WorldHud.Inventory.IsDragging;
-        var playerId = Game.Connection.AislingId;
+            if (MainOptions.Visible)
+            {
+                SettingsDialog.Hide();
+                MacrosList.Hide();
+                FriendsList.Hide();
+                MainOptions.SlideClose();
+            } else
+                MainOptions.Show();
 
-        uint? newHighlight
-            = entity?.Type is ClientEntityType.Aisling or ClientEntityType.Creature && !(isItemDrag && (entity.Id == playerId))
-                ? entity.Id
-                : null;
+            e.Handled = true;
 
-        if (newHighlight != Highlight.HoveredEntityId)
-            ClearHighlightCache();
+            return;
+        }
 
-        Highlight.HoveredEntityId = newHighlight;
+        if (e.Key == Keys.W)
+        {
+            ForceCloseOtherTogglePanels(Keys.W);
+
+            if (IsAnyBoardPanelVisible())
+            {
+                if (BoardList.Visible)
+                    BoardList.SlideClose();
+                else
+                    WorldState.Board.CloseSession();
+            } else
+                Game.Connection.SendBoardInteraction(BoardRequestType.BoardList);
+
+            e.Handled = true;
+
+            return;
+        }
+
+        if (e.Key == Keys.E)
+        {
+            ForceCloseOtherTogglePanels(Keys.E);
+
+            if (WorldList.Visible)
+                WorldList.SlideClose();
+            else
+                Game.Connection.RequestWorldList();
+
+            e.Handled = true;
+
+            return;
+        }
+
+        if (e.Key == Keys.R)
+        {
+            ForceCloseOtherTogglePanels(Keys.R);
+
+            if (SocialStatusPicker.Visible)
+            {
+                SocialStatusPicker.Hide();
+
+                if (WorldHud.EmoteButton is not null)
+                    WorldHud.EmoteButton.IsSelected = false;
+            } else
+                ToggleSocialStatusPicker();
+
+            e.Handled = true;
+
+            return;
+        }
+
+        if (e.Key == Keys.T && TownMap.Visible)
+        {
+            TownMap.Hide();
+            e.Handled = true;
+
+            return;
+        }
+
+        // Shout hotkey (Shift+1)
+        if (e.Key == Keys.D1 && e.Shift)
+        {
+            Chat.Focus($"{WorldHud.PlayerName}! ", Color.Yellow);
+            Game.Dispatcher.SetExplicitFocus(WorldHud.ChatInput);
+            e.Handled = true;
+
+            return;
+        }
+
+        // Whisper hotkey (Shift+")
+        if (e.Key == Keys.OemQuotes && e.Shift)
+        {
+            Chat.FocusWhisper();
+            Game.Dispatcher.SetExplicitFocus(WorldHud.ChatInput);
+            e.Handled = true;
+
+            return;
+        }
+
+        // Tab panel switching — blocked while dragging the orange bar
+        if (!WorldHud.IsOrangeBarDragging)
+        {
+            if (e.Key == Keys.A)
+            {
+                if (e.Shift)
+                {
+                    if (WorldHud.ActiveTab != HudTab.Inventory)
+                        WorldHud.ShowTab(HudTab.Inventory);
+
+                    WorldHud.ToggleExpand();
+                } else if (WorldHud.ActiveTab == HudTab.Inventory)
+                {
+                    SelfProfileRequested = true;
+                    Game.Connection.RequestSelfProfile();
+                } else
+                    WorldHud.ShowTab(HudTab.Inventory);
+
+                e.Handled = true;
+
+                return;
+            }
+
+            if (e.Key == Keys.S)
+            {
+                var useShift = ClientSettings.UseShiftKeyForAltPanels;
+                var alt = useShift ? e.Shift : WorldHud.ActiveTab == HudTab.Skills;
+                WorldHud.ShowTab(alt ? HudTab.SkillsAlt : HudTab.Skills);
+                e.Handled = true;
+
+                return;
+            }
+
+            if (e.Key == Keys.D)
+            {
+                var useShift = ClientSettings.UseShiftKeyForAltPanels;
+                var alt = useShift ? e.Shift : WorldHud.ActiveTab == HudTab.Spells;
+                WorldHud.ShowTab(alt ? HudTab.SpellsAlt : HudTab.Spells);
+                e.Handled = true;
+
+                return;
+            }
+
+            if (e.Key == Keys.F)
+            {
+                WorldHud.ShowTab(e.Shift ? HudTab.MessageHistory : HudTab.Chat);
+                e.Handled = true;
+
+                return;
+            }
+
+            if (e.Key == Keys.G)
+            {
+                WorldHud.ShowTab(e.Shift ? HudTab.ExtendedStats : HudTab.Stats);
+                e.Handled = true;
+
+                return;
+            }
+
+            if (e.Key == Keys.H)
+            {
+                WorldHud.ShowTab(HudTab.Tools);
+                e.Handled = true;
+
+                return;
+            }
+        }
+
+        // Tab — toggle tab map overlay
+        if (e.Key == Keys.Tab)
+        {
+            TabMapVisible = !TabMapVisible;
+            e.Handled = true;
+
+            return;
+        }
+
+        // PageUp/PageDown — tab map zoom
+        if (TabMapVisible)
+        {
+            if (e.Key == Keys.PageUp)
+            {
+                TabMapRenderer.ZoomIn();
+                e.Handled = true;
+
+                return;
+            }
+
+            if (e.Key == Keys.PageDown)
+            {
+                TabMapRenderer.ZoomOut();
+                e.Handled = true;
+
+                return;
+            }
+        }
+
+        // F1 — help merchant (server-side)
+        if (e.Key == Keys.F1)
+        {
+            Game.Connection.ClickEntity(uint.MaxValue);
+            e.Handled = true;
+
+            return;
+        }
+
+        // F3 — macro menu
+        if (e.Key == Keys.F3)
+        {
+            MacrosList.Show();
+            e.Handled = true;
+
+            return;
+        }
+
+        // F4 — settings
+        if (e.Key == Keys.F4)
+        {
+            SettingsDialog.Show();
+            e.Handled = true;
+
+            return;
+        }
+
+        // F5 — refresh
+        if (e.Key == Keys.F5)
+        {
+            Game.Connection.RequestRefresh();
+            e.Handled = true;
+
+            return;
+        }
+
+        // F7 — board list
+        if (e.Key == Keys.F7)
+        {
+            Game.Connection.SendBoardInteraction(BoardRequestType.BoardList);
+            e.Handled = true;
+
+            return;
+        }
+
+        // F8 — group panel
+        if (e.Key == Keys.F8)
+        {
+            GroupPanel.ShowMembers();
+            e.Handled = true;
+
+            return;
+        }
+
+        // F9 — ignore list management
+        if (e.Key == Keys.F9)
+        {
+            Chat.FocusIgnore();
+            Game.Dispatcher.SetExplicitFocus(WorldHud.ChatInput);
+            e.Handled = true;
+
+            return;
+        }
+
+        // F10 — friends list
+        if (e.Key == Keys.F10)
+        {
+            FriendsList.Show();
+            e.Handled = true;
+
+            return;
+        }
+
+        // / — swap HUD layout (small <-> large)
+        if (e.Key == Keys.OemQuestion && !e.Shift)
+        {
+            SwapHudLayout();
+            e.Handled = true;
+
+            return;
+        }
+
+        // ` — unequip weapon and shield
+        if (e.Key == Keys.OemTilde)
+        {
+            if (WorldState.Equipment.GetSlot(EquipmentSlot.Weapon) is not null)
+                Game.Connection.Unequip(EquipmentSlot.Weapon);
+
+            if (WorldState.Equipment.GetSlot(EquipmentSlot.Shield) is not null)
+                Game.Connection.Unequip(EquipmentSlot.Shield);
+
+            e.Handled = true;
+
+            return;
+        }
+
+        // J — flash group member highlighting (1000ms, gated while pending or active)
+        if (e.Key == Keys.J && !GroupHighlightRequested && (GroupHighlightedIds.Count == 0))
+        {
+            GroupHighlightRequested = true;
+            Game.Connection.RequestSelfProfile();
+            e.Handled = true;
+
+            return;
+        }
+
+        // B — pick up item from under player, or from the tile in front
+        if (e.Key == Keys.B)
+        {
+            TryPickupItem();
+            e.Handled = true;
+
+            return;
+        }
+
+        // T — town map toggle
+        if (e.Key == Keys.T)
+        {
+            var player = WorldState.GetPlayerEntity();
+
+            if (player is not null)
+                TownMap.Show(CurrentMapId, player.TileX, player.TileY);
+
+            e.Handled = true;
+
+            return;
+        }
+
+        // Emote hotkeys: Ctrl/Alt/Ctrl+Alt + number row
+        if (HandleEmoteHotkey(e))
+            return;
+
+        // Slot hotkeys: 1-9, 0, -, =
+        if (HandleSlotHotkey(e))
+            return;
+
+        // Player movement — arrow keys
+        Direction? direction = e.Key switch
+        {
+            Keys.Up    => Direction.Up,
+            Keys.Right => Direction.Right,
+            Keys.Down  => Direction.Down,
+            Keys.Left  => Direction.Left,
+            _          => null
+        };
+
+        if (direction.HasValue)
+        {
+            Pathfinding.Clear();
+            var player = WorldState.GetPlayerEntity();
+
+            if (player is not null)
+            {
+                if (player.AnimState == EntityAnimState.Idle)
+                {
+                    if (player.Direction != direction.Value)
+                    {
+                        Game.Connection.Turn(direction.Value);
+                        player.Direction = direction.Value;
+                    } else
+                    {
+                        PredictAndWalk(player, direction.Value);
+                        QueuedWalkDirection = null;
+                    }
+                } else if (player.AnimState == EntityAnimState.Walking)
+                {
+                    var totalDuration = Math.Max(1f, player.AnimFrameCount * player.AnimFrameIntervalMs);
+                    var progress = player.AnimElapsedMs / totalDuration;
+
+                    if (progress >= WALK_QUEUE_THRESHOLD)
+                        QueuedWalkDirection = direction.Value;
+                }
+            }
+
+            e.Handled = true;
+        }
     }
 
+    /// <summary>
+    ///     Handles mouse clicks that bubble up to the root panel (no child element consumed them).
+    ///     Contains cast-mode target selection, Ctrl/Alt-click, world click, and right-click pathfinding.
+    /// </summary>
+    private void OnRootClick(ClickEvent e)
+    {
+
+        // Exchange gold-click coordination — clicking the money label opens the gold amount popup
+        if (Exchange.Visible && (e.Button == MouseButton.Left) && Exchange.IsMyMoneyClicked(e.ScreenX, e.ScreenY))
+        {
+            ExchangeAmountSlot = null;
+            GoldDrop.ShowForTarget(Exchange.OtherUserId, 0, 0);
+            e.Handled = true;
+
+            return;
+        }
+
+        // Cast mode — target selection or cancel
+        if (CastingSystem.IsTargeting)
+        {
+            if (e.Button == MouseButton.Left)
+            {
+                var hoverEntity = GetEntityAtScreen(e.ScreenX, e.ScreenY);
+
+                if (hoverEntity?.Type is ClientEntityType.Aisling or ClientEntityType.Creature)
+                    CastingSystem.SelectTarget(
+                        hoverEntity.Id,
+                        hoverEntity.TileX,
+                        hoverEntity.TileY,
+                        Game.Connection);
+                else
+                    CastingSystem.Reset();
+
+                e.Handled = true;
+            }
+
+            return;
+        }
+
+        if (e.Button == MouseButton.Left)
+        {
+            // Ctrl+click — context menu on aisling entities
+            if (e.Ctrl)
+            {
+                HandleCtrlClick(e.ScreenX, e.ScreenY);
+                e.Handled = true;
+
+                return;
+            }
+
+            // Alt+click on self — open self profile
+            if (e.Alt)
+            {
+                var hoverEntity = GetEntityAtScreen(e.ScreenX, e.ScreenY);
+
+                if (hoverEntity is not null && (hoverEntity.Id == Game.Connection.AislingId))
+                {
+                    SelfProfileRequested = true;
+                    Game.Connection.RequestSelfProfile();
+                } else
+                    HandleWorldClick(e.ScreenX, e.ScreenY);
+
+                e.Handled = true;
+
+                return;
+            }
+
+            HandleWorldClick(e.ScreenX, e.ScreenY);
+            e.Handled = true;
+        } else if (e.Button == MouseButton.Right)
+        {
+            HandleWorldRightClick(e.ScreenX, e.ScreenY);
+            e.Handled = true;
+        }
+    }
+
+    /// <summary>
+    ///     Handles double-click events that bubble up to the root panel.
+    ///     Left double-click: interact with entities (pickup ground items, click NPC/aisling).
+    ///     Right double-click: follow and assail entity.
+    ///     Uses TileClickTracker same-tile guard since the dispatcher only checks same-element (Root),
+    ///     not same-tile.
+    /// </summary>
+    private void OnRootDoubleClick(DoubleClickEvent e)
+    {
+        if (MapFile is null)
+            return;
+
+        var viewport = WorldHud.ViewportBounds;
+
+        if ((e.ScreenX < viewport.X)
+            || (e.ScreenX >= (viewport.X + viewport.Width))
+            || (e.ScreenY < viewport.Y)
+            || (e.ScreenY >= (viewport.Y + viewport.Height)))
+            return;
+
+        (var tileX, var tileY) = ScreenToTile(e.ScreenX, e.ScreenY);
+
+        if (e.Button == MouseButton.Left)
+        {
+            var sameTile = LeftClickTracker.Click(tileX, tileY);
+
+            if (!sameTile)
+                return;
+
+            var entity = GetEntityAtScreen(e.ScreenX, e.ScreenY);
+
+            if (entity is not null)
+            {
+                if (entity.Type == ClientEntityType.GroundItem)
+                {
+                    var firstEmptySlot = WorldState.Inventory.GetFirstEmptySlot();
+                    Game.Connection.PickupItem(entity.TileX, entity.TileY, firstEmptySlot);
+                } else if ((entity.Type != ClientEntityType.Aisling) || ClientSettings.EnableProfileClick)
+                    Game.Connection.ClickEntity(entity.Id);
+            }
+
+            e.Handled = true;
+        } else if (e.Button == MouseButton.Right)
+        {
+            if (MapPathfinder is null)
+                return;
+
+            var player = WorldState.GetPlayerEntity();
+
+            if (player is null)
+                return;
+
+            tileX = Math.Clamp(tileX, 0, MapFile.Width - 1);
+            tileY = Math.Clamp(tileY, 0, MapFile.Height - 1);
+
+            var sameTile = RightClickTracker.Click(tileX, tileY);
+
+            if (!sameTile)
+                return;
+
+            var entity = WorldState.GetEntityAt(tileX, tileY);
+
+            if (entity?.Type is ClientEntityType.Aisling or ClientEntityType.Creature)
+            {
+                Pathfinding.SetEntityTarget(entity.Id);
+                PathfindToEntity(player, entity);
+            }
+
+            e.Handled = true;
+        }
+    }
+
+    /// <summary>
+    ///     Tracks the cursor position during a drag so the ghost icon follows the mouse.
+    ///     Fires on every DragMove that bubbles to root (i.e. any DragMove not consumed by a child).
+    /// </summary>
+    private void OnRootDragMove(DragMoveEvent e)
+    {
+        var dragging = GetDraggingPanel();
+
+        dragging?.UpdateDragPosition(e.ScreenX, e.ScreenY);
+    }
+
+    /// <summary>
+    ///     Handles drag-drop events that bubble up to the root panel.
+    ///     If the drop was not consumed by a PanelSlot (slot swap), it means the user dropped
+    ///     into the world viewport or onto a non-slot UI element — fire OnSlotDroppedOutside.
+    /// </summary>
+    private void OnRootDragDrop(DragDropEvent e)
+    {
+        if (e.Payload is not SlotDragPayload payload)
+            return;
+
+        if (payload.Source.Parent is not PanelBase { IsDragging: true } panel)
+            return;
+
+        panel.CompleteDragOutside(e.ScreenX, e.ScreenY);
+        e.Handled = true;
+    }
+
+    #endregion
+
+    #region Click Handling
     /// <summary>
     ///     Converts screen mouse coordinates to tile coordinates, accounting for the HUD viewport offset. The world is
     ///     rendered with a translation matrix for the viewport origin, so mouse coords must be adjusted to match.
@@ -619,9 +1243,8 @@ public sealed partial class WorldScreen
 
         (var tileX, var tileY) = ScreenToTile(mouseX, mouseY);
 
-        // Check for double-click (same tile within time window)
-        var sameTile = LeftClickTracker.Click(tileX, tileY);
-        var isDoubleClick = Game.Input.WasLeftButtonDoubleClicked && sameTile;
+        // Track tile for same-tile guard used by OnRootDoubleClick
+        LeftClickTracker.Click(tileX, tileY);
 
         // Check group box text overlays first — they sit above entity hitboxes
         var groupBoxHit = Overlays.GetGroupBoxAtScreen(mouseX, mouseY);
@@ -635,30 +1258,13 @@ public sealed partial class WorldScreen
             return;
         }
 
-        if (isDoubleClick)
-        {
-            // Double-click: interact with entities (use hitbox detection, not tile lookup)
-            var entity = GetEntityAtScreen(mouseX, mouseY);
+        // Single click: check for entity at hitbox first, then tile interaction
+        var entity = GetEntityAtScreen(mouseX, mouseY);
 
-            if (entity is not null)
-            {
-                if (entity.Type == ClientEntityType.GroundItem)
-                {
-                    var firstEmptySlot = WorldState.Inventory.GetFirstEmptySlot();
-                    Game.Connection.PickupItem(entity.TileX, entity.TileY, firstEmptySlot);
-                } else if ((entity.Type != ClientEntityType.Aisling) || ClientSettings.EnableProfileClick)
-                    Game.Connection.ClickEntity(entity.Id);
-            }
-        } else
-        {
-            // Single click: check for entity at hitbox first, then tile interaction
-            var entity = GetEntityAtScreen(mouseX, mouseY);
-
-            if (entity?.Type is ClientEntityType.Creature)
-                Game.Connection.ClickEntity(entity.Id);
-            else if (TileHasForeground(tileX, tileY))
-                Game.Connection.ClickTile(tileX, tileY);
-        }
+        if (entity?.Type is ClientEntityType.Creature)
+            Game.Connection.ClickEntity(entity.Id);
+        else if (TileHasForeground(tileX, tileY))
+            Game.Connection.ClickTile(tileX, tileY);
     }
 
     private void HandleCtrlClick(int mouseX, int mouseY)
@@ -718,8 +1324,8 @@ public sealed partial class WorldScreen
         tileX = Math.Clamp(tileX, 0, MapFile.Width - 1);
         tileY = Math.Clamp(tileY, 0, MapFile.Height - 1);
 
-        var sameTile = RightClickTracker.Click(tileX, tileY);
-        var isDoubleRightClick = Game.Input.WasRightButtonDoubleClicked && sameTile;
+        // Track tile for same-tile guard used by OnRootDoubleClick
+        RightClickTracker.Click(tileX, tileY);
 
         // Don't pathfind to current position
         if ((tileX == player.TileX) && (tileY == player.TileY))
@@ -727,20 +1333,6 @@ public sealed partial class WorldScreen
             Pathfinding.Clear();
 
             return;
-        }
-
-        // Double right-click on entity — follow and assail
-        if (isDoubleRightClick)
-        {
-            var entity = WorldState.GetEntityAt(tileX, tileY);
-
-            if (entity?.Type is ClientEntityType.Aisling or ClientEntityType.Creature)
-            {
-                Pathfinding.SetEntityTarget(entity.Id);
-                PathfindToEntity(player, entity);
-
-                return;
-            }
         }
 
         // Single right-click — pathfind to ground tile

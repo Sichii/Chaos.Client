@@ -38,15 +38,16 @@ public sealed class BoardListControl : PrefabPanel
     {
         Name = "BoardList";
         Visible = false;
+        UsesControlStack = true;
 
         ViewButton = CreateButton("View");
         QuitButton = CreateButton("Quit");
 
         if (QuitButton is not null)
-            QuitButton.OnClick += Close;
+            QuitButton.Clicked += Close;
 
         if (ViewButton is not null)
-            ViewButton.OnClick += () =>
+            ViewButton.Clicked += () =>
             {
                 if ((SelectedIndex >= 0) && (SelectedIndex < Boards.Count))
                     OnViewBoard?.Invoke(Boards[SelectedIndex].BoardId);
@@ -79,11 +80,14 @@ public sealed class BoardListControl : PrefabPanel
             Height = BoardListRect.Height
         };
 
+        ScrollBar.OnValueChanged += v => { ScrollOffset = v; DataVersion++; };
         AddChild(ScrollBar);
     }
 
     public void Close()
     {
+        InputDispatcher.Instance?.RemoveControl(this);
+
         if (SlideMode)
             Slide.SlideOut();
         else
@@ -102,7 +106,11 @@ public sealed class BoardListControl : PrefabPanel
         base.Draw(spriteBatch);
     }
 
-    public override void Hide() => Slide.Hide(this);
+    public override void Hide()
+    {
+        InputDispatcher.Instance?.RemoveControl(this);
+        Slide.Hide(this);
+    }
 
     public event Action? OnClose;
     public event Action<ushort>? OnViewBoard;
@@ -140,6 +148,7 @@ public sealed class BoardListControl : PrefabPanel
         if (!Visible)
         {
             SlideMode = true;
+            InputDispatcher.Instance?.PushControl(this);
             Slide.SlideIn(this);
         }
     }
@@ -161,13 +170,14 @@ public sealed class BoardListControl : PrefabPanel
         else
         {
             SlideMode = false;
+            InputDispatcher.Instance?.PushControl(this);
             Slide.ShowInPlace(this);
         }
     }
 
     public void SlideClose() => Close();
 
-    public override void Update(GameTime gameTime, InputBuffer input)
+    public override void Update(GameTime gameTime)
     {
         if (!Visible || !Enabled)
             return;
@@ -179,63 +189,91 @@ public sealed class BoardListControl : PrefabPanel
             return;
         }
 
-        if (input.WasKeyPressed(Keys.Escape))
+        base.Update(gameTime);
+    }
+
+    public override void OnKeyDown(KeyDownEvent e)
+    {
+        if (Slide.Sliding)
+            return;
+
+        if (e.Key == Keys.Escape)
         {
             Close();
+            e.Handled = true;
+        }
+    }
 
+    public override void OnMouseScroll(MouseScrollEvent e)
+    {
+        if (ScrollBar.TotalItems <= ScrollBar.VisibleItems)
             return;
-        }
 
-        // Row click selection + double-click to open
-        if (input.WasLeftButtonPressed && !Slide.Sliding)
+        var newValue = Math.Clamp(ScrollBar.Value - e.Delta, 0, ScrollBar.MaxValue);
+
+        if (newValue != ScrollBar.Value)
         {
-            var relX = input.MouseX - ScreenX - BoardListRect.X;
-            var relY = input.MouseY - ScreenY - BoardListRect.Y;
-
-            if ((relX >= 0)
-                && (relX < (BoardListRect.Width - ScrollBarControl.DEFAULT_WIDTH))
-                && (relY >= 0)
-                && (relY < BoardListRect.Height))
-            {
-                var clickedRow = relY / ROW_HEIGHT;
-                var boardIndex = ScrollOffset + clickedRow;
-
-                if (boardIndex < Boards.Count)
-                {
-                    if (input.WasLeftButtonDoubleClicked && (boardIndex == SelectedIndex))
-                    {
-                        OnViewBoard?.Invoke(Boards[boardIndex].BoardId);
-                    } else
-                    {
-                        SelectedIndex = boardIndex;
-                        DataVersion++;
-                        UpdateButtonStates();
-                    }
-                }
-            }
-        }
-
-        // Scroll bar
-        var prevScroll = ScrollOffset;
-        ScrollBar.Update(gameTime, input);
-
-        if (ScrollBar.Value != prevScroll)
-        {
-            ScrollOffset = ScrollBar.Value;
+            ScrollBar.Value = newValue;
+            ScrollOffset = newValue;
             DataVersion++;
         }
 
-        // Mouse wheel
-        if (input.ScrollDelta != 0)
-        {
-            var maxScroll = Math.Max(0, Boards.Count - MaxVisibleRows);
-            ScrollOffset = Math.Clamp(ScrollOffset - input.ScrollDelta, 0, maxScroll);
-            ScrollBar.Value = ScrollOffset;
-            ScrollBar.MaxValue = maxScroll;
-            DataVersion++;
-        }
+        e.Handled = true;
+    }
 
-        base.Update(gameTime, input);
+    public override void OnClick(ClickEvent e)
+    {
+        if (Slide.Sliding || (e.Button != MouseButton.Left))
+            return;
+
+        var localX = e.ScreenX - ScreenX - BoardListRect.X;
+        var localY = e.ScreenY - ScreenY - BoardListRect.Y;
+
+        if ((localX < 0) || (localX >= BoardListRect.Width) || (localY < 0) || (localY >= BoardListRect.Height))
+            return;
+
+        var row = localY / ROW_HEIGHT;
+
+        if ((row < 0) || (row >= MaxVisibleRows))
+            return;
+
+        var entryIndex = ScrollOffset + row;
+
+        if ((entryIndex < 0) || (entryIndex >= Boards.Count))
+            return;
+
+        SelectedIndex = entryIndex;
+        DataVersion++;
+        UpdateButtonStates();
+        e.Handled = true;
+    }
+
+    public override void OnDoubleClick(DoubleClickEvent e)
+    {
+        if (Slide.Sliding || (e.Button != MouseButton.Left))
+            return;
+
+        var localX = e.ScreenX - ScreenX - BoardListRect.X;
+        var localY = e.ScreenY - ScreenY - BoardListRect.Y;
+
+        if ((localX < 0) || (localX >= BoardListRect.Width) || (localY < 0) || (localY >= BoardListRect.Height))
+            return;
+
+        var row = localY / ROW_HEIGHT;
+
+        if ((row < 0) || (row >= MaxVisibleRows))
+            return;
+
+        var entryIndex = ScrollOffset + row;
+
+        if ((entryIndex < 0) || (entryIndex >= Boards.Count))
+            return;
+
+        SelectedIndex = entryIndex;
+        DataVersion++;
+        UpdateButtonStates();
+        OnViewBoard?.Invoke(Boards[entryIndex].BoardId);
+        e.Handled = true;
     }
 
     private void UpdateButtonStates()

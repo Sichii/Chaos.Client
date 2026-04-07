@@ -5,6 +5,7 @@ using Chaos.DarkAges.Definitions;
 using Chaos.Networking.Entities.Server;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
+using SkiaSharp;
 #endregion
 
 namespace Chaos.Client.Controls.World.Popups.Profile;
@@ -60,7 +61,6 @@ public sealed class OtherProfileEquipmentTab : PrefabPanel
     private readonly UILabel? TitleLabel;
     private readonly UILabel TooltipLabel;
     private byte EmoticonState;
-    private EquipmentSlot? HoveredSlot;
     private Texture2D? NationIconTexture;
     private Texture2D? PaperdollTexture;
 
@@ -101,7 +101,7 @@ public sealed class OtherProfileEquipmentTab : PrefabPanel
             GroupOpenTexture = GroupBtn.NormalTexture;
             GroupBtn.PressedTexture = null;
 
-            GroupBtn.OnClick += () =>
+            GroupBtn.Clicked += () =>
             {
                 var name = NameLabel?.Text;
 
@@ -146,6 +146,7 @@ public sealed class OtherProfileEquipmentTab : PrefabPanel
         {
             Name = "Tooltip",
             Visible = false,
+            IsHitTestVisible = false,
             PaddingLeft = 1,
             PaddingTop = 1,
             BackgroundColor = new Color(
@@ -312,55 +313,58 @@ public sealed class OtherProfileEquipmentTab : PrefabPanel
         TitleLabel?.Text = title;
     }
 
-    public override void Update(GameTime gameTime, InputBuffer input)
+    public void SetPortrait(byte[]? portraitData)
     {
-        if (!Visible || !Enabled)
+        if (PortraitImage is null)
             return;
 
-        base.Update(gameTime, input);
+        PortraitImage.Texture?.Dispose();
+        PortraitImage.Texture = null;
 
-        // Hover detection for equipment slot tooltips (display only — no unequip)
-        HoveredSlot = null;
-        var mx = input.MouseX;
-        var my = input.MouseY;
-
-        foreach ((var slot, var visual) in SlotVisuals)
+        if (portraitData is { Length: > 0 })
         {
-            if (visual.ItemTexture is null)
-                continue;
+            using var skImage = SKImage.FromEncodedData(portraitData);
 
-            if (visual.Image.ContainsPoint(mx, my))
+            if (skImage is not null)
+                PortraitImage.Texture = TextureConverter.ToTexture2D(skImage);
+        }
+    }
+
+    public void SetProfileText(string text)
+    {
+        if (PortraitTextLabel is not null)
+            PortraitTextLabel.Text = text;
+    }
+
+    public override void OnMouseMove(MouseMoveEvent e)
+    {
+        string? foundName = null;
+
+        foreach ((_, var visual) in SlotVisuals)
+        {
+            if (visual.Image.ContainsPoint(e.ScreenX, e.ScreenY) && (visual.ItemTexture is not null))
             {
-                HoveredSlot = slot;
+                foundName = visual.ItemName;
 
                 break;
             }
         }
 
-        // Position tooltip label at cursor
-        if (HoveredSlot.HasValue && SlotVisuals.TryGetValue(HoveredSlot.Value, out var hovered) && (hovered.ItemName.Length > 0))
+        if (!string.IsNullOrEmpty(foundName))
         {
-            TooltipLabel.Text = hovered.ItemName;
-
-            var textWidth = TextRenderer.MeasureWidth(hovered.ItemName);
-            var tipW = textWidth + TooltipLabel.PaddingLeft + TooltipLabel.PaddingRight;
-            var tipH = 12 + TooltipLabel.PaddingTop + TooltipLabel.PaddingBottom;
-            var tipX = mx - tipW / 2;
-            var tipY = my + 20;
-
-            if ((tipX + tipW) > 640)
-                tipX = 640 - tipW;
-
-            if ((tipY + tipH) > 480)
-                tipY = 480 - tipH;
-
-            TooltipLabel.X = tipX - ScreenX;
-            TooltipLabel.Y = tipY - ScreenY;
-            TooltipLabel.Width = tipW;
-            TooltipLabel.Height = tipH;
+            TooltipLabel.Text = foundName;
+            TooltipLabel.Width = TextRenderer.MeasureWidth(foundName) + 4;
+            TooltipLabel.Height = TextRenderer.CHAR_HEIGHT + 4;
+            TooltipLabel.X = e.ScreenX - ScreenX + 12;
+            TooltipLabel.Y = e.ScreenY - ScreenY + 12;
             TooltipLabel.Visible = true;
         } else
             TooltipLabel.Visible = false;
+    }
+
+    public override void OnMouseLeave()
+    {
+        TooltipLabel.Visible = false;
     }
 
     private sealed class EquipmentSlotVisual

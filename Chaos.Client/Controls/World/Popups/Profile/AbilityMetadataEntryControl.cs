@@ -11,24 +11,16 @@ namespace Chaos.Client.Controls.World.Popups.Profile;
 ///     A single skill/spell row in the ability metadata tab. Uses the _nui_ski prefab template (211x43): 32x32 icon, name,
 ///     level text. The entire row is clickable to show details.
 /// </summary>
-public sealed class AbilityEntryControl : PrefabPanel
+public sealed class AbilityMetadataEntryControl : PrefabPanel
 {
     private readonly UILabel? LevelLabel;
     private readonly UILabel? NameLabel;
     private readonly UIImage? TileImage;
 
     private Texture2D? IconTexture;
-    private bool PressedInside;
-
-    /// <summary>
-    ///     Screen-space clip bounds for click detection. When set, clicks outside this rect are ignored. Used to prevent the
-    ///     partially-visible peek row from accepting clicks in the clipped area.
-    /// </summary>
-    public Rectangle ClickClipBounds { get; set; }
-
     public AbilityMetadataEntry? Entry { get; private set; }
 
-    public AbilityEntryControl()
+    public AbilityMetadataEntryControl()
         : base("_nui_ski", false)
     {
         Height += 2;
@@ -58,6 +50,15 @@ public sealed class AbilityEntryControl : PrefabPanel
     ///     Fired when the row is clicked. Passes the bound entry.
     /// </summary>
     public event Action<AbilityMetadataEntry>? OnClicked;
+
+    public override void OnClick(ClickEvent e)
+    {
+        if (Entry is not null)
+        {
+            OnClicked?.Invoke(Entry);
+            e.Handled = true;
+        }
+    }
 
     private static Texture2D ResolveIcon(AbilityMetadataEntry entry, AbilityIconState state)
     {
@@ -110,25 +111,4 @@ public sealed class AbilityEntryControl : PrefabPanel
         Visible = true;
     }
 
-    public override void Update(GameTime gameTime, InputBuffer input)
-    {
-        if (!Visible || !Enabled || Entry is null)
-            return;
-
-        base.Update(gameTime, input);
-
-        var hovering = ContainsPoint(input.MouseX, input.MouseY)
-                       && ((ClickClipBounds == Rectangle.Empty) || ClickClipBounds.Contains(input.MouseX, input.MouseY));
-
-        if (input.WasLeftButtonPressed && hovering)
-            PressedInside = true;
-
-        if (input.WasLeftButtonReleased)
-        {
-            if (PressedInside && hovering)
-                OnClicked?.Invoke(Entry);
-
-            PressedInside = false;
-        }
-    }
 }

@@ -43,6 +43,7 @@ public sealed class MainOptionsControl : PrefabPanel
     {
         Name = "OptionsDialog";
         Visible = false;
+        UsesControlStack = true;
 
         // Right-aligned, slides in from right edge
         Slide.SetViewportBounds(
@@ -75,19 +76,19 @@ public sealed class MainOptionsControl : PrefabPanel
         CloseButton = CreateButton("CLOSE");
 
         if (MacroButton is not null)
-            MacroButton.OnClick += () => OnMacro?.Invoke();
+            MacroButton.Clicked += () => OnMacro?.Invoke();
 
         if (SettingsButton is not null)
-            SettingsButton.OnClick += () => OnSettings?.Invoke();
+            SettingsButton.Clicked += () => OnSettings?.Invoke();
 
         if (FriendsButton is not null)
-            FriendsButton.OnClick += () => OnFriends?.Invoke();
+            FriendsButton.Clicked += () => OnFriends?.Invoke();
 
         if (ExitButton is not null)
-            ExitButton.OnClick += () => OnExit?.Invoke();
+            ExitButton.Clicked += () => OnExit?.Invoke();
 
         if (CloseButton is not null)
-            CloseButton.OnClick += () => Slide.SlideOut();
+            CloseButton.Clicked += () => Slide.SlideOut();
     }
 
     public override void Draw(SpriteBatch spriteBatch)
@@ -125,59 +126,11 @@ public sealed class MainOptionsControl : PrefabPanel
     private static int GetThumbX(Rectangle trackRect, int volume)
         => trackRect.X + (int)((float)volume / VOLUME_MAX * trackRect.Width) - THUMB_WIDTH / 2;
 
-    private void HandleSlider(
-        InputBuffer input,
-        Rectangle trackRect,
-        ref int volume,
-        ref bool dragging)
+    public override void Hide()
     {
-        if (trackRect == Rectangle.Empty)
-            return;
-
-        var sx = ScreenX;
-        var sy = ScreenY;
-        var trackX = sx + trackRect.X;
-        var trackY = sy + trackRect.Y - (THUMB_HEIGHT - trackRect.Height) / 2;
-        var trackWidth = trackRect.Width;
-
-        if (dragging)
-        {
-            if (input.IsLeftButtonHeld)
-            {
-                var mouseX = input.MouseX - trackX;
-                var newVolume = (int)Math.Round((float)mouseX / trackWidth * VOLUME_MAX);
-                volume = Math.Clamp(newVolume, VOLUME_MIN, VOLUME_MAX);
-            } else
-                dragging = false;
-
-            return;
-        }
-
-        if (input.WasLeftButtonPressed)
-        {
-            var thumbX = GetThumbX(trackRect, volume) + sx;
-
-            // Hit test the thumb area
-            if ((input.MouseX >= (thumbX - 2))
-                && (input.MouseX <= (thumbX + THUMB_WIDTH + 2))
-                && (input.MouseY >= trackY)
-                && (input.MouseY <= (trackY + THUMB_HEIGHT)))
-                dragging = true;
-
-            // Click on the track — jump to position
-            else if ((input.MouseX >= trackX)
-                     && (input.MouseX <= (trackX + trackWidth))
-                     && (input.MouseY >= trackY)
-                     && (input.MouseY <= (trackY + THUMB_HEIGHT)))
-            {
-                var mouseX = input.MouseX - trackX;
-                var newVolume = (int)Math.Round((float)mouseX / trackWidth * VOLUME_MAX);
-                volume = Math.Clamp(newVolume, VOLUME_MIN, VOLUME_MAX);
-            }
-        }
+        InputDispatcher.Instance?.RemoveControl(this);
+        Slide.Hide(this);
     }
-
-    public override void Hide() => Slide.Hide(this);
 
     public event Action? OnClose;
     public event Action? OnExit;
@@ -199,12 +152,19 @@ public sealed class MainOptionsControl : PrefabPanel
     public override void Show()
     {
         if (!Visible)
+        {
+            InputDispatcher.Instance?.PushControl(this);
             Slide.SlideIn(this);
+        }
     }
 
-    public void SlideClose() => Slide.SlideOut();
+    public void SlideClose()
+    {
+        InputDispatcher.Instance?.RemoveControl(this);
+        Slide.SlideOut();
+    }
 
-    public override void Update(GameTime gameTime, InputBuffer input)
+    public override void Update(GameTime gameTime)
     {
         if (!Visible || !Enabled)
             return;
@@ -216,35 +176,106 @@ public sealed class MainOptionsControl : PrefabPanel
             return;
         }
 
-        if (input.WasKeyPressed(Keys.Escape))
-        {
-            Slide.SlideOut();
-
-            return;
-        }
-
-        // Slider interaction
-        var prevSound = SoundVolume;
-        var prevMusic = MusicVolume;
-
-        HandleSlider(
-            input,
-            SoundTrackRect,
-            ref SoundVolume,
-            ref DraggingSound);
-
-        HandleSlider(
-            input,
-            MusicTrackRect,
-            ref MusicVolume,
-            ref DraggingMusic);
-
-        if (SoundVolume != prevSound)
-            OnSoundVolumeChanged?.Invoke(SoundVolume);
-
-        if (MusicVolume != prevMusic)
-            OnMusicVolumeChanged?.Invoke(MusicVolume);
-
-        base.Update(gameTime, input);
+        base.Update(gameTime);
     }
+
+    public override void OnKeyDown(KeyDownEvent e)
+    {
+        if (Slide.Sliding)
+            return;
+
+        if (e.Key == Keys.Escape)
+        {
+            InputDispatcher.Instance?.RemoveControl(this);
+            Slide.SlideOut();
+            e.Handled = true;
+        }
+    }
+
+    public override void OnMouseDown(MouseDownEvent e)
+    {
+        if (Slide.Sliding || e.Button != MouseButton.Left)
+            return;
+
+        var localX = e.ScreenX - ScreenX;
+        var localY = e.ScreenY - ScreenY;
+
+        if (HitsTrack(SoundTrackRect, localX, localY))
+        {
+            DraggingSound = true;
+            UpdateVolumeFromMouse(SoundTrackRect, localX, isSound: true);
+            e.Handled = true;
+        } else if (HitsTrack(MusicTrackRect, localX, localY))
+        {
+            DraggingMusic = true;
+            UpdateVolumeFromMouse(MusicTrackRect, localX, isSound: false);
+            e.Handled = true;
+        }
+    }
+
+    public override void OnMouseMove(MouseMoveEvent e)
+    {
+        if (!DraggingSound && !DraggingMusic)
+            return;
+
+        var localX = e.ScreenX - ScreenX;
+
+        if (DraggingSound)
+            UpdateVolumeFromMouse(SoundTrackRect, localX, isSound: true);
+        else if (DraggingMusic)
+            UpdateVolumeFromMouse(MusicTrackRect, localX, isSound: false);
+
+        e.Handled = true;
+    }
+
+    public override void OnMouseUp(MouseUpEvent e)
+    {
+        if (e.Button != MouseButton.Left)
+            return;
+
+        DraggingSound = false;
+        DraggingMusic = false;
+    }
+
+    private static bool HitsTrack(Rectangle trackRect, int localX, int localY)
+    {
+        if (trackRect == Rectangle.Empty)
+            return false;
+
+        // Generous vertical hit area around the track for easier clicking
+        var hitY = trackRect.Y - THUMB_HEIGHT / 2;
+        var hitH = trackRect.Height + THUMB_HEIGHT;
+
+        return (localX >= trackRect.X)
+               && (localX <= (trackRect.X + trackRect.Width))
+               && (localY >= hitY)
+               && (localY <= (hitY + hitH));
+    }
+
+    private void UpdateVolumeFromMouse(Rectangle trackRect, int localX, bool isSound)
+    {
+        if (trackRect == Rectangle.Empty)
+            return;
+
+        var ratio = (float)(localX - trackRect.X) / trackRect.Width;
+        var volume = (int)Math.Round(ratio * VOLUME_MAX);
+        volume = Math.Clamp(volume, VOLUME_MIN, VOLUME_MAX);
+
+        if (isSound)
+        {
+            if (volume == SoundVolume)
+                return;
+
+            SoundVolume = volume;
+            OnSoundVolumeChanged?.Invoke(volume);
+        } else
+        {
+            if (volume == MusicVolume)
+                return;
+
+            MusicVolume = volume;
+            OnMusicVolumeChanged?.Invoke(volume);
+        }
+    }
+
 }

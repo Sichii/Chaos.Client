@@ -1,6 +1,5 @@
 #region
 using Chaos.Client.Controls.Components;
-using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Input;
 #endregion
 
@@ -18,6 +17,7 @@ public sealed class LoginControl : PrefabPanel
     {
         Name = "LoginDialog";
         Visible = false;
+        UsesControlStack = true;
 
         // Buttons
         OkButton = CreateButton("OK");
@@ -40,8 +40,6 @@ public sealed class LoginControl : PrefabPanel
 
     public override void Hide()
     {
-        Visible = false;
-
         if (UsernameField is not null)
         {
             UsernameField.IsFocused = false;
@@ -53,6 +51,8 @@ public sealed class LoginControl : PrefabPanel
             PasswordField.IsFocused = false;
             PasswordField.Text = string.Empty;
         }
+
+        base.Hide();
     }
 
     private void OnTextBoxFocused(UITextBox focused)
@@ -78,42 +78,46 @@ public sealed class LoginControl : PrefabPanel
             PasswordField.IsFocused = false;
         }
 
-        Visible = true;
+        base.Show();
     }
 
-    public override void Update(GameTime gameTime, InputBuffer input)
+    public override void OnKeyDown(KeyDownEvent e)
     {
-        if (!Visible || !Enabled)
-            return;
-
-        // Tab switches focus between username and password fields
-        if (input.WasKeyPressed(Keys.Tab))
+        switch (e.Key)
         {
-            if (UsernameField?.IsFocused == true)
-            {
-                UsernameField.IsFocused = false;
+            case Keys.Tab:
+                if (UsernameField?.IsFocused == true)
+                {
+                    UsernameField.IsFocused = false;
+                    PasswordField?.IsFocused = true;
+                } else
+                {
+                    PasswordField?.IsFocused = false;
+                    UsernameField?.IsFocused = true;
+                }
 
-                PasswordField?.IsFocused = true;
-            } else
-            {
-                PasswordField?.IsFocused = false;
+                e.Handled = true;
 
-                UsernameField?.IsFocused = true;
-            }
+                break;
+
+            case Keys.Enter:
+                // Enter in username → move to password; Enter in password → login
+                if (UsernameField?.IsFocused == true)
+                {
+                    UsernameField.IsFocused = false;
+                    PasswordField?.IsFocused = true;
+                } else
+                    OkButton?.PerformClick();
+
+                e.Handled = true;
+
+                break;
+
+            case Keys.Escape:
+                CancelButton?.PerformClick();
+                e.Handled = true;
+
+                break;
         }
-
-        // Enter in username → move to password, Enter in password → login
-        if (input.WasKeyPressed(Keys.Enter))
-        {
-            if (UsernameField?.IsFocused == true)
-            {
-                UsernameField.IsFocused = false;
-
-                PasswordField?.IsFocused = true;
-            } else
-                OkButton?.PerformClick();
-        }
-
-        base.Update(gameTime, input);
     }
 }

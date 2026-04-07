@@ -3,6 +3,7 @@ using Chaos.Client.Controls.Generic;
 using Chaos.Extensions.Common;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
+using Microsoft.Xna.Framework.Input;
 #endregion
 
 namespace Chaos.Client.Controls.Components;
@@ -18,6 +19,12 @@ public class UIPanel : UIElement
     ///     events) so their animations/timers still tick.
     /// </summary>
     public bool IsModal { get; set; }
+
+    /// <summary>
+    ///     When true, this panel participates in the InputDispatcher control stack. PrefabPanel.Show/Hide
+    ///     automatically push/remove the panel. Non-PrefabPanel subclasses must push/remove manually.
+    /// </summary>
+    public bool UsesControlStack { get; set; }
 
     public List<UIElement> Children { get; } = [];
 
@@ -72,7 +79,7 @@ public class UIPanel : UIElement
             }
     }
 
-    private void EnsureChildOrder()
+    internal void EnsureChildOrder()
     {
         if (!ChildOrderDirty)
             return;
@@ -141,15 +148,73 @@ public class UIPanel : UIElement
         }
     }
 
-    public override void Update(GameTime gameTime, InputBuffer input)
+    public override void OnKeyDown(KeyDownEvent e)
+    {
+        if (e.Key != Keys.Tab)
+            return;
+
+        // Collect all visible IsTabStop textboxes, sorted by Y then X
+        List<UITextBox>? tabStops = null;
+
+        foreach (var child in Children)
+        {
+            if (child is UITextBox { Visible: true, Enabled: true, IsTabStop: true } textBox)
+                (tabStops ??= []).Add(textBox);
+            else if (child is UIPanel childPanel)
+                CollectTabStops(childPanel, ref tabStops);
+        }
+
+        if (tabStops is null || tabStops.Count < 2)
+            return;
+
+        tabStops.Sort((a, b) =>
+        {
+            var cmp = a.ScreenY.CompareTo(b.ScreenY);
+
+            return cmp != 0 ? cmp : a.ScreenX.CompareTo(b.ScreenX);
+        });
+
+        // Find current and advance
+        var currentIndex = -1;
+
+        for (var i = 0; i < tabStops.Count; i++)
+            if (tabStops[i].IsFocused)
+            {
+                currentIndex = i;
+
+                break;
+            }
+
+        if (currentIndex < 0)
+            return;
+
+        var nextIndex = (currentIndex + (e.Shift ? tabStops.Count - 1 : 1)) % tabStops.Count;
+        tabStops[currentIndex].IsFocused = false;
+        tabStops[nextIndex].IsFocused = true;
+        e.Handled = true;
+    }
+
+    private static void CollectTabStops(UIPanel panel, ref List<UITextBox>? tabStops)
+    {
+        if (!panel.Visible || !panel.Enabled)
+            return;
+
+        foreach (var child in panel.Children)
+        {
+            if (child is UITextBox { Visible: true, Enabled: true, IsTabStop: true } textBox)
+                (tabStops ??= []).Add(textBox);
+            else if (child is UIPanel childPanel)
+                CollectTabStops(childPanel, ref tabStops);
+        }
+    }
+
+    public override void Update(GameTime gameTime)
     {
         if (!Visible || !Enabled)
             return;
 
         EnsureChildOrder();
 
-        // Snapshot to avoid collection-modified during enumeration
-        // (e.g. button click handlers that add/remove children)
         var count = Children.Count;
 
         for (var i = 0; i < count; i++)
@@ -157,7 +222,8 @@ public class UIPanel : UIElement
             var child = Children[i];
 
             if (child is { Visible: true, Enabled: true })
-                child.Update(gameTime, input);
+                child.Update(gameTime);
         }
     }
+
 }

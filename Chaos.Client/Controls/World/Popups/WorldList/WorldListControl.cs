@@ -2,6 +2,7 @@
 using Chaos.Client.Collections;
 using Chaos.Client.Controls.Components;
 using Chaos.Client.Controls.Generic;
+using Chaos.Client.Data.Models;
 using Chaos.Client.Models;
 using Chaos.Client.Utilities;
 using Chaos.DarkAges.Definitions;
@@ -42,6 +43,8 @@ public sealed class WorldListControl : PrefabPanel
 
     // Player data
     private IReadOnlyList<WorldListEntry> AllEntries = [];
+    private HashSet<string> FamilyNames = new(StringComparer.OrdinalIgnoreCase);
+    private HashSet<string> FriendNames = new(StringComparer.OrdinalIgnoreCase);
     private IReadOnlyList<WorldListEntry> FilteredEntries = [];
     private bool RowsDirty;
     private int ScrollOffset;
@@ -57,6 +60,7 @@ public sealed class WorldListControl : PrefabPanel
     {
         Name = "WorldList";
         Visible = false;
+        UsesControlStack = true;
 
         // Position: right-aligned, starts off-screen
         Slide.SetViewportBounds(
@@ -123,6 +127,7 @@ public sealed class WorldListControl : PrefabPanel
                 Visible = false
             };
 
+            RowEntries[i].OnWhisper += name => OnWhisperRequested?.Invoke(name);
             AddChild(RowEntries[i]);
         }
 
@@ -161,7 +166,7 @@ public sealed class WorldListControl : PrefabPanel
                 SelectedTexture = cache.GetSpfTexture("_nusersb.spf", activeIdx)
             };
 
-            TabButtons[i].OnClick += () => SelectTab(tabIndex);
+            TabButtons[i].Clicked += () => SelectTab(tabIndex);
             AddChild(TabButtons[i]);
 
             TabCountLabels[i] = new UILabel
@@ -186,7 +191,7 @@ public sealed class WorldListControl : PrefabPanel
         var closeButton = CreateButton("Close");
 
         if (closeButton is not null)
-            closeButton.OnClick += () => Slide.SlideOut();
+            closeButton.Clicked += () => Slide.SlideOut();
 
         WorldState.WorldList.Changed += OnWorldListChanged;
     }
@@ -265,7 +270,11 @@ public sealed class WorldListControl : PrefabPanel
         base.Draw(spriteBatch);
     }
 
-    public override void Hide() => Slide.Hide(this);
+    public override void Hide()
+    {
+        InputDispatcher.Instance?.RemoveControl(this);
+        Slide.Hide(this);
+    }
 
     private void LoadStatusIcons()
     {
@@ -287,6 +296,44 @@ public sealed class WorldListControl : PrefabPanel
     }
 
     public event Action? OnClose;
+    public event Action<string>? OnWhisperRequested;
+
+    public void SetFamilyNames(FamilyList? family)
+    {
+        FamilyNames.Clear();
+
+        if (family is null)
+            return;
+
+        foreach (var name in new[]
+                 {
+                     family.Mother,
+                     family.Father,
+                     family.Son1,
+                     family.Son2,
+                     family.Brother1,
+                     family.Brother2,
+                     family.Brother3,
+                     family.Brother4,
+                     family.Brother5,
+                     family.Brother6
+                 })
+        {
+            if (!string.IsNullOrWhiteSpace(name))
+                FamilyNames.Add(name);
+        }
+    }
+
+    public void SetFriendNames(IReadOnlyList<string> friends)
+    {
+        FriendNames.Clear();
+
+        foreach (var name in friends)
+        {
+            if (!string.IsNullOrWhiteSpace(name))
+                FriendNames.Add(name);
+        }
+    }
 
     private void OnWorldListChanged() => Show(WorldState.WorldList.Entries, WorldState.WorldList.TotalOnline);
 
@@ -299,7 +346,13 @@ public sealed class WorldListControl : PrefabPanel
             if (entryIndex < FilteredEntries.Count)
             {
                 var entry = FilteredEntries[entryIndex];
-                var nameColor = MapWorldListColor(entry.Color);
+
+                var nameColor = FamilyNames.Contains(entry.Name)
+                    ? LegendColors.HotPink
+                    : FriendNames.Contains(entry.Name)
+                        ? LegendColors.Lime
+                        : MapWorldListColor(entry.Color);
+
                 var statusIdx = (int)entry.SocialStatus;
                 var statusIcon = (statusIdx >= 0) && (statusIdx < StatusIcons.Length) ? StatusIcons[statusIdx] : null;
 
@@ -343,12 +396,19 @@ public sealed class WorldListControl : PrefabPanel
         RowsDirty = true;
 
         if (!Visible)
+        {
+            InputDispatcher.Instance?.PushControl(this);
             Slide.SlideIn(this);
+        }
     }
 
-    public void SlideClose() => Slide.SlideOut();
+    public void SlideClose()
+    {
+        InputDispatcher.Instance?.RemoveControl(this);
+        Slide.SlideOut();
+    }
 
-    public override void Update(GameTime gameTime, InputBuffer input)
+    public override void Update(GameTime gameTime)
     {
         if (!Visible || !Enabled)
             return;
@@ -360,28 +420,42 @@ public sealed class WorldListControl : PrefabPanel
             return;
         }
 
-        if (input.WasKeyPressed(Keys.Escape))
-        {
-            Slide.SlideOut();
-
-            return;
-        }
-
         if (RowsDirty)
         {
             RefreshRowEntries();
             RowsDirty = false;
         }
 
-        base.Update(gameTime, input);
+        base.Update(gameTime);
+    }
 
-        if ((input.ScrollDelta != 0) && (FilteredEntries.Count > MaxVisibleRows))
+    public override void OnKeyDown(KeyDownEvent e)
+    {
+        if (Slide.Sliding)
+            return;
+
+        if (e.Key == Keys.Escape)
         {
-            var scrollLines = Math.Sign(input.ScrollDelta) * Math.Max(1, Math.Abs(input.ScrollDelta) / 120);
-            ScrollOffset = Math.Clamp(ScrollOffset - scrollLines, 0, FilteredEntries.Count - MaxVisibleRows);
-            ScrollBar.Value = ScrollOffset;
+            SlideClose();
+            e.Handled = true;
+        }
+    }
+
+    public override void OnMouseScroll(MouseScrollEvent e)
+    {
+        if (ScrollBar.TotalItems <= ScrollBar.VisibleItems)
+            return;
+
+        var newValue = Math.Clamp(ScrollBar.Value - e.Delta, 0, ScrollBar.MaxValue);
+
+        if (newValue != ScrollBar.Value)
+        {
+            ScrollBar.Value = newValue;
+            ScrollOffset = newValue;
             RowsDirty = true;
         }
+
+        e.Handled = true;
     }
 
     private void UpdateCountLabels()

@@ -104,8 +104,6 @@ public sealed class UIProgressBar : UIElement
                 FillColor.Value);
     }
 
-    public override void Update(GameTime gameTime, InputBuffer input) { }
-
     /// <summary>
     ///     Sets <see cref="Percent" /> from a current/max value pair.
     /// </summary>

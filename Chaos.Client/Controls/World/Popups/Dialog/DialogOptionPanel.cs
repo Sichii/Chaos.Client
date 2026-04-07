@@ -12,7 +12,7 @@ namespace Chaos.Client.Controls.World.Popups.Dialog;
 ///     option row stripes. Dynamic width, right-aligned and bottom-anchored above the dialog bar. Used for DialogMenu,
 ///     CreatureMenu, Menu, and MenuWithArgs.
 /// </summary>
-public sealed class OptionMenuPanel : FramedDialogPanel
+public sealed class DialogOptionPanel : FramedDialogPanelBase
 {
     private const int MIN_STRIPE_WIDTH = 185;
     private const int ROW_HEIGHT = 13;
@@ -47,11 +47,12 @@ public sealed class OptionMenuPanel : FramedDialogPanel
     private Texture2D? StripeRightOn;
     private bool StripesLoaded;
 
-    public OptionMenuPanel()
+    public DialogOptionPanel()
         : base("lnpcd2", false)
     {
         Name = "OptionMenu";
         Visible = false;
+
 
         OkButton = CreateButton("Btn1");
 
@@ -179,7 +180,7 @@ public sealed class OptionMenuPanel : FramedDialogPanel
                 Height = ROW_HEIGHT
             };
 
-            label.OnClick += () => OnOptionSelected?.Invoke(index);
+            label.Clicked += () => OnOptionSelected?.Invoke(index);
             OptionLabels.Add(label);
             AddChild(label);
         }
@@ -194,20 +195,14 @@ public sealed class OptionMenuPanel : FramedDialogPanel
         Visible = true;
     }
 
-    public override void Update(GameTime gameTime, InputBuffer input)
+    public override void OnKeyDown(KeyDownEvent e)
     {
-        if (!Visible || !Enabled)
-            return;
-
-        if (input.WasKeyPressed(Keys.Escape))
+        if (e.Key == Keys.Escape)
         {
             Hide();
             OnClose?.Invoke();
-
-            return;
+            e.Handled = true;
         }
-
-        base.Update(gameTime, input);
     }
 
     /// <summary>
@@ -299,17 +294,22 @@ public sealed class OptionMenuPanel : FramedDialogPanel
             TextCache.Draw(spriteBatch, new Vector2(textX, textY));
         }
 
-        public event Action? OnClick;
+        public event Action? Clicked;
 
-        public override void Update(GameTime gameTime, InputBuffer input)
+        public override void OnMouseEnter()
         {
-            if (!Visible || !Enabled)
-                return;
+            IsHovered = true;
+        }
 
-            IsHovered = ContainsPoint(input.MouseX, input.MouseY);
+        public override void OnMouseLeave()
+        {
+            IsHovered = false;
+        }
 
-            if (input.WasLeftButtonPressed && IsHovered)
-                OnClick?.Invoke();
+        public override void OnClick(ClickEvent e)
+        {
+            Clicked?.Invoke();
+            e.Handled = true;
         }
     }
 }

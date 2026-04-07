@@ -27,6 +27,7 @@ public sealed class ItemTooltipControl : UIPanel
     {
         Name = "ItemTooltip";
         Visible = false;
+        IsHitTestVisible = false;
 
         TooltipImage = new UIImage
         {

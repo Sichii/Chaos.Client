@@ -44,6 +44,7 @@ public sealed class SelfProfileTabControl : PrefabPanel
     {
         Name = "StatusBook";
         Visible = false;
+        UsesControlStack = true;
         WorldState.Equipment.SlotChanged += OnEquipmentSlotChanged;
         WorldState.Equipment.SlotCleared += OnEquipmentSlotCleared;
         X = 0;
@@ -56,7 +57,7 @@ public sealed class SelfProfileTabControl : PrefabPanel
         CloseButton = CreateButton("TAB_CLOSE");
 
         if (CloseButton is not null)
-            CloseButton.OnClick += () =>
+            CloseButton.Clicked += () =>
             {
                 Hide();
                 OnClose?.Invoke();
@@ -95,7 +96,7 @@ public sealed class SelfProfileTabControl : PrefabPanel
 
             // Wire click → switch tab
             var capturedTab = tab;
-            tabBtn.OnClick += () => SwitchTab(capturedTab);
+            tabBtn.Clicked += () => SwitchTab(capturedTab);
 
             // Set initial selection state
             tabBtn.IsSelected = tab == ActiveTab;
@@ -242,20 +243,14 @@ public sealed class SelfProfileTabControl : PrefabPanel
         page?.Visible = true;
     }
 
-    public override void Update(GameTime gameTime, InputBuffer input)
+    public override void OnKeyDown(KeyDownEvent e)
     {
-        if (!Visible || !Enabled)
-            return;
-
-        if (input.WasKeyPressed(Keys.Escape))
+        if (e.Key == Keys.Escape)
         {
             Hide();
             OnClose?.Invoke();
-
-            return;
+            e.Handled = true;
         }
-
-        base.Update(gameTime, input);
     }
 
     #region Events API
