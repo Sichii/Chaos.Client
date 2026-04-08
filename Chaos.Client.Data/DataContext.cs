@@ -9,14 +9,14 @@ public static class DataContext
     public static AislingDrawDataRepository AislingDrawData { get; private set; } = null!;
 
     /// <summary>
-    ///     The client version sent during the lobby handshake.
+    ///     The Dark Ages protocol version this client identifies as.
     /// </summary>
     public static ushort ClientVersion { get; private set; }
 
     public static CreatureSpriteRepository CreatureSprites { get; private set; } = null!;
 
     /// <summary>
-    ///     The root path to the Dark Ages installation directory. Must be set before accessing any repositories or archives.
+    ///     The root path to the Dark Ages data installation directory.
     /// </summary>
     public static string DataPath { get; private set; } = null!;
 
@@ -31,7 +31,7 @@ public static class DataContext
     public static string LobbyHost { get; private set; } = null!;
 
     /// <summary>
-    ///     The lobby server port.
+    ///     TCP port for the lobby server connection.
     /// </summary>
     public static int LobbyPort { get; private set; }
 

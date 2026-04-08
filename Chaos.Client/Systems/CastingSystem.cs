@@ -87,7 +87,7 @@ public sealed class CastingSystem
             return false;
         }
 
-        // Begin chant sequence
+        //begin chant sequence
         connection.SendBeginChant(SpellSlot.CastLines);
 
         var firstChant = SpellSlot.Chants[0];
@@ -130,7 +130,7 @@ public sealed class CastingSystem
             LineIndex++;
         } else
         {
-            // Final: send spell name as chant + cast packet
+            //final: send spell name as chant + cast packet
             var spellName = SpellSlot.AbilityName ?? string.Empty;
 
             if (!string.IsNullOrEmpty(spellName))

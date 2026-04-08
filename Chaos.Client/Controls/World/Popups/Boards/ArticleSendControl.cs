@@ -46,7 +46,7 @@ public sealed class ArticleSendControl : PrefabPanel
 
         TitleBox?.ForegroundColor = LegendColors.White;
 
-        // Content rect for multi-line body text entry
+        //content rect for multi-line body text entry
         var contentRect = GetRect("Content");
 
         BodyBox = new UITextBox
@@ -81,7 +81,7 @@ public sealed class ArticleSendControl : PrefabPanel
     }
 
     public event Action? OnCancel;
-    public event Action<string, string>? OnSend; // subject, body
+    public event Action<string, string>? OnSend; //subject, body
 
     public void SetViewportBounds(Rectangle viewport)
     {

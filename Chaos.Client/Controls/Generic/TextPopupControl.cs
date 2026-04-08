@@ -17,22 +17,22 @@ namespace Chaos.Client.Controls.Generic;
 /// </summary>
 public sealed class TextPopupControl : UIPanel
 {
-    // Original client RECT {top,left,bottom,right}: {60, 140, 240, 500}
-    // Position: X=140, Y=60. Size: W=360, H=180.
+    //original client rect {top,left,bottom,right}: {60, 140, 240, 500}
+    //position: x=140, y=60. size: w=360, h=180.
     private const int POPUP_X = 140;
     private const int POPUP_Y = 60;
     private const int POPUP_WIDTH = 360;
     private const int POPUP_HEIGHT = 180;
 
-    // Dialog frame text insets (16px dlgframe border)
+    //dialog frame text insets (16px dlgframe border)
     private const int FRAME_INSET = DialogFrame.BORDER_SIZE;
 
-    // Wooden board text insets (per RE: 16px left/right, 12px top, 32px bottom)
+    //wooden board text insets (per re: 16px left/right, 12px top, 32px bottom)
     private const int WOOD_INSET_X = 16;
     private const int WOOD_INSET_TOP = 12;
     private const int WOOD_INSET_BOTTOM = 32;
 
-    // butt001.epf frame indices for Close button (2nd button: frames 3,4,5)
+    //butt001.epf frame indices for close button (2nd button: frames 3,4,5)
     private const int CLOSE_NORMAL = 3;
     private const int CLOSE_PRESSED = 4;
     private readonly UIButton CloseButton;
@@ -59,7 +59,7 @@ public sealed class TextPopupControl : UIPanel
         };
         AddChild(TextLabel);
 
-        // Close button — bottom-right, under the scrollbar
+        //close button — bottom-right, under the scrollbar
         var cache = UiRenderer.Instance!;
         var closeNormalTex = cache.GetEpfTexture("butt001.epf", CLOSE_NORMAL);
         var closePressedTex = cache.GetEpfTexture("butt001.epf", CLOSE_PRESSED);
@@ -79,7 +79,7 @@ public sealed class TextPopupControl : UIPanel
         CloseButton.Clicked += Hide;
         AddChild(CloseButton);
 
-        // Scrollbar — right side, above the close button
+        //scrollbar — right side, above the close button
         var scrollHeight = CloseButton.Y - FRAME_INSET;
 
         Scrollbar = new ScrollBarControl
@@ -104,7 +104,7 @@ public sealed class TextPopupControl : UIPanel
 
     private void LoadBackgrounds()
     {
-        // Dialog frame: DlgBack2.spf tiled background + dlgframe.epf 8-piece border
+        //dialog frame: dlgback2.spf tiled background + dlgframe.epf 8-piece border
         using var bgTile = DataContext.UserControls.GetSpfImage("DlgBack2.spf");
 
         if (bgTile is not null)
@@ -115,7 +115,7 @@ public sealed class TextPopupControl : UIPanel
                 DialogBackground = TextureConverter.ToTexture2D(composite);
         }
 
-        // Wooden board: woodbk.epf from Legend.dat (360x180, exact match)
+        //wooden board: woodbk.epf from legend.dat (360x180, exact match)
         using var woodImage = DataContext.UserControls.GetLegendEpfImage("woodbk.epf");
 
         if (woodImage is not null)
@@ -144,7 +144,7 @@ public sealed class TextPopupControl : UIPanel
             CloseButton.Visible = false;
         } else
         {
-            // Scroll and NonScroll are identical per original client RE
+            //scroll and nonscroll are identical per original client re
             Background = DialogBackground;
             TextLabel.X = FRAME_INSET;
             TextLabel.Y = FRAME_INSET;

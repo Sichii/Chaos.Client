@@ -22,7 +22,7 @@ public sealed class LoginNoticeControl : PrefabPanel
         Visible = false;
         UsesControlStack = true;
 
-        // Buttons — _nagree is one of the few prefabs with actual type 3 controls
+        //buttons — _nagree is one of the few prefabs with actual type 3 controls
         OkButton = CreateButton("OK");
         CancelButton = CreateButton("CANCEL");
 
@@ -32,7 +32,7 @@ public sealed class LoginNoticeControl : PrefabPanel
         if (CancelButton is not null)
             CancelButton.Clicked += () => OnCancel?.Invoke();
 
-        // Agreement text display region — type 7, 0 images
+        //agreement text display region — type 7, 0 images
         var textRect = GetRect("AGREEMENTTEXT");
 
         if (textRect != Rectangle.Empty)
@@ -90,7 +90,7 @@ public sealed class LoginNoticeControl : PrefabPanel
                 break;
 
             case Keys.Escape:
-                // Intentionally blocked — Escape is a no-op during EULA display
+                //intentionally blocked — escape is a no-op during eula display
                 e.Handled = true;
 
                 break;

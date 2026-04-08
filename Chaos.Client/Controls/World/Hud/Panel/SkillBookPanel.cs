@@ -87,7 +87,7 @@ public sealed class SkillBookPanel : PanelBase
 
         var data = WorldState.SkillBook.GetSlot(slot);
 
-        // Dispose old cooldown textures — sprite may have changed
+        //dispose old cooldown textures — sprite may have changed
         control.CooldownTexture?.Dispose();
         control.CooldownTexture = null;
         control.GreyTexture?.Dispose();
@@ -113,9 +113,9 @@ public sealed class SkillBookPanel : PanelBase
         }
     }
 
-    private Texture2D? RenderGreyIcon(ushort spriteId) => UiRenderer.Instance!.GetSkillGreyIcon(spriteId);
+    private Texture2D RenderGreyIcon(ushort spriteId) => UiRenderer.Instance!.GetSkillGreyIcon(spriteId);
 
-    protected override Texture2D? RenderIcon(ushort spriteId) => UiRenderer.Instance!.GetSkillIcon(spriteId);
+    protected override Texture2D RenderIcon(ushort spriteId) => UiRenderer.Instance!.GetSkillIcon(spriteId);
 
     private Texture2D RenderTintedIcon(ushort spriteId)
     {
@@ -128,7 +128,7 @@ public sealed class SkillBookPanel : PanelBase
     {
         base.Update(gameTime);
 
-        // Read cooldown state each frame — progressive style: grey base with blue overlay
+        //read cooldown state each frame — progressive style: grey base with blue overlay
         for (var i = 0; (i < VisibleSlotCount) && (i < Slots.Length); i++)
         {
             var slot = (byte)(i + SlotOffset + 1);

@@ -29,7 +29,7 @@ public sealed class LobbyLoginScreen : IScreen
     private bool ChangingPassword;
     private CharacterCreationControl CharCreateControl = null!;
 
-    // Flow state
+    //flow state
     private bool Connecting;
     private bool CreatingCharacter;
     private LoginNoticeControl LoginNoticeControl = null!;
@@ -45,7 +45,7 @@ public sealed class LobbyLoginScreen : IScreen
 
     private UIButton? LastClickedButton;
 
-    // UI panels
+    //ui panels
     private LobbyLoginControl StartPanel = null!;
     private UILabel StatusLabel = null!;
 
@@ -91,7 +91,7 @@ public sealed class LobbyLoginScreen : IScreen
         CharCreateControl = new CharacterCreationControl(Game.AislingRenderer);
         PasswordChangeControl = new PasswordChangeControl();
 
-        // Wire button events
+        //wire button events
         StartPanel.ContinueButton?.Clicked += OnContinueClicked;
         StartPanel.ExitButton?.Clicked += OnExitClicked;
         StartPanel.SubmitCreateButton?.Clicked += OnCreateClicked;
@@ -99,7 +99,7 @@ public sealed class LobbyLoginScreen : IScreen
         StartPanel.CreditButton?.Clicked += OnCreditClicked;
         StartPanel.HomepageButton?.Clicked += OnHomepageClicked;
 
-        // Track last-clicked start panel button so Enter can repeat it
+        //track last-clicked start panel button so enter can repeat it
         foreach (var btn in (UIButton?[]) [
                      StartPanel.ContinueButton,
                      StartPanel.ExitButton,
@@ -159,20 +159,20 @@ public sealed class LobbyLoginScreen : IScreen
         Root.AddChild(PopupMessage);
         Root.AddChild(StatusLabel);
 
-        // Build UI atlas after all login controls are constructed
+        //build ui atlas after all login controls are constructed
         UiRenderer.Instance?.BuildAtlas();
 
         WireRootInputHandlers();
 
         if (ReturningFromWorld)
         {
-            // Already connected to login server via redirect — skip lobby handshake, show login directly
+            //already connected to login server via redirect — skip lobby handshake, show login directly
             StartPanel.SetButtonsEnabled(false);
             LoginControl.Show();
             SetStatus("Logged out.", Color.LightBlue);
         } else
 
-            // Fresh start — connect to lobby
+            //fresh start — connect to lobby
             BeginLobbyConnect();
     }
 
@@ -407,7 +407,7 @@ public sealed class LobbyLoginScreen : IScreen
                 Connecting = false;
                 SetStatus("Waiting for server notice...", Color.LightBlue);
 
-                // Buttons are enabled after EULA acceptance (or checksum cache hit) in OnLoginNotice
+                //buttons are enabled after eula acceptance (or checksum cache hit) in onloginnotice
                 break;
 
             case ConnectionState.World:
@@ -440,7 +440,7 @@ public sealed class LobbyLoginScreen : IScreen
             ServerSelectControl.Visible = true;
         } else if (data.Servers.Count > 0)
         {
-            // Auto-select the first (or only) server
+            //auto-select the first (or only) server
             SetStatus("Selecting server...", Color.LightBlue);
             Game.Connection.ServerName = data.Servers[0].Name;
             Game.Connection.SelectServer(data.Servers[0].Id);
@@ -473,7 +473,7 @@ public sealed class LobbyLoginScreen : IScreen
             return;
         }
 
-        // Login failed — show login again for retry, clear password
+        //login failed — show login again for retry, clear password
         Connecting = false;
         LoginControl.Visible = true;
 
@@ -492,7 +492,7 @@ public sealed class LobbyLoginScreen : IScreen
         {
             if (!AwaitingCharFinalize)
             {
-                // Initial step confirmed — send finalize with appearance
+                //initial step confirmed — send finalize with appearance
                 AwaitingCharFinalize = true;
                 SetStatus("Setting appearance...", Color.LightBlue);
 
@@ -502,7 +502,7 @@ public sealed class LobbyLoginScreen : IScreen
                     CharCreateControl.SelectedHairColor);
             } else
             {
-                // Finalize confirmed — character created, show popup
+                //finalize confirmed — character created, show popup
                 Connecting = false;
                 CreatingCharacter = false;
                 AwaitingCharFinalize = false;
@@ -514,7 +514,7 @@ public sealed class LobbyLoginScreen : IScreen
             return;
         }
 
-        // Creation failed — show error popup and clear the relevant field
+        //creation failed — show error popup and clear the relevant field
         Connecting = false;
         AwaitingCharFinalize = false;
 
@@ -561,7 +561,7 @@ public sealed class LobbyLoginScreen : IScreen
 
     private void OnLoginNotice(LoginNoticeArgs args)
     {
-        // Returning from world — already accepted the EULA this session, skip entirely
+        //returning from world — already accepted the eula this session, skip entirely
         if (ReturningFromWorld)
         {
             StartPanel.EnableButtons();
@@ -571,10 +571,10 @@ public sealed class LobbyLoginScreen : IScreen
 
         if (!args.IsFullResponse)
         {
-            // Checksum-only probe — request full notice if we don't have a cached match
+            //checksum-only probe — request full notice if we don't have a cached match
             if (CachedNoticeCheckSum.HasValue && (CachedNoticeCheckSum.Value == args.CheckSum))
             {
-                // Already accepted this notice, skip display and enable buttons
+                //already accepted this notice, skip display and enable buttons
                 StartPanel.EnableButtons();
 
                 return;
@@ -585,7 +585,7 @@ public sealed class LobbyLoginScreen : IScreen
             return;
         }
 
-        // Full response — decompress and display
+        //full response — decompress and display
         if (args.Data is null or { Length: 0 })
             return;
 
@@ -636,7 +636,7 @@ public sealed class LobbyLoginScreen : IScreen
             if (Screen is null)
                 return;
 
-            // Enter — repeat last-clicked button when no sub-control is open
+            //enter — repeat last-clicked button when no sub-control is open
             if (e.Key == Keys.Enter
                 && Screen.LastClickedButton is { Enabled: true }
                 && !Screen.LoginControl.Visible
@@ -650,7 +650,7 @@ public sealed class LobbyLoginScreen : IScreen
                 return;
             }
 
-            // Escape — dismiss ServerSelectControl when it is visible and nothing else claims focus
+            //escape — dismiss serverselectcontrol when it is visible and nothing else claims focus
             if (e.Key == Keys.Escape && Screen.ServerSelectControl.Visible)
             {
                 Screen.ServerSelectControl.Visible = false;

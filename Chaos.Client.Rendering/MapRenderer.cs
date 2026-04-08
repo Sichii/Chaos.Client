@@ -75,7 +75,7 @@ public sealed class MapRenderer : IDisposable
 
         atlas.Build();
 
-        // Dispose source images — atlas has consumed their pixels
+        //dispose source images — atlas has consumed their pixels
         foreach (var image in BgImageCache.Values)
             image.Dispose();
 
@@ -96,7 +96,7 @@ public sealed class MapRenderer : IDisposable
 
         atlas.Build();
 
-        // Dispose source images — atlas has consumed their pixels
+        //dispose source images — atlas has consumed their pixels
         foreach (var image in FgImageCache.Values)
             image.Dispose();
 
@@ -171,12 +171,12 @@ public sealed class MapRenderer : IDisposable
                     || (screenPos.Y >= camera.ViewportHeight))
                     continue;
 
-                // Prefer atlas path — all bg tiles in a single texture enables SpriteBatch batching
+                //prefer atlas path — all bg tiles in a single texture enables spritebatch batching
                 if (BgAtlas is not null)
                 {
                     AtlasRegion? region;
 
-                    // Cycling tiles have pre-baked variants in the atlas — use the current step's region
+                    //cycling tiles have pre-baked variants in the atlas — use the current step's region
                     if (CyclingManager is not null && CyclingManager.BgOverrides.TryGetValue(bgIndex, out var cyclingRegion))
                         region = cyclingRegion;
                     else
@@ -194,7 +194,7 @@ public sealed class MapRenderer : IDisposable
                     }
                 }
 
-                // Fallback to individual texture
+                //fallback to individual texture
                 var bgTexture = GetOrCreateBgTexture(bgIndex);
 
                 if (bgTexture is not null)
@@ -219,7 +219,7 @@ public sealed class MapRenderer : IDisposable
         var tile = mapFile.Tiles[x, y];
         var worldPos = Camera.TileToWorld(x, y, mapFile.Height);
 
-        // Left foreground
+        //left foreground
         if (tile.LeftForeground.IsRenderedTileIndex())
         {
             var lfgTileId = ResolveAnimatedTileId(
@@ -236,7 +236,7 @@ public sealed class MapRenderer : IDisposable
                 worldPos.Y);
         }
 
-        // Right foreground
+        //right foreground
         if (tile.RightForeground.IsRenderedTileIndex())
         {
             var rfgTileId = ResolveAnimatedTileId(
@@ -262,7 +262,7 @@ public sealed class MapRenderer : IDisposable
         float worldX,
         float worldY)
     {
-        // Try atlas path (cycling override → atlas → fallback)
+        //try atlas path (cycling override → atlas → fallback)
         AtlasRegion? region = null;
 
         if (CyclingManager is not null && CyclingManager.FgOverrides.TryGetValue(tileId, out var fgCyclingRegion))
@@ -300,7 +300,7 @@ public sealed class MapRenderer : IDisposable
             return;
         }
 
-        // Fallback to individual texture
+        //fallback to individual texture
         var texture = GetOrCreateFgTexture(tileId);
 
         if (texture is null)
@@ -382,15 +382,19 @@ public sealed class MapRenderer : IDisposable
     }
 
     /// <summary>
-    ///     Preloads all unique tile pixel data used by the map. Background and foreground tiles are rendered in parallel on
-    ///     the CPU then packed into texture atlases (one GPU upload per page). Archive reads are sequential (not thread-safe).
+    ///     Preloads all unique tiles used by the map into texture atlases, including palette cycling variants. Call once after
+    ///     loading a new map.
     /// </summary>
+    /// <remarks>
+    ///     Archive reads are sequential (not thread-safe), but tile rendering is parallelized on the CPU. The resulting
+    ///     images are packed into atlas pages (one GPU upload per page).
+    /// </remarks>
     public void PreloadMapTiles(GraphicsDevice device, MapFile mapFile, Action<float>? onProgress = null)
     {
         var uniqueBgTileIds = new HashSet<int>();
         var uniqueFgTileIds = new HashSet<int>();
 
-        // Phase 1: Scan map to collect unique tile IDs (cheap, sequential)
+        //phase 1: scan map to collect unique tile ids (cheap, sequential)
         for (var y = 0; y < mapFile.Height; y++)
         {
             for (var x = 0; x < mapFile.Width; x++)
@@ -408,7 +412,7 @@ public sealed class MapRenderer : IDisposable
             }
         }
 
-        // Expand animated BG tiles: add all animation frame IDs to the set
+        //expand animated bg tiles: add all animation frame ids to the set
         var bgAnimEntries = new HashSet<TileAnimationEntry>(ReferenceEqualityComparer.Instance);
 
         foreach (var bgId in uniqueBgTileIds.ToArray())
@@ -422,7 +426,7 @@ public sealed class MapRenderer : IDisposable
                 uniqueBgTileIds.Add(frameTileId);
         }
 
-        // Expand animated FG tiles: add all animation frame IDs to the set
+        //expand animated fg tiles: add all animation frame ids to the set
         var fgAnimEntries = new HashSet<TileAnimationEntry>(ReferenceEqualityComparer.Instance);
 
         foreach (var fgId in uniqueFgTileIds.ToArray())
@@ -438,7 +442,7 @@ public sealed class MapRenderer : IDisposable
 
         onProgress?.Invoke(0.1f);
 
-        // Phase 2a: Read bg tile data from archives sequentially (archive streams are not thread-safe)
+        //phase 2a: read bg tile data from archives sequentially (archive streams are not thread-safe)
         var bgTileData = new Dictionary<int, (Tile Tile, Palette Palette)>();
 
         foreach (var tileId in uniqueBgTileIds)
@@ -449,7 +453,7 @@ public sealed class MapRenderer : IDisposable
                 bgTileData[tileId] = (palettized.Entity, palettized.Palette);
         }
 
-        // Phase 2b: Read compressed fg tile data from archives sequentially (not thread-safe)
+        //phase 2b: read compressed fg tile data from archives sequentially (not thread-safe)
         var compressedFgData = new Dictionary<int, (CompressedHpfFile Compressed, Palette Palette)>();
 
         foreach (var tileId in uniqueFgTileIds)
@@ -462,7 +466,7 @@ public sealed class MapRenderer : IDisposable
 
         onProgress?.Invoke(0.4f);
 
-        // Phase 3: Decompress + render all tiles in parallel (CPU-only, no archive access)
+        //phase 3: decompress + render all tiles in parallel (cpu-only, no archive access)
         Parallel.ForEach(
             bgTileData,
             kvp =>
@@ -493,10 +497,10 @@ public sealed class MapRenderer : IDisposable
 
         onProgress?.Invoke(0.7f);
 
-        // Convert max pixel height to tile rows: each tile row = 14px
+        //convert max pixel height to tile rows: each tile row = 14px
         ForegroundExtraMargin = (int)MathF.Ceiling(maxFgHeight / (float)CONSTANTS.HALF_TILE_HEIGHT);
 
-        // Pre-render palette cycling variants before atlas build
+        //pre-render palette cycling variants before atlas build
         CyclingManager = new PaletteCyclingManager();
 
         CyclingManager.PrepareVariants(
@@ -508,11 +512,11 @@ public sealed class MapRenderer : IDisposable
 
         onProgress?.Invoke(0.85f);
 
-        // Build atlases from all preloaded pixel data (includes base + cycling variant frames)
+        //build atlases from all preloaded pixel data (includes base + cycling variant frames)
         BuildBgAtlas(device);
         BuildFgAtlas(device);
 
-        // Resolve cycling variant regions from the built atlases
+        //resolve cycling variant regions from the built atlases
         CyclingManager.ResolveRegions(BgAtlas, FgAtlas);
 
         onProgress?.Invoke(1f);

@@ -9,7 +9,7 @@ using SkiaSharp;
 namespace Chaos.Client.Rendering;
 
 /// <summary>
-///     A region within an atlas texture.
+///     A rectangular sub-region within an atlas page texture, identified by the page texture and source rectangle.
 /// </summary>
 public readonly record struct AtlasRegion(Texture2D Atlas, Rectangle SourceRect);
 
@@ -38,12 +38,12 @@ public sealed class TextureAtlas : IDisposable
     private FrozenDictionary<string, AtlasRegion> Regions = FrozenDictionary<string, AtlasRegion>.Empty;
 
     /// <summary>
-    ///     The total number of entries packed into the atlas.
+    ///     The total number of entries in the built atlas. Only meaningful after <see cref="Build" /> has been called.
     /// </summary>
     public int EntryCount => Regions.Count + IntRegions.Count;
 
     /// <summary>
-    ///     The number of atlas page textures created after Build().
+    ///     The number of GPU page textures backing the atlas. Only meaningful after <see cref="Build" /> has been called.
     /// </summary>
     public int PageCount => Pages.Count;
 
@@ -81,7 +81,7 @@ public sealed class TextureAtlas : IDisposable
     }
 
     /// <summary>
-    ///     Adds a texture to be packed into the atlas on the next Build() call.
+    ///     Stages a Texture2D to be packed on the next <see cref="Build" /> call. Reads pixel data from the GPU immediately.
     /// </summary>
     public void Add(string key, Texture2D source)
     {
@@ -116,7 +116,8 @@ public sealed class TextureAtlas : IDisposable
                 height));
 
     /// <summary>
-    ///     Adds a texture with an integer key to be packed into the atlas on the next Build() call.
+    ///     Stages a Texture2D with an integer key to be packed on the next <see cref="Build" /> call. Reads pixel data from
+    ///     the GPU immediately.
     /// </summary>
     public void Add(int key, Texture2D source)
     {
@@ -165,7 +166,8 @@ public sealed class TextureAtlas : IDisposable
                 image.Height));
 
     /// <summary>
-    ///     Adds an SKImage with a string key to be packed into the atlas on the next Build() call.
+    ///     Stages an SKImage with a string key to be packed on the next <see cref="Build" /> call. The image's pixels are
+    ///     blitted directly into the atlas page during Build — no intermediate pixel extraction. The caller retains ownership.
     /// </summary>
     public void Add(string key, SKImage image)
         => PendingEntries.Add(
@@ -321,7 +323,7 @@ public sealed class TextureAtlas : IDisposable
 
     private void BuildShelf()
     {
-        // Sort by height descending for better shelf packing
+        //sort by height descending for better shelf packing
         PendingEntries.Sort((a, b) => b.Height.CompareTo(a.Height));
 
         var currentX = 0;
@@ -332,23 +334,23 @@ public sealed class TextureAtlas : IDisposable
 
         foreach (var entry in PendingEntries)
         {
-            // Skip entries too large for atlas packing
+            //skip entries too large for atlas packing
             if ((entry.Width > MAX_SHELF_ENTRY_SIZE) || (entry.Height > MAX_SHELF_ENTRY_SIZE))
                 continue;
 
-            // Does it fit on the current shelf?
+            //does it fit on the current shelf?
             if ((currentX + entry.Width) > MaxPageSize)
             {
-                // Start a new shelf
+                //start a new shelf
                 currentX = 0;
                 currentY += shelfHeight;
                 shelfHeight = 0;
             }
 
-            // Does it fit on the current page?
+            //does it fit on the current page?
             if ((currentY + entry.Height) > MaxPageSize)
             {
-                // Flush current page and start a new one
+                //flush current page and start a new one
                 if (pageEntries.Count > 0)
                     FlushShelfPage(pageEntries, maxWidthUsed, currentY + shelfHeight);
 
@@ -365,7 +367,7 @@ public sealed class TextureAtlas : IDisposable
             maxWidthUsed = Math.Max(maxWidthUsed, currentX);
         }
 
-        // Flush remaining entries
+        //flush remaining entries
         if (pageEntries.Count > 0)
             FlushShelfPage(pageEntries, maxWidthUsed, currentY + shelfHeight);
     }

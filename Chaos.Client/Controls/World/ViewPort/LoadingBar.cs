@@ -24,44 +24,37 @@ public class LoadingBar : PrefabPanel
         var fillTexture = cache.GetSpfTexture("_nloadb1.spf");
         var endTexture = cache.GetSpfTexture("_nloadb2.spf");
 
-        var barY = Height - (startTexture?.Height ?? 0) - 20;
+        var barY = Height - startTexture.Height - 20;
         var barX = 20;
 
-        if (startTexture is not null)
-            AddChild(
-                new UIImage
-                {
-                    Texture = startTexture,
-                    X = barX,
-                    Y = barY
-                });
-
-        if (fillTexture is not null)
-        {
-            FillBar = new UIProgressBar
+        AddChild(
+            new UIImage
             {
-                X = barX + (startTexture?.Width ?? 0),
-                Y = barY,
-                Width = fillTexture.Width,
-                Height = fillTexture.Height,
-                FillTexture = fillTexture
-            };
+                Texture = startTexture,
+                X = barX,
+                Y = barY
+            });
 
-            AddChild(FillBar);
-        }
-
-        if (endTexture is not null)
+        FillBar = new UIProgressBar
         {
-            EndCap = new UIImage
-            {
-                Texture = endTexture,
-                X = barX + (startTexture?.Width ?? 0) + (fillTexture?.Width ?? 0),
-                Y = barY,
-                Visible = false
-            };
+            X = barX + startTexture.Width,
+            Y = barY,
+            Width = fillTexture.Width,
+            Height = fillTexture.Height,
+            FillTexture = fillTexture
+        };
 
-            AddChild(EndCap);
-        }
+        AddChild(FillBar);
+
+        EndCap = new UIImage
+        {
+            Texture = endTexture,
+            X = barX + startTexture.Width + fillTexture.Width,
+            Y = barY,
+            Visible = false
+        };
+
+        AddChild(EndCap);
     }
 
     public void SetProgress(float progress)

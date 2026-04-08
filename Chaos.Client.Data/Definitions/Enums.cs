@@ -29,8 +29,10 @@ public enum EffectBlendMode
     Additive,
 
     /// <summary>
-    ///     Per-channel self-alpha: output = src + dst * (1 - src) per channel. Uses Screen blend state: Blend.One +
-    ///     Blend.InverseSourceColor.
+    ///     Screen blending: each color channel is lightened proportionally to the source brightness.
     /// </summary>
+    /// <remarks>
+    ///     Per-channel formula: output = src + dst * (1 - src). Uses Blend.One + Blend.InverseSourceColor.
+    /// </remarks>
     SelfAlpha
 }

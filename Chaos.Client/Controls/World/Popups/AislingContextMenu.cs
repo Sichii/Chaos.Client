@@ -49,7 +49,8 @@ public sealed class AislingContextMenu : UIPanel
             Width = BOX_WIDTH,
             Height = BOX_HEIGHT,
             Alignment = TextAlignment.Center,
-            PaddingLeft = 0
+            PaddingLeft = 0,
+            TruncateWithEllipsis = false
         };
 
         AddChild(NameLabel);
@@ -67,7 +68,8 @@ public sealed class AislingContextMenu : UIPanel
                 Height = BOX_HEIGHT,
                 Text = OPTION_LABELS[i],
                 PaddingLeft = 0,
-                ForegroundColor = Color.White
+                ForegroundColor = Color.White,
+                TruncateWithEllipsis = false
             };
 
             AddChild(OptionLabels[i]);
@@ -87,7 +89,7 @@ public sealed class AislingContextMenu : UIPanel
         var sx = ScreenX;
         var sy = ScreenY;
 
-        // Semi-transparent fill + hover, then frame on top
+        //semi-transparent fill + hover, then frame on top
         DrawRect(
             spriteBatch,
             new Rectangle(
@@ -109,7 +111,7 @@ public sealed class AislingContextMenu : UIPanel
 
         spriteBatch.Draw(bg, new Vector2(sx, sy), Color.White);
 
-        // Children (NameLabel + OptionLabels) drawn by base
+        //children (namelabel + optionlabels) drawn by base
         base.Draw(spriteBatch);
     }
 
@@ -162,7 +164,7 @@ public sealed class AislingContextMenu : UIPanel
         X = screenX;
         Y = screenY;
 
-        // Clamp to screen bounds
+        //clamp to screen bounds
         if ((X + Width) > ChaosGame.VIRTUAL_WIDTH)
             X = ChaosGame.VIRTUAL_WIDTH - Width;
 

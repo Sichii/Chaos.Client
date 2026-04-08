@@ -72,15 +72,15 @@ public sealed class ServerTableData
 
             var serverId = data[offset++];
 
-            // IP address: 4 raw bytes in network byte order
+            //ip address: 4 raw bytes in network byte order
             var ipAddress = new IPAddress(data.AsSpan(offset, 4));
             offset += 4;
 
-            // Port: big-endian uint16
+            //port: big-endian uint16
             var port = BinaryPrimitives.ReadUInt16BigEndian(data.AsSpan(offset, 2));
             offset += 2;
 
-            // Null-terminated string in codepage 949: "{Name};{Description}\0"
+            //null-terminated string in codepage 949: "{name};{description}\0"
             var stringStart = offset;
 
             while ((offset < data.Length) && (data[offset] != 0))
@@ -88,11 +88,11 @@ public sealed class ServerTableData
 
             var rawString = koreanEncoding.GetString(data, stringStart, offset - stringStart);
 
-            // Skip past the null terminator
+            //skip past the null terminator
             if (offset < data.Length)
                 offset++;
 
-            // Split on ';' to get Name and Description
+            //split on ';' to get name and description
             var separatorIndex = rawString.IndexOf(';');
             string name;
             string description;
@@ -116,7 +116,7 @@ public sealed class ServerTableData
                     description));
         }
 
-        // The trailing byte after all server entries is the ShowServerList flag
+        //the trailing byte after all server entries is the showserverlist flag
         var showServerList = (offset < data.Length) && (data[offset] != 0);
 
         return new ServerTableData

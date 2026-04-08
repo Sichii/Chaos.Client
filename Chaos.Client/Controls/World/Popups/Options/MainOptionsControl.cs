@@ -21,14 +21,14 @@ public sealed class MainOptionsControl : PrefabPanel
     private const int THUMB_HEIGHT = 12;
     private readonly Rectangle MusicTrackRect;
 
-    // Slider state
+    //slider state
     private readonly Rectangle SoundTrackRect;
     private readonly Texture2D? ThumbTexture;
     private bool DraggingMusic;
     private bool DraggingSound;
     private int MusicVolume = 10;
 
-    // Slide animation
+    //slide animation
     private SlideAnimator Slide;
     private int SoundVolume = 10;
 
@@ -45,7 +45,7 @@ public sealed class MainOptionsControl : PrefabPanel
         Visible = false;
         UsesControlStack = true;
 
-        // Right-aligned, slides in from right edge
+        //right-aligned, slides in from right edge
         Slide.SetViewportBounds(
             new Rectangle(
                 0,
@@ -55,11 +55,11 @@ public sealed class MainOptionsControl : PrefabPanel
             Width);
         X = Slide.OffScreenX;
 
-        // Slider track rects
+        //slider track rects
         SoundTrackRect = GetRect("SoundRect");
         MusicTrackRect = GetRect("MusicRect");
 
-        // Slider thumb from option04.epf (Tick control) — extract texture only, remove the child
+        //slider thumb from option04.epf (tick control) — extract texture only, remove the child
         var tickImage = CreateImage("Tick");
 
         if (tickImage is not null)
@@ -68,7 +68,7 @@ public sealed class MainOptionsControl : PrefabPanel
             Children.Remove(tickImage);
         }
 
-        // Buttons
+        //buttons
         MacroButton = CreateButton("Macro");
         SettingsButton = CreateButton("Setting");
         FriendsButton = CreateButton("Friends");
@@ -98,7 +98,7 @@ public sealed class MainOptionsControl : PrefabPanel
 
         base.Draw(spriteBatch);
 
-        // Draw slider thumbs
+        //draw slider thumbs
         if (ThumbTexture is not null)
         {
             DrawThumb(spriteBatch, SoundTrackRect, SoundVolume);
@@ -203,12 +203,12 @@ public sealed class MainOptionsControl : PrefabPanel
         if (HitsTrack(SoundTrackRect, localX, localY))
         {
             DraggingSound = true;
-            UpdateVolumeFromMouse(SoundTrackRect, localX, isSound: true);
+            UpdateVolumeFromMouse(SoundTrackRect, localX, true);
             e.Handled = true;
         } else if (HitsTrack(MusicTrackRect, localX, localY))
         {
             DraggingMusic = true;
-            UpdateVolumeFromMouse(MusicTrackRect, localX, isSound: false);
+            UpdateVolumeFromMouse(MusicTrackRect, localX, false);
             e.Handled = true;
         }
     }
@@ -221,9 +221,9 @@ public sealed class MainOptionsControl : PrefabPanel
         var localX = e.ScreenX - ScreenX;
 
         if (DraggingSound)
-            UpdateVolumeFromMouse(SoundTrackRect, localX, isSound: true);
+            UpdateVolumeFromMouse(SoundTrackRect, localX, true);
         else if (DraggingMusic)
-            UpdateVolumeFromMouse(MusicTrackRect, localX, isSound: false);
+            UpdateVolumeFromMouse(MusicTrackRect, localX, false);
 
         e.Handled = true;
     }
@@ -242,7 +242,7 @@ public sealed class MainOptionsControl : PrefabPanel
         if (trackRect == Rectangle.Empty)
             return false;
 
-        // Generous vertical hit area around the track for easier clicking
+        //generous vertical hit area around the track for easier clicking
         var hitY = trackRect.Y - THUMB_HEIGHT / 2;
         var hitH = trackRect.Height + THUMB_HEIGHT;
 

@@ -28,24 +28,24 @@ public sealed partial class WorldScreen
 
         var elapsedMs = (float)gameTime.ElapsedGameTime.TotalMilliseconds;
 
-        // Global tile animation tick — 100ms resolution (matches tile animation table format)
+        //global tile animation tick — 100ms resolution (matches tile animation table format)
         AnimationTick = (int)(gameTime.TotalGameTime.TotalMilliseconds / 100);
         MapRenderer.UpdatePaletteCycling(AnimationTick);
 
-        // Advance entity animations and active effects
+        //advance entity animations and active effects
         var smoothScroll = ClientSettings.ScrollLevel > 0;
         var player = WorldState.GetPlayerEntity();
 
         foreach (var entity in WorldState.GetSortedEntities())
         {
-            // Update water tile state before animation so swimming idle tick advances
+            //update water tile state before animation so swimming idle tick advances
             UpdateEntityWaterState(entity);
 
-            // All entities step discretely by default. Player gets smooth lerp only if setting enabled.
+            //all entities step discretely by default. player gets smooth lerp only if setting enabled.
             var isSmooth = (entity == player) && smoothScroll;
             AnimationSystem.Advance(entity, elapsedMs, isSmooth);
 
-            // Update creature optional standing animation cycle
+            //update creature optional standing animation cycle
             if (entity.Type == ClientEntityType.Creature)
             {
                 var animInfo = Game.CreatureRenderer.GetAnimInfo(entity.SpriteId);
@@ -57,7 +57,7 @@ public sealed partial class WorldScreen
                 }
             }
 
-            // Tick emote overlay timer and cycle animated emote frames
+            //tick emote overlay timer and cycle animated emote frames
             if (entity.ActiveEmoteFrame >= 0)
             {
                 entity.EmoteElapsedMs += elapsedMs;
@@ -78,7 +78,7 @@ public sealed partial class WorldScreen
 
         WorldState.UpdateEffects(elapsedMs);
 
-        // Group highlight auto-expire (1000ms flash)
+        //group highlight auto-expire (1000ms flash)
         if (GroupHighlightedIds.Count > 0)
         {
             GroupHighlightTimer -= elapsedMs;
@@ -91,7 +91,7 @@ public sealed partial class WorldScreen
             }
         }
 
-        // Execute queued walk when player becomes idle after walk animation.
+        //execute queued walk when player becomes idle after walk animation.
         var movementHandled = false;
 
         if (player is not null && (player.AnimState == EntityAnimState.Idle) && QueuedWalkDirection.HasValue)
@@ -109,12 +109,12 @@ public sealed partial class WorldScreen
             movementHandled = true;
         }
 
-        // Execute next pathfinding step when player becomes idle
+        //execute next pathfinding step when player becomes idle
         if (!movementHandled && player is not null && (player.AnimState == EntityAnimState.Idle))
         {
             if (Pathfinding.Path is { Count: > 0 })
             {
-                // If chasing an entity that no longer exists, stop
+                //if chasing an entity that no longer exists, stop
                 if (Pathfinding.TargetEntityId.HasValue && WorldState.GetEntity(Pathfinding.TargetEntityId.Value) is null)
                     Pathfinding.Clear();
                 else
@@ -146,7 +146,7 @@ public sealed partial class WorldScreen
                 }
             } else if (Pathfinding.TargetEntityId.HasValue)
             {
-                // Path exhausted with entity target — check if adjacent and assail, or re-pathfind
+                //path exhausted with entity target — check if adjacent and assail, or re-pathfind
                 var target = WorldState.GetEntity(Pathfinding.TargetEntityId.Value);
 
                 if (target is null)
@@ -157,7 +157,7 @@ public sealed partial class WorldScreen
                              target.TileX,
                              target.TileY))
                 {
-                    // Adjacent — turn toward target and assail
+                    //adjacent — turn toward target and assail
                     var faceDir = Pathfinder.DirectionToward(
                         player.TileX,
                         player.TileY,
@@ -171,10 +171,9 @@ public sealed partial class WorldScreen
                     }
 
                     Game.Connection.Spacebar();
-                    Pathfinding.Clear();
                 } else
                 {
-                    // Entity moved — re-pathfind on 100ms timer
+                    //entity moved — re-pathfind on 100ms timer
                     Pathfinding.RetargetTimer += elapsedMs;
 
                     if (Pathfinding.RetargetTimer >= 100f)
@@ -189,18 +188,17 @@ public sealed partial class WorldScreen
             }
         }
 
-        // Tick re-pathfind timer while walking toward an entity target
+        //tick re-pathfind timer while walking toward an entity target
         if (Pathfinding.TargetEntityId.HasValue && player is not null && (player.AnimState == EntityAnimState.Walking))
             Pathfinding.RetargetTimer += elapsedMs;
 
-        // Camera follows player's visual position (tile + walk interpolation offset)
+        //camera follows player's visual position (tile + walk interpolation offset)
         FollowPlayerCamera();
 
-        // Viewport-layer updates — must always run regardless of which UI panel has input focus
-        // so that the world keeps animating visually behind open windows.
+        //viewport-layer updates — must always run regardless of which ui panel has input focus
+        //so that the world keeps animating visually behind open windows.
         if (MapFile is not null)
             Overlays.Update(
-                gameTime,
                 Camera,
                 MapFile.Height);
 
@@ -210,7 +208,7 @@ public sealed partial class WorldScreen
             DarknessRenderer.Update(Camera, WorldHud.ViewportBounds);
         }
 
-        // Tooltip follows cursor — always reposition regardless of active panel
+        //tooltip follows cursor — always reposition regardless of active panel
         if (ItemTooltip.Visible)
         {
             var rightX = input.MouseX + 15;
@@ -220,7 +218,7 @@ public sealed partial class WorldScreen
             ItemTooltip.Y = Math.Clamp(input.MouseY + 15, 0, ChaosGame.VIRTUAL_HEIGHT - ItemTooltip.Height);
         }
 
-        // ── Tooltip dismissal — clear hovered slot when blocking panels are visible ──
+        //── tooltip dismissal — clear hovered slot when blocking panels are visible ──
         if (HoveredInventorySlot is not null
             && (StatusBook.Visible || OtherProfile.Visible || NpcSession.Visible || FindVisibleModal() is not null))
         {
@@ -228,7 +226,7 @@ public sealed partial class WorldScreen
             ItemTooltip.Hide();
         }
 
-        // ── Track which entity the mouse is hovering over ──
+        //── track which entity the mouse is hovering over ──
         var hoverEntity = GetEntityAtScreen(Game.Input.MouseX, Game.Input.MouseY);
 
         var isItemDrag = GetDraggingPanel() is { } dragPanel && dragPanel == WorldHud.Inventory;
@@ -244,14 +242,14 @@ public sealed partial class WorldScreen
         Highlight.HoveredEntityId = newHoveredId;
         Game.UseHandCursor = newHoveredId.HasValue;
 
-        // Tint highlight only shows during spell targeting or item dragging
+        //tint highlight only shows during spell targeting or item dragging
         Highlight.ShowTintHighlight = CastingSystem.IsTargeting || Game.Dispatcher.IsDragging;
 
-        // Tick casting timer (chant lines are sent on a 1-second interval)
+        //tick casting timer (chant lines are sent on a 1-second interval)
         CastingSystem.Update(elapsedMs, Game.Connection);
 
-        // ── Spacebar assail repeat (timer-based, not event-based) ──
-        // Guard against textbox focus only — assail should work during NPC dialogs, popups, etc.
+        //── spacebar assail repeat (timer-based, not event-based) ──
+        //guard against textbox focus only — assail should work during npc dialogs, popups, etc.
         if (Game.Dispatcher.ExplicitFocus is null)
         {
             SpacebarTimer -= elapsedMs;
@@ -265,9 +263,9 @@ public sealed partial class WorldScreen
                 SpacebarTimer = 0;
         }
 
-        // ── Pre-dispatch chat phase intercepts ──
-        // Whisper target cycling and ignore mode selection run before the dispatcher
-        // because they need to intercept keys before the focused textbox consumes them.
+        //── pre-dispatch chat phase intercepts ──
+        //whisper target cycling and ignore mode selection run before the dispatcher
+        //because they need to intercept keys before the focused textbox consumes them.
         var skipDispatch = false;
 
         if (WorldHud.ChatInput.IsFocused && Chat.IsWhisperNamePhase)
@@ -308,7 +306,7 @@ public sealed partial class WorldScreen
             }
         }
 
-        // ── Event dispatch + state update ──
+        //── event dispatch + state update ──
         if (!skipDispatch)
             Game.Dispatcher.ProcessInput(Root!, gameTime);
 

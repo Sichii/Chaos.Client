@@ -263,7 +263,7 @@ public abstract class UIElement : IDisposable
     /// </summary>
     public virtual void Update(GameTime gameTime) { }
 
-    // ── Event Handlers (dispatched by InputDispatcher) ──
+    //── event handlers (dispatched by inputdispatcher) ──
 
     public virtual void OnMouseDown(MouseDownEvent e) { }
     public virtual void OnMouseUp(MouseUpEvent e) { }

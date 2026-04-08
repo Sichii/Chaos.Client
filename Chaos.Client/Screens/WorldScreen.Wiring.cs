@@ -30,8 +30,15 @@ public sealed partial class WorldScreen
     #region NPC Session Wiring
     private void WireNpcSession()
     {
-        // Close/Escape just hides the UI — no response sent to the server.
-        // NpcSessionControl already calls HideAll() before firing OnClose.
+        NpcSession.OnClose += () =>
+        {
+            if (NpcSession.SourceId is { } sourceId && NpcSession.IsDialogOpcode)
+                Game.Connection.SendDialogResponse(
+                    NpcSession.SourceEntityType,
+                    sourceId,
+                    NpcSession.PursuitId,
+                    NpcSession.DialogId);
+        };
 
         NpcSession.OnTop += () =>
         {
@@ -94,7 +101,7 @@ public sealed partial class WorldScreen
 
             if (NpcSession.IsDialogOpcode)
             {
-                // Speak: broadcast the combined prompt + input + epilog as a public Say first
+                //speak: broadcast the combined prompt + input + epilog as a public say first
                 if (NpcSession.CurrentDialogType is DialogType.Speak)
                 {
                     var sayParts = new[]
@@ -118,7 +125,7 @@ public sealed partial class WorldScreen
                     args: [text]);
             } else
             {
-                // Include previous args for TextEntryWithArgs
+                //include previous args for textentrywithargs
                 var prevArgs = NpcSession.GetMenuTextPreviousArgs();
 
                 if (prevArgs is not null)
@@ -261,7 +268,7 @@ public sealed partial class WorldScreen
             SocialStatusPicker.Y = emoteBtn.ScreenY - SocialStatusPicker.Height - 2 + 24;
         } else
         {
-            // Fallback positioning when no emote button exists
+            //fallback positioning when no emote button exists
             SocialStatusPicker.CenterHorizontallyIn(viewport);
             SocialStatusPicker.Y = viewport.Y + viewport.Height - SocialStatusPicker.Height;
         }
@@ -605,7 +612,7 @@ public sealed partial class WorldScreen
                 subject: subject,
                 message: body);
 
-            // Re-request post list — compose stays visible until server responds
+            //re-request post list — compose stays visible until server responds
             WorldState.Board.IsBoardListPending = true;
             Game.Connection.SendBoardInteraction(BoardRequestType.ViewBoard, ArticleSend.BoardId, startPostId: short.MaxValue);
         };
@@ -628,7 +635,7 @@ public sealed partial class WorldScreen
                 subject: subject,
                 message: body);
 
-            // Re-request post list — compose stays visible until server responds
+            //re-request post list — compose stays visible until server responds
             WorldState.Board.IsBoardListPending = true;
             Game.Connection.SendBoardInteraction(BoardRequestType.ViewBoard, MailSend.BoardId, startPostId: short.MaxValue);
         };
@@ -644,14 +651,14 @@ public sealed partial class WorldScreen
     #region HUD Panel Wiring
     private void WireHudPanels(IWorldHud hud)
     {
-        // Layout/expand
+        //layout/expand
         if (hud.ChangeLayoutButton is not null)
             hud.ChangeLayoutButton.Clicked += SwapHudLayout;
 
         if (hud.ExpandButton is not null)
             hud.ExpandButton.Clicked += () => hud.ToggleExpand();
 
-        // Action buttons
+        //action buttons
         if (hud.OptionButton is not null)
         {
             hud.OptionButton.Clicked += () =>
@@ -714,6 +721,7 @@ public sealed partial class WorldScreen
             hud.LegendButton.Clicked += () =>
             {
                 SelfProfileRequested = true;
+                SelfProfileRequestedTab = StatusBookTab.Legend;
                 Game.Connection.RequestSelfProfile();
             };
 
@@ -748,7 +756,7 @@ public sealed partial class WorldScreen
             WorldState.Board.SessionClosed += () => hud.MailButton.IsSelected = false;
         }
 
-        // Slot events
+        //slot events
         hud.Inventory.OnSlotClicked += HandleInventorySlotClicked;
         hud.Inventory.OnSlotSwapped += (s, t) => Game.Connection.SwapSlot(PanelType.Inventory, s, t);
         hud.Inventory.OnSlotDroppedOutside += HandleInventoryDropInViewport;
@@ -843,7 +851,7 @@ public sealed partial class WorldScreen
             ClientSettings.Save();
         };
 
-        // Apply saved volume settings
+        //apply saved volume settings
         MainOptions.SetSoundVolume(ClientSettings.SoundVolume);
         MainOptions.SetMusicVolume(ClientSettings.MusicVolume);
         Game.SoundSystem.SetSoundVolume(ClientSettings.SoundVolume);

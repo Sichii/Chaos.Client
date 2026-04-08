@@ -42,7 +42,7 @@ public sealed class DialogProtectedTextEntryPanel : FramedDialogPanelBase
         IdLabelText.Update("I   D   : ", Color.White);
         PasswordLabelText.Update("Password: ", Color.White);
 
-        // ID field
+        //id field
         IdField = new UITextBox
         {
             Name = "IdField",
@@ -57,7 +57,7 @@ public sealed class DialogProtectedTextEntryPanel : FramedDialogPanelBase
 
         AddChild(IdField);
 
-        // Password field (masked)
+        //password field (masked)
         PasswordField = new UITextBox
         {
             Name = "PwField",
@@ -88,10 +88,10 @@ public sealed class DialogProtectedTextEntryPanel : FramedDialogPanelBase
         if (!Visible)
             return;
 
-        // Frame + children drawn by base
+        //frame + children drawn by base
         base.Draw(spriteBatch);
 
-        // Labels drawn manually on top
+        //labels drawn manually on top
         var sx = ScreenX;
         var sy = ScreenY;
 

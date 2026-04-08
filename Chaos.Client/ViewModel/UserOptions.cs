@@ -16,14 +16,14 @@ public sealed class UserOptions
         true,
         true,
         true,
-        true, // 0-5
-        false, // 6
-        true, // 7
+        true, //0-5
+        false, //6
+        true, //7
         false,
         false,
         false,
         false,
-        false // 8-12
+        false //8-12
     ];
 
     private readonly bool[] Settings = new bool[SETTING_COUNT];

@@ -16,7 +16,6 @@ public sealed class EffectBarControl : UIPanel
     private const int MAX_EFFECTS = 10;
     private const int SLOT_SIZE = 24;
     private const int SLOT_WIDTH = 22;
-    private const int ICON_SIZE = 15;
 
     private readonly EffectSlotControl[] Slots = new EffectSlotControl[MAX_EFFECTS];
     private int ActiveCount;
@@ -28,7 +27,7 @@ public sealed class EffectBarControl : UIPanel
         Height = MAX_EFFECTS * SLOT_SIZE;
         Visible = false;
 
-        // Load background strip from spelled.epf (22x212)
+        //load background strip from spelled.epf (22x212)
         Background = UiRenderer.Instance!.GetEpfTexture("spelled.epf", 0);
 
         for (var i = 0; i < MAX_EFFECTS; i++)
@@ -85,7 +84,7 @@ public sealed class EffectBarControl : UIPanel
             return;
         }
 
-        // Check if this icon already exists — update color
+        //check if this icon already exists — update color
         for (var i = 0; i < MAX_EFFECTS; i++)
             if (Slots[i].Visible && (Slots[i].EffectIcon == effectIcon))
             {
@@ -95,7 +94,7 @@ public sealed class EffectBarControl : UIPanel
                 return;
             }
 
-        // Find first empty slot
+        //find first empty slot
         for (var i = 0; i < MAX_EFFECTS; i++)
             if (!Slots[i].Visible)
             {

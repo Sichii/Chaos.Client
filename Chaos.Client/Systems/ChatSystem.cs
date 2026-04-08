@@ -74,7 +74,7 @@ public sealed class ChatSystem
             Connection.SendShout(message);
         else if (prefix.StartsWithI("-> ") && prefix.EndsWithI(": "))
         {
-            // Whisper phase 2: prefix is "-> targetName: "
+            //whisper phase 2: prefix is "-> targetname: "
             var targetName = prefix[3..^2];
             Connection.SendWhisper(targetName, message);
             AddWhisperTarget(targetName);

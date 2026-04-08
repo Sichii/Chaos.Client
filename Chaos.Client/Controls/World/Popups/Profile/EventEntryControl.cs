@@ -73,13 +73,12 @@ public sealed class EventEntryControl : PrefabPanel
             LevelLabel.ForegroundColor = LegendColors.White;
         }
 
-        // leicon.epf: frame 0 = completed, 1 = available, 2 = unavailable
+        //leicon.epf: frame 0 = completed, 1 = available, 2 = unavailable
         var iconFrame = state switch
         {
-            EventState.Completed   => 0,
-            EventState.Available   => 1,
-            EventState.Unavailable => 2,
-            _                      => 2
+            EventState.Completed => 0,
+            EventState.Available => 1,
+            _                    => 2
         };
 
         if (TileImage is not null)

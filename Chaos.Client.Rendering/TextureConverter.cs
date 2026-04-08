@@ -48,8 +48,8 @@ public static class TextureConverter
     }
 
     /// <summary>
-    ///     Creates a group-tinted copy of a texture using saturated additive blend with (255, 231, 59) — warm yellow/gold.
-    ///     Matches the original DA client's group member highlight (palette index 0x45 from legend.pal, effect slot 1).
+    ///     Creates a group-tinted copy of a texture using a warm yellow/gold (255, 231, 59) average blend. Matches the
+    ///     original DA client's group member highlight.
     /// </summary>
     public static Texture2D CreateGroupTintedTexture(Texture2D source)
     {
@@ -116,8 +116,7 @@ public static class TextureConverter
     }
 
     /// <summary>
-    ///     Applies a blue-shift tint to a pixel array in-place. Shared by both TextureConverter (regular Texture2D) and
-    ///     UiRenderer (CachedTexture2D).
+    ///     Applies a blue-shift tint to a pixel array in-place. Used for entity hover highlights.
     /// </summary>
     internal static void TintPixels(Color[] pixels, int count)
     {

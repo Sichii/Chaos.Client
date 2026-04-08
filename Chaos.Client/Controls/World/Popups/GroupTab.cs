@@ -41,7 +41,7 @@ public sealed class GroupTab : PrefabPanel
         Visible = false;
         UsesControlStack = true;
 
-        // Position at top-left of screen
+        //position at top-left of screen
         X = 0;
         Y = 0;
 
@@ -54,13 +54,12 @@ public sealed class GroupTab : PrefabPanel
                 OnClose?.Invoke();
             };
 
-        // Quit button textures from B_BTN0: 0=normal, 1=pressed, 2=disabled
+        //quit button textures from b_btn0: 0=normal, 1=pressed, 2=disabled
         var cache = UiRenderer.Instance!;
-        var normalTexture = cache.GetPrefabTexture("_ngcdlg0", "B_BTN0", 0);
         var pressedTexture = cache.GetPrefabTexture("_ngcdlg0", "B_BTN0", 1);
         var disabledTexture = cache.GetPrefabTexture("_ngcdlg0", "B_BTN0", 2);
 
-        // Create member name labels and quit buttons for each row
+        //create member name labels and quit buttons for each row
         for (var i = 0; i < MAX_MEMBERS; i++)
         {
             var controlName = $"USER{i}";
@@ -82,7 +81,7 @@ public sealed class GroupTab : PrefabPanel
                 AddChild(MemberLabels[i]!);
             }
 
-            // Quit/kick button for each row — disabled by default
+            //quit/kick button for each row — disabled by default
             var quitButton = new UIButton
             {
                 Name = $"QUIT{i}",
@@ -95,7 +94,7 @@ public sealed class GroupTab : PrefabPanel
                 Enabled = false
             };
 
-            // Capture index for the click handler
+            //capture index for the click handler
             var memberIndex = i;
 
             quitButton.Clicked += () =>
@@ -132,7 +131,7 @@ public sealed class GroupTab : PrefabPanel
 
     public event Action? OnClose;
     public event Action<string>? OnKick;
-    #pragma warning disable CS0067 // not yet wired
+    #pragma warning disable CS0067 //not yet wired
     public event Action? OnLeave;
     #pragma warning restore CS0067
 
@@ -163,7 +162,7 @@ public sealed class GroupTab : PrefabPanel
                     MemberLabels[i]!.Text = string.Empty;
             }
 
-            // Enable quit button only for other members when we are the leader
+            //enable quit button only for other members when we are the leader
             var isSelf = (i < members.Count)
                          && members[i]
                              .EqualsI(playerName);

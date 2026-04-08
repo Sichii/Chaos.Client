@@ -10,7 +10,7 @@ namespace Chaos.Client.Data.Models;
 public sealed class NationMetadata
 {
     /// <summary>
-    ///     Nation numeric ID to display name (e.g. 0 -> "Suomi", 1 -> "Mileth").
+    ///     Nation ID to display name (e.g. 0 -&gt; "Suomi", 1 -&gt; "Mileth").
     /// </summary>
     public IReadOnlyDictionary<int, string> Nations { get; }
 
@@ -22,7 +22,7 @@ public sealed class NationMetadata
 
         foreach (var entry in metaFile)
         {
-            // Key format: "nation_{int}"
+            //key format: "nation_{int}"
             if (!entry.Key.StartsWith("nation_", StringComparison.Ordinal))
                 continue;
 

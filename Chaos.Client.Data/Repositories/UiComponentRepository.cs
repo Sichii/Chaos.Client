@@ -40,7 +40,7 @@ public sealed class UiComponentRepository : RepositoryBase
     }
 
     /// <summary>
-    ///     Returns the raw EpfFrame metadata for a specific frame in an EPF file. Used to read Left/Top offset values.
+    ///     Returns the EpfFrame metadata (dimensions, offsets) for a specific frame in an EPF file from setoa.dat.
     /// </summary>
     public EpfFrame? GetEpfFrame(string fileName, int frameIndex)
     {
@@ -56,8 +56,7 @@ public sealed class UiComponentRepository : RepositoryBase
     }
 
     /// <summary>
-    ///     Loads all frames from an EPF file in setoa.dat rendered with the appropriate GUI palette. Used for UI elements like
-    ///     scroll.epf that aren't part of a control file.
+    ///     Loads all frames from an EPF file in setoa.dat, rendered with the appropriate GUI palette.
     /// </summary>
     public SKImage[] GetEpfImages(string fileName)
     {
@@ -79,8 +78,8 @@ public sealed class UiComponentRepository : RepositoryBase
     }
 
     /// <summary>
-    ///     Loads a field image (EPF + matching PAL) from setoa.dat. Used for world map backgrounds where the palette is stored
-    ///     alongside the EPF rather than using the GUI palette.
+    ///     Loads a field image from setoa.dat using its co-located palette (fieldName.epf + fieldName.pal) rather than the GUI
+    ///     palette.
     /// </summary>
     public SKImage? GetFieldImage(string fieldName)
     {
@@ -100,9 +99,11 @@ public sealed class UiComponentRepository : RepositoryBase
     }
 
     /// <summary>
-    ///     Determines the gui palette number for an EPF image name based on filename prefix. Derived from ChaosAssetManager's
-    ///     RenderUtil setoa dispatch table.
+    ///     Determines which GUI palette number to use for a given EPF image name, based on filename prefix matching.
     /// </summary>
+    /// <remarks>
+    ///     The prefix-to-palette mapping is derived from ChaosAssetManager's RenderUtil setoa dispatch table.
+    /// </remarks>
 
     // ReSharper disable once CognitiveComplexity
     private static int GetGuiPaletteNumber(string imageName)
@@ -195,7 +196,7 @@ public sealed class UiComponentRepository : RepositoryBase
     }
 
     /// <summary>
-    ///     Returns the GUI palette that would be used for the given legend.dat EPF filename.
+    ///     Returns the GUI palette for the given EPF filename, determined by prefix matching.
     /// </summary>
     public Palette? GetLegendPalette(string fileName)
     {
@@ -205,8 +206,8 @@ public sealed class UiComponentRepository : RepositoryBase
     }
 
     /// <summary>
-    ///     Reads the msg.tbl text file from setoa.dat and returns its lines. Used for localized UI strings (e.g. social status
-    ///     names). Returns null if msg.tbl is not found.
+    ///     Reads the msg.tbl localization text file from setoa.dat and returns its lines (EUC-KR decoded). Returns null if
+    ///     msg.tbl is not found.
     /// </summary>
     public string[]? GetMessageTableLines()
     {
@@ -284,9 +285,11 @@ public sealed class UiComponentRepository : RepositoryBase
     }
 
     /// <summary>
-    ///     Loads all frames from an SPF file in setoa.dat as SKImage[]. Caller is responsible for disposing the returned
-    ///     images.
+    ///     Loads all frames from an SPF file in setoa.dat as an SKImage array.
     /// </summary>
+    /// <remarks>
+    ///     Caller is responsible for disposing the returned images.
+    /// </remarks>
     public SKImage[] GetSpfImages(string fileName)
     {
         var spf = GetOrCreate($"SPF_{fileName}", () => LoadSpfFile(fileName));
@@ -308,7 +311,7 @@ public sealed class UiComponentRepository : RepositoryBase
     {
         var palettes = Palette.FromArchive("gui", DatArchives.Setoa);
 
-        // Match original client behavior: copy entry[0] to entry[255], then entry[0] becomes transparent at render time
+        //match original client behavior: copy entry[0] to entry[255], then entry[0] becomes transparent at render time
         foreach (var palette in palettes.Values)
             palette[255] = palette[0];
 
@@ -368,7 +371,7 @@ public sealed class UiComponentRepository : RepositoryBase
 
     private SKImage? RenderFrame(string imageName, int frameIndex)
     {
-        // Try EPF first, then SPF
+        //try epf first, then spf
         var epfName = imageName.WithExtension(".epf");
 
         if (DatArchives.Setoa.TryGetValue(epfName, out var entry) || DatArchives.Cious.TryGetValue(epfName, out entry))

@@ -19,7 +19,7 @@ namespace Chaos.Client.Screens;
 public sealed partial class WorldScreen
 {
     #region UI Event Handlers
-    // --- Inventory ---
+    //--- inventory ---
 
     private void HandleInventorySlotClicked(byte slot)
     {
@@ -48,7 +48,7 @@ public sealed partial class WorldScreen
 
     private void HandleInventoryDropInViewport(byte slot, int mouseX, int mouseY)
     {
-        // Dropped onto the exchange window — add item to exchange
+        //dropped onto the exchange window — add item to exchange
         if ((slot != 0) && Exchange.Visible && Exchange.ContainsPoint(mouseX, mouseY))
         {
             Game.Connection.SendExchangeInteraction(ExchangeRequestType.AddItem, Exchange.OtherUserId, slot);
@@ -56,7 +56,7 @@ public sealed partial class WorldScreen
             return;
         }
 
-        // Dropped onto an equipment slot — equip the item
+        //dropped onto an equipment slot — equip the item
         if ((slot != 0) && StatusBook.Visible && StatusBook.ContainsEquipmentSlotPoint(mouseX, mouseY))
         {
             Game.Connection.UseItem(slot);
@@ -66,7 +66,7 @@ public sealed partial class WorldScreen
 
         var viewport = WorldHud.ViewportBounds;
 
-        // Only drop if released within the world viewport
+        //only drop if released within the world viewport
         if ((mouseX < viewport.X)
             || (mouseX >= (viewport.X + viewport.Width))
             || (mouseY < viewport.Y)
@@ -76,14 +76,14 @@ public sealed partial class WorldScreen
         if (MapFile is null)
             return;
 
-        // Check if dropped on an entity (give item/gold to NPC/player) — skip self (drop on ground instead)
+        //check if dropped on an entity (give item/gold to npc/player) — skip self (drop on ground instead)
         (var tileX, var tileY) = ScreenToTile(mouseX, mouseY);
         var entity = GetEntityAtScreen(mouseX, mouseY);
 
         var droppedOnEntity = entity?.Type is ClientEntityType.Aisling or ClientEntityType.Creature
                               && (entity.Id != Game.Connection.AislingId);
 
-        // Gold bag (slot 0) — show the gold amount popup
+        //gold bag (slot 0) — show the gold amount popup
         if (slot == 0)
         {
             GoldDrop.CenterVerticallyIn(viewport);
@@ -99,7 +99,7 @@ public sealed partial class WorldScreen
             return;
         }
 
-        // Stackable items — prompt for count before dropping
+        //stackable items — prompt for count before dropping
         var invSlot = WorldState.Inventory.GetSlot(slot);
 
         if (invSlot.Stackable)
@@ -127,7 +127,7 @@ public sealed partial class WorldScreen
         Game.Connection.DropItem(slot, tileX, tileY);
     }
 
-    // --- Skills / spells ---
+    //--- skills / spells ---
 
     private void HandleSkillSlotClicked(byte slot)
     {
@@ -136,7 +136,7 @@ public sealed partial class WorldScreen
         if (skillSlot is not null && (skillSlot.CooldownPercent > 0))
             return;
 
-        // Send chant line if one is set for this skill
+        //send chant line if one is set for this skill
         if (skillSlot is not null && !string.IsNullOrEmpty(skillSlot.Chant))
             Game.Connection.SendChant(skillSlot.Chant);
 
@@ -145,7 +145,7 @@ public sealed partial class WorldScreen
 
     private void HandleSpellSlotClicked(byte slot)
     {
-        // Determine which panel the slot came from
+        //determine which panel the slot came from
         var spellSlot = WorldHud.ActiveTab switch
         {
             HudTab.Spells    => WorldHud.SpellBook.GetSpellSlot(slot),
@@ -159,14 +159,14 @@ public sealed partial class WorldScreen
         if (spellSlot.CooldownPercent > 0)
             return;
 
-        // NoTarget spells cast immediately (no cast mode)
+        //notarget spells cast immediately (no cast mode)
         if (spellSlot.SpellType == SpellType.NoTarget)
         {
             if (spellSlot.CastLines == 0)
                 Game.Connection.UseSpell(slot);
             else
             {
-                // NoTarget with lines: begin chant sequence targeting self
+                //notarget with lines: begin chant sequence targeting self
                 CastingSystem.BeginTargeting(spellSlot);
 
                 var player = WorldState.GetPlayerEntity();
@@ -181,7 +181,7 @@ public sealed partial class WorldScreen
             return;
         }
 
-        // Enter cast mode — wait for target selection
+        //enter cast mode — wait for target selection
         CastingSystem.BeginTargeting(spellSlot);
     }
 
@@ -202,7 +202,7 @@ public sealed partial class WorldScreen
                 Game.Connection);
     }
 
-    // --- Hotkeys ---
+    //--- hotkeys ---
 
     private static readonly Keys[] EmoteKeys =
     [
@@ -219,7 +219,7 @@ public sealed partial class WorldScreen
         Keys.OemMinus
     ];
 
-    // Ctrl+key emotes: 9-17 then 21-22 (skips 18-20 which don't exist in BodyAnimation)
+    //ctrl+key emotes: 9-17 then 21-22 (skips 18-20 which don't exist in bodyanimation)
     private static readonly BodyAnimation[] CtrlEmotes =
     [
         BodyAnimation.Smile,
@@ -312,7 +312,7 @@ public sealed partial class WorldScreen
                 break;
 
             case HudTab.Tools:
-                // TODO: left half = world skills (slots 73-78), right half = world spells (slots 73-78)
+                //todo: left half = world skills (slots 73-78), right half = world spells (slots 73-78)
                 return false;
 
             case HudTab.Chat:
@@ -341,7 +341,7 @@ public sealed partial class WorldScreen
         return true;
     }
 
-    // --- Chant editing ---
+    //--- chant editing ---
 
     private void WireAbilityRightClicks(PanelBase panel)
     {
@@ -352,7 +352,7 @@ public sealed partial class WorldScreen
 
     private void OpenChantEdit(byte slot)
     {
-        // Determine which panel this slot belongs to based on active tab
+        //determine which panel this slot belongs to based on active tab
         AbilitySlotControl? abilitySlot = WorldHud.ActiveTab switch
         {
             HudTab.Skills    => WorldHud.SkillBook.GetSkillSlot(slot),
@@ -419,7 +419,7 @@ public sealed partial class WorldScreen
         }
     }
 
-    // --- Cache / persistence helpers ---
+    //--- cache / persistence helpers ---
 
     private void LoadPlayerFamilyList()
     {
@@ -515,7 +515,7 @@ public sealed partial class WorldScreen
     /// </summary>
     private void OnRootKeyDown(KeyDownEvent e)
     {
-        // Casting mode: Escape cancels targeting
+        //casting mode: escape cancels targeting
         if (CastingSystem.IsTargeting && (e.Key == Keys.Escape))
         {
             CastingSystem.Reset();
@@ -524,7 +524,7 @@ public sealed partial class WorldScreen
             return;
         }
 
-        // Prompt mode: Enter confirms, Escape cancels (takes priority over normal chat handling)
+        //prompt mode: enter confirms, escape cancels (takes priority over normal chat handling)
         if (WorldHud.ChatInput.IsPromptMode)
         {
             if (e.Key == Keys.Enter)
@@ -544,21 +544,19 @@ public sealed partial class WorldScreen
                 WorldHud.ChatInput.CancelPrompt();
                 Game.Dispatcher.ClearExplicitFocus();
                 e.Handled = true;
-
-                return;
             }
 
             return;
         }
 
-        // Enter — toggle chat focus / send message
+        //enter — toggle chat focus / send message
         if (e.Key == Keys.Enter)
         {
             if (WorldHud.ChatInput.IsFocused)
             {
                 var message = WorldHud.ChatInput.Text.Trim();
 
-                // Ignore phase 2: submit the typed name for add/remove
+                //ignore phase 2: submit the typed name for add/remove
                 if (Chat.IgnorePhase is IgnorePhase.AddName or IgnorePhase.RemoveName)
                 {
                     if (message.Length > 0)
@@ -573,7 +571,7 @@ public sealed partial class WorldScreen
                     Game.Dispatcher.ClearExplicitFocus();
                 }
 
-                // Whisper phase 1: resolve target name, transition to phase 2
+                //whisper phase 1: resolve target name, transition to phase 2
                 else if (Chat.IsWhisperNamePhase)
                 {
                     var targetName = message.Length > 0 ? message : Chat.GetBracketedWhisperTarget();
@@ -601,11 +599,11 @@ public sealed partial class WorldScreen
             return;
         }
 
-        // Stack guard: suppress all game hotkeys when a popup is active
+        //stack guard: suppress all game hotkeys when a popup is active
         if (Game.Dispatcher.ControlStackCount > 0)
             return;
 
-        // Q/W/E/R/T toggle group
+        //q/w/e/r/t toggle group
         if (e.Key == Keys.Q)
         {
             ForceCloseOtherTogglePanels(Keys.Q);
@@ -682,7 +680,7 @@ public sealed partial class WorldScreen
             return;
         }
 
-        // Shout hotkey (Shift+1)
+        //shout hotkey (shift+1)
         if (e.Key == Keys.D1 && e.Shift)
         {
             Chat.Focus($"{WorldHud.PlayerName}! ", Color.Yellow);
@@ -692,7 +690,7 @@ public sealed partial class WorldScreen
             return;
         }
 
-        // Whisper hotkey (Shift+")
+        //whisper hotkey (shift+")
         if (e.Key == Keys.OemQuotes && e.Shift)
         {
             Chat.FocusWhisper();
@@ -702,7 +700,7 @@ public sealed partial class WorldScreen
             return;
         }
 
-        // Tab panel switching — blocked while dragging the orange bar
+        //tab panel switching — blocked while dragging the orange bar
         if (!WorldHud.IsOrangeBarDragging)
         {
             if (e.Key == Keys.A)
@@ -716,6 +714,7 @@ public sealed partial class WorldScreen
                 } else if (WorldHud.ActiveTab == HudTab.Inventory)
                 {
                     SelfProfileRequested = true;
+                    SelfProfileRequestedTab = StatusBookTab.Equipment;
                     Game.Connection.RequestSelfProfile();
                 } else
                     WorldHud.ShowTab(HudTab.Inventory);
@@ -779,7 +778,7 @@ public sealed partial class WorldScreen
             }
         }
 
-        // Tab — toggle tab map overlay
+        //tab — toggle tab map overlay
         if (e.Key == Keys.Tab)
         {
             TabMapVisible = !TabMapVisible;
@@ -788,7 +787,7 @@ public sealed partial class WorldScreen
             return;
         }
 
-        // PageUp/PageDown — tab map zoom
+        //pageup/pagedown — tab map zoom
         if (TabMapVisible)
         {
             if (e.Key == Keys.PageUp)
@@ -808,7 +807,7 @@ public sealed partial class WorldScreen
             }
         }
 
-        // F1 — help merchant (server-side)
+        //f1 — help merchant (server-side)
         if (e.Key == Keys.F1)
         {
             Game.Connection.ClickEntity(uint.MaxValue);
@@ -817,7 +816,7 @@ public sealed partial class WorldScreen
             return;
         }
 
-        // F3 — macro menu
+        //f3 — macro menu
         if (e.Key == Keys.F3)
         {
             MacrosList.Show();
@@ -826,7 +825,7 @@ public sealed partial class WorldScreen
             return;
         }
 
-        // F4 — settings
+        //f4 — settings
         if (e.Key == Keys.F4)
         {
             SettingsDialog.Show();
@@ -835,7 +834,7 @@ public sealed partial class WorldScreen
             return;
         }
 
-        // F5 — refresh
+        //f5 — refresh
         if (e.Key == Keys.F5)
         {
             Game.Connection.RequestRefresh();
@@ -844,7 +843,7 @@ public sealed partial class WorldScreen
             return;
         }
 
-        // F7 — board list
+        //f7 — board list
         if (e.Key == Keys.F7)
         {
             Game.Connection.SendBoardInteraction(BoardRequestType.BoardList);
@@ -853,9 +852,9 @@ public sealed partial class WorldScreen
             return;
         }
 
-        // F8 — unused (group panel moved to Y key)
+        //f8 — unused (group panel moved to y key)
 
-        // F9 — ignore list management
+        //f9 — ignore list management
         if (e.Key == Keys.F9)
         {
             Chat.FocusIgnore();
@@ -865,7 +864,7 @@ public sealed partial class WorldScreen
             return;
         }
 
-        // F10 — friends list
+        //f10 — friends list
         if (e.Key == Keys.F10)
         {
             FriendsList.Show();
@@ -874,7 +873,7 @@ public sealed partial class WorldScreen
             return;
         }
 
-        // / — swap HUD layout (small <-> large)
+        // — swap hud layout (small <-> large)
         if (e.Key == Keys.OemQuestion && !e.Shift)
         {
             SwapHudLayout();
@@ -883,7 +882,7 @@ public sealed partial class WorldScreen
             return;
         }
 
-        // ` — unequip weapon and shield
+        //` — unequip weapon and shield
         if (e.Key == Keys.OemTilde)
         {
             if (WorldState.Equipment.GetSlot(EquipmentSlot.Weapon) is not null)
@@ -897,7 +896,7 @@ public sealed partial class WorldScreen
             return;
         }
 
-        // J — flash group member highlighting (1000ms, gated while pending or active)
+        //j — flash group member highlighting (1000ms, gated while pending or active)
         if (e.Key == Keys.J && !GroupHighlightRequested && (GroupHighlightedIds.Count == 0))
         {
             GroupHighlightRequested = true;
@@ -907,7 +906,7 @@ public sealed partial class WorldScreen
             return;
         }
 
-        // B — pick up item from under player, or from the tile in front
+        //b — pick up item from under player, or from the tile in front
         if (e.Key == Keys.B)
         {
             TryPickupItem();
@@ -916,7 +915,7 @@ public sealed partial class WorldScreen
             return;
         }
 
-        // T — town map toggle
+        //t — town map toggle
         if (e.Key == Keys.T)
         {
             if (TownMapControl.Visible)
@@ -934,7 +933,7 @@ public sealed partial class WorldScreen
             return;
         }
 
-        // Y — group panel (members tab)
+        //y — group panel (members tab)
         if (e.Key == Keys.Y)
         {
             GroupPanel.ShowMembers();
@@ -943,15 +942,15 @@ public sealed partial class WorldScreen
             return;
         }
 
-        // Emote hotkeys: Ctrl/Alt/Ctrl+Alt + number row
+        //emote hotkeys: ctrl/alt/ctrl+alt + number row
         if (HandleEmoteHotkey(e))
             return;
 
-        // Slot hotkeys: 1-9, 0, -, =
+        //slot hotkeys: 1-9, 0, -, =
         if (HandleSlotHotkey(e))
             return;
 
-        // Player movement — arrow keys and ZXCV
+        //player movement — arrow keys and zxcv
         Direction? direction = e.Key switch
         {
             Keys.Up    => Direction.Up,
@@ -1004,7 +1003,7 @@ public sealed partial class WorldScreen
     private void OnRootClick(ClickEvent e)
     {
 
-        // Exchange gold-click coordination — clicking the money label opens the gold amount popup
+        //exchange gold-click coordination — clicking the money label opens the gold amount popup
         if (Exchange.Visible && (e.Button == MouseButton.Left) && Exchange.IsMyMoneyClicked(e.ScreenX, e.ScreenY))
         {
             ExchangeAmountSlot = null;
@@ -1014,7 +1013,7 @@ public sealed partial class WorldScreen
             return;
         }
 
-        // Cast mode — target selection or cancel
+        //cast mode — target selection or cancel
         if (CastingSystem.IsTargeting)
         {
             if (e.Button == MouseButton.Left)
@@ -1038,7 +1037,7 @@ public sealed partial class WorldScreen
 
         if (e.Button == MouseButton.Left)
         {
-            // Ctrl+click — context menu on aisling entities
+            //ctrl+click — context menu on aisling entities
             if (e.Ctrl)
             {
                 HandleCtrlClick(e.ScreenX, e.ScreenY);
@@ -1047,7 +1046,7 @@ public sealed partial class WorldScreen
                 return;
             }
 
-            // Alt+click on self — open self profile
+            //alt+click on self — open self profile
             if (e.Alt)
             {
                 var hoverEntity = GetEntityAtScreen(e.ScreenX, e.ScreenY);
@@ -1068,7 +1067,11 @@ public sealed partial class WorldScreen
             e.Handled = true;
         } else if (e.Button == MouseButton.Right)
         {
-            HandleWorldRightClick(e.ScreenX, e.ScreenY);
+            if (e.Shift)
+                HandleShiftRightClick(e.ScreenX, e.ScreenY);
+            else if (!e.Ctrl)
+                HandleWorldRightClick(e.ScreenX, e.ScreenY);
+
             e.Handled = true;
         }
     }
@@ -1185,7 +1188,7 @@ public sealed partial class WorldScreen
         if (MapFile is null)
             return null;
 
-        // Iterate hitboxes back-to-front (last drawn = closest to camera = highest priority)
+        //iterate hitboxes back-to-front (last drawn = closest to camera = highest priority)
         for (var i = EntityHitBoxes.Count - 1; i >= 0; i--)
         {
             var hitbox = EntityHitBoxes[i];
@@ -1194,7 +1197,7 @@ public sealed partial class WorldScreen
                 return WorldState.GetEntity(hitbox.EntityId);
         }
 
-        // Fallback: tile-based lookup for ground items
+        //fallback: tile-based lookup for ground items
         (var tileX, var tileY) = ScreenToTile(mouseX, mouseY);
 
         return WorldState.GetGroundItemAt(tileX, tileY);
@@ -1221,7 +1224,7 @@ public sealed partial class WorldScreen
         if (slot == 0)
             return;
 
-        // First try the player's own tile
+        //first try the player's own tile
         if (WorldState.HasGroundItemAt(player.TileX, player.TileY))
         {
             Game.Connection.PickupItem(player.TileX, player.TileY, slot);
@@ -1229,7 +1232,7 @@ public sealed partial class WorldScreen
             return;
         }
 
-        // Then try the tile in front (direction the player is facing)
+        //then try the tile in front (direction the player is facing)
         (var dx, var dy) = player.Direction.ToTileOffset();
         var frontX = player.TileX + dx;
         var frontY = player.TileY + dy;
@@ -1253,22 +1256,22 @@ public sealed partial class WorldScreen
 
         (var tileX, var tileY) = ScreenToTile(mouseX, mouseY);
 
-        // Track tile for same-tile guard used by OnRootDoubleClick
+        //track tile for same-tile guard used by onrootdoubleclick
         LeftClickTracker.Click(tileX, tileY);
 
-        // Check group box text overlays first — they sit above entity hitboxes
+        //check group box text overlays first — they sit above entity hitboxes
         var groupBoxHit = Overlays.GetGroupBoxAtScreen(mouseX, mouseY);
 
         if (groupBoxHit.HasValue)
         {
-            (var entityId, var entityName) = groupBoxHit.Value;
+            (_, var entityName) = groupBoxHit.Value;
 
             Game.Connection.SendGroupInvite(ClientGroupSwitch.ViewGroupBox, entityName);
 
             return;
         }
 
-        // Single click: check for entity at hitbox first, then tile interaction
+        //single click: check for entity at hitbox first, then tile interaction
         var entity = GetEntityAtScreen(mouseX, mouseY);
 
         if (entity?.Type is ClientEntityType.Creature)
@@ -1330,14 +1333,14 @@ public sealed partial class WorldScreen
 
         (var tileX, var tileY) = ScreenToTile(mouseX, mouseY);
 
-        // Clamp to map bounds
+        //clamp to map bounds
         tileX = Math.Clamp(tileX, 0, MapFile.Width - 1);
         tileY = Math.Clamp(tileY, 0, MapFile.Height - 1);
 
-        // Track tile for same-tile guard used by OnRootDoubleClick
+        //track tile for same-tile guard used by onrootdoubleclick
         RightClickTracker.Click(tileX, tileY);
 
-        // Don't pathfind to current position
+        //don't pathfind to current position
         if ((tileX == player.TileX) && (tileY == player.TileY))
         {
             Pathfinding.Clear();
@@ -1345,9 +1348,54 @@ public sealed partial class WorldScreen
             return;
         }
 
-        // Single right-click — pathfind to ground tile
+        //single right-click — pathfind to ground tile
         Pathfinding.TargetEntityId = null;
         PathfindToTile(player, tileX, tileY);
+    }
+
+    /// <summary>
+    ///     Shift+right-click: cancel pathfinding/auto-assailing, and if idle, turn toward the clicked tile.
+    /// </summary>
+    private void HandleShiftRightClick(int mouseX, int mouseY)
+    {
+        Pathfinding.Clear();
+
+        if (MapFile is null)
+            return;
+
+        var player = WorldState.GetPlayerEntity();
+
+        if (player is null || player.AnimState != EntityAnimState.Idle)
+            return;
+
+        var viewport = WorldHud.ViewportBounds;
+
+        if ((mouseX < viewport.X)
+            || (mouseX >= (viewport.X + viewport.Width))
+            || (mouseY < viewport.Y)
+            || (mouseY >= (viewport.Y + viewport.Height)))
+            return;
+
+        (var tileX, var tileY) = ScreenToTile(mouseX, mouseY);
+
+        tileX = Math.Clamp(tileX, 0, MapFile.Width - 1);
+        tileY = Math.Clamp(tileY, 0, MapFile.Height - 1);
+
+        if ((tileX == player.TileX) && (tileY == player.TileY))
+            return;
+
+        var dx = tileX - player.TileX;
+        var dy = tileY - player.TileY;
+
+        var direction = Math.Abs(dx) >= Math.Abs(dy)
+            ? dx > 0 ? Direction.Right : Direction.Left
+            : dy > 0 ? Direction.Down : Direction.Up;
+
+        if (player.Direction != direction)
+        {
+            Game.Connection.Turn(direction);
+            player.Direction = direction;
+        }
     }
 
     private void PathfindToTile(WorldEntity player, int tileX, int tileY)

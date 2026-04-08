@@ -34,7 +34,7 @@ public sealed class AmountControl : PrefabPanel
         CancelButton = CreateButton("Cancel");
         AmountTextBox = CreateTextBox("Text", 10);
 
-        // Replace any existing text display with a label showing the prompt
+        //replace any existing text display with a label showing the prompt
         var titleLabel = CreateLabel("Title");
 
         titleLabel?.ForegroundColor = Color.White;

@@ -29,13 +29,13 @@ public sealed class SocialStatusControl : PrefabPanel
         UsesControlStack = true;
         ZIndex = 2;
 
-        // Load status names from msg.tbl
+        //load status names from msg.tbl
         LoadStatusNames();
 
-        // Description label from prefab
+        //description label from prefab
         DescriptionLabel = CreateLabel("Description", TextAlignment.Center);
 
-        // Wire Emot buttons from the prefab — set hover and selected textures from prefab images
+        //wire emot buttons from the prefab — set hover and selected textures from prefab images
         var cache = UiRenderer.Instance!;
 
         for (var i = 0; i < STATUS_COUNT; i++)
@@ -46,7 +46,7 @@ public sealed class SocialStatusControl : PrefabPanel
             {
                 btn.HoverTexture = btn.PressedTexture;
 
-                // Frame[2] = selected texture (not loaded by CreateButton)
+                //frame[2] = selected texture (not loaded by createbutton)
                 var prefab = PrefabSet[$"Emot{i}"];
 
                 if (prefab.Images.Count > 2)
@@ -57,7 +57,7 @@ public sealed class SocialStatusControl : PrefabPanel
             }
         }
 
-        // Generate missing buttons (Emot2-Emot7) using the same layout pattern
+        //generate missing buttons (emot2-emot7) using the same layout pattern
         if (StatusButtons[0] is { } first && StatusButtons[1] is { } second)
         {
             var stride = second.X - first.X;

@@ -12,14 +12,13 @@ namespace Chaos.Client.Controls.World.Popups.Boards;
 /// </summary>
 public sealed class MailSendControl : PrefabPanel
 {
-    // Content area — multi-line body
+    //content area — multi-line body
     private readonly UITextBox BodyBox;
 
-    // Receiver — display label + editable overlay
-    private readonly UILabel? ReceiverDisplayLabel;
+    //receiver — editable overlay
     private readonly UITextBox? ReceiverEditBox;
 
-    // Subject
+    //subject
     private readonly UITextBox? TitleBox;
     private int TargetX;
 
@@ -47,14 +46,14 @@ public sealed class MailSendControl : PrefabPanel
                 OnCancel?.Invoke();
             };
 
-        ReceiverDisplayLabel = CreateLabel("Receiver");
+        CreateLabel("Receiver");
         ReceiverEditBox = CreateTextBox("ReceiverEdit", 24);
         TitleBox = CreateTextBox("Title", 60);
 
         ReceiverEditBox?.ForegroundColor = LegendColors.White;
         TitleBox?.ForegroundColor = LegendColors.White;
 
-        // Content rect for multi-line body text entry
+        //content rect for multi-line body text entry
         var contentRect = GetRect("Content");
 
         BodyBox = new UITextBox
@@ -95,7 +94,7 @@ public sealed class MailSendControl : PrefabPanel
 
     public event Action? OnCancel;
 
-    public event Action<string, string, string>? OnSend; // recipient, subject, body
+    public event Action<string, string, string>? OnSend; //recipient, subject, body
 
     public void SetViewportBounds(Rectangle viewport)
     {

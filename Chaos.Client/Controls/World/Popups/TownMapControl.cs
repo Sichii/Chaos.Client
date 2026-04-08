@@ -24,22 +24,22 @@ public sealed class TownMapControl : UIPanel
 
     private List<TownMapEntry>? CoordEntries;
 
-    // UIImage children — created on Show, removed on Hide
+    //uiimage children — created on show, removed on hide
     private UIImage? BackgroundImage;
     private UIImage? IconBarImage;
     private UIImage? TownImageLayer;
     private UIImage? NameLabelImage;
     private UIImage? MarkerImage;
 
-    // Marker animation frames (swapped onto MarkerImage.Texture each tick)
+    //marker animation frames (swapped onto markerimage.texture each tick)
     private Texture2D[]? MarkerFrames;
 
-    // Marker animation + projection state
+    //marker animation + projection state
     private int MarkerFrame;
     private float MarkerTimer;
     private TownMapEntry ActiveEntry;
 
-    // Click-to-dismiss tracking (requires down then up)
+    //click-to-dismiss tracking (requires down then up)
     private bool MouseDownReceived;
 
     public TownMapControl()
@@ -61,7 +61,7 @@ public sealed class TownMapControl : UIPanel
     {
         EnsureCoordsParsed();
 
-        // Find matching entry
+        //find matching entry
         var entryIndex = -1;
 
         for (var i = 0; i < CoordEntries!.Count; i++)
@@ -75,33 +75,33 @@ public sealed class TownMapControl : UIPanel
         if (entryIndex < 0)
             return;
 
-        // Check that the town SPF exists before committing to show
+        //check that the town spf exists before committing to show
         if (!DatArchives.National.TryGetValue($"_t{mapId}.spf", out _))
             return;
 
         var entry = CoordEntries[entryIndex];
 
-        // Clear previous children
+        //clear previous children
         ClearLayers();
 
-        // Layer 1: Background at (0, 0) — fills the panel
+        //layer 1: background at (0, 0) — fills the panel
         BackgroundImage = LoadSpfAsImage("_t_back.spf");
 
         if (BackgroundImage is not null)
             AddChild(BackgroundImage);
 
-        // Layer 2: Icon bar
+        //layer 2: icon bar
         IconBarImage = LoadSpfAsImage("_t_icon.spf");
 
         if (IconBarImage is not null)
         {
-            // Center horizontally within the frame, position in lower area
+            //center horizontally within the frame, position in lower area
             IconBarImage.X = (FRAME_WIDTH - IconBarImage.Width) / 2;
             IconBarImage.Y = 301;
             AddChild(IconBarImage);
         }
 
-        // Layer 3: Town image — _tcoord.txt X is negated centering offset, Y is vertical offset
+        //layer 3: town image — _tcoord.txt x is negated centering offset, y is vertical offset
         TownImageLayer = LoadSpfAsImage($"_t{mapId}.spf");
 
         if (TownImageLayer is not null)
@@ -111,7 +111,7 @@ public sealed class TownMapControl : UIPanel
             AddChild(TownImageLayer);
         }
 
-        // Layer 4: Name label — centered horizontally, near top
+        //layer 4: name label — centered horizontally, near top
         NameLabelImage = LoadSpfAsImage($"_t{mapId}n.spf");
 
         if (NameLabelImage is not null)
@@ -121,7 +121,7 @@ public sealed class TownMapControl : UIPanel
             AddChild(NameLabelImage);
         }
 
-        // Layer 5: Player position marker
+        //layer 5: player position marker
         ActiveEntry = entry;
         MarkerFrames = LoadEpfMarkerFrames("tmuser.epf");
 
@@ -190,13 +190,13 @@ public sealed class TownMapControl : UIPanel
         if (!Visible)
             return;
 
-        // Update marker position to follow player
+        //update marker position to follow player
         var player = WorldState.GetPlayerEntity();
 
         if (player is not null)
             UpdateMarkerPosition(player.TileX, player.TileY);
 
-        // Animate player marker
+        //animate player marker
         MarkerTimer += (float)gameTime.ElapsedGameTime.TotalSeconds;
 
         if (MarkerTimer >= MARKER_FRAME_INTERVAL)
@@ -212,7 +212,7 @@ public sealed class TownMapControl : UIPanel
     }
 
     #region Asset Loading
-    private static UIImage? LoadSpfAsImage(string fileName)
+    private static UIImage LoadSpfAsImage(string fileName)
     {
         var texture = UiRenderer.Instance!.GetNationalSpfTexture(fileName);
 
@@ -343,7 +343,7 @@ public sealed class TownMapControl : UIPanel
     #region Cleanup
     private void ClearLayers()
     {
-        // All textures are CachedTexture2D from UiRenderer — Dispose is a no-op, just detach
+        //all textures are cachedtexture2d from uirenderer — dispose is a no-op, just detach
         BackgroundImage = null;
         IconBarImage = null;
         TownImageLayer = null;
@@ -351,7 +351,7 @@ public sealed class TownMapControl : UIPanel
         MarkerImage = null;
         MarkerFrames = null;
 
-        // Null out textures before clearing so UIImage.Dispose doesn't try to release cached textures
+        //null out textures before clearing so uiimage.dispose doesn't try to release cached textures
         foreach (var child in Children)
         {
             if (child is UIImage image)

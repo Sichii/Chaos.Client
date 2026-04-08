@@ -58,15 +58,15 @@ public sealed class EntityRemovalAnimation : IDisposable
         TextureWidth = sourceTexture.Width;
         TextureHeight = sourceTexture.Height;
 
-        // Copy source pixels
+        //copy source pixels
         Pixels = new Color[TextureWidth * TextureHeight];
         sourceTexture.GetData(Pixels);
 
-        // Create our own texture for modification
+        //create our own texture for modification
         Texture = new Texture2D(device, TextureWidth, TextureHeight);
         Texture.SetData(Pixels);
 
-        // Compute vertical step size based on texture height
+        //compute vertical step size based on texture height
         int adjusted;
 
         if (TextureHeight < 121)
@@ -92,7 +92,7 @@ public sealed class EntityRemovalAnimation : IDisposable
             if ((col % 2) == 0)
                 continue;
 
-            // Copy column content down by Step pixels (bottom to top to avoid overwrite)
+            //copy column content down by step pixels (bottom to top to avoid overwrite)
             for (var row = TextureHeight - 1 - Step; row >= 0; row--)
             {
                 var srcIndex = row * TextureWidth + col;
@@ -100,7 +100,7 @@ public sealed class EntityRemovalAnimation : IDisposable
                 Pixels[dstIndex] = Pixels[srcIndex];
             }
 
-            // Clear top Step pixels to transparent
+            //clear top step pixels to transparent
             for (var row = 0; (row < Step) && (row < TextureHeight); row++)
                 Pixels[row * TextureWidth + col] = Color.Transparent;
         }

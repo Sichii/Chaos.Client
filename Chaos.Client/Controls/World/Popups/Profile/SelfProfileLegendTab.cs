@@ -44,7 +44,7 @@ public sealed class SelfProfileLegendTab : PrefabPanel
 
         RowHeight = LegendListRect.Height / MAX_VISIBLE_ROWS;
 
-        // Create row controls
+        //create row controls
         Rows = new LegendMarkControl[MAX_VISIBLE_ROWS];
 
         for (var i = 0; i < MAX_VISIBLE_ROWS; i++)
@@ -61,7 +61,7 @@ public sealed class SelfProfileLegendTab : PrefabPanel
             AddChild(Rows[i]);
         }
 
-        // Scrollbar on the right side of the legend list
+        //scrollbar on the right side of the legend list
         ScrollBar = new ScrollBarControl
         {
             Name = "LegendScrollBar",
@@ -79,7 +79,7 @@ public sealed class SelfProfileLegendTab : PrefabPanel
 
         AddChild(ScrollBar);
 
-        // Legend mark icons from legends.epf
+        //legend mark icons from legends.epf
         var cache = UiRenderer.Instance!;
         var frameCount = cache.GetEpfFrameCount("legends.epf");
         IconFrames = new Texture2D[frameCount];

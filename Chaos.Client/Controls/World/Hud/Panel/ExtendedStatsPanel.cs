@@ -35,7 +35,7 @@ public sealed class ExtendedStatsPanel : ExpandablePanel
 
     private readonly UILabel?[] Labels = new UILabel?[LABEL_COUNT];
 
-    // Expand repositioning — compact and expanded label layouts
+    //expand repositioning — compact and expanded label layouts
     private LabelLayout[]? CompactLayouts;
     private bool[]? ExistsInCompact;
     private LabelLayout[]? ExpandedLayouts;
@@ -45,7 +45,7 @@ public sealed class ExtendedStatsPanel : ExpandablePanel
         Name = "ExtendedStats";
         Visible = false;
 
-        // Load background from "ExtraStatus" image in the prefab set.
+        //load background from "extrastatus" image in the prefab set.
         var extraLeft = 0;
         var extraTop = 0;
 
@@ -67,7 +67,7 @@ public sealed class ExtendedStatsPanel : ExpandablePanel
                 Background = UiRenderer.Instance!.GetPrefabTexture(statusPrefabSet.Name, "ExtraStatus", 0);
         }
 
-        // Extended stat labels (e_ prefix) — positioned relative to ExtraStatus origin
+        //extended stat labels (e_ prefix) — positioned relative to extrastatus origin
         for (var i = 0; i < LABEL_COUNT; i++)
             Labels[i] = CreateOffsetLabel(
                 statusPrefabSet,
@@ -93,7 +93,7 @@ public sealed class ExtendedStatsPanel : ExpandablePanel
         ExpandedLayouts = new LabelLayout[LABEL_COUNT];
         ExistsInCompact = new bool[LABEL_COUNT];
 
-        // Get expanded ExtraStatus origin for offset calculation
+        //get expanded extrastatus origin for offset calculation
         var expandedExtraRect = expandedPrefabSet.Contains("ExtraStatus") ? expandedPrefabSet["ExtraStatus"].Control.Rect : null;
 
         var exLeft = expandedExtraRect is not null ? (int)expandedExtraRect.Value.Left : 0;
@@ -103,7 +103,7 @@ public sealed class ExtendedStatsPanel : ExpandablePanel
         {
             ExistsInCompact[i] = Labels[i] is not null;
 
-            // Create missing labels that only exist in the expanded prefab
+            //create missing labels that only exist in the expanded prefab
             if (Labels[i] is null)
             {
                 var exRect = PrefabPanel.GetRect(expandedPrefabSet, LABEL_NAMES[i]);

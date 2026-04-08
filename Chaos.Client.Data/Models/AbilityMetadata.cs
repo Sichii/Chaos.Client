@@ -20,8 +20,7 @@ public sealed class AbilityMetadata
     }
 
     /// <summary>
-    ///     Parses an SClass MetaFile into structured ability metadata. The file contains Skill/Skill_End and Spell/Spell_End
-    ///     section markers with ability entries between them.
+    ///     Parses an SClass MetaFile into separate skill and spell lists.
     /// </summary>
     public static AbilityMetadata Parse(MetaFile metaFile)
     {
@@ -66,14 +65,17 @@ public sealed class AbilityMetadata
     }
 
     /// <summary>
-    ///     Parses a single MetaFileEntry into an AbilityMetadataEntry. Properties: [0]=Level/IsMaster/AbilityLevel,
-    ///     [1]=IconId/0/0, [2]=Str/Int/Wis/Dex/Con, [3]=PreReq1Name/Level, [4]=PreReq2Name/Level, [5]=Description
+    ///     Parses a single MetaFileEntry into an AbilityMetadataEntry.
     /// </summary>
+    /// <remarks>
+    ///     Property layout: [0]=Level/IsMaster/AbilityLevel, [1]=IconId/0/0, [2]=Str/Int/Wis/Dex/Con,
+    ///     [3]=PreReq1Name/Level, [4]=PreReq2Name/Level, [5]=Description.
+    /// </remarks>
     private static AbilityMetadataEntry ParseEntry(MetaFileEntry entry, bool isSpell)
     {
         var props = entry.Properties;
 
-        // [0] "{Level}/{IsMaster:0|1}/{AbilityLevel}"
+        //[0] "{level}/{ismaster:0|1}/{abilitylevel}"
         var levelParts = props[0]
             .Split('/');
 
@@ -81,13 +83,13 @@ public sealed class AbilityMetadata
         var requiresMaster = levelParts.ElementAtOrDefault(1) == "1";
         int.TryParse(levelParts.ElementAtOrDefault(2), out var abilityLevel);
 
-        // [1] "{IconId}/0/0"
+        //[1] "{iconid}/0/0"
         var iconParts = props[1]
             .Split('/');
 
         ushort.TryParse(iconParts.ElementAtOrDefault(0), out var iconSprite);
 
-        // [2] "{Str}/{Int}/{Wis}/{Dex}/{Con}"
+        //[2] "{str}/{int}/{wis}/{dex}/{con}"
         byte str = 0,
              intStat = 0,
              wis = 0,
@@ -106,21 +108,21 @@ public sealed class AbilityMetadata
             byte.TryParse(statParts.ElementAtOrDefault(4), out con);
         }
 
-        // [3] "{PreReq1Name}/{PreReq1Level}"
+        //[3] "{prereq1name}/{prereq1level}"
         string? preReq1Name = null;
         byte preReq1Level = 0;
 
         if (props.Count > 3)
             ParsePreReq(props[3], out preReq1Name, out preReq1Level);
 
-        // [4] "{PreReq2Name}/{PreReq2Level}"
+        //[4] "{prereq2name}/{prereq2level}"
         string? preReq2Name = null;
         byte preReq2Level = 0;
 
         if (props.Count > 4)
             ParsePreReq(props[4], out preReq2Name, out preReq2Level);
 
-        // [5] "{Description}"
+        //[5] "{description}"
         var description = props.Count > 5 ? props[5] : string.Empty;
 
         return new AbilityMetadataEntry

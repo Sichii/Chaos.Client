@@ -23,12 +23,12 @@ public sealed partial class WorldScreen
 
     private void HandleMapInfo(MapInfoArgs args)
     {
-        // Same map (refresh) — skip expensive teardown, just clear transient entity state
+        //same map (refresh) — skip expensive teardown, just clear transient entity state
         if ((args.MapId == CurrentMapId) && MapFile is not null)
         {
             ClearTransientState();
 
-            // Re-evaluate darkness only if the flag actually changed
+            //re-evaluate darkness only if the flag actually changed
             var newFlags = (MapFlags)args.Flags;
 
             if (newFlags != CurrentMapFlags)
@@ -42,7 +42,7 @@ public sealed partial class WorldScreen
             return;
         }
 
-        // New map — dispose old caches, load fresh MapFile from local files
+        //new map — dispose old caches, load fresh mapfile from local files
         TownMapControl.Hide();
         MapRenderer.Dispose();
         MapRenderer = new MapRenderer();
@@ -58,7 +58,7 @@ public sealed partial class WorldScreen
         CurrentMapFlags = (MapFlags)args.Flags;
         MapLoading.Show();
 
-        // Local file missing, corrupt, or checksum mismatch — request from server
+        //local file missing, corrupt, or checksum mismatch — request from server
         if (MapFile is null)
         {
             MapFile = new MapFile(args.Width, args.Height);
@@ -67,14 +67,14 @@ public sealed partial class WorldScreen
             Game.Connection.RequestMapData();
         }
 
-        // Clear entity + renderer caches for the new map
+        //clear entity + renderer caches for the new map
         ClearTransientState();
         Game.CreatureRenderer.Clear();
         Game.AislingRenderer.ClearCache();
         Game.AislingRenderer.ClearLayerCache();
         Game.ItemRenderer.Clear();
 
-        // Reset darkness state and load HEA light map for the new map
+        //reset darkness state and load hea light map for the new map
         DarknessRenderer.OnMapChanged(args.MapId, CurrentMapFlags.HasFlag(MapFlags.Darkness));
 
         UpdateHuds(h => h.SetZoneName(args.Name));
@@ -104,7 +104,7 @@ public sealed partial class WorldScreen
         if (y >= MapFile.Height)
             return;
 
-        // Each tile is 6 bytes: bg(2 BE), lfg(2 BE), rfg(2 BE)
+        //each tile is 6 bytes: bg(2 be), lfg(2 be), rfg(2 be)
         var data = args.MapData;
         var tileCount = Math.Min(data.Length / 6, MapFile.Width);
 
@@ -123,7 +123,7 @@ public sealed partial class WorldScreen
             };
         }
 
-        // Last row received — save to disk and finalize
+        //last row received — save to disk and finalize
         if (AwaitingMapData && (y >= (MapFile.Height - 1)))
         {
             AwaitingMapData = false;
@@ -134,7 +134,7 @@ public sealed partial class WorldScreen
 
     private void HandleMapLoadComplete()
     {
-        // When awaiting server map data, ignore this — FinalizeMapLoad will be called from HandleMapData
+        //when awaiting server map data, ignore this — finalizemapload will be called from handlemapdata
         if (AwaitingMapData)
             return;
 
@@ -217,18 +217,18 @@ public sealed partial class WorldScreen
         if (MapFile is null)
             return true;
 
-        // Check wall tiles (foreground SOTP data)
+        //check wall tiles (foreground sotp data)
         var tile = MapFile.Tiles[tileX, tileY];
         var sotpData = DataContext.Tiles.SotpData;
 
         if (IsTileWall(tile.LeftForeground, sotpData) || IsTileWall(tile.RightForeground, sotpData))
             return false;
 
-        // Check gndattr walk-blocking (deep water tiles)
+        //check gndattr walk-blocking (deep water tiles)
         if (DataContext.Tiles.GroundAttributes.TryGetValue(tile.Background, out var gndAttr) && gndAttr.IsWalkBlocking)
             return false;
 
-        // Check entities at the destination tile
+        //check entities at the destination tile
         if (WorldState.HasBlockingEntityAt(tileX, tileY, WorldState.PlayerEntityId))
             return false;
 
@@ -256,7 +256,7 @@ public sealed partial class WorldScreen
             if (CRC16.Calculate(fileBytes) != serverCheckSum)
                 return null;
 
-            // Parse in-place — file format is LE int16 x3 per tile, y-major x-minor
+            //parse in-place — file format is le int16 x3 per tile, y-major x-minor
             var mapFile = new MapFile(width, height);
             var index = 0;
 
@@ -298,11 +298,11 @@ public sealed partial class WorldScreen
         if (player is null)
             return;
 
-        // If the server position matches, nothing to reconcile
+        //if the server position matches, nothing to reconcile
         if ((player.TileX == x) && (player.TileY == y))
             return;
 
-        // Server-authoritative position correction — clear all pending predictions and snap back
+        //server-authoritative position correction — clear all pending predictions and snap back
         PendingWalks.Clear();
         QueuedWalkDirection = null;
         player.TileX = x;

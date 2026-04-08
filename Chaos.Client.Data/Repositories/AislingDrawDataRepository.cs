@@ -14,9 +14,8 @@ using CONSTANTS = DALib.Definitions.CONSTANTS;
 namespace Chaos.Client.Data.Repositories;
 
 /// <summary>
-///     Provides aisling palette data, dye color table, and equipment EPF loading from Khan archives. Palette lookups are
-///     loaded once and frozen. EPF files are cached per session and cleared on map change via <see cref="ClearEpfCache" />
-///     .
+///     Provides aisling palette lookups, dye color table, equipment EPF loading from Khan archives, and special sprite data
+///     (swimming, rest positions, emotions).
 /// </summary>
 public sealed class AislingDrawDataRepository
 {
@@ -68,7 +67,7 @@ public sealed class AislingDrawDataRepository
         else
             DyeColorTable = new ColorTable();
 
-        // Cache the default (undyed) colors — entry 0 contains the placeholder colors at palette slots 98-103
+        //cache the default (undyed) colors — entry 0 contains the placeholder colors at palette slots 98-103
         if (DyeColorTable.Contains(0))
             DefaultDyeColors = DyeColorTable[0].Colors;
 
@@ -81,8 +80,7 @@ public sealed class AislingDrawDataRepository
     }
 
     /// <summary>
-    ///     Applies dye to a palette if the color is non-default and the palette supports dyeing. Returns the original palette
-    ///     if dye cannot be applied.
+    ///     Returns a dyed copy of the palette for the given color, or the original palette if dyeing is not applicable.
     /// </summary>
     public Palette ApplyDye(Palette basePalette, DisplayColor color)
     {
@@ -117,17 +115,16 @@ public sealed class AislingDrawDataRepository
         };
 
     /// <summary>
-    ///     Loads an equipment EPF file from the appropriate Khan archive, with caching. The archive is determined by the type
-    ///     letter and gender.
+    ///     Loads an equipment EPF file from the Khan archive determined by type letter and gender.
     /// </summary>
     /// <param name="typeLetter">
-    ///     Equipment type letter (a-z) that determines which Khan archive to use
+    ///     Equipment type letter (a-z) mapping to a specific Khan archive pair
     /// </param>
     /// <param name="isMale">
-    ///     Whether to use the male or female Khan archive variant
+    ///     Selects the male (khanm*) or female (khanw*) archive variant
     /// </param>
     /// <param name="fileName">
-    ///     EPF file name without extension (e.g. "ma00101")
+    ///     EPF entry name without extension (e.g. "ma00101")
     /// </param>
     public EpfView? GetEquipmentEpf(char typeLetter, bool isMale, string fileName)
     {
@@ -150,7 +147,7 @@ public sealed class AislingDrawDataRepository
     }
 
     /// <summary>
-    ///     Returns the palette lookup for the given equipment type letter.
+    ///     Maps an equipment type letter to its corresponding palette lookup (e.g. 'e' -&gt; PalE, 'f' -&gt; PalF).
     /// </summary>
     public PaletteLookup GetPaletteLookup(char typeLetter)
         => typeLetter switch
@@ -169,7 +166,7 @@ public sealed class AislingDrawDataRepository
         };
 
     /// <summary>
-    ///     Returns true if the palette has the default dye colors at indices 98-103, meaning it supports dye application.
+    ///     Returns true if the palette supports dye application (contains unmodified placeholder dye slots).
     /// </summary>
     public bool IsDyeable(Palette palette)
     {
@@ -185,7 +182,7 @@ public sealed class AislingDrawDataRepository
 
     #region Swimming
     /// <summary>
-    ///     Bundles an EPF file, its palette, and precomputed max frame width for swimming sprite rendering.
+    ///     Swimming sprite data: the sprite sheet, its palette, and the widest frame width for positioning.
     /// </summary>
     public readonly record struct SwimSpriteData(EpfFile Epf, Palette Palette, int MaxFrameWidth);
 
@@ -197,7 +194,7 @@ public sealed class AislingDrawDataRepository
     private bool SwimLoaded;
 
     /// <summary>
-    ///     Gets the swimming sprite data for a gender, loading lazily on first access. Returns null if unavailable.
+    ///     Returns the swimming sprite data for the given gender, or null if the swim EPF is unavailable.
     /// </summary>
     public SwimSpriteData? GetSwimData(bool isFemale)
     {
@@ -218,9 +215,7 @@ public sealed class AislingDrawDataRepository
         {
             var epf = EpfFile.FromEntry(maleEntry);
             var palette = PalB.GetPaletteForId(maleId, KhanPalOverrideType.Male);
-
-            if (palette is not null)
-                SwimMaleData = new SwimSpriteData(epf, palette, epf.Max(f => f.PixelWidth + Math.Max((int)f.Left, 0)));
+            SwimMaleData = new SwimSpriteData(epf, palette, epf.Max(f => f.PixelWidth + Math.Max((int)f.Left, 0)));
         }
 
         if (DatArchives.Khanwad.TryGetValue(SWIM_FEMALE_EPF, out var femaleEntry)
@@ -228,9 +223,7 @@ public sealed class AislingDrawDataRepository
         {
             var epf = EpfFile.FromEntry(femaleEntry);
             var palette = PalB.GetPaletteForId(femaleId, KhanPalOverrideType.Female);
-
-            if (palette is not null)
-                SwimFemaleData = new SwimSpriteData(epf, palette, epf.Max(f => f.PixelWidth + Math.Max((int)f.Left, 0)));
+            SwimFemaleData = new SwimSpriteData(epf, palette, epf.Max(f => f.PixelWidth + Math.Max((int)f.Left, 0)));
         }
     }
     #endregion
@@ -243,8 +236,11 @@ public sealed class AislingDrawDataRepository
     private bool RestLoaded;
 
     /// <summary>
-    ///     Gets a rest position SPF file for the given gender, position, and variant. Returns null if unavailable.
+    ///     Returns the rest position SPF file for the given gender and seat position. Returns null if unavailable.
     /// </summary>
+    /// <param name="isFemale">True for female sprite variant.</param>
+    /// <param name="position">Rest seat position (1-3).</param>
+    /// <param name="isEmote">True to get the emote overlay variant instead of the base body sprite.</param>
     public SpfFile? GetRestSpf(bool isFemale, int position, bool isEmote)
     {
         EnsureRestLoaded();

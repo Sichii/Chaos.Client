@@ -44,10 +44,10 @@ public sealed class SelfProfileEquipmentTab : PrefabPanel
         ("CAPE3", EquipmentSlot.Accessory3)
     ];
 
-    // Emoticon status icon frame index → _nemots.spf frame
+    //emoticon status icon frame index → _nemots.spf frame
     private const int EMOTICON_FRAME_COUNT = 8;
 
-    // Idle frame for south-facing direction (walk anim frames 5-9, idle = 5)
+    //idle frame for south-facing direction (walk anim frames 5-9, idle = 5)
     private const int PAPERDOLL_IDLE_FRAME = 5;
     private readonly UILabel? AcLabel;
     private readonly UILabel? ClanLabel;
@@ -57,7 +57,7 @@ public sealed class SelfProfileEquipmentTab : PrefabPanel
 
     private readonly UILabel? DexLabel;
 
-    // Emoticon status
+    //emoticon status
     private readonly Texture2D?[] EmoticonIcons;
 
     private readonly UILabel? EmoticonLabel;
@@ -67,28 +67,27 @@ public sealed class SelfProfileEquipmentTab : PrefabPanel
     private readonly Rectangle HumanIconRect;
     private readonly UILabel? IntLabel;
 
-    // Player info labels
+    //player info labels
     private readonly UILabel? NameLabel;
 
-    // Nation icon and text
+    //nation icon and text
     private readonly UIImage? NationImage;
     private readonly UILabel? NationTextLabel;
 
-    // Paperdoll
+    //paperdoll
     private readonly UIImage? PaperdollImage;
 
-    // Portrait and profile text
-    private readonly UIImage? PortraitImage;
+    //portrait and profile text
     private readonly UILabel? PortraitTextLabel;
 
-    // Equipment slot rendering: maps EquipmentSlot to its visual state
+    //equipment slot rendering: maps equipmentslot to its visual state
     private readonly Dictionary<EquipmentSlot, EquipmentSlotVisual> SlotVisuals = new();
 
-    // Stat labels from the _nui_eq prefab (N_ prefix)
+    //stat labels from the _nui_eq prefab (n_ prefix)
     private readonly UILabel? StrLabel;
     private readonly UILabel? TitleLabel;
 
-    // Tooltip for hovered equipment slot
+    //tooltip for hovered equipment slot
     private readonly UILabel TooltipLabel;
     private readonly UILabel? WisLabel;
     private byte EmoticonState;
@@ -106,15 +105,15 @@ public sealed class SelfProfileEquipmentTab : PrefabPanel
         Name = prefabName;
         Visible = false;
 
-        // Build slot visuals from prefab-created image elements.
-        // CreateImage creates UIImage elements for controls that have images.
-        // Each slot image initially shows its _nui_eqi placeholder icon.
+        //build slot visuals from prefab-created image elements.
+        //createimage creates uiimage elements for controls that have images.
+        //each slot image initially shows its _nui_eqi placeholder icon.
         foreach ((var controlName, var slot) in SlotMappings)
         {
             if (CreateImage(controlName) is not { } slotImage)
                 continue;
 
-            // The placeholder texture was already set from the _nui_eqi frame
+            //the placeholder texture was already set from the _nui_eqi frame
             var visual = new EquipmentSlotVisual
             {
                 Image = slotImage,
@@ -124,7 +123,7 @@ public sealed class SelfProfileEquipmentTab : PrefabPanel
             SlotVisuals[slot] = visual;
         }
 
-        // Stat labels — right-aligned numeric values
+        //stat labels — right-aligned numeric values
         StrLabel = CreateLabel("N_STR", TextAlignment.Right);
         IntLabel = CreateLabel("N_INT", TextAlignment.Right);
         WisLabel = CreateLabel("N_WIS", TextAlignment.Right);
@@ -132,15 +131,15 @@ public sealed class SelfProfileEquipmentTab : PrefabPanel
         DexLabel = CreateLabel("N_DEX", TextAlignment.Right);
         AcLabel = CreateLabel("N_AC", TextAlignment.Right);
 
-        // Player info labels — left-aligned text
+        //player info labels — left-aligned text
         NameLabel = CreateLabel("NAME");
         ClassLabel = CreateLabel("CLASSTEXT");
         ClanLabel = CreateLabel("CLANTEXT");
         ClanTitleLabel = CreateLabel("CLANTITLETEXT");
         TitleLabel = CreateLabel("TITLETEXT");
 
-        // Group button — single button that swaps textures based on GroupOpen state.
-        // GroupBtn prefab has the "open/recruiting" images, GroupBtn_Disabled has the "closed" images.
+        //group button — single button that swaps textures based on groupopen state.
+        //groupbtn prefab has the "open/recruiting" images, groupbtn_disabled has the "closed" images.
         GroupBtn = CreateButton("GroupBtn");
 
         if (GroupBtn is not null)
@@ -150,7 +149,7 @@ public sealed class SelfProfileEquipmentTab : PrefabPanel
             GroupBtn.Clicked += () => OnGroupToggled?.Invoke();
         }
 
-        // Extract the closed-state texture from GroupBtn_Disabled for the closed state icon
+        //extract the closed-state texture from groupbtn_disabled for the closed state icon
         if (CreateImage("GroupBtn_Disabled") is { } disabledImage)
         {
             GroupClosedTexture = disabledImage.Texture;
@@ -158,18 +157,18 @@ public sealed class SelfProfileEquipmentTab : PrefabPanel
             disabledImage.Dispose();
         }
 
-        // Nation icon and text
+        //nation icon and text
         NationImage = CreateImage("Nation");
         NationTextLabel = CreateLabel("NationText");
 
         if (NationTextLabel is not null)
             NationTextLabel.TopAligned = true;
 
-        // Paperdoll area
+        //paperdoll area
         PaperdollImage = CreateImage("HumanImage");
 
-        // Portrait and profile text
-        PortraitImage = CreateImage("Portrait");
+        //portrait and profile text
+        CreateImage("Portrait");
         PortraitTextLabel = CreateLabel("PortraitText");
 
         if (PortraitTextLabel is not null)
@@ -178,19 +177,19 @@ public sealed class SelfProfileEquipmentTab : PrefabPanel
             PortraitTextLabel.ForegroundColor = Color.White;
         }
 
-        // Emoticon status areas
+        //emoticon status areas
         HumanIconRect = GetRect("HumanIcon");
 
-        // Load emoticon icons from _nemots.spf (frames 0-7)
+        //load emoticon icons from _nemots.spf (frames 0-7)
         EmoticonIcons = new Texture2D?[EMOTICON_FRAME_COUNT];
 
         for (var i = 0; i < EMOTICON_FRAME_COUNT; i++)
             EmoticonIcons[i] = UiRenderer.Instance!.GetSpfTexture("_nemots.spf", i);
 
-        // Emoticon status text label — centered in HumanState rect
+        //emoticon status text label — centered in humanstate rect
         EmoticonLabel = CreateLabel("HumanState", TextAlignment.Center);
 
-        // Tooltip label — hidden by default, follows cursor when an equipment slot is hovered
+        //tooltip label — hidden by default, follows cursor when an equipment slot is hovered
         TooltipLabel = new UILabel
         {
             Name = "Tooltip",
@@ -271,7 +270,7 @@ public sealed class SelfProfileEquipmentTab : PrefabPanel
         NationIconTexture?.Dispose();
         PaperdollTexture?.Dispose();
 
-        // UIImage children are disposed by base.Dispose, but we own the dynamic textures
+        //uiimage children are disposed by base.dispose, but we own the dynamic textures
         base.Dispose();
     }
 
@@ -282,7 +281,7 @@ public sealed class SelfProfileEquipmentTab : PrefabPanel
 
         base.Draw(spriteBatch);
 
-        // Emoticon icon — draw at HumanIcon rect origin (not a UIImage since frame changes per state)
+        //emoticon icon — draw at humanicon rect origin (not a uiimage since frame changes per state)
         if ((HumanIconRect != Rectangle.Empty)
             && (EmoticonState < EmoticonIcons.Length)
             && EmoticonIcons[EmoticonState] is { } emoticonIcon)
@@ -351,7 +350,7 @@ public sealed class SelfProfileEquipmentTab : PrefabPanel
     {
         PaperdollTexture?.Dispose();
 
-        // South-facing (direction=2) = Right idle frame (5) + horizontal flip
+        //south-facing (direction=2) = right idle frame (5) + horizontal flip
         PaperdollTexture = renderer.Render(in appearance, PAPERDOLL_IDLE_FRAME, flipHorizontal: true);
 
         if (PaperdollImage is not null)
@@ -397,7 +396,7 @@ public sealed class SelfProfileEquipmentTab : PrefabPanel
         if (!SlotVisuals.TryGetValue(slot, out var visual))
             return;
 
-        // Dispose previous item texture (not the placeholder — that's shared/owned by the prefab)
+        //dispose previous item texture (not the placeholder — that's shared/owned by the prefab)
         if (visual.ItemTexture is not null)
         {
             visual.ItemTexture.Dispose();
@@ -479,7 +478,7 @@ public sealed class SelfProfileEquipmentTab : PrefabPanel
             }
         }
 
-        // Check if portrait text area was clicked
+        //check if portrait text area was clicked
         if (PortraitTextLabel is not null && PortraitTextLabel.ContainsPoint(e.ScreenX, e.ScreenY))
         {
             OnProfileTextClicked?.Invoke();

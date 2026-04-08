@@ -58,7 +58,7 @@ public sealed class UIProgressBar : UIElement
 
         base.Draw(spriteBatch);
 
-        // Frame-based rendering
+        //frame-based rendering
         if ((Frames.Length > 0) && (CurrentFrame < Frames.Length))
         {
             AtlasHelper.Draw(
@@ -70,7 +70,7 @@ public sealed class UIProgressBar : UIElement
             return;
         }
 
-        // Texture-clip rendering — reveals a single texture left-to-right
+        //texture-clip rendering — reveals a single texture left-to-right
         if (FillTexture is not null)
         {
             var clipWidth = (int)(FillTexture.Width * Math.Clamp(Percent, 0f, 1f));
@@ -90,7 +90,7 @@ public sealed class UIProgressBar : UIElement
             return;
         }
 
-        // Color-fill rendering
+        //color-fill rendering
         var fillWidth = (int)(Width * Math.Clamp(Percent, 0f, 1f));
 
         if ((fillWidth > 0) && FillColor.HasValue)

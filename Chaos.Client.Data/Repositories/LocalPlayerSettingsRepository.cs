@@ -6,8 +6,8 @@ using Chaos.Client.Data.Models;
 namespace Chaos.Client.Data.Repositories;
 
 /// <summary>
-///     Manages per-character data files stored in a subdirectory of DataPath named after the character. Creates the
-///     directory and default files on first access.
+///     Manages per-character config files (macros, chants, friends, family) stored in a subdirectory of DataPath named
+///     after the character.
 /// </summary>
 public sealed class LocalPlayerSettingsRepository
 {
@@ -53,9 +53,11 @@ public sealed class LocalPlayerSettingsRepository
     }
 
     /// <summary>
-    ///     Loads skill chant entries from a chant book file. LF-delimited, first line ignored, then repeating pairs of (skill
-    ///     name, "Skill:" + chant text).
+    ///     Loads skill chant entries from a chant book config file.
     /// </summary>
+    /// <remarks>
+    ///     File format: LF-delimited, first line is a header, then repeating pairs of (skill name, "Skill:" + chant text).
+    /// </remarks>
     private static List<SkillChantEntry> LoadChantBook(string path)
     {
         var entries = new List<SkillChantEntry>();
@@ -66,7 +68,7 @@ public sealed class LocalPlayerSettingsRepository
         var lines = File.ReadAllText(path)
                         .Split('\n');
 
-        // Skip first line (header), then read pairs
+        //skip first line (header), then read pairs
         for (var i = 1; i < (lines.Length - 1); i += 2)
         {
             var name = lines[i]
@@ -75,11 +77,11 @@ public sealed class LocalPlayerSettingsRepository
             var chantLine = lines[i + 1]
                 .TrimEnd('\r');
 
-            // Strip "Skill:" prefix
+            //strip "skill:" prefix
             if (chantLine.StartsWith("Skill:", StringComparison.Ordinal))
                 chantLine = chantLine[6..];
 
-            // Trim leading space after colon if present
+            //trim leading space after colon if present
             if (chantLine.StartsWith(' '))
                 chantLine = chantLine[1..];
 
@@ -95,8 +97,7 @@ public sealed class LocalPlayerSettingsRepository
     }
 
     /// <summary>
-    ///     Loads the family list from Familylist.cfg. Lines are CRLF-delimited in order: Mother, Father, Son1, Son2,
-    ///     Brother1-6.
+    ///     Loads the family list from Familylist.cfg.
     /// </summary>
     public FamilyList LoadFamilyList()
     {
@@ -146,8 +147,7 @@ public sealed class LocalPlayerSettingsRepository
                .ToList();
 
     /// <summary>
-    ///     Loads macro text from Macro.cfg. Each line is 'MacroN: "text"' — the prefix and quotes are stripped. Returns up to
-    ///     10 values.
+    ///     Loads macro text from Macro.cfg. Returns a 10-element array of macro strings.
     /// </summary>
     public string[] LoadMacros()
     {
@@ -164,14 +164,14 @@ public sealed class LocalPlayerSettingsRepository
             {
                 var line = lines[i];
 
-                // Strip 'MacroN: ' prefix if present
+                //strip 'macron: ' prefix if present
                 var colonIndex = line.IndexOf(':');
 
                 if (colonIndex >= 0)
                     line = line[(colonIndex + 1)..]
                         .Trim();
 
-                // Strip surrounding double quotes
+                //strip surrounding double quotes
                 if (line is ['"', _, ..] && (line[^1] == '"'))
                     line = line[1..^1];
 
@@ -179,7 +179,7 @@ public sealed class LocalPlayerSettingsRepository
             }
         } catch
         {
-            // Return whatever was parsed so far
+            //return whatever was parsed so far
         }
 
         return macros;
@@ -188,9 +188,11 @@ public sealed class LocalPlayerSettingsRepository
     public List<SkillChantEntry> LoadSkillChants() => LoadChantBook(SkillBookPath);
 
     /// <summary>
-    ///     Loads spell chant entries from SpellBook.cfg. LF-delimited, first line ignored, then repeating groups of (spell
-    ///     name, Spell0-Spell9 chant lines).
+    ///     Loads spell chant entries from SpellBook.cfg.
     /// </summary>
+    /// <remarks>
+    ///     File format: LF-delimited, first line is a header, then repeating groups of (spell name, 10 "SpellN:" chant lines).
+    /// </remarks>
     public List<SpellChantEntry> LoadSpellChants()
     {
         var entries = new List<SpellChantEntry>();
@@ -201,7 +203,7 @@ public sealed class LocalPlayerSettingsRepository
         var lines = File.ReadAllText(SpellBookPath)
                         .Split('\n');
 
-        // Skip first line (header), then read groups of 11 (name + 10 chant lines)
+        //skip first line (header), then read groups of 11 (name + 10 chant lines)
         var i = 1;
 
         while (i < lines.Length)
@@ -223,7 +225,7 @@ public sealed class LocalPlayerSettingsRepository
                 var chantLine = lines[i]
                     .TrimEnd('\r');
 
-                // Strip "SpellN:" prefix
+                //strip "spelln:" prefix
                 var colonIndex = chantLine.IndexOf(':');
 
                 if (colonIndex >= 0)
@@ -242,7 +244,7 @@ public sealed class LocalPlayerSettingsRepository
     }
 
     /// <summary>
-    ///     Saves skill chant entries to a chant book file. LF-delimited.
+    ///     Saves skill chant entries to a chant book config file.
     /// </summary>
     private static void SaveChantBook(string path, List<SkillChantEntry> entries)
     {
@@ -259,7 +261,7 @@ public sealed class LocalPlayerSettingsRepository
     }
 
     /// <summary>
-    ///     Saves the family list to Familylist.cfg with CRLF line endings.
+    ///     Saves the family list to Familylist.cfg.
     /// </summary>
     public void SaveFamilyList(FamilyList family)
     {
@@ -281,12 +283,12 @@ public sealed class LocalPlayerSettingsRepository
     }
 
     /// <summary>
-    ///     Saves friend names to Friendlist.cfg with CRLF line endings.
+    ///     Saves friend names to Friendlist.cfg.
     /// </summary>
     public void SaveFriendList(List<string> names) => File.WriteAllLines(FriendListPath, names.Take(20));
 
     /// <summary>
-    ///     Saves macro text to Macro.cfg in 'MacroN: "text"' format with CRLF line endings.
+    ///     Saves macro text to Macro.cfg.
     /// </summary>
     public void SaveMacros(string[] macros)
     {
@@ -305,7 +307,7 @@ public sealed class LocalPlayerSettingsRepository
     public void SaveSkillChants(List<SkillChantEntry> entries) => SaveChantBook(SkillBookPath, entries);
 
     /// <summary>
-    ///     Saves spell chant entries to SpellBook.cfg. LF-delimited.
+    ///     Saves spell chant entries to SpellBook.cfg.
     /// </summary>
     public void SaveSpellChants(List<SpellChantEntry> entries)
     {

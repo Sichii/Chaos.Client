@@ -23,7 +23,7 @@ public sealed class LobbyLoginControl : PrefabPanel
         X = 0;
         Y = 0;
 
-        // Buttons
+        //buttons
         SubmitCreateButton = CreateButton("Create");
         ContinueButton = CreateButton("Continue");
         PasswordButton = CreateButton("Password");
@@ -31,7 +31,7 @@ public sealed class LobbyLoginControl : PrefabPanel
         HomepageButton = CreateButton("Homepage");
         ExitButton = CreateButton("Exit");
 
-        // Start screen buttons use hover effect instead of press
+        //start screen buttons use hover effect instead of press
         UIButton?[] allButtons =
         [
             SubmitCreateButton,
@@ -52,8 +52,8 @@ public sealed class LobbyLoginControl : PrefabPanel
             btn.Enabled = false;
         }
 
-        // Animated logo — LOGO control has 20 frames. Create as static image first,
-        // then replace with UIAnimatedImage using the prefab's frames.
+        //animated logo — logo control has 20 frames. create as static image first,
+        //then replace with uianimatedimage using the prefab's frames.
         var logoImage = CreateImage("LOGO");
 
         if (logoImage is not null)
@@ -78,13 +78,13 @@ public sealed class LobbyLoginControl : PrefabPanel
                 PingPong = true
             };
 
-            // Replace the static image with the animated one
+            //replace the static image with the animated one
             Children.Remove(logoImage);
             logoImage.Dispose();
             AddChild(AnimatedLogo);
         }
 
-        // Version label — type 7, 0 images
+        //version label — type 7, 0 images
         VersionLabel = CreateLabel("Version", TextAlignment.Right);
         VersionLabel?.Text = "Chaos v0.1.0";
     }

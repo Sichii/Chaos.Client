@@ -69,7 +69,7 @@ public sealed class AbilityMetadataDetailsControl : PrefabPanel
         {
             ref readonly var slot = ref WorldState.SpellBook.GetSlot(i);
 
-            if (slot.IsOccupied && slot.AbilityName.EqualsI(name))
+            if (slot.IsOccupied && slot.AbilityName?.EqualsI(name) == true && slot.CurrentLevel >= requiredLevel)
                 return true;
         }
 
@@ -77,7 +77,7 @@ public sealed class AbilityMetadataDetailsControl : PrefabPanel
         {
             ref readonly var slot = ref WorldState.SkillBook.GetSlot(i);
 
-            if (slot.IsOccupied && slot.AbilityName.EqualsI(name))
+            if (slot.IsOccupied && slot.AbilityName?.EqualsI(name) == true && slot.CurrentLevel >= requiredLevel)
                 return true;
         }
 

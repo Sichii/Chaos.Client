@@ -39,7 +39,7 @@ public class UITextBox : UIElement
     public bool ClampToVisibleArea { get; set; }
 
     /// <summary>
-    ///     Color used for rendering both prefix and editable text. Default white.
+    ///     When true, inline {=x} color codes in the text are parsed and rendered with the specified color. Default true.
     /// </summary>
     public bool ColorCodesEnabled
     {
@@ -129,8 +129,8 @@ public class UITextBox : UIElement
             if (FocusedTextBox is null)
                 return false;
 
-            // Verify the focused text box is still effectively visible
-            // (its own Visible flag and all ancestors are visible)
+            //verify the focused text box is still effectively visible
+            //(its own visible flag and all ancestors are visible)
             if (!IsEffectivelyVisible(FocusedTextBox))
             {
                 FocusedTextBox.IsFocused = false;
@@ -271,7 +271,7 @@ public class UITextBox : UIElement
                 LineStarts.Add(pos);
         }
 
-        // Ensure trailing \n produces a final empty line
+        //ensure trailing \n produces a final empty line
         if ((Text.Length > 0) && (Text[^1] == '\n') && (LineStarts[^1] != Text.Length))
             LineStarts.Add(Text.Length);
     }
@@ -328,11 +328,11 @@ public class UITextBox : UIElement
                 var hlStart = Math.Max(selStart, lineStartIdx) - lineStartIdx;
                 var hlEnd = Math.Min(selEnd, lineEndIdx) - lineStartIdx;
 
-                // Pre-selection segment
+                //pre-selection segment
                 if (hlStart > 0)
                     TextRenderer.DrawText(spriteBatch, new Vector2(textX, lineY), lineText[..hlStart], ForegroundColor, ColorCodesEnabled);
 
-                // Selection segment: white rect + black text
+                //selection segment: white rect + black text
                 var hlX = textX + (hlStart > 0 ? TextRenderer.MeasureWidth(lineText[..hlStart]) : 0);
                 var hlText = lineText[hlStart..hlEnd];
                 var hlWidth = TextRenderer.MeasureWidth(hlText);
@@ -340,7 +340,7 @@ public class UITextBox : UIElement
                 DrawRect(spriteBatch, new Rectangle(hlX, lineY, hlWidth, TextRenderer.CHAR_HEIGHT), Color.White);
                 TextRenderer.DrawText(spriteBatch, new Vector2(hlX, lineY), hlText, Color.Black, ColorCodesEnabled);
 
-                // Post-selection segment
+                //post-selection segment
                 if (hlEnd < lineText.Length)
                 {
                     var postX = hlX + hlWidth;
@@ -386,7 +386,7 @@ public class UITextBox : UIElement
         var textY = sy + PaddingTop;
         var textHeight = Height - PaddingTop + PaddingBottom;
 
-        // Prefix offset — non-editable text rendered before editable content
+        //prefix offset — non-editable text rendered before editable content
         var prefixWidth = 0;
 
         if ((Prefix.Length > 0) && IsFocused)
@@ -404,11 +404,11 @@ public class UITextBox : UIElement
             var selStart = SnapSelectionBoundary(Math.Min(SelectionStart, displayText.Length));
             var selEnd = Math.Min(SelectionEnd, displayText.Length);
 
-            // Pre-selection segment
+            //pre-selection segment
             if (selStart > 0)
                 TextRenderer.DrawText(spriteBatch, new Vector2(textStartX, textY), displayText[..selStart], ForegroundColor, ColorCodesEnabled);
 
-            // Selection segment: white rect + black text
+            //selection segment: white rect + black text
             var selStartX = textStartX + (selStart > 0 ? TextRenderer.MeasureWidth(displayText[..selStart]) : 0);
             var selText = displayText[selStart..selEnd];
             var selWidth = TextRenderer.MeasureWidth(selText);
@@ -416,7 +416,7 @@ public class UITextBox : UIElement
             DrawRect(spriteBatch, new Rectangle(selStartX, textY, selWidth, TextRenderer.CHAR_HEIGHT), Color.White);
             TextRenderer.DrawText(spriteBatch, new Vector2(selStartX, textY), selText, Color.Black, ColorCodesEnabled);
 
-            // Post-selection segment
+            //post-selection segment
             if (selEnd < displayText.Length)
             {
                 var postX = selStartX + selWidth;
@@ -484,7 +484,7 @@ public class UITextBox : UIElement
     /// </summary>
     private bool ExceedsVisibleArea()
     {
-        // Invalidate cached layout to force recomputation
+        //invalidate cached layout to force recomputation
         CachedLayoutText = string.Empty;
         ComputeLineLayout();
 
@@ -549,12 +549,12 @@ public class UITextBox : UIElement
         if (!ColorCodesEnabled || (position <= 0) || (position >= Text.Length))
             return position;
 
-        // At index 2 of a 3-char {=x} code (position - 2 is the '{')
+        //at index 2 of a 3-char {=x} code (position - 2 is the '{')
         if ((position >= 2) && TextRenderer.IsColorCode(Text, position - 2))
             return Math.Min(position + 1, Text.Length);
 
-        // At index 1 of a 3-char {=x} code (position - 1 is the '{')
-        if ((position >= 1) && ((position + 1) < Text.Length) && TextRenderer.IsColorCode(Text, position - 1))
+        //at index 1 of a 3-char {=x} code (position - 1 is the '{')
+        if (((position + 1) < Text.Length) && TextRenderer.IsColorCode(Text, position - 1))
             return Math.Min(position + 2, Text.Length);
 
         return position;
@@ -569,12 +569,12 @@ public class UITextBox : UIElement
         if (!ColorCodesEnabled || (position <= 0) || (position >= Text.Length))
             return position;
 
-        // At index 2 of a 3-char {=x} code
+        //at index 2 of a 3-char {=x} code
         if ((position >= 2) && TextRenderer.IsColorCode(Text, position - 2))
             return position - 2;
 
-        // At index 1 of a 3-char {=x} code
-        if ((position >= 1) && ((position + 1) < Text.Length) && TextRenderer.IsColorCode(Text, position - 1))
+        //at index 1 of a 3-char {=x} code
+        if (((position + 1) < Text.Length) && TextRenderer.IsColorCode(Text, position - 1))
             return position - 1;
 
         return position;
@@ -588,7 +588,7 @@ public class UITextBox : UIElement
         if (position <= 0)
             return 0;
 
-        // If the character before us is the end of a color code, skip the whole code
+        //if the character before us is the end of a color code, skip the whole code
         if (ColorCodesEnabled && (position >= 3) && TextRenderer.IsColorCode(Text, position - 3))
             return position - 3;
 
@@ -603,7 +603,7 @@ public class UITextBox : UIElement
         if (position >= Text.Length)
             return Text.Length;
 
-        // If we're at the start of a color code, skip the whole code
+        //if we're at the start of a color code, skip the whole code
         if (ColorCodesEnabled && TextRenderer.IsColorCode(Text, position))
             return Math.Min(position + 3, Text.Length);
 
@@ -656,12 +656,12 @@ public class UITextBox : UIElement
         {
             end = LineStarts[lineIndex + 1];
 
-            if ((end > start) && (end <= Text.Length) && (end > 0) && (Text[end - 1] == '\n'))
+            if ((end > start) && (end <= Text.Length) && (Text[end - 1] == '\n'))
                 end--;
         } else
             end = Text.Length;
 
-        while ((end > start) && (end <= Text.Length) && (Text[end - 1] == ' '))
+        while ((end > start) && (Text[end - 1] == ' '))
             end--;
 
         return Text[start..end];
@@ -673,7 +673,7 @@ public class UITextBox : UIElement
             DeleteSelection();
         else if (CursorPosition > 0)
         {
-            // Delete the entire color code atomically if the cursor is right after one
+            //delete the entire color code atomically if the cursor is right after one
             var stepPos = StepLeft(CursorPosition);
             var deleteCount = CursorPosition - stepPos;
             Text = Text.Remove(stepPos, deleteCount);
@@ -686,7 +686,7 @@ public class UITextBox : UIElement
 
     private int HitTestCursorPosition(int localX)
     {
-        // Offset by prefix width when focused
+        //offset by prefix width when focused
         if ((Prefix.Length > 0) && IsFocused)
             localX -= TextRenderer.MeasureWidth(Prefix);
 
@@ -698,7 +698,7 @@ public class UITextBox : UIElement
 
         for (var i = 0; i < displayText.Length;)
         {
-            // Skip color codes as atomic units — they have zero visual width
+            //skip color codes as atomic units — they have zero visual width
             if (ColorCodesEnabled && TextRenderer.IsColorCode(displayText, i))
             {
                 i += 3;
@@ -729,7 +729,7 @@ public class UITextBox : UIElement
 
         for (var i = 0; i < lineText.Length;)
         {
-            // Skip color codes as atomic units
+            //skip color codes as atomic units
             if (ColorCodesEnabled && TextRenderer.IsColorCode(lineText, i))
             {
                 i += 3;
@@ -786,13 +786,13 @@ public class UITextBox : UIElement
     /// </summary>
     private void MoveCursor(int newPosition, bool extendSelection)
     {
-        // If starting a new selection, pin the anchor at the current position
+        //if starting a new selection, pin the anchor at the current position
         if (extendSelection && !HasSelection)
             SelectionAnchor = CursorPosition;
 
         CursorPosition = Math.Clamp(SnapPastColorCode(newPosition), 0, Text.Length);
 
-        // When not extending, collapse selection by syncing anchor to new cursor position
+        //when not extending, collapse selection by syncing anchor to new cursor position
         if (!extendSelection)
             SelectionAnchor = CursorPosition;
 
@@ -808,11 +808,11 @@ public class UITextBox : UIElement
         if (string.IsNullOrEmpty(clipText))
             return;
 
-        // Strip newlines for single-line textboxes
+        //strip newlines for single-line textboxes
         if (!IsMultiLine)
             clipText = clipText.Replace("\r", "").Replace("\n", "");
 
-        // Snapshot for potential ClampToVisibleArea revert
+        //snapshot for potential clamptovisiblearea revert
         var savedText = Text;
         var savedCursor = CursorPosition;
         var savedAnchor = SelectionAnchor;
@@ -820,7 +820,7 @@ public class UITextBox : UIElement
         if (HasSelection)
             DeleteSelection();
 
-        // Truncate to MaxLength
+        //truncate to maxlength
         var available = MaxLength - Text.Length;
 
         if (available <= 0)
@@ -872,7 +872,7 @@ public class UITextBox : UIElement
         if (!Visible || !Enabled)
             return;
 
-        // Clamp positions in case Text was changed externally
+        //clamp positions in case text was changed externally
         ClampPositions();
 
         if (IsMultiLine)
@@ -882,7 +882,7 @@ public class UITextBox : UIElement
             UpdateCursorBlink(gameTime);
     }
 
-    // ── Event Handlers ──
+    //── event handlers ──
 
     public override void OnMouseDown(MouseDownEvent e)
     {
@@ -893,7 +893,7 @@ public class UITextBox : UIElement
 
         if (e.Shift && IsFocused && IsSelectable)
         {
-            // Shift+click extends selection to the click position
+            //shift+click extends selection to the click position
             CursorPosition = clickPos;
         } else
         {
@@ -921,7 +921,7 @@ public class UITextBox : UIElement
         var clickPos = HitTestFromScreenPos(e.ScreenX, e.ScreenY);
         var now = Environment.TickCount64;
 
-        // Track click count for triple-click detection
+        //track click count for triple-click detection
         if (((now - LastClickTime) < TRIPLE_CLICK_MS) && (clickPos == LastClickPosition))
             ClickCount++;
         else
@@ -930,7 +930,7 @@ public class UITextBox : UIElement
         LastClickTime = now;
         LastClickPosition = clickPos;
 
-        // Triple-click: select line (multiline) or select all (single-line)
+        //triple-click: select line (multiline) or select all (single-line)
         if (ClickCount >= 3)
         {
             if (IsMultiLine)
@@ -956,7 +956,7 @@ public class UITextBox : UIElement
         SelectionAnchor = FindWordBoundaryLeft(clickPos);
         CursorPosition = FindWordBoundaryRight(clickPos);
 
-        // Bump click count so the next click within the window triggers triple-click
+        //bump click count so the next click within the window triggers triple-click
         ClickCount = 2;
         e.Handled = true;
     }
@@ -1001,7 +1001,7 @@ public class UITextBox : UIElement
 
         switch (e.Key)
         {
-            // ── Navigation ──
+            //── navigation ──
             case Keys.Left:
                 if (!shift && HasSelection)
                     MoveCursor(SelectionStart, false);
@@ -1093,7 +1093,7 @@ public class UITextBox : UIElement
 
                 break;
 
-            // ── Selection / Clipboard ──
+            //── selection / clipboard ──
             case Keys.A when ctrl && IsSelectable:
                 SelectAll();
                 e.Handled = true;
@@ -1126,7 +1126,7 @@ public class UITextBox : UIElement
 
                 break;
 
-            // ── Editing ──
+            //── editing ──
             case Keys.Delete when ctrl && !IsReadOnly:
                 if (HasSelection)
                     DeleteSelection();
@@ -1146,7 +1146,7 @@ public class UITextBox : UIElement
                     DeleteSelection();
                 else if (CursorPosition < Text.Length)
                 {
-                    // Delete the entire color code atomically if the cursor is at the start of one
+                    //delete the entire color code atomically if the cursor is at the start of one
                     var stepPos = StepRight(CursorPosition);
                     Text = Text.Remove(CursorPosition, stepPos - CursorPosition);
                 }
@@ -1179,9 +1179,9 @@ public class UITextBox : UIElement
                 break;
 
             default:
-                // Consume all other key presses while focused so they don't bubble
-                // to hotkey handlers. Actual character insertion happens via OnTextInput.
-                // Let Escape and Tab bubble for unfocus / focus cycling.
+                //consume all other key presses while focused so they don't bubble
+                //to hotkey handlers. actual character insertion happens via ontextinput.
+                //let escape and tab bubble for unfocus / focus cycling.
                 if (e.Key is not Keys.Escape && !(e.Key is Keys.Enter && !IsMultiLine) && !(e.Key is Keys.Tab && IsTabStop))
                     e.Handled = true;
 
@@ -1199,11 +1199,11 @@ public class UITextBox : UIElement
 
         var c = e.Character;
 
-        // Backspace handled in OnKeyDown
+        //backspace handled in onkeydown
         if (c == '\b')
             return;
 
-        // Tab cycles focus when IsTabStop is set — parent handles the actual transfer
+        //tab cycles focus when istabstop is set — parent handles the actual transfer
         if (c == '\t' && IsTabStop)
             return;
 
@@ -1212,7 +1212,7 @@ public class UITextBox : UIElement
             if (!IsMultiLine)
                 return;
 
-            // Snapshot state before additive mutation for potential overflow revert
+            //snapshot state before additive mutation for potential overflow revert
             var savedText = Text;
             var savedCursor = CursorPosition;
             var savedAnchor = SelectionAnchor;
@@ -1248,19 +1248,19 @@ public class UITextBox : UIElement
         if (char.IsControl(c))
             return;
 
-        // Snapshot state before additive mutation for potential overflow revert
+        //snapshot state before additive mutation for potential overflow revert
         var priorText = Text;
         var priorCursor = CursorPosition;
         var priorAnchor = SelectionAnchor;
 
-        // Replace selection with typed character
+        //replace selection with typed character
         if (HasSelection)
             DeleteSelection();
 
         if (Text.Length >= MaxLength)
             return;
 
-        // Capture position before mutation to avoid setter interactions
+        //capture position before mutation to avoid setter interactions
         var insertPos = CursorPosition;
         Text = Text.Insert(insertPos, c.ToString());
         CursorPosition = insertPos + 1;

@@ -10,9 +10,11 @@ namespace Chaos.Client.Data.Models;
 
 /// <summary>
 ///     Holds the raw bytes of an HPF archive entry, deferring decompression until <see cref="Decompress" /> is called.
-///     This allows archive reads (sequential, not thread-safe) to be separated from decompression (CPU-bound,
-///     parallelizable).
 /// </summary>
+/// <remarks>
+///     Separating archive reads (sequential, not thread-safe) from decompression (CPU-bound, parallelizable) enables
+///     parallel tile loading.
+/// </remarks>
 public sealed class CompressedHpfFile
 {
     private readonly byte[] RawBytes;
@@ -24,8 +26,7 @@ public sealed class CompressedHpfFile
     public int EstimatedPixelHeight => IsCompressed ? 0 : (RawBytes.Length - 8) / CONSTANTS.HPF_TILE_WIDTH;
 
     /// <summary>
-    ///     The pixel height of the image. Only valid after decompression for compressed files, but can be estimated from the
-    ///     raw entry size for uncompressed files.
+    ///     True if the raw bytes have the HPF compression magic header.
     /// </summary>
     public bool IsCompressed
         => RawBytes is [0x55, 0xAA, 0x02, 0xFF, ..];
@@ -33,7 +34,7 @@ public sealed class CompressedHpfFile
     private CompressedHpfFile(byte[] rawBytes) => RawBytes = rawBytes;
 
     /// <summary>
-    ///     Decompresses the raw bytes into an HpfFile. Thread-safe — no archive access required.
+    ///     Decompresses the raw bytes into an HpfFile. Safe to call from any thread.
     /// </summary>
     public HpfFile Decompress()
     {

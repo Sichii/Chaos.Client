@@ -17,21 +17,21 @@ public sealed partial class WorldScreen
 {
     public void Draw(SpriteBatch spriteBatch, GameTime gameTime)
     {
-        // Sort once per frame — cached via dirty flag, reused by all draw sub-passes
+        //sort once per frame — cached via dirty flag, reused by all draw sub-passes
         var sortedEntities = WorldState.GetSortedEntities();
 
-        // Pre-composite transparent aislings into per-entity RTs before world drawing
+        //pre-composite transparent aislings into per-entity rts before world drawing
         if (MapFile is not null && MapPreloaded)
         {
             SilhouetteRenderer.Clear();
 
             var player = WorldState.GetPlayerEntity();
 
-            // Collect silhouette entries (any entity type)
+            //collect silhouette entries (any entity type)
             if (player is not null)
                 SilhouetteRenderer.AddSilhouette(player.Id);
 
-            // Collect transparent aisling entries (need per-entity compositing for uniform alpha)
+            //collect transparent aisling entries (need per-entity compositing for uniform alpha)
             foreach (var entity in sortedEntities)
                 if (entity is { Type: ClientEntityType.Aisling, IsTransparent: true })
                 {
@@ -61,8 +61,8 @@ public sealed partial class WorldScreen
 
             SilhouetteRenderer.PreRenderTransparents(Game.AislingRenderer);
 
-            // Pre-render silhouettes into a screen-sized RT (must happen before main RT drawing starts,
-            // because RT switching discards the main RT's contents)
+            //pre-render silhouettes into a screen-sized rt (must happen before main rt drawing starts,
+            //because rt switching discards the main rt's contents)
             SilhouetteRenderer.PreRenderSilhouettes(batch =>
             {
                 batch.Begin(SpriteSortMode.Immediate, BlendState.AlphaBlend, GlobalSettings.Sampler);
@@ -79,7 +79,7 @@ public sealed partial class WorldScreen
             });
         }
 
-        // Pass 1: World rendering — clipped to the HUD viewport area, camera transform
+        //pass 1: world rendering — clipped to the hud viewport area, camera transform
         if (MapFile is not null && MapPreloaded)
         {
             var viewportRect = WorldHud.ViewportBounds;
@@ -87,7 +87,7 @@ public sealed partial class WorldScreen
 
             var transform = Matrix.CreateTranslation(viewportRect.X, viewportRect.Y, 0);
 
-            // Background tiles + tile cursor: batched (many draws, no blend changes)
+            //background tiles + tile cursor: batched (many draws, no blend changes)
             spriteBatch.Begin(samplerState: GlobalSettings.Sampler, rasterizerState: ScissorRasterizerState, transformMatrix: transform);
 
             MapRenderer.DrawBackground(
@@ -98,7 +98,7 @@ public sealed partial class WorldScreen
             DrawTileCursor(spriteBatch);
             spriteBatch.End();
 
-            // Foreground, entities, effects: immediate mode (per-stripe ordering, blend switches for additive effects)
+            //foreground, entities, effects: immediate mode (per-stripe ordering, blend switches for additive effects)
             spriteBatch.Begin(
                 SpriteSortMode.Immediate,
                 BlendState.AlphaBlend,
@@ -120,7 +120,7 @@ public sealed partial class WorldScreen
                 WorldState.PlayerEntityId);
             spriteBatch.End();
 
-            // Darkness overlay — drawn over the world in screen space (no camera transform)
+            //darkness overlay — drawn over the world in screen space (no camera transform)
             if (DarknessRenderer.IsActive)
             {
                 spriteBatch.Begin(
@@ -132,7 +132,7 @@ public sealed partial class WorldScreen
                 spriteBatch.End();
             }
 
-            // Blind overlay — full black over the viewport when the player is blinded
+            //blind overlay — full black over the viewport when the player is blinded
             if (WorldState.Attributes.Current?.Blind is true)
             {
                 spriteBatch.Begin(
@@ -143,7 +143,7 @@ public sealed partial class WorldScreen
                 spriteBatch.End();
             }
 
-            // Blind overlay — black out viewport, then redraw only the player character
+            //blind overlay — black out viewport, then redraw only the player character
             if (WorldState.Attributes.Current?.Blind is true)
             {
                 spriteBatch.Begin(
@@ -170,10 +170,10 @@ public sealed partial class WorldScreen
                 }
             }
 
-            // Snapshot draw count before debug draws so the reported count excludes debug visualizations
+            //snapshot draw count before debug draws so the reported count excludes debug visualizations
             DebugOverlay.SnapshotDrawCount();
 
-            // Debug overlay: entity hitboxes, tile grid, etc.
+            //debug overlay: entity hitboxes, tile grid, etc.
             if (DebugOverlay.IsActive)
             {
                 spriteBatch.Begin(
@@ -200,8 +200,8 @@ public sealed partial class WorldScreen
             }
         }
 
-        // Tab map overlay — drawn on top of world, under HUD
-        // TabMapRenderer manages its own SpriteBatch Begin/End blocks (stencil passes for entity overlap)
+        //tab map overlay — drawn on top of world, under hud
+        //tabmaprenderer manages its own spritebatch begin/end blocks (stencil passes for entity overlap)
         if (TabMapVisible && MapFile is not null)
         {
             var viewport = WorldHud.ViewportBounds;
@@ -237,7 +237,7 @@ public sealed partial class WorldScreen
                 WorldState.PlayerEntityId);
         }
 
-        // Pass 2: UI overlay — full screen, no transform
+        //pass 2: ui overlay — full screen, no transform
         spriteBatch.Begin(samplerState: GlobalSettings.Sampler);
         Root!.Draw(spriteBatch);
         DrawDragIcon(spriteBatch);
@@ -274,7 +274,7 @@ public sealed partial class WorldScreen
                 gndAttr.B,
                 gndAttr.A);
 
-            // Cache swim walk frame count for animation timing
+            //cache swim walk frame count for animation timing
             if (gndAttr.IsWalkBlocking)
             {
                 var isFemale = entity.Appearance?.Gender == Gender.Female;
@@ -314,13 +314,13 @@ public sealed partial class WorldScreen
         var entityIndex = 0;
         var entityCount = sortedEntities.Count;
 
-        // Skip entities before the visible depth range
+        //skip entities before the visible depth range
         while ((entityIndex < entityCount) && (sortedEntities[entityIndex].SortDepth < minDepth))
             entityIndex++;
 
         for (var depth = minDepth; depth <= maxDepth; depth++)
         {
-            // Collect entities at this depth stripe
+            //collect entities at this depth stripe
             var stripeStart = entityIndex;
 
             while ((entityIndex < entityCount) && (sortedEntities[entityIndex].SortDepth == depth))
@@ -328,32 +328,32 @@ public sealed partial class WorldScreen
 
             var stripeEnd = entityIndex;
 
-            // 1. Ground items
+            //1. ground items
             for (var i = stripeStart; i < stripeEnd; i++)
                 if (sortedEntities[i].Type == ClientEntityType.GroundItem)
                     DrawEntity(spriteBatch, sortedEntities[i]);
 
-            // 2. Aislings
+            //2. aislings
             for (var i = stripeStart; i < stripeEnd; i++)
                 if (sortedEntities[i].Type == ClientEntityType.Aisling)
                     DrawEntity(spriteBatch, sortedEntities[i]);
 
-            // 3. Creatures
+            //3. creatures
             for (var i = stripeStart; i < stripeEnd; i++)
                 if (sortedEntities[i].Type == ClientEntityType.Creature)
                     DrawEntity(spriteBatch, sortedEntities[i]);
 
-            // 4. Dying creature dissolves
+            //4. dying creature dissolves
             DrawDyingEffectsAtDepth(spriteBatch, depth);
 
-            // 5. Ground-targeted effects
+            //5. ground-targeted effects
             DrawGroundEffectsAtDepth(spriteBatch, depth);
 
-            // 5. Entity-attached effects
+            //5. entity-attached effects
             for (var i = stripeStart; i < stripeEnd; i++)
                 DrawEntityEffects(spriteBatch, sortedEntities[i]);
 
-            // 6. Foreground tiles (on top — trees, buildings occlude entities behind them)
+            //6. foreground tiles (on top — trees, buildings occlude entities behind them)
             var tileXStart = Math.Max(fgMinX, depth - fgMaxY);
             var tileXEnd = Math.Min(fgMaxX, depth - fgMinY);
 
@@ -488,13 +488,13 @@ public sealed partial class WorldScreen
                     tileCenterX,
                     tileCenterY);
 
-                return; // Ground items don't get hitboxes
+                return; //ground items don't get hitboxes
         }
 
         if (entityTextureBottom <= 0)
             return;
 
-        // Hitbox: 28px wide centered on tile screen X, 60px tall bottom-aligned to texture bottom
+        //hitbox: 28px wide centered on tile screen x, 60px tall bottom-aligned to texture bottom
         var tileScreenPos = Camera.WorldToScreen(new Vector2(tileCenterX + entity.VisualOffset.X, tileCenterY + entity.VisualOffset.Y));
         var hitboxX = (int)tileScreenPos.X - HITBOX_WIDTH / 2;
         var hitboxY = entityTextureBottom - HITBOX_HEIGHT;
@@ -551,7 +551,7 @@ public sealed partial class WorldScreen
         float tileCenterX,
         float tileCenterY)
     {
-        // Morphed aislings (creature form) render as creatures — swimming overrides morphs too
+        //morphed aislings (creature form) render as creatures — swimming overrides morphs too
         if (entity.Appearance is null && entity is { SpriteId: > 0, IsOnSwimmingTile: false })
             return DrawCreature(
                 spriteBatch,
@@ -565,7 +565,7 @@ public sealed partial class WorldScreen
         var appearance = entity.Appearance ?? default;
         (var frameIndex, var flip, var animSuffix, var isFrontFacing) = AnimationSystem.GetAislingFrame(entity);
 
-        // Swimming override — single sprite replaces all aisling layers, driven by existing animation state
+        //swimming override — single sprite replaces all aisling layers, driven by existing animation state
         if (entity.IsOnSwimmingTile)
         {
             var isFemale = entity.Appearance?.Gender == Gender.Female;
@@ -577,8 +577,8 @@ public sealed partial class WorldScreen
             if (framesPerDir <= 0)
                 return 0;
 
-            // Walking: use walk frame index directly. Idle: use IdleAnimTick for continuous cycling.
-            // Frame 0 is the idle/standing pose — skip it so the swim animation only cycles walk frames (1..N).
+            //walking: use walk frame index directly. idle: use idleanimtick for continuous cycling.
+            //frame 0 is the idle/standing pose — skip it so the swim animation only cycles walk frames (1..n).
             var walkFrames = framesPerDir - 1;
 
             var animIndex = walkFrames > 0
@@ -598,7 +598,7 @@ public sealed partial class WorldScreen
                 entity.VisualOffset);
         }
 
-        // Rest position override — single SPF sprite replaces all aisling layers
+        //rest position override — single spf sprite replaces all aisling layers
         if (entity.RestPosition != RestPosition.None)
             return Game.AislingRenderer.DrawResting(
                 spriteBatch,
@@ -615,11 +615,11 @@ public sealed partial class WorldScreen
         var emotionFrame = entity.ActiveEmoteFrame;
         var groundPaintHeight = entity.IsOnSwimmingTile ? 0 : entity.GroundPaintHeight;
 
-        // Base position: composite canvas origin relative to tile center
+        //base position: composite canvas origin relative to tile center
         var baseX = tileCenterX + entity.VisualOffset.X - BODY_CENTER_X;
         var baseY = tileCenterY + entity.VisualOffset.Y - BODY_CENTER_Y;
 
-        // Transparent aislings use the pre-composited render target for uniform alpha (no layer bleed-through)
+        //transparent aislings use the pre-composited render target for uniform alpha (no layer bleed-through)
         if (entity.IsTransparent
             && SilhouetteRenderer.DrawTransparentEntity(
                 spriteBatch,
@@ -711,17 +711,17 @@ public sealed partial class WorldScreen
     /// </summary>
     private static Texture2D CreateTileCursorTexture(GraphicsDevice device, Color color)
     {
-        const int WIDTH = DaLibConstants.HALF_TILE_WIDTH * 2; // 56
-        const int HEIGHT = DaLibConstants.HALF_TILE_HEIGHT * 2; // 28
+        const int WIDTH = DaLibConstants.HALF_TILE_WIDTH * 2; //56
+        const int HEIGHT = DaLibConstants.HALF_TILE_HEIGHT * 2; //28
 
         var pixels = new Color[WIDTH * HEIGHT];
 
         var cx = WIDTH / 2;
         var cy = HEIGHT / 2;
 
-        // Top-right quarter only.
-        // These are offsets from the center.
-        // Tweak these until the shape matches exactly how you want.
+        //top-right quarter only.
+        //these are offsets from the center.
+        //tweak these until the shape matches exactly how you want.
         Span<Point> quarter =
         [
             new(-6, -8),
@@ -772,7 +772,7 @@ public sealed partial class WorldScreen
             height,
             cx + dx,
             cy + dy,
-            color); // top-right
+            color); //top-right
 
         SetPixel(
             pixels,
@@ -780,7 +780,7 @@ public sealed partial class WorldScreen
             height,
             cx - dx,
             cy + dy,
-            color); // top-left
+            color); //top-left
 
         SetPixel(
             pixels,
@@ -788,7 +788,7 @@ public sealed partial class WorldScreen
             height,
             cx + dx,
             cy - dy,
-            color); // bottom-right
+            color); //bottom-right
 
         SetPixel(
             pixels,
@@ -796,7 +796,7 @@ public sealed partial class WorldScreen
             height,
             cx - dx,
             cy - dy,
-            color); // bottom-left
+            color); //bottom-left
     }
 
     private static void SetPixel(
@@ -849,7 +849,7 @@ public sealed partial class WorldScreen
         var input = Game.Input;
         var viewport = WorldHud.ViewportBounds;
 
-        // Only draw when mouse is within the world viewport
+        //only draw when mouse is within the world viewport
         if ((input.MouseX < viewport.X)
             || (input.MouseX >= (viewport.X + viewport.Width))
             || (input.MouseY < viewport.Y)

@@ -12,15 +12,18 @@ using SkiaSharp;
 namespace Chaos.Client.Rendering;
 
 /// <summary>
-///     Caches spell/effect animations as <see cref="SpriteAnimation" />. Effects use the EffectTable (effect.tbl) from Roh
-///     to determine the frame sequence. An EffectTable entry of [0] indicates an EFA file; otherwise the entry lists EPF
-///     frame indices to play in order. Source files are cached by <see cref="Data.Repositories.EffectsRepository" />.
+///     Renders and caches spell/effect animations. Supports both EFA (self-contained animation) and EPF (frame-sequence
+///     driven) effect formats. Call <see cref="Clear" /> on map change to evict cached textures.
 /// </summary>
+/// <remarks>
+///     The EffectTable (effect.tbl) determines the format: an entry of [0] indicates EFA; otherwise the entry lists EPF
+///     frame indices to play in order. Source files are cached by <see cref="Data.Repositories.EffectsRepository" />.
+/// </remarks>
 public sealed class EffectRenderer : IDisposable
 {
     private const int DEFAULT_FRAME_INTERVAL_MS = 100;
 
-    // null value = effect doesn't exist (negative cache)
+    //null value = effect doesn't exist (negative cache)
     private readonly Dictionary<int, SpriteAnimation?> AnimationCache = new();
 
     /// <inheritdoc />
@@ -77,7 +80,8 @@ public sealed class EffectRenderer : IDisposable
     }
 
     /// <summary>
-    ///     Returns frame count, interval, and blend mode for an effect, or null if the effect doesn't exist.
+    ///     Returns playback metadata for an effect (frame count, timing, format, blend mode). Returns null if the effect ID is
+    ///     invalid.
     /// </summary>
     public (int FrameCount, int FrameIntervalMs, bool IsEfa, EffectBlendMode BlendMode)? GetEffectInfo(int effectId)
     {
@@ -90,7 +94,7 @@ public sealed class EffectRenderer : IDisposable
     }
 
     /// <summary>
-    ///     Returns the sprite frame for a specific frame of an effect.
+    ///     Returns the rendered texture and positioning data for a single animation frame of an effect.
     /// </summary>
     public SpriteFrame? GetFrame(int effectId, int frameIndex)
     {
@@ -113,17 +117,17 @@ public sealed class EffectRenderer : IDisposable
 
     private SpriteAnimation? LoadAnimation(int effectId)
     {
-        // Check the EffectTable to determine the frame sequence and format
+        //check the effecttable to determine the frame sequence and format
         var tableEntry = DataContext.Effects.GetEffectTableEntry(effectId);
 
         if (tableEntry is null || (tableEntry.FrameSequence.Count == 0))
             return null;
 
-        // A single-element [0] entry means this is an EFA effect
+        //a single-element [0] entry means this is an efa effect
         if (tableEntry.FrameSequence is [0])
             return LoadEfaAnimation(effectId);
 
-        // Otherwise, it's an EPF effect with a specific frame sequence from the table
+        //otherwise, it's an epf effect with a specific frame sequence from the table
         return LoadEpfAnimation(effectId, tableEntry);
     }
 
@@ -178,7 +182,7 @@ public sealed class EffectRenderer : IDisposable
         var frameSequence = tableEntry.FrameSequence;
         var alphaType = DataContext.Effects.UsesLuminanceBlending(effectId) ? SKAlphaType.Unpremul : SKAlphaType.Premul;
 
-        // Load per-frame center points from the .tbl file (e.g. eff246.tbl)
+        //load per-frame center points from the .tbl file (e.g. eff246.tbl)
         var centerPoints = DataContext.Effects.GetEffectCenterPoints(effectId, epfFile.Count);
         var frames = new SpriteFrame[frameSequence.Count];
 
@@ -193,7 +197,7 @@ public sealed class EffectRenderer : IDisposable
             using var skImage = Graphics.RenderImage(epfFrame, palette, alphaType);
             var texture = TextureConverter.ToTexture2D(skImage);
 
-            // Use center point from .tbl if available, otherwise fall back to half-size
+            //use center point from .tbl if available, otherwise fall back to half-size
             var centerX = centerPoints is not null ? centerPoints[epfFrameIndex].X : (short)(epfFrame.PixelWidth / 2);
             var centerY = centerPoints is not null ? centerPoints[epfFrameIndex].Y : (short)(epfFrame.PixelHeight / 2);
 

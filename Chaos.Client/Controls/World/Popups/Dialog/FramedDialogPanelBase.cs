@@ -13,7 +13,7 @@ namespace Chaos.Client.Controls.World.Popups.Dialog;
 /// </summary>
 public abstract class FramedDialogPanelBase : PrefabPanel
 {
-    // Frame corner dimensions
+    //frame corner dimensions
     private const int CORNER_TL_W = 31;
     private const int CORNER_TL_H = 24;
     private const int CORNER_TR_W = 31;
@@ -56,7 +56,7 @@ public abstract class FramedDialogPanelBase : PrefabPanel
         var w = Width;
         var h = Height;
 
-        // 1. Tile DlgBack2.spf across entire panel as background fill
+        //1. tile dlgback2.spf across entire panel as background fill
         if (BackgroundTile is not null)
             TileTexture(
                 spriteBatch,
@@ -66,7 +66,7 @@ public abstract class FramedDialogPanelBase : PrefabPanel
                 w,
                 h);
 
-        // 2. Frame edges (tiled between corners)
+        //2. frame edges (tiled between corners)
         if (EdgeTop is not null)
             TileTexture(
                 spriteBatch,
@@ -94,7 +94,7 @@ public abstract class FramedDialogPanelBase : PrefabPanel
                 EdgeRight.Width,
                 h - CORNER_TL_H - CORNER_BR_H);
 
-        // Bottom edge: rivets on the left, plain background behind the OK button on the right
+        //bottom edge: rivets on the left, plain background behind the ok button on the right
         var okAreaStart = (OkButton?.X ?? w - CORNER_BR_W) - 8;
         var rivetsWidth = okAreaStart - CORNER_TL_W;
         var okAreaWidth = w - CORNER_BR_W - okAreaStart;
@@ -117,7 +117,7 @@ public abstract class FramedDialogPanelBase : PrefabPanel
                 okAreaWidth,
                 EdgeBottomOk.Height);
 
-        // 3. Corners (drawn last to cover edge overlap)
+        //3. corners (drawn last to cover edge overlap)
         if (CornerTl is not null)
             AtlasHelper.Draw(
                 spriteBatch,
@@ -146,7 +146,7 @@ public abstract class FramedDialogPanelBase : PrefabPanel
                 new Vector2(sx + w - CORNER_BR_W, sy + h - CORNER_BR_H),
                 Color.White);
 
-        // 4. Children (content controls)
+        //4. children (content controls)
         DrawChildren(spriteBatch);
     }
 

@@ -89,7 +89,7 @@ public sealed class SkillBook
             if (slotName.EqualsI(name))
                 return true;
 
-            // Prefix match for leveled skills (e.g., "swimming Lv.5")
+            //prefix match for leveled skills (e.g., "swimming lv.5")
             if (slotName.StartsWithI(name) && (slotName.Length > name.Length) && (slotName[name.Length] == ' '))
                 return true;
         }
@@ -173,12 +173,22 @@ public sealed class SkillBook
     /// </summary>
     public readonly record struct SkillSlotData(ushort Sprite, string? Name, string? Chant)
     {
-        internal static readonly SkillSlotData Empty;
+        internal static readonly SkillSlotData Empty = default;
 
         /// <summary>
         ///     Parsed ability name without the level suffix (e.g. "beag ioc" from "beag ioc (Lev:25/50)").
         /// </summary>
         public string? AbilityName { get; } = ParseAbilityName(Name);
+
+        /// <summary>
+        ///     Parsed current level from the name suffix (e.g. 25 from "beag ioc (Lev:25/50)"). Zero if absent.
+        /// </summary>
+        public byte CurrentLevel { get; } = ParseLevel(Name);
+
+        /// <summary>
+        ///     Parsed max level from the name suffix (e.g. 50 from "beag ioc (Lev:25/50)"). Zero if absent.
+        /// </summary>
+        public byte MaxLevel { get; } = ParseMaxLevel(Name);
 
         /// <summary>
         ///     True if this slot contains a skill (has a sprite assigned).
@@ -193,6 +203,49 @@ public sealed class SkillBook
             var levIndex = name.LastIndexOf("(Lev:", StringComparison.Ordinal);
 
             return levIndex > 0 ? name[..levIndex].TrimEnd() : name;
+        }
+
+        private static byte ParseLevel(string? name)
+        {
+            if (string.IsNullOrEmpty(name))
+                return 0;
+
+            var levIndex = name.LastIndexOf("(Lev:", StringComparison.Ordinal);
+
+            if (levIndex < 0)
+                return 0;
+
+            var start = levIndex + 5;
+            var slashIndex = name.IndexOf('/', start);
+
+            if (slashIndex <= start)
+                return 0;
+
+            return byte.TryParse(name.AsSpan(start, slashIndex - start), out var level) ? level : (byte)0;
+        }
+
+        private static byte ParseMaxLevel(string? name)
+        {
+            if (string.IsNullOrEmpty(name))
+                return 0;
+
+            var levIndex = name.LastIndexOf("(Lev:", StringComparison.Ordinal);
+
+            if (levIndex < 0)
+                return 0;
+
+            var slashIndex = name.IndexOf('/', levIndex + 5);
+
+            if (slashIndex < 0)
+                return 0;
+
+            var start = slashIndex + 1;
+            var endIndex = name.IndexOf(')', start);
+
+            if (endIndex <= start)
+                return 0;
+
+            return byte.TryParse(name.AsSpan(start, endIndex - start), out var level) ? level : (byte)0;
         }
     }
 }

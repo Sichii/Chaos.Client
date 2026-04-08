@@ -66,7 +66,7 @@ public sealed class MenuShopPanel : PrefabPanel
         Name = "MerchantBrowser";
         Visible = false;
 
-        // Right-aligned, bottom-anchored above dialog bar (same as other dialog sub-panels)
+        //right-aligned, bottom-anchored above dialog bar (same as other dialog sub-panels)
         X = ChaosGame.VIRTUAL_WIDTH - Width;
         Y = 372 - Height;
 
@@ -127,7 +127,7 @@ public sealed class MenuShopPanel : PrefabPanel
             };
         }
 
-        // Create category tabs
+        //create category tabs
         var uiCache = UiRenderer.Instance!;
         var tabNormal = uiCache.GetSpfTexture("nd_mtab.spf");
         var tabSelected = uiCache.GetSpfTexture("nd_mtab.spf", 1);
@@ -154,7 +154,7 @@ public sealed class MenuShopPanel : PrefabPanel
         ContentRect = GetRect("Content");
         ItemsPerPage = ContentRect.Height > 0 ? ContentRect.Height / ROW_HEIGHT : 4;
 
-        // Create listing panels as children for each visible row slot
+        //create listing panels as children for each visible row slot
         Listings = new MerchantListingPanel[ItemsPerPage];
 
         for (var i = 0; i < ItemsPerPage; i++)
@@ -198,7 +198,7 @@ public sealed class MenuShopPanel : PrefabPanel
                 Categories.Add(category);
         }
 
-        // Sort alphabetically, but keep "Other" at the end
+        //sort alphabetically, but keep "other" at the end
         Categories.Sort((a, b) =>
         {
             var aIsOther = a.EqualsI("Other");
@@ -438,7 +438,7 @@ public sealed class MenuShopPanel : PrefabPanel
         if (args.Slots is null)
             return;
 
-        // Collect names for metadata batch lookup
+        //collect names for metadata batch lookup
         var names = new List<string>();
 
         foreach (var slot in args.Slots)
@@ -804,13 +804,13 @@ public sealed class MenuShopPanel : PrefabPanel
             var costText = cost > 0 ? cost.ToString("N0") : string.Empty;
             var maxName = MAX_COMBINED_CHARS - costText.Length;
 
-            // Truncate at first newline
+            //truncate at first newline
             var newlineIndex = name.IndexOf('\n');
 
             if (newlineIndex >= 0)
                 name = newlineIndex <= (maxName - 3) ? name[..newlineIndex] + "..." : name[..newlineIndex];
 
-            // Truncate to fit within combined max
+            //truncate to fit within combined max
             if (name.Length > maxName)
                 name = name[..(maxName - 3)] + "...";
 

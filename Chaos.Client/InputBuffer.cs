@@ -14,21 +14,21 @@ public sealed class InputBuffer : IDisposable
     private readonly Game Game;
     private readonly HashSet<Keys> HeldKeys = [];
 
-    // Accumulation buffers — filled by window events between Update() calls
+    //accumulation buffers — filled by window events between update() calls
     private readonly List<Keys> PendingPresses = [];
     private readonly List<Keys> PendingReleases = [];
     private readonly List<char> PendingText = [];
     private readonly GameWindow Window;
     private MouseState CurrentMouse;
 
-    // Frame snapshot — frozen at the start of each Update()
+    //frame snapshot — frozen at the start of each update()
     private readonly HashSet<Keys> FrameKeyPresses = [];
     private readonly HashSet<Keys> FrameKeyReleases = [];
     private MouseState PreviousMouse;
     private char[] TextBuffer = [];
     private int TextCount;
 
-    // Virtual resolution transform — raw window coords → virtual 640×480 coords
+    //virtual resolution transform — raw window coords → virtual 640×480 coords
     private float VirtualScale = 1f;
 
     public InputBuffer(Game game)
@@ -75,7 +75,7 @@ public sealed class InputBuffer : IDisposable
     {
         if (!Game.IsActive)
         {
-            // Window not focused — discard buffered input and report nothing
+            //window not focused — discard buffered input and report nothing
             PendingPresses.Clear();
             PendingReleases.Clear();
             PendingText.Clear();

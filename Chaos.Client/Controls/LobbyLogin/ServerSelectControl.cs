@@ -27,7 +27,7 @@ public sealed class ServerSelectControl : PrefabPanel
 
     public void SetServers(List<ServerTableEntry> entries)
     {
-        // Remove previous server labels
+        //remove previous server labels
         foreach ((var nameLabel, var descLabel) in ServerLabels)
         {
             RemoveChild(nameLabel.Name);

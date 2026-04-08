@@ -87,14 +87,14 @@ public sealed class SystemMessagePanel : ExpandablePanel
     {
         ExpandedDisplayBounds = expandedBounds;
 
-        // Clear the normal background so ExpandYOffset is computed from panel Height, not the
-        // texture height (which is the same as the expanded texture, yielding ExpandYOffset=0).
+        //clear the normal background so expandyoffset is computed from panel height, not the
+        //texture height (which is the same as the expanded texture, yielding expandyoffset=0).
         Background = null;
         Height = panelBounds.Height;
 
         ConfigureExpand(expandedBackground);
 
-        // Create additional labels needed for the expanded line count
+        //create additional labels needed for the expanded line count
         var expandedMaxLines = expandedBounds.Height / GLYPH_HEIGHT;
 
         if (expandedMaxLines > Lines.Length)
@@ -122,11 +122,11 @@ public sealed class SystemMessagePanel : ExpandablePanel
             }
         }
 
-        // In the large HUD, the compact area is too small for a scrollbar
+        //in the large hud, the compact area is too small for a scrollbar
         ScrollBar.Visible = false;
     }
 
-    // Labels are children — drawn automatically by base.Draw()
+    //labels are children — drawn automatically by base.draw()
 
     private void RefreshDisplay()
     {
@@ -174,7 +174,7 @@ public sealed class SystemMessagePanel : ExpandablePanel
         ScrollBar.Visible = expanded;
         ScrollBar.Height = DisplayBounds.Height;
 
-        // Show/hide labels based on current line count
+        //show/hide labels based on current line count
         for (var i = 0; i < Lines.Length; i++)
             Lines[i].Visible = i < MaxVisibleLines;
 
@@ -205,7 +205,7 @@ public sealed class SystemMessagePanel : ExpandablePanel
 
         base.Update(gameTime);
 
-        // Auto-scroll to bottom when new messages arrive
+        //auto-scroll to bottom when new messages arrive
         if (History.Count != LastHistoryCount)
         {
             ScrollOffset = 0;

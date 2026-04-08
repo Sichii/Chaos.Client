@@ -68,12 +68,12 @@ public sealed class MailReadControl : PrefabPanel
         if (DeleteButton is not null)
             DeleteButton.Clicked += () => OnDeletePost?.Invoke(CurrentPostId);
 
-        // Labels
+        //labels
         AuthorLabel = CreateLabel("Author");
         TitleLabel = CreateLabel("Title");
         DateLabel = CreateLabel("Mmdd");
 
-        // Body content area
+        //body content area
         var contentRect = GetRect("Content");
         VisibleHeight = contentRect.Height;
 

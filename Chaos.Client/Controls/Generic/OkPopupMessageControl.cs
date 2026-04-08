@@ -21,7 +21,7 @@ public sealed class OkPopupMessageControl : UIPanel
     private const int CONTENT_PADDING = 6;
     private const int BUTTON_MARGIN = 1;
 
-    // butt001.epf frame indices — 2 frames per button (normal/pressed)
+    //butt001.epf frame indices — 2 frames per button (normal/pressed)
     private const int OK_NORMAL = 15;
     private const int OK_PRESSED = 16;
     private const int CANCEL_NORMAL = 21;
@@ -45,7 +45,7 @@ public sealed class OkPopupMessageControl : UIPanel
         Visible = false;
         UsesControlStack = true;
 
-        // Load background tile
+        //load background tile
         using var bgTile = DataContext.UserControls.GetSpfImage("DlgBack2.spf");
 
         if (bgTile is null)
@@ -56,7 +56,7 @@ public sealed class OkPopupMessageControl : UIPanel
         var totalWidth = borderSize + interiorWidth + borderSize;
         var totalHeight = borderSize + INTERIOR_HEIGHT + borderSize;
 
-        // Composite tiled background with border
+        //composite tiled background with border
         using var composite = DialogFrame.Composite(bgTile, totalWidth, totalHeight);
 
         if (composite is null)
@@ -67,30 +67,30 @@ public sealed class OkPopupMessageControl : UIPanel
         this.CenterOnScreen();
         Background = TextureConverter.ToTexture2D(composite);
 
-        // Content area — text fills above the button row
+        //content area — text fills above the button row
         ContentX = borderSize + CONTENT_PADDING;
         ContentY = borderSize + CONTENT_PADDING;
         ContentWidth = interiorWidth - CONTENT_PADDING * 2;
         ContentHeight = INTERIOR_HEIGHT - CONTENT_PADDING * 2;
 
-        // Button textures
+        //button textures
         var cache = UiRenderer.Instance!;
         var okNormalTex = cache.GetEpfTexture("butt001.epf", OK_NORMAL);
         var okPressedTex = cache.GetEpfTexture("butt001.epf", OK_PRESSED);
 
-        var okWidth = okNormalTex?.Width ?? 0;
-        var okHeight = okNormalTex?.Height ?? 0;
+        var okWidth = okNormalTex.Width;
+        var okHeight = okNormalTex.Height;
         var buttonY = totalHeight - borderSize - okHeight - BUTTON_MARGIN + 5;
         var rightButtonX = totalWidth - borderSize - BUTTON_MARGIN + 4;
         int okX;
 
-        // Cancel button (optional) — positioned on the right
+        //cancel button (optional) — positioned on the right
         if (showCancel)
         {
             var cancelNormalTex = cache.GetEpfTexture("butt001.epf", CANCEL_NORMAL);
             var cancelPressedTex = cache.GetEpfTexture("butt001.epf", CANCEL_PRESSED);
 
-            var cancelWidth = cancelNormalTex?.Width ?? 0;
+            var cancelWidth = cancelNormalTex.Width;
 
             CancelButton = new UIButton
             {
@@ -98,7 +98,7 @@ public sealed class OkPopupMessageControl : UIPanel
                 X = rightButtonX - cancelWidth,
                 Y = buttonY,
                 Width = cancelWidth,
-                Height = cancelNormalTex?.Height ?? 0,
+                Height = cancelNormalTex.Height,
                 NormalTexture = cancelNormalTex,
                 PressedTexture = cancelPressedTex
             };
@@ -111,7 +111,7 @@ public sealed class OkPopupMessageControl : UIPanel
             okX = rightButtonX - okWidth;
         }
 
-        // OK button — left of Cancel, or slides right when Cancel absent
+        //ok button — left of cancel, or slides right when cancel absent
         OkButton = new UIButton
         {
             Name = "OK",
@@ -143,7 +143,7 @@ public sealed class OkPopupMessageControl : UIPanel
 
     public void Hide()
     {
-        InputDispatcher.Instance?.RemoveControl(this);
+        InputDispatcher.Instance!.RemoveControl(this);
         Visible = false;
         MessageLines = null;
     }
@@ -160,7 +160,7 @@ public sealed class OkPopupMessageControl : UIPanel
         MessageLines = lines;
         MessageTextX = ContentX - 9;
         MessageTextY = ContentY + (ContentHeight - textHeight) / 2 - 10;
-        InputDispatcher.Instance?.PushControl(this);
+        InputDispatcher.Instance!.PushControl(this);
         Visible = true;
     }
 

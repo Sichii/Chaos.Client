@@ -24,7 +24,6 @@ public sealed class WorldMapNode : UIPanel
     private static Texture2D? SharedHoveredBox;
 
     private readonly UILabel Label;
-    private readonly string Text;
     private bool IsHovered;
     public ushort CheckSum { get; }
     public int DestX { get; }
@@ -46,7 +45,6 @@ public sealed class WorldMapNode : UIPanel
         DestX = destX;
         DestY = destY;
         CheckSum = checkSum;
-        Text = text;
 
         EnsureBoxTextures();
 
@@ -110,14 +108,14 @@ public sealed class WorldMapNode : UIPanel
 
         if (boxTexture is not null)
         {
-            // Normal box bottom-aligns with text; hovered box shrinks toward its center
+            //normal box bottom-aligns with text; hovered box shrinks toward its center
             var offsetX = (BOX_SIZE - boxTexture.Width) / 2;
             var offsetY = (BOX_SIZE - boxTexture.Height) / 2;
             var boxY = bottom - BOX_SIZE + offsetY;
             spriteBatch.Draw(boxTexture, new Vector2(ScreenX + offsetX, boxY), Color.White);
         }
 
-        // Children (Label) drawn by base
+        //children (label) drawn by base
         base.Draw(spriteBatch);
     }
 

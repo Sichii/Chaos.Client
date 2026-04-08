@@ -36,8 +36,7 @@ public sealed class LightMetadata
     }
 
     /// <summary>
-    ///     Parses the "Light" MetaFile. Entries with "_" in the key are light property nodes; entries with a numeric key are
-    ///     map-to-light-type mappings.
+    ///     Parses the "Light" MetaFile into light property entries and map-to-light-type mappings.
     /// </summary>
     public static LightMetadata Parse(MetaFile metaFile)
     {

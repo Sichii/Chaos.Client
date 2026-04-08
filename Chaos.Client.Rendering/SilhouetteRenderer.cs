@@ -190,7 +190,7 @@ public sealed class SilhouetteRenderer : IDisposable
                 0,
                 0));
 
-        // The caller draws all silhouetted entities using the same SpriteBatch/transform as the normal world pass
+        //the caller draws all silhouetted entities using the same spritebatch/transform as the normal world pass
         drawEntities(Batch);
 
         Device.SetRenderTarget(previousTarget);
@@ -273,22 +273,23 @@ public sealed class SilhouetteRenderer : IDisposable
     }
 
     /// <summary>
-    ///     A transparent aisling entry with pre-composited layer data.
+    ///     Tracks a transparent aisling queued for offscreen compositing. After <see cref="PreRenderTransparents" />,
+    ///     <see cref="CompositeTarget" /> holds the fully composited render target for inline drawing during the stripe pass.
     /// </summary>
     public sealed class TransparentEntry(
-        uint EntityId,
-        int TileX,
-        int TileY,
-        Vector2 VisualOffset,
-        AislingDrawData DrawData,
-        bool IsHighlighted)
+        uint entityId,
+        int tileX,
+        int tileY,
+        Vector2 visualOffset,
+        AislingDrawData drawData,
+        bool isHighlighted)
     {
         public RenderTarget2D? CompositeTarget { get; set; }
-        public AislingDrawData DrawData { get; } = DrawData;
-        public uint EntityId { get; } = EntityId;
-        public bool IsHighlighted { get; } = IsHighlighted;
-        public int TileX { get; } = TileX;
-        public int TileY { get; } = TileY;
-        public Vector2 VisualOffset { get; } = VisualOffset;
+        public AislingDrawData DrawData { get; } = drawData;
+        public uint EntityId { get; } = entityId;
+        public bool IsHighlighted { get; } = isHighlighted;
+        public int TileX { get; } = tileX;
+        public int TileY { get; } = tileY;
+        public Vector2 VisualOffset { get; } = visualOffset;
     }
 }

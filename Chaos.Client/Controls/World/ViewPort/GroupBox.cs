@@ -12,11 +12,11 @@ namespace Chaos.Client.Controls.World.ViewPort;
 /// </summary>
 public sealed class GroupBox : UIPanel
 {
-    // gc_pane2.spf is 103x19 — wooden frame with teal interior
+    //gc_pane2.spf is 103x19 — wooden frame with teal interior
     public const int PANEL_WIDTH = 103;
     public const int PANEL_HEIGHT = 19;
 
-    // TITLE rect from lgcpane.txt: (3,3)-(100,16), 97x13 text area
+    //title rect from lgcpane.txt: (3,3)-(100,16), 97x13 text area
     private const int TITLE_X = 3;
     private const int TITLE_Y = 3;
     private const int TITLE_WIDTH = 97;
@@ -68,7 +68,7 @@ public sealed class GroupBox : UIPanel
     ///     Loads gc_pane2.spf and fills the TITLE rect interior with semi-transparent black. The original client fills this
     ///     area with white then uses blend mode 0x79 to make it see-through with a dark tint.
     /// </summary>
-    private static Texture2D? BuildPanelTexture(Color titleFill)
+    private static Texture2D BuildPanelTexture(Color titleFill)
     {
         var source = UiRenderer.Instance!.GetSpfTexture("gc_pane2.spf");
 
@@ -100,13 +100,13 @@ public sealed class GroupBox : UIPanel
             HoverPanelTexture = BuildPanelTexture(HoverFillColor);
         }
 
-        // Draw the panel frame — swap texture based on hover state
+        //draw the panel frame — swap texture based on hover state
         var panel = IsHovered ? HoverPanelTexture : NormalPanelTexture;
 
         if (panel is not null && !panel.IsDisposed)
             spriteBatch.Draw(panel, new Vector2(ScreenX, ScreenY), Color.White);
 
-        // Draw children (label)
+        //draw children (label)
         base.Draw(spriteBatch);
     }
 

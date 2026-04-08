@@ -22,27 +22,27 @@ public sealed class WorldHudControl : PrefabPanel, IWorldHud
     private readonly UILabel CoordsLabel;
     private readonly UILabel? DescriptionLabel;
 
-    // HP/MP numeric displays
+    //hp/mp numeric displays
     private readonly UILabel HpNumLabel;
 
-    // HP/MP orbs
+    //hp/mp orbs
     private readonly UIProgressBar HpOrb;
     private readonly UILabel MpNumLabel;
     private readonly UIProgressBar MpOrb;
 
-    // Orange bar
+    //orange bar
     private readonly OrangeBarControl OrangeBar;
     private readonly UILabel? PersistentMessageLabel;
 
-    // Persistent message — EmoticonDialog panel, white text, no auto-expire, cleared by server
+    //persistent message — emoticondialog panel, white text, no auto-expire, cleared by server
     private readonly UIPanel? PersistentMessagePanel;
 
-    // Info text
+    //info text
     private readonly UILabel PlayerNameLabel;
 
     private readonly UILabel? ServerNameLabel;
 
-    // Tab panel system — shared center-bottom area
+    //tab panel system — shared center-bottom area
     private readonly UIPanel?[] TabPanels = new UIPanel?[Enum.GetValues<HudTab>()
                                                              .Length];
 
@@ -61,7 +61,7 @@ public sealed class WorldHudControl : PrefabPanel, IWorldHud
     public UIButton? BulletinButton { get; }
     public UIButton? ChangeLayoutButton { get; }
 
-    // Chat
+    //chat
     public UITextBox ChatInput { get; }
 
     public EffectBarControl EffectBar { get; }
@@ -70,20 +70,20 @@ public sealed class WorldHudControl : PrefabPanel, IWorldHud
     public UIButton? GroupButton { get; }
     public UIButton? GroupIndicator { get; }
 
-    // Buttons — lower right
+    //buttons — lower right
     public UIButton? HelpButton { get; }
 
-    // Inventory
+    //inventory
     public Rectangle InventoryBounds { get; }
 
-    // Inventory tab buttons
+    //inventory tab buttons
     public UIButton?[] InventoryTabButtons { get; } = new UIButton?[6];
     public UIButton? LegendButton { get; }
 
-    // Buttons — notification indicators
+    //buttons — notification indicators
     public UIButton? MailButton { get; }
 
-    // Buttons — right side
+    //buttons — right side
     public UIButton? OptionButton { get; }
     public UIButton? ScreenshotButton { get; }
     public UIButton? SettingsButton { get; }
@@ -91,7 +91,7 @@ public sealed class WorldHudControl : PrefabPanel, IWorldHud
 
     public UIButton? UsersButton { get; }
 
-    // Viewport — the area where the game world renders
+    //viewport — the area where the game world renders
     public Rectangle ViewportBounds { get; }
 
     public WorldHudControl(string prefabName = "_nbk_s")
@@ -100,13 +100,13 @@ public sealed class WorldHudControl : PrefabPanel, IWorldHud
         Name = "GameHud";
         IsPassThrough = true;
 
-        // Viewport rect — where the game world renders
+        //viewport rect — where the game world renders
         ViewportBounds = GetRect("MAP");
 
         if (ViewportBounds == Rectangle.Empty)
             ViewportBounds = GetRect("EMPTY");
 
-        // Chat input textbox (SAY) — reduce padding so prefix aligns flush
+        //chat input textbox (say) — reduce padding so prefix aligns flush
         ChatInput = CreateTextBox("SAY", 255)!;
         ChatInput.PaddingLeft = 1;
         ChatInput.PaddingRight = 1;
@@ -119,20 +119,20 @@ public sealed class WorldHudControl : PrefabPanel, IWorldHud
             0,
             160);
 
-        // Inventory area
+        //inventory area
         InventoryBounds = GetRect("InventoryRect");
 
-        // HP/MP orbs
+        //hp/mp orbs
         HpOrb = CreateProgressBar("ORB_HP")!;
         MpOrb = CreateProgressBar("ORB_MP")!;
 
-        // HP/MP numeric text — ZIndex=1 so labels always render above overlapping orbs after re-sorts
+        //hp/mp numeric text — zindex=1 so labels always render above overlapping orbs after re-sorts
         HpNumLabel = CreateLabel("NUM_HP", TextAlignment.Right)!;
         HpNumLabel.ZIndex = 1;
         MpNumLabel = CreateLabel("NUM_MP", TextAlignment.Right)!;
         MpNumLabel.ZIndex = 1;
 
-        // Info text areas
+        //info text areas
         PlayerNameLabel = CreateLabel("SZ_ID", TextAlignment.Center)!;
         ZoneNameLabel = CreateLabel("SZ_ZONE", TextAlignment.Center)!;
         ZoneNameLabel.ForegroundColor = LegendColors.White;
@@ -141,7 +141,7 @@ public sealed class WorldHudControl : PrefabPanel, IWorldHud
         ServerNameLabel = CreateLabel("SZ_SERVER", TextAlignment.Center);
         DescriptionLabel = CreateLabel("SZ_DESCRIPTION");
 
-        // Effect bar — right side, above the option button
+        //effect bar — right side, above the option button
         EffectBar = new EffectBarControl
         {
             X = 618,
@@ -150,36 +150,36 @@ public sealed class WorldHudControl : PrefabPanel, IWorldHud
         };
         AddChild(EffectBar);
 
-        // Buttons — right side
+        //buttons — right side
         OptionButton = CreateButton("BTN_OPTION");
         BulletinButton = CreateButton("BTN_BULLETIN");
         UsersButton = CreateButton("BTN_USERS");
         ExpandButton = CreateButton("BTN_EXPAND");
         ChangeLayoutButton = CreateButton("BTN_CHANGELAYOUT");
 
-        // Buttons — lower right
+        //buttons — lower right
         HelpButton = CreateButton("BTN_HELP");
         LegendButton = CreateButton("BTN_LEGEND");
         TownMapButton = CreateButton("BTN_TOWNMAP");
         GroupButton = CreateButton("BTN_GROUP");
 
-        // Notification indicators
+        //notification indicators
         MailButton = CreateButton("CMail");
         GroupIndicator = CreateButton("CGroup");
         ScreenshotButton = CreateButton("CShot");
 
-        // Emote/status button
+        //emote/status button
         EmoteButton = CreateButton("BTN_EMOT");
 
-        // Conditional buttons (may not exist in all client versions)
+        //conditional buttons (may not exist in all client versions)
         SettingsButton = CreateButton("BTN_SETTING");
         CreateButton("BTN_SCREENSHOT");
 
-        // Inventory tab buttons (BTN_INV0 through BTN_INV5)
+        //inventory tab buttons (btn_inv0 through btn_inv5)
         for (var i = 0; i < 6; i++)
             InventoryTabButtons[i] = CreateButton($"BTN_INV{i}");
 
-        // Persistent message panel — uses EmoticonDialog from lback.txt + Description from lemot.txt
+        //persistent message panel — uses emoticondialog from lback.txt + description from lemot.txt
         var lbackPrefab = DataContext.UserControls.Get("lback");
         var lemotPrefab = DataContext.UserControls.Get("lemot");
 
@@ -221,24 +221,24 @@ public sealed class WorldHudControl : PrefabPanel, IWorldHud
             AddChild(PersistentMessagePanel);
         }
 
-        // Resolve inventory background textures from prefab for tab panels
+        //resolve inventory background textures from prefab for tab panels
         var cache = UiRenderer.Instance!;
         var invBgTexture = GetPrefabTexture(cache, "InventoryBackground");
         var invBgExpandedTexture = GetPrefabTexture(cache, "InventoryBackgroundExpanded");
         var livingBgTexture = GetPrefabTexture(cache, "LivingInventoryBackground");
 
-        // Orange bar — created before tab panels (MessageHistoryPanel needs its history list),
-        // but added as child after so it draws on top
+        //orange bar — created before tab panels (messagehistorypanel needs its history list),
+        //but added as child after so it draws on top
         OrangeBar = new OrangeBarControl(PrefabSet);
 
-        // Tab panels — shared center-bottom area
+        //tab panels — shared center-bottom area
         CreateTabPanels(invBgTexture, invBgExpandedTexture, livingBgTexture);
 
-        // Orange bar renders above collapsed tab panels (z=0) but below expanded ones (z=10)
+        //orange bar renders above collapsed tab panels (z=0) but below expanded ones (z=10)
         OrangeBar.ZIndex = 1;
         AddChild(OrangeBar);
 
-        // Subscribe to attributes changes for HP/MP/weight/stats
+        //subscribe to attributes changes for hp/mp/weight/stats
         AttributesState = WorldState.Attributes;
         AttributesState.Changed += OnAttributesChanged;
 
@@ -290,20 +290,20 @@ public sealed class WorldHudControl : PrefabPanel, IWorldHud
     /// </summary>
     public void ShowTab(HudTab tab)
     {
-        // Collapse inventory when switching away so it doesn't persist expanded state
+        //collapse inventory when switching away so it doesn't persist expanded state
         if (Inventory.IsExpanded && (tab != HudTab.Inventory))
             Inventory.SetExpanded(false);
 
-        // Hide ALL unique panels to prevent stale visibility
+        //hide all unique panels to prevent stale visibility
         foreach (var panel in TabPanels)
             panel?.Visible = false;
 
-        // Force hover exit on inventory when switching away — tooltip won't clear on its own
-        // since the panel stops updating when hidden
+        //force hover exit on inventory when switching away — tooltip won't clear on its own
+        //since the panel stops updating when hidden
         if ((ActiveTab == HudTab.Inventory) && (tab != HudTab.Inventory))
             Inventory.ForceHoverExit();
 
-        // Deselect old tab button
+        //deselect old tab button
         var oldButtonIndex = GetTabButtonIndex(ActiveTab);
 
         if ((oldButtonIndex >= 0) && (oldButtonIndex < InventoryTabButtons.Length))
@@ -316,7 +316,7 @@ public sealed class WorldHudControl : PrefabPanel, IWorldHud
 
         next?.Visible = true;
 
-        // Select new tab button
+        //select new tab button
         var newButtonIndex = GetTabButtonIndex(tab);
 
         if ((newButtonIndex >= 0) && (newButtonIndex < InventoryTabButtons.Length))
@@ -326,49 +326,49 @@ public sealed class WorldHudControl : PrefabPanel, IWorldHud
 
     private void CreateTabPanels(Texture2D? invBgTexture, Texture2D? invBgExpandedTexture, Texture2D? livingBgTexture)
     {
-        // Tab panels are placed at InventoryBounds (absolute screen position from InventoryRect control).
+        //tab panels are placed at inventorybounds (absolute screen position from inventoryrect control).
         var tabRect = InventoryBounds;
 
-        // Inventory (A)
+        //inventory (a)
         Inventory = new InventoryPanel(PrefabSet, invBgTexture, invBgExpandedTexture);
         RegisterTab(HudTab.Inventory, Inventory, tabRect);
 
-        // Skills (S) / Skills Alt (Shift+S)
+        //skills (s) / skills alt (shift+s)
         SkillBook = new SkillBookPanel(PrefabSet, background: invBgTexture);
 
         SkillBookAlt = new SkillBookPanel(PrefabSet, true, invBgTexture);
         RegisterTab(HudTab.Skills, SkillBook, tabRect);
         RegisterTab(HudTab.SkillsAlt, SkillBookAlt, tabRect);
 
-        // Spells (D) / Spells Alt (Shift+D)
+        //spells (d) / spells alt (shift+d)
         SpellBook = new SpellBookPanel(PrefabSet, background: invBgTexture);
 
         SpellBookAlt = new SpellBookPanel(PrefabSet, true, invBgTexture);
         RegisterTab(HudTab.Spells, SpellBook, tabRect);
         RegisterTab(HudTab.SpellsAlt, SpellBookAlt, tabRect);
 
-        // Chat (F)
+        //chat (f)
         var chatDisplayBounds = GetRect("ChattingRect");
         ChatDisplay = new ChatPanel(chatDisplayBounds, tabRect);
         RegisterTab(HudTab.Chat, ChatDisplay, tabRect);
 
-        // Stats (G) / Extended Stats (Shift+G) — both load from _nstatus prefab
+        //stats (g) / extended stats (shift+g) — both load from _nstatus prefab
         var statusPrefabSet = DataContext.UserControls.Get("_nstatus")!;
         StatsPanel = new StatsPanel(statusPrefabSet);
         ExtendedStatsPanel = new ExtendedStatsPanel(statusPrefabSet);
         RegisterTab(HudTab.Stats, StatsPanel, tabRect);
         RegisterTab(HudTab.ExtendedStats, ExtendedStatsPanel, tabRect);
 
-        // Tools (H)
+        //tools (h)
         RegisterTab(HudTab.Tools, new ToolsPanel(PrefabSet, livingBgTexture), tabRect);
 
-        // Message History (Shift+F) — displays orange bar messages in a tab panel
+        //message history (shift+f) — displays orange bar messages in a tab panel
         var msgHistoryBounds = GetRect("ChattingRect");
 
         MessageHistory = new SystemMessagePanel(msgHistoryBounds, tabRect, WorldState.Chat.GetOrangeBarHistory());
         RegisterTab(HudTab.MessageHistory, MessageHistory, tabRect);
 
-        // Wire tab button clicks: BTN_INV0=A, BTN_INV1=S, BTN_INV2=D, BTN_INV3=F, BTN_INV4=G, BTN_INV5=H
+        //wire tab button clicks: btn_inv0=a, btn_inv1=s, btn_inv2=d, btn_inv3=f, btn_inv4=g, btn_inv5=h
         HudTab[] tabMapping =
         [
             HudTab.Inventory,
@@ -386,7 +386,7 @@ public sealed class WorldHudControl : PrefabPanel, IWorldHud
 
                 InventoryTabButtons[i]!.Clicked += () =>
                 {
-                    // Toggle between primary and alt panes for Skills/Spells when clicking the same button
+                    //toggle between primary and alt panes for skills/spells when clicking the same button
                     if (tab == HudTab.Skills && (ActiveTab is HudTab.Skills or HudTab.SkillsAlt))
                         ShowTab(ActiveTab == HudTab.Skills ? HudTab.SkillsAlt : HudTab.Skills);
                     else if (tab == HudTab.Spells && (ActiveTab is HudTab.Spells or HudTab.SpellsAlt))
@@ -396,7 +396,7 @@ public sealed class WorldHudControl : PrefabPanel, IWorldHud
                 };
             }
 
-        // Default to inventory visible
+        //default to inventory visible
         ShowTab(HudTab.Inventory);
     }
 
@@ -405,7 +405,7 @@ public sealed class WorldHudControl : PrefabPanel, IWorldHud
         panel.X = tabRect.X;
         panel.Y = tabRect.Y;
 
-        // Ensure tab panels have bounds for hit-testing (background size or tab rect as fallback)
+        //ensure tab panels have bounds for hit-testing (background size or tab rect as fallback)
         if (panel.Width == 0)
             panel.Width = panel.Background?.Width ?? tabRect.Width;
 
@@ -475,7 +475,7 @@ public sealed class WorldHudControl : PrefabPanel, IWorldHud
     /// </summary>
     public void SetDescription(string? text)
     {
-        // Don't show hover descriptions while chat input is focused — they overlap
+        //don't show hover descriptions while chat input is focused — they overlap
         if (ChatInput.IsFocused && !string.IsNullOrEmpty(text))
             return;
 

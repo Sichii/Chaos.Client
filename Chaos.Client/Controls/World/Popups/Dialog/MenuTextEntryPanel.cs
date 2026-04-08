@@ -18,7 +18,7 @@ public sealed class MenuTextEntryPanel : FramedDialogPanelBase
     private const int BTN_HEIGHT = 22;
     private const int BOTTOM_ANCHOR_Y = 372;
 
-    // Content layout
+    //content layout
     private const int LABEL_X = 22;
     private const int LABEL_Y = 19;
     private const int INPUT_X = 72;
@@ -41,15 +41,15 @@ public sealed class MenuTextEntryPanel : FramedDialogPanelBase
         Visible = false;
 
 
-        // Compact panel — dynamic 9-slice wraps just the text entry content
+        //compact panel — dynamic 9-slice wraps just the text entry content
         Width = PANEL_WIDTH;
         Height = PANEL_HEIGHT;
 
-        // Right-aligned, bottom-anchored above dialog bar
+        //right-aligned, bottom-anchored above dialog bar
         X = ChaosGame.VIRTUAL_WIDTH - Width;
         Y = BOTTOM_ANCHOR_Y - Height;
 
-        // "Input:" label
+        //"input:" label
         var inputLabel = new UILabel
         {
             Name = "InputLabel",
@@ -63,7 +63,7 @@ public sealed class MenuTextEntryPanel : FramedDialogPanelBase
 
         AddChild(inputLabel);
 
-        // Text input field
+        //text input field
         TextInput = new UITextBox
         {
             Name = "TextInput",
@@ -78,7 +78,7 @@ public sealed class MenuTextEntryPanel : FramedDialogPanelBase
 
         AddChild(TextInput);
 
-        // OK button from prefab
+        //ok button from prefab
         OkButton = CreateButton("Btn1");
 
         if (OkButton is not null)

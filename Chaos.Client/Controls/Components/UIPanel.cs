@@ -112,7 +112,7 @@ public class UIPanel : UIElement
         for (var i = Children.Count - 1; i >= 0; i--)
             if (Children[i]
                 .Name
-                ?.EqualsI(name) is true)
+                .EqualsI(name))
             {
                 var child = Children[i];
                 Children.RemoveAt(i);
@@ -153,7 +153,7 @@ public class UIPanel : UIElement
         if (e.Key != Keys.Tab)
             return;
 
-        // Collect all visible IsTabStop textboxes, sorted by Y then X
+        //collect all visible istabstop textboxes, sorted by y then x
         List<UITextBox>? tabStops = null;
 
         foreach (var child in Children)
@@ -174,7 +174,7 @@ public class UIPanel : UIElement
             return cmp != 0 ? cmp : a.ScreenX.CompareTo(b.ScreenX);
         });
 
-        // Find current and advance
+        //find current and advance
         var currentIndex = -1;
 
         for (var i = 0; i < tabStops.Count; i++)

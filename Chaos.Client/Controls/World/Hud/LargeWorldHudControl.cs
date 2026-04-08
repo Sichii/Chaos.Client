@@ -22,7 +22,7 @@ public sealed class LargeWorldHudControl : PrefabPanel, IWorldHud
     private const int LARGE_EXPANDED_SKILL_SPELL_SLOTS = 3 * 12;
 
     private readonly PlayerAttributes AttributesState;
-    private readonly UILabel CoordsLabel;
+    private readonly UILabel CoordsLabel; 
     private readonly UILabel? DescriptionLabel;
     private readonly Rectangle ExpandedChatBounds;
     private readonly UIImage? ExtendedTabFrame;
@@ -81,13 +81,13 @@ public sealed class LargeWorldHudControl : PrefabPanel, IWorldHud
         Visible = false;
         IsPassThrough = true;
 
-        // Viewport rect
+        //viewport rect
         ViewportBounds = GetRect("MAP");
 
         if (ViewportBounds == Rectangle.Empty)
             ViewportBounds = GetRect("EMPTY");
 
-        // Chat input
+        //chat input
         ChatInput = CreateTextBox("SAY", 255)!;
         ChatInput.PaddingLeft = 1;
         ChatInput.PaddingRight = 1;
@@ -100,14 +100,14 @@ public sealed class LargeWorldHudControl : PrefabPanel, IWorldHud
             0,
             160);
 
-        // Inventory area
+        //inventory area
         InventoryBounds = GetRect("InventoryRect");
 
-        // HP/MP orbs
+        //hp/mp orbs
         HpOrb = CreateProgressBar("ORB_HP")!;
         MpOrb = CreateProgressBar("ORB_MP")!;
 
-        // HP/MP numeric text — centered for horizontal orbs, ZIndex=1 to render above orbs after re-sorts
+        //hp/mp numeric text — centered for horizontal orbs, zindex=1 to render above orbs after re-sorts
         HpNumLabel = CreateLabel("NUM_HP", TextAlignment.Center)!;
         HpNumLabel.ZIndex = 1;
         HpNumLabel.ForegroundColor = Color.White;
@@ -117,7 +117,7 @@ public sealed class LargeWorldHudControl : PrefabPanel, IWorldHud
         MpNumLabel.ForegroundColor = Color.White;
         MpNumLabel.Shadowed = true;
 
-        // Info text areas
+        //info text areas
         PlayerNameLabel = CreateLabel("SZ_ID", TextAlignment.Center)!;
         ZoneNameLabel = CreateLabel("SZ_ZONE", TextAlignment.Center)!;
         ZoneNameLabel.ForegroundColor = LegendColors.White;
@@ -126,7 +126,7 @@ public sealed class LargeWorldHudControl : PrefabPanel, IWorldHud
         ServerNameLabel = CreateLabel("SZ_SERVER", TextAlignment.Center);
         DescriptionLabel = CreateLabel("SZ_DESCRIPTION");
 
-        // Effect bar
+        //effect bar
         EffectBar = new EffectBarControl
         {
             X = 618,
@@ -135,7 +135,7 @@ public sealed class LargeWorldHudControl : PrefabPanel, IWorldHud
         };
         AddChild(EffectBar);
 
-        // Buttons
+        //buttons
         OptionButton = CreateButton("BTN_OPTION");
         BulletinButton = CreateButton("BTN_BULLETIN");
         UsersButton = CreateButton("BTN_USERS");
@@ -166,7 +166,7 @@ public sealed class LargeWorldHudControl : PrefabPanel, IWorldHud
             ExtendedTabFrame.Visible = false;
         }
 
-        // Persistent message panel
+        //persistent message panel
         var lbackPrefab = DataContext.UserControls.Get("lback");
         var lemotPrefab = DataContext.UserControls.Get("lemot");
 
@@ -208,7 +208,7 @@ public sealed class LargeWorldHudControl : PrefabPanel, IWorldHud
             AddChild(PersistentMessagePanel);
         }
 
-        // Resolve inventory background textures from prefab for tab panels
+        //resolve inventory background textures from prefab for tab panels
         var cache = UiRenderer.Instance!;
         var invBgTexture = GetPrefabTexture(cache, "InventoryBackground");
         var invBgExpandedTexture = GetPrefabTexture(cache, "InventoryBackgroundExpanded");
@@ -217,10 +217,10 @@ public sealed class LargeWorldHudControl : PrefabPanel, IWorldHud
         var chatExpandedTexture = GetPrefabTexture(cache, "ChatBackgroundExpanded");
         ExpandedChatBounds = GetRect("ChattingRectExpanded");
 
-        // Orange bar
+        //orange bar
         OrangeBar = new OrangeBarControl(PrefabSet);
 
-        // Tab panels
+        //tab panels
         CreateTabPanels(
             invBgTexture,
             invBgExpandedTexture,
@@ -228,11 +228,11 @@ public sealed class LargeWorldHudControl : PrefabPanel, IWorldHud
             skillSpellExpandedTexture,
             chatExpandedTexture);
 
-        // Orange bar renders above collapsed tab panels (z=0) but below expanded ones (z=10)
+        //orange bar renders above collapsed tab panels (z=0) but below expanded ones (z=10)
         OrangeBar.ZIndex = 1;
         AddChild(OrangeBar);
 
-        // Attributes subscription + initial sync if data already exists
+        //attributes subscription + initial sync if data already exists
         AttributesState = WorldState.Attributes;
         AttributesState.Changed += OnAttributesChanged;
 
@@ -262,7 +262,7 @@ public sealed class LargeWorldHudControl : PrefabPanel, IWorldHud
     #region Tab Panel Management
     public void ShowTab(HudTab tab)
     {
-        // Collapse the outgoing panel before hiding it (so it returns to normal state)
+        //collapse the outgoing panel before hiding it (so it returns to normal state)
         if (TabPanels[(int)ActiveTab] is ExpandablePanel { IsExpanded: true } oldExpandable)
         {
             var offset = oldExpandable.ExpandYOffset;
@@ -291,7 +291,7 @@ public sealed class LargeWorldHudControl : PrefabPanel, IWorldHud
 
         TabPanels[(int)tab]?.Visible = true;
 
-        // Apply global expand state to the newly shown panel
+        //apply global expand state to the newly shown panel
         if (Expanded)
             ApplyExpandToActiveTab();
 
@@ -328,7 +328,7 @@ public sealed class LargeWorldHudControl : PrefabPanel, IWorldHud
     {
         var tabRect = InventoryBounds;
 
-        // Large HUD: 1 row normal (12 slots), 5 rows expanded (60 slots) for inventory
+        //large hud: 1 row normal (12 slots), 5 rows expanded (60 slots) for inventory
         Inventory = new InventoryPanel(
             PrefabSet,
             invBgTexture,
@@ -336,7 +336,7 @@ public sealed class LargeWorldHudControl : PrefabPanel, IWorldHud
             LARGE_NORMAL_SLOTS);
         RegisterTab(HudTab.Inventory, Inventory, tabRect);
 
-        // Large HUD: 1 row normal, 3 rows expanded for skills/spells
+        //large hud: 1 row normal, 3 rows expanded for skills/spells
         SkillBook = new SkillBookPanel(PrefabSet, background: invBgTexture, normalVisibleSlots: LARGE_NORMAL_SLOTS);
         SkillBook.ConfigureExpand(skillSpellExpandedTexture, LARGE_EXPANDED_SKILL_SPELL_SLOTS);
 
@@ -363,13 +363,13 @@ public sealed class LargeWorldHudControl : PrefabPanel, IWorldHud
         RegisterTab(HudTab.Spells, SpellBook, tabRect);
         RegisterTab(HudTab.SpellsAlt, SpellBookAlt, tabRect);
 
-        // Chat — stores both normal and expanded bounds for expand toggle
+        //chat — stores both normal and expanded bounds for expand toggle
         NormalChatBounds = GetRect("ChattingRect");
         ChatDisplay = new ChatPanel(NormalChatBounds, tabRect);
         ChatDisplay.ConfigureExpand(chatExpandedTexture, ExpandedChatBounds, tabRect);
         RegisterTab(HudTab.Chat, ChatDisplay, tabRect);
 
-        // Large HUD uses compact stats (_nstatur), expanding to full stats (_nstatus)
+        //large hud uses compact stats (_nstatur), expanding to full stats (_nstatus)
         var compactStatusPrefabSet = DataContext.UserControls.Get("_nstatur")!;
         var fullStatusPrefabSet = DataContext.UserControls.Get("_nstatus")!;
         StatsPanel = new StatsPanel(compactStatusPrefabSet);
@@ -379,7 +379,7 @@ public sealed class LargeWorldHudControl : PrefabPanel, IWorldHud
         RegisterTab(HudTab.Stats, StatsPanel, tabRect);
         RegisterTab(HudTab.ExtendedStats, ExtendedStatsPanel, tabRect);
 
-        // Tools: 1 row normal, expanded uses the normal HUD's split background
+        //tools: 1 row normal, expanded uses the normal hud's split background
         var normalHudPrefabSet = DataContext.UserControls.Get("_nbk_s")!;
         var uiCache = UiRenderer.Instance!;
         Texture2D? toolsExpandedTexture = null;
@@ -413,7 +413,7 @@ public sealed class LargeWorldHudControl : PrefabPanel, IWorldHud
 
                 InventoryTabButtons[i]!.Clicked += () =>
                 {
-                    // Toggle between primary and alt panes for Skills/Spells when clicking the same button
+                    //toggle between primary and alt panes for skills/spells when clicking the same button
                     if (tab == HudTab.Skills && (ActiveTab is HudTab.Skills or HudTab.SkillsAlt))
                         ShowTab(ActiveTab == HudTab.Skills ? HudTab.SkillsAlt : HudTab.Skills);
                     else if (tab == HudTab.Spells && (ActiveTab is HudTab.Spells or HudTab.SpellsAlt))

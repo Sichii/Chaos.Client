@@ -24,39 +24,42 @@ public sealed class ConnectionManager : IDisposable
     private RedirectInfo? PendingRedirect;
 
     /// <summary>
-    ///     The aisling's ID, assigned by the server after world entry.
+    ///     The local player's unique entity ID, assigned by the server upon world entry.
     /// </summary>
     public uint AislingId { get; private set; }
 
     /// <summary>
-    ///     The character name, set during login.
+    ///     The name of the logged-in character, populated when <see cref="Login" /> is called.
     /// </summary>
     public string AislingName { get; private set; } = string.Empty;
 
     /// <summary>
-    ///     The most recently received attributes.
+    ///     The player's latest merged attribute snapshot. Partial server updates are merged so this always reflects the full state.
     /// </summary>
     public AttributesArgs? Attributes { get; private set; }
 
     /// <summary>
-    ///     The current map info received from the server.
+    ///     The current map's metadata (map ID, dimensions, flags), updated on each map change.
     /// </summary>
     public MapInfoArgs? MapInfo { get; private set; }
 
     /// <summary>
-    ///     The player's current X position.
+    ///     The player's current X tile coordinate, updated on walk confirmations and location packets.
     /// </summary>
     public int PlayerX { get; private set; }
 
     /// <summary>
-    ///     The player's current Y position.
+    ///     The player's current Y tile coordinate, updated on walk confirmations and location packets.
     /// </summary>
     public int PlayerY { get; private set; }
 
+    /// <summary>
+    ///     The name of the server the client is currently connected to.
+    /// </summary>
     public string ServerName { get; set; } = string.Empty;
 
     /// <summary>
-    ///     The current connection state.
+    ///     The current phase of the connection lifecycle. Fires <see cref="StateChanged" /> on transitions.
     /// </summary>
     public ConnectionState State
     {
@@ -74,7 +77,7 @@ public sealed class ConnectionManager : IDisposable
     } = ConnectionState.Disconnected;
 
     /// <summary>
-    ///     The underlying game client.
+    ///     The low-level TCP client used for packet I/O, encryption, and socket management.
     /// </summary>
     public GameClient Client { get; }
 
@@ -91,6 +94,9 @@ public sealed class ConnectionManager : IDisposable
     /// <summary>
     ///     Sends a password change request to the login server.
     /// </summary>
+    /// <param name="name">The account name.</param>
+    /// <param name="currentPassword">The current password.</param>
+    /// <param name="newPassword">The new password.</param>
     public void ChangePassword(string name, string currentPassword, string newPassword)
     {
         if (State != ConnectionState.Login)
@@ -161,6 +167,10 @@ public sealed class ConnectionManager : IDisposable
     /// <summary>
     ///     Connects to the lobby server, performs the Version/ConnectionInfo handshake.
     /// </summary>
+    /// <param name="host">The lobby server hostname or IP address.</param>
+    /// <param name="port">The lobby server port.</param>
+    /// <param name="clientVersion">The client version to send during handshake.</param>
+    /// <param name="ct">Cancellation token.</param>
     public async Task ConnectToLobbyAsync(
         string host,
         int port,
@@ -171,9 +181,9 @@ public sealed class ConnectionManager : IDisposable
         Client.Crypto = new Crypto();
         Client.SetSequence(0);
 
-        // Set all AcceptConnection handler state BEFORE ConnectAsync starts the receive loop.
-        // The receive loop starts inside ConnectAsync and AcceptConnection can arrive immediately,
-        // so the handler must have everything it needs before the socket connects.
+        //set all acceptconnection handler state before connectasync starts the receive loop.
+        //the receive loop starts inside connectasync and acceptconnection can arrive immediately,
+        //so the handler must have everything it needs before the socket connects.
         LobbyClientVersion = clientVersion;
         PendingLobbyVersion = true;
         PendingTargetState = ConnectionState.Lobby;
@@ -186,14 +196,15 @@ public sealed class ConnectionManager : IDisposable
             PendingLobbyVersion = false;
             State = ConnectionState.Disconnected;
             OnError?.Invoke($"Failed to connect to lobby: {ex.Message}");
-
-            return;
         }
     }
 
     /// <summary>
     ///     Sends the finalized character creation request (appearance choices) to the login server.
     /// </summary>
+    /// <param name="hairStyle">The selected hair style index.</param>
+    /// <param name="gender">The selected gender.</param>
+    /// <param name="hairColor">The selected hair color.</param>
     public void CreateCharFinalize(byte hairStyle, Gender gender, DisplayColor hairColor)
     {
         if (State != ConnectionState.Login)
@@ -211,6 +222,8 @@ public sealed class ConnectionManager : IDisposable
     /// <summary>
     ///     Sends the initial character creation request (name and password) to the login server.
     /// </summary>
+    /// <param name="name">The character name.</param>
+    /// <param name="password">The account password.</param>
     public void CreateCharInitial(string name, string password)
     {
         if (State != ConnectionState.Login)
@@ -227,6 +240,9 @@ public sealed class ConnectionManager : IDisposable
     /// <summary>
     ///     Sends a gold drop request onto the ground.
     /// </summary>
+    /// <param name="amount">The amount of gold to drop.</param>
+    /// <param name="x">The destination tile X coordinate.</param>
+    /// <param name="y">The destination tile Y coordinate.</param>
     public void DropGold(int amount, int x, int y)
     {
         if (State != ConnectionState.World)
@@ -243,6 +259,8 @@ public sealed class ConnectionManager : IDisposable
     /// <summary>
     ///     Sends a gold give request to a creature/NPC.
     /// </summary>
+    /// <param name="amount">The amount of gold to give.</param>
+    /// <param name="targetId">The target entity ID.</param>
     public void DropGoldOnCreature(int amount, uint targetId)
     {
         if (State != ConnectionState.World)
@@ -259,6 +277,10 @@ public sealed class ConnectionManager : IDisposable
     /// <summary>
     ///     Sends an item drop request onto the ground.
     /// </summary>
+    /// <param name="sourceSlot">The inventory slot of the item to drop.</param>
+    /// <param name="x">The destination tile X coordinate.</param>
+    /// <param name="y">The destination tile Y coordinate.</param>
+    /// <param name="count">The number of items to drop (for stackable items).</param>
     public void DropItem(
         byte sourceSlot,
         int x,
@@ -280,6 +302,9 @@ public sealed class ConnectionManager : IDisposable
     /// <summary>
     ///     Sends an item give request to a creature/NPC.
     /// </summary>
+    /// <param name="sourceSlot">The inventory slot of the item to give.</param>
+    /// <param name="targetId">The target entity ID.</param>
+    /// <param name="count">The number of items to give (for stackable items).</param>
     public void DropItemOnCreature(byte sourceSlot, uint targetId, byte count = 1)
     {
         if (State != ConnectionState.World)
@@ -303,7 +328,7 @@ public sealed class ConnectionManager : IDisposable
 
         State = ConnectionState.Connecting;
 
-        // Lobby→Login uses empty keySaltSeed (falls back to "default"), Login→World uses character name
+        //lobby→login uses empty keysaltseed (falls back to "default"), login→world uses character name
         var keySaltSeed = redirect.TargetState == ConnectionState.Login ? string.Empty : redirect.Name;
         Client.Crypto = new Crypto(redirect.Seed, redirect.Key, keySaltSeed);
         Client.SetSequence(0);
@@ -321,8 +346,8 @@ public sealed class ConnectionManager : IDisposable
             return;
         }
 
-        // Send ClientRedirected immediately after connecting.
-        // Not all servers send AcceptConnection before expecting this packet.
+        //send clientredirected immediately after connecting.
+        //not all servers send acceptconnection before expecting this packet.
         State = PendingTargetState;
 
         Client.Send(
@@ -341,6 +366,10 @@ public sealed class ConnectionManager : IDisposable
     /// <summary>
     ///     Sends login credentials to the login server.
     /// </summary>
+    /// <param name="name">The character name.</param>
+    /// <param name="password">The account password.</param>
+    /// <param name="clientId1">First client identification value.</param>
+    /// <param name="clientId2">Second client identification value.</param>
     public void Login(
         string name,
         string password,
@@ -363,14 +392,14 @@ public sealed class ConnectionManager : IDisposable
             });
     }
 
-    // --- Inventory ---
+    //--- inventory ---
 
     /// <summary>
     ///     Fired when an item is added to the inventory pane.
     /// </summary>
     public event Action<AddItemToPaneArgs>? OnAddItemToPane;
 
-    // --- Skills / Spells ---
+    //--- skills / spells ---
 
     /// <summary>
     ///     Fired when a skill is added to the skill pane.
@@ -452,7 +481,7 @@ public sealed class ConnectionManager : IDisposable
     /// </summary>
     public event Action<DisplayGroupInviteArgs>? OnDisplayGroupInvite;
 
-    // --- NPC Interaction ---
+    //--- npc interaction ---
 
     /// <summary>
     ///     Fired when an NPC menu should be displayed.
@@ -489,7 +518,7 @@ public sealed class ConnectionManager : IDisposable
     /// </summary>
     public event Action<EffectArgs>? OnEffect;
 
-    // --- Equipment ---
+    //--- equipment ---
 
     /// <summary>
     ///     Fired when an equipment slot is updated.
@@ -507,18 +536,19 @@ public sealed class ConnectionManager : IDisposable
     public event Action<ExitResponseArgs>? OnExitResponse;
 
     /// <summary>
-    ///     Fired when the server forces the client to send a packet.
+    ///     Fired after the server forced the client to echo a packet. The packet has already been sent; this event is
+    ///     informational.
     /// </summary>
     public event Action<ForceClientPacketArgs>? OnForceClientPacket;
 
-    // --- Visual / Audio ---
+    //--- visual / audio ---
 
     /// <summary>
     ///     Fired when an entity's health bar should be displayed.
     /// </summary>
     public event Action<HealthBarArgs>? OnHealthBar;
 
-    // --- World State ---
+    //--- world state ---
 
     /// <summary>
     ///     Fired when the ambient light level changes (time of day).
@@ -610,7 +640,7 @@ public sealed class ConnectionManager : IDisposable
     /// </summary>
     public event Action<SelfProfileArgs>? OnSelfProfile;
 
-    // --- Chat / Messages ---
+    //--- chat / messages ---
 
     /// <summary>
     ///     Fired when a system message is received (yellow text, overhead, etc.).
@@ -628,10 +658,13 @@ public sealed class ConnectionManager : IDisposable
     public event Action<SoundArgs>? OnSound;
 
     /// <summary>
-    ///     Fired when world entry is complete (all essential data received).
+    ///     Fired when the server assigns the local player's entity ID during world entry.
     /// </summary>
     public event Action<uint>? OnUserId;
 
+    /// <summary>
+    ///     Fired when world entry is complete and all essential data (user ID, map, location, attributes) has been received.
+    /// </summary>
     public event Action? OnWorldEntryComplete;
 
     /// <summary>
@@ -647,6 +680,9 @@ public sealed class ConnectionManager : IDisposable
     /// <summary>
     ///     Sends a pickup request from a tile.
     /// </summary>
+    /// <param name="x">The source tile X coordinate.</param>
+    /// <param name="y">The source tile Y coordinate.</param>
+    /// <param name="destinationSlot">The inventory slot to place the item in.</param>
     public void PickupItem(int x, int y, byte destinationSlot)
     {
         if (State != ConnectionState.World)
@@ -663,6 +699,7 @@ public sealed class ConnectionManager : IDisposable
     /// <summary>
     ///     Processes queued inbound packets, driving state transitions. Call this from the game loop's Update method.
     /// </summary>
+    /// <param name="buffer">A reusable list that receives drained packets; cleared by the caller between frames.</param>
     public void ProcessPackets(List<ServerPacket> buffer)
     {
         Client.DrainPackets(buffer);
@@ -674,14 +711,14 @@ public sealed class ConnectionManager : IDisposable
                 HandlePacket(pkt);
             } catch
             {
-                // Malformed packet — skip
+                //malformed packet — skip
             } finally
             {
                 ArrayPool<byte>.Shared.Return(pkt.Data);
             }
         }
 
-        // Follow pending redirect once the old connection is fully torn down
+        //follow pending redirect once the old connection is fully torn down
         if (PendingRedirect is not null && !Client.Connected)
             FollowPendingRedirect();
     }
@@ -689,6 +726,7 @@ public sealed class ConnectionManager : IDisposable
     /// <summary>
     ///     Sends a raise stat request.
     /// </summary>
+    /// <param name="stat">The stat to raise.</param>
     public void RaiseStat(Stat stat)
     {
         if (State != ConnectionState.World)
@@ -704,6 +742,7 @@ public sealed class ConnectionManager : IDisposable
     /// <summary>
     ///     Sends an exit/logout request.
     /// </summary>
+    /// <param name="isRequest"><see langword="true" /> to request the logout dialog; <see langword="false" /> to confirm logout.</param>
     public void RequestExit(bool isRequest = true)
     {
         if (State != ConnectionState.World)
@@ -728,7 +767,7 @@ public sealed class ConnectionManager : IDisposable
     }
 
     /// <summary>
-    ///     Sends a map data request to the server, requesting tile data for the current map.
+    ///     Requests tile data for the current map from the server.
     /// </summary>
     public void RequestMapData()
     {
@@ -800,6 +839,7 @@ public sealed class ConnectionManager : IDisposable
     /// <summary>
     ///     Selects a server from the server table by ID, triggering a redirect.
     /// </summary>
+    /// <param name="serverId">The server ID from the server table.</param>
     public void SelectServer(byte serverId)
     {
         if (State != ConnectionState.Lobby)
@@ -816,6 +856,7 @@ public sealed class ConnectionManager : IDisposable
     /// <summary>
     ///     Adds a player to the ignore list.
     /// </summary>
+    /// <param name="targetName">The name of the player to ignore.</param>
     public void SendAddIgnore(string targetName)
     {
         if (State != ConnectionState.World)
@@ -830,8 +871,9 @@ public sealed class ConnectionManager : IDisposable
     }
 
     /// <summary>
-    ///     Sends a begin chant packet with the number of cast lines.
+    ///     Sends a begin chant packet to start spell casting.
     /// </summary>
+    /// <param name="castLineCount">The number of chant lines for this spell.</param>
     public void SendBeginChant(byte castLineCount)
     {
         if (State != ConnectionState.World)
@@ -847,6 +889,14 @@ public sealed class ConnectionManager : IDisposable
     /// <summary>
     ///     Sends a board/mail interaction (view board, read post, send mail, delete, etc.).
     /// </summary>
+    /// <param name="requestType">The type of board interaction.</param>
+    /// <param name="boardId">The board ID.</param>
+    /// <param name="postId">The post ID for read/delete operations.</param>
+    /// <param name="startPostId">The starting post ID for paginated listing.</param>
+    /// <param name="controls">Board control flags (previous/next page availability).</param>
+    /// <param name="to">The recipient name for mail.</param>
+    /// <param name="subject">The post or mail subject.</param>
+    /// <param name="message">The post or mail body text.</param>
     public void SendBoardInteraction(
         BoardRequestType requestType,
         ushort boardId = 0,
@@ -877,6 +927,7 @@ public sealed class ConnectionManager : IDisposable
     /// <summary>
     ///     Sends a chant line message.
     /// </summary>
+    /// <param name="message">The chant text to display.</param>
     public void SendChant(string message)
     {
         if (State != ConnectionState.World)
@@ -892,6 +943,15 @@ public sealed class ConnectionManager : IDisposable
     /// <summary>
     ///     Sends a CreateGroupbox request with recruitment configuration.
     /// </summary>
+    /// <param name="name">The group box name.</param>
+    /// <param name="note">The recruitment note.</param>
+    /// <param name="minLevel">Minimum level requirement.</param>
+    /// <param name="maxLevel">Maximum level requirement.</param>
+    /// <param name="maxWarriors">Maximum number of warriors.</param>
+    /// <param name="maxWizards">Maximum number of wizards.</param>
+    /// <param name="maxRogues">Maximum number of rogues.</param>
+    /// <param name="maxPriests">Maximum number of priests.</param>
+    /// <param name="maxMonks">Maximum number of monks.</param>
     public void SendCreateGroupBox(
         string name,
         string note,
@@ -929,6 +989,13 @@ public sealed class ConnectionManager : IDisposable
     /// <summary>
     ///     Sends a dialog interaction response (Next, Close, option select, text input).
     /// </summary>
+    /// <param name="entityType">The type of entity that owns the dialog.</param>
+    /// <param name="entityId">The entity ID of the dialog owner.</param>
+    /// <param name="pursuitId">The pursuit ID of the current dialog chain.</param>
+    /// <param name="dialogId">The dialog ID being responded to.</param>
+    /// <param name="argsType">The type of response arguments.</param>
+    /// <param name="option">The selected option index, if applicable.</param>
+    /// <param name="args">Additional string arguments (e.g. text input values).</param>
     public void SendDialogResponse(
         EntityType entityType,
         uint entityId,
@@ -957,6 +1024,8 @@ public sealed class ConnectionManager : IDisposable
     /// <summary>
     ///     Sends the player's portrait and profile text to the server.
     /// </summary>
+    /// <param name="portraitData">The raw portrait image bytes.</param>
+    /// <param name="profileMessage">The profile text.</param>
     public void SendEditableProfile(byte[] portraitData, string profileMessage)
     {
         if (State != ConnectionState.World)
@@ -973,6 +1042,7 @@ public sealed class ConnectionManager : IDisposable
     /// <summary>
     ///     Sends an emote request (body animation 9-44).
     /// </summary>
+    /// <param name="bodyAnimation">The emote body animation to play.</param>
     public void SendEmote(BodyAnimation bodyAnimation)
     {
         if (State != ConnectionState.World)
@@ -988,6 +1058,11 @@ public sealed class ConnectionManager : IDisposable
     /// <summary>
     ///     Sends an exchange interaction.
     /// </summary>
+    /// <param name="type">The exchange action type.</param>
+    /// <param name="otherId">The other player's entity ID.</param>
+    /// <param name="sourceSlot">The inventory slot of the item being exchanged.</param>
+    /// <param name="itemCount">The number of items to exchange (for stackable items).</param>
+    /// <param name="goldAmount">The amount of gold to exchange.</param>
     public void SendExchangeInteraction(
         ExchangeRequestType type,
         uint otherId = 0,
@@ -1012,6 +1087,8 @@ public sealed class ConnectionManager : IDisposable
     /// <summary>
     ///     Sends a group invite or group management action.
     /// </summary>
+    /// <param name="action">The group action to perform.</param>
+    /// <param name="targetName">The target player name, if applicable.</param>
     public void SendGroupInvite(ClientGroupSwitch action, string? targetName = null)
     {
         if (State != ConnectionState.World)
@@ -1043,6 +1120,11 @@ public sealed class ConnectionManager : IDisposable
     /// <summary>
     ///     Sends a menu interaction response (pursuit selection).
     /// </summary>
+    /// <param name="entityType">The type of entity that owns the menu.</param>
+    /// <param name="entityId">The entity ID of the menu owner.</param>
+    /// <param name="pursuitId">The selected pursuit ID.</param>
+    /// <param name="slot">The selected slot index, if applicable.</param>
+    /// <param name="args">Additional string arguments.</param>
     public void SendMenuResponse(
         EntityType entityType,
         uint entityId,
@@ -1067,6 +1149,8 @@ public sealed class ConnectionManager : IDisposable
     /// <summary>
     ///     Sends a metadata request to the server (checksums or specific file data).
     /// </summary>
+    /// <param name="requestType">The type of metadata request.</param>
+    /// <param name="name">The metadata file name, for specific file requests.</param>
     public void SendMetaDataRequest(MetaDataRequestType requestType, string? name = null)
         => Client.Send(
             new MetaDataRequestArgs
@@ -1076,8 +1160,9 @@ public sealed class ConnectionManager : IDisposable
             });
 
     /// <summary>
-    ///     Sends a spacebar (assail) request.
+    ///     Toggles a user option (e.g. group allow, exchange allow, whisper settings).
     /// </summary>
+    /// <param name="option">The user option to toggle.</param>
     public void SendOptionToggle(UserOption option)
     {
         if (State != ConnectionState.World)
@@ -1091,8 +1176,9 @@ public sealed class ConnectionManager : IDisposable
     }
 
     /// <summary>
-    ///     Sends a public chat message.
+    ///     Sends a public (normal) chat message visible to nearby players.
     /// </summary>
+    /// <param name="message">The chat message text.</param>
     public void SendPublicMessage(string message)
     {
         if (State != ConnectionState.World)
@@ -1109,6 +1195,7 @@ public sealed class ConnectionManager : IDisposable
     /// <summary>
     ///     Removes a player from the ignore list.
     /// </summary>
+    /// <param name="targetName">The name of the player to un-ignore.</param>
     public void SendRemoveIgnore(string targetName)
     {
         if (State != ConnectionState.World)
@@ -1125,6 +1212,8 @@ public sealed class ConnectionManager : IDisposable
     /// <summary>
     ///     Sends notepad text for an editable notepad slot.
     /// </summary>
+    /// <param name="slot">The notepad slot index.</param>
+    /// <param name="message">The notepad text content.</param>
     public void SendSetNotepad(byte slot, string message)
     {
         if (State != ConnectionState.World)
@@ -1139,8 +1228,9 @@ public sealed class ConnectionManager : IDisposable
     }
 
     /// <summary>
-    ///     Sends a shout message (! prefix).
+    ///     Sends a shout message (! prefix) visible to all players on the map.
     /// </summary>
+    /// <param name="message">The shout message text.</param>
     public void SendShout(string message)
     {
         if (State != ConnectionState.World)
@@ -1157,6 +1247,7 @@ public sealed class ConnectionManager : IDisposable
     /// <summary>
     ///     Sends a social status change to the server.
     /// </summary>
+    /// <param name="status">The new social status.</param>
     public void SendSocialStatus(SocialStatus status)
     {
         if (State != ConnectionState.World)
@@ -1172,6 +1263,8 @@ public sealed class ConnectionManager : IDisposable
     /// <summary>
     ///     Sends a whisper to a specific player.
     /// </summary>
+    /// <param name="targetName">The recipient player name.</param>
+    /// <param name="message">The whisper message text.</param>
     public void SendWhisper(string targetName, string message)
     {
         if (State != ConnectionState.World)
@@ -1185,6 +1278,9 @@ public sealed class ConnectionManager : IDisposable
             });
     }
 
+    /// <summary>
+    ///     Sends a spacebar (assail) request.
+    /// </summary>
     public void Spacebar()
     {
         if (State != ConnectionState.World)
@@ -1201,6 +1297,9 @@ public sealed class ConnectionManager : IDisposable
     /// <summary>
     ///     Sends a swap slot request between two panel positions.
     /// </summary>
+    /// <param name="panelType">The panel type (inventory, skill, or spell).</param>
+    /// <param name="slot1">The first slot position.</param>
+    /// <param name="slot2">The second slot position.</param>
     public void SwapSlot(PanelType panelType, byte slot1, byte slot2)
     {
         if (State != ConnectionState.World)
@@ -1215,6 +1314,9 @@ public sealed class ConnectionManager : IDisposable
             });
     }
 
+    /// <summary>
+    ///     Toggles group membership (join/leave the current group).
+    /// </summary>
     public void ToggleGroup()
     {
         if (State != ConnectionState.World)
@@ -1226,6 +1328,7 @@ public sealed class ConnectionManager : IDisposable
     /// <summary>
     ///     Sends a turn request to face the specified direction.
     /// </summary>
+    /// <param name="direction">The direction to face.</param>
     public void Turn(Direction direction)
     {
         if (State != ConnectionState.World)
@@ -1241,6 +1344,7 @@ public sealed class ConnectionManager : IDisposable
     /// <summary>
     ///     Sends an unequip request for the specified equipment slot.
     /// </summary>
+    /// <param name="slot">The equipment slot to unequip.</param>
     public void Unequip(EquipmentSlot slot)
     {
         if (State != ConnectionState.World)
@@ -1256,6 +1360,7 @@ public sealed class ConnectionManager : IDisposable
     /// <summary>
     ///     Sends an item use request (equip, consume).
     /// </summary>
+    /// <param name="slot">The inventory slot of the item to use.</param>
     public void UseItem(byte slot)
     {
         if (State != ConnectionState.World)
@@ -1271,6 +1376,7 @@ public sealed class ConnectionManager : IDisposable
     /// <summary>
     ///     Sends a skill use request.
     /// </summary>
+    /// <param name="slot">The skill book slot to use.</param>
     public void UseSkill(byte slot)
     {
         if (State != ConnectionState.World)
@@ -1286,6 +1392,8 @@ public sealed class ConnectionManager : IDisposable
     /// <summary>
     ///     Sends a spell use request.
     /// </summary>
+    /// <param name="slot">The spell book slot to use.</param>
+    /// <param name="argsData">Optional targeting data for targeted spells.</param>
     public void UseSpell(byte slot, byte[]? argsData = null)
     {
         if (State != ConnectionState.World)
@@ -1300,8 +1408,12 @@ public sealed class ConnectionManager : IDisposable
     }
 
     /// <summary>
-    ///     Sends a targeted spell use with entity ID and position packed as ArgsData.
+    ///     Sends a targeted spell cast at a specific entity and position.
     /// </summary>
+    /// <param name="slot">The spell book slot to use.</param>
+    /// <param name="targetId">The target entity ID.</param>
+    /// <param name="targetX">The target tile X coordinate.</param>
+    /// <param name="targetY">The target tile Y coordinate.</param>
     public void UseSpellOnTarget(
         byte slot,
         uint targetId,
@@ -1324,6 +1436,7 @@ public sealed class ConnectionManager : IDisposable
     /// <summary>
     ///     Sends a walk request in the specified direction.
     /// </summary>
+    /// <param name="direction">The direction to walk.</param>
     public void Walk(Direction direction)
     {
         if (State != ConnectionState.World)
@@ -1345,18 +1458,18 @@ public sealed class ConnectionManager : IDisposable
 
     private void IndexHandlers()
     {
-        // Lobby
+        //lobby
         PacketHandlers[(byte)ServerOpCode.AcceptConnection] = HandleAcceptConnection;
         PacketHandlers[(byte)ServerOpCode.ConnectionInfo] = HandleConnectionInfo;
         PacketHandlers[(byte)ServerOpCode.ServerTableResponse] = HandleServerTableResponse;
         PacketHandlers[(byte)ServerOpCode.Redirect] = HandleRedirect;
 
-        // Login
+        //login
         PacketHandlers[(byte)ServerOpCode.LoginMessage] = HandleLoginMessage;
         PacketHandlers[(byte)ServerOpCode.LoginNotice] = HandleLoginNotice;
         PacketHandlers[(byte)ServerOpCode.LoginControl] = HandleLoginControl;
 
-        // World entry
+        //world entry
         PacketHandlers[(byte)ServerOpCode.UserId] = HandleUserId;
         PacketHandlers[(byte)ServerOpCode.MapInfo] = HandleMapInfo;
         PacketHandlers[(byte)ServerOpCode.MapData] = HandleMapData;
@@ -1367,31 +1480,31 @@ public sealed class ConnectionManager : IDisposable
         PacketHandlers[(byte)ServerOpCode.DisplayVisibleEntities] = HandleDisplayVisibleEntities;
         PacketHandlers[(byte)ServerOpCode.DisplayAisling] = HandleDisplayAisling;
 
-        // World entities
+        //world entities
         PacketHandlers[(byte)ServerOpCode.RemoveEntity] = HandleRemoveEntity;
         PacketHandlers[(byte)ServerOpCode.CreatureWalk] = HandleCreatureWalk;
         PacketHandlers[(byte)ServerOpCode.ClientWalkResponse] = HandleClientWalkResponse;
         PacketHandlers[(byte)ServerOpCode.CreatureTurn] = HandleCreatureTurn;
 
-        // Chat / messages
+        //chat / messages
         PacketHandlers[(byte)ServerOpCode.ServerMessage] = HandleServerMessage;
         PacketHandlers[(byte)ServerOpCode.DisplayPublicMessage] = HandleDisplayPublicMessage;
 
-        // Inventory
+        //inventory
         PacketHandlers[(byte)ServerOpCode.AddItemToPane] = HandleAddItemToPane;
         PacketHandlers[(byte)ServerOpCode.RemoveItemFromPane] = HandleRemoveItemFromPane;
 
-        // Skills / spells
+        //skills / spells
         PacketHandlers[(byte)ServerOpCode.AddSkillToPane] = HandleAddSkillToPane;
         PacketHandlers[(byte)ServerOpCode.RemoveSkillFromPane] = HandleRemoveSkillFromPane;
         PacketHandlers[(byte)ServerOpCode.AddSpellToPane] = HandleAddSpellToPane;
         PacketHandlers[(byte)ServerOpCode.RemoveSpellFromPane] = HandleRemoveSpellFromPane;
 
-        // Equipment
+        //equipment
         PacketHandlers[(byte)ServerOpCode.Equipment] = HandleEquipment;
         PacketHandlers[(byte)ServerOpCode.DisplayUnequip] = HandleDisplayUnequip;
 
-        // Visual / audio
+        //visual / audio
         PacketHandlers[(byte)ServerOpCode.HealthBar] = HandleHealthBar;
         PacketHandlers[(byte)ServerOpCode.Sound] = HandleSound;
         PacketHandlers[(byte)ServerOpCode.BodyAnimation] = HandleBodyAnimation;
@@ -1399,31 +1512,31 @@ public sealed class ConnectionManager : IDisposable
         PacketHandlers[(byte)ServerOpCode.Cooldown] = HandleCooldown;
         PacketHandlers[(byte)ServerOpCode.Effect] = HandleEffect;
 
-        // World state
+        //world state
         PacketHandlers[(byte)ServerOpCode.LightLevel] = HandleLightLevel;
         PacketHandlers[(byte)ServerOpCode.Door] = HandleDoor;
         PacketHandlers[(byte)ServerOpCode.RefreshResponse] = HandleRefreshResponse;
         PacketHandlers[(byte)ServerOpCode.MapChangePending] = HandleMapChangePending;
 
-        // NPC interaction
+        //npc interaction
         PacketHandlers[(byte)ServerOpCode.DisplayMenu] = HandleDisplayMenu;
         PacketHandlers[(byte)ServerOpCode.DisplayDialog] = HandleDisplayDialog;
         PacketHandlers[(byte)ServerOpCode.DisplayBoard] = HandleDisplayBoard;
         PacketHandlers[(byte)ServerOpCode.DisplayExchange] = HandleDisplayExchange;
         PacketHandlers[(byte)ServerOpCode.DisplayGroupInvite] = HandleDisplayGroupInvite;
 
-        // Profiles / lists
+        //profiles / lists
         PacketHandlers[(byte)ServerOpCode.EditableProfileRequest] = HandleEditableProfileRequest;
         PacketHandlers[(byte)ServerOpCode.SelfProfile] = HandleSelfProfile;
         PacketHandlers[(byte)ServerOpCode.OtherProfile] = HandleOtherProfile;
         PacketHandlers[(byte)ServerOpCode.WorldList] = HandleWorldList;
         PacketHandlers[(byte)ServerOpCode.WorldMap] = HandleWorldMap;
 
-        // Notepads
+        //notepads
         PacketHandlers[(byte)ServerOpCode.DisplayEditableNotepad] = HandleDisplayEditableNotepad;
         PacketHandlers[(byte)ServerOpCode.DisplayReadonlyNotepad] = HandleDisplayReadonlyNotepad;
 
-        // Misc
+        //misc
         PacketHandlers[(byte)ServerOpCode.ExitResponse] = HandleExitResponse;
         PacketHandlers[(byte)ServerOpCode.ForceClientPacket] = HandleForceClientPacket;
         PacketHandlers[(byte)ServerOpCode.CancelCasting] = HandleCancelCasting;
@@ -1440,7 +1553,7 @@ public sealed class ConnectionManager : IDisposable
     {
         if (PendingLobbyVersion)
         {
-            // Lobby handshake — send Version packet
+            //lobby handshake — send version packet
             PendingLobbyVersion = false;
             State = PendingTargetState;
 
@@ -1451,20 +1564,20 @@ public sealed class ConnectionManager : IDisposable
                 });
         }
 
-        // Redirected connections send ClientRedirected in FollowRedirectAsync
-        // immediately after connecting, without waiting for AcceptConnection.
+        //redirected connections send clientredirected in followredirectasync
+        //immediately after connecting, without waiting for acceptconnection.
     }
 
     private void HandleConnectionInfo(ServerPacket pkt)
     {
         var args = Client.Deserialize<ConnectionInfoArgs>(in pkt);
 
-        // Lobby always uses empty keySaltSeed (Crypto falls back to "default")
-        // Must explicitly pass keySaltSeed to avoid binding to the 2-arg constructor
-        // Crypto(byte seed, string keySaltSeed) which generates a random key
+        //lobby always uses empty keysaltseed (crypto falls back to "default")
+        //must explicitly pass keysaltseed to avoid binding to the 2-arg constructor
+        //crypto(byte seed, string keysaltseed) which generates a random key
         Client.Crypto = new Crypto(args.Seed, args.Key, null);
 
-        // Crypto is now configured — safe to request the server table
+        //crypto is now configured — safe to request the server table
         if (State == ConnectionState.Lobby)
             RequestServerTable();
     }
@@ -1480,7 +1593,7 @@ public sealed class ConnectionManager : IDisposable
     {
         var args = Client.Deserialize<RedirectArgs>(in pkt);
 
-        // Determine target state based on current state
+        //determine target state based on current state
         var targetState = State switch
         {
             ConnectionState.Lobby => ConnectionState.Login,
@@ -1496,8 +1609,8 @@ public sealed class ConnectionManager : IDisposable
             args.Id,
             targetState);
 
-        // Begin teardown immediately — the redirect will be followed from the game loop
-        // once the old connection is fully dead.
+        //begin teardown immediately — the redirect will be followed from the game loop
+        //once the old connection is fully dead.
         Client.Disconnect();
 
         OnRedirectReceived?.Invoke(PendingRedirect.Value);
@@ -1571,7 +1684,7 @@ public sealed class ConnectionManager : IDisposable
     {
         var args = Client.Deserialize<AttributesArgs>(in pkt);
 
-        // Merge partial updates with previously stored attributes so consumers always get a complete picture
+        //merge partial updates with previously stored attributes so consumers always get a complete picture
         if (Attributes is not null)
             args = MergeAttributes(Attributes, args);
 
@@ -1585,7 +1698,7 @@ public sealed class ConnectionManager : IDisposable
     {
         var flags = incoming.StatUpdateType;
 
-        // Start from previous complete state, then overlay the incoming partial fields
+        //start from previous complete state, then overlay the incoming partial fields
         var merged = previous with
         {
             StatUpdateType = flags
@@ -1674,7 +1787,7 @@ public sealed class ConnectionManager : IDisposable
         if (!EntryState.HasFlag(WorldEntryState.AllRequired))
             return;
 
-        // Clear the flag so we don't fire again until the next world entry
+        //clear the flag so we don't fire again until the next world entry
         EntryState = WorldEntryState.None;
         OnWorldEntryComplete?.Invoke();
     }
@@ -1708,7 +1821,7 @@ public sealed class ConnectionManager : IDisposable
         OnCreatureTurn?.Invoke(args.SourceId, args.Direction);
     }
 
-    // --- Chat / Messages ---
+    //--- chat / messages ---
 
     private void HandleServerMessage(ServerPacket pkt)
     {
@@ -1722,7 +1835,7 @@ public sealed class ConnectionManager : IDisposable
         OnDisplayPublicMessage?.Invoke(args);
     }
 
-    // --- Inventory ---
+    //--- inventory ---
 
     private void HandleAddItemToPane(ServerPacket pkt)
     {
@@ -1736,7 +1849,7 @@ public sealed class ConnectionManager : IDisposable
         OnRemoveItemFromPane?.Invoke(args);
     }
 
-    // --- Skills / Spells ---
+    //--- skills / spells ---
 
     private void HandleAddSkillToPane(ServerPacket pkt)
     {
@@ -1762,7 +1875,7 @@ public sealed class ConnectionManager : IDisposable
         OnRemoveSpellFromPane?.Invoke(args);
     }
 
-    // --- Equipment ---
+    //--- equipment ---
 
     private void HandleEquipment(ServerPacket pkt)
     {
@@ -1776,7 +1889,7 @@ public sealed class ConnectionManager : IDisposable
         OnDisplayUnequip?.Invoke(args);
     }
 
-    // --- Visual / Audio ---
+    //--- visual / audio ---
 
     private void HandleHealthBar(ServerPacket pkt)
     {
@@ -1814,7 +1927,7 @@ public sealed class ConnectionManager : IDisposable
         OnEffect?.Invoke(args);
     }
 
-    // --- World State ---
+    //--- world state ---
 
     private void HandleLightLevel(ServerPacket pkt)
     {
@@ -1832,7 +1945,7 @@ public sealed class ConnectionManager : IDisposable
 
     private void HandleMapChangePending(ServerPacket _) => OnMapChangePending?.Invoke();
 
-    // --- NPC Interaction ---
+    //--- npc interaction ---
 
     private void HandleDisplayMenu(ServerPacket pkt)
     {
@@ -1864,7 +1977,7 @@ public sealed class ConnectionManager : IDisposable
         OnDisplayGroupInvite?.Invoke(args);
     }
 
-    // --- Profiles / Lists ---
+    //--- profiles / lists ---
 
     private void HandleEditableProfileRequest(ServerPacket _) => OnEditableProfileRequest?.Invoke();
 
@@ -1897,7 +2010,7 @@ public sealed class ConnectionManager : IDisposable
         OnWorldMap?.Invoke(args);
     }
 
-    // --- Notepads ---
+    //--- notepads ---
 
     private void HandleDisplayEditableNotepad(ServerPacket pkt)
     {
@@ -1911,7 +2024,7 @@ public sealed class ConnectionManager : IDisposable
         OnDisplayReadonlyNotepad?.Invoke(args);
     }
 
-    // --- Misc ---
+    //--- misc ---
 
     private void HandleExitResponse(ServerPacket pkt)
     {

@@ -23,7 +23,7 @@ public abstract class PanelBase : ExpandablePanel
 
     private static Texture2D? SlotNumberOverlay;
 
-    // Compact padding (large HUD 1-row backgrounds need extra Y before the grid)
+    //compact padding (large hud 1-row backgrounds need extra y before the grid)
     private readonly int CompactGridPadding;
 
     protected readonly int GridOffsetX;
@@ -34,13 +34,13 @@ public abstract class PanelBase : ExpandablePanel
     protected readonly PanelSlot[] Slots;
     private int DragMouseX;
 
-    // Drag state
+    //drag state
     private PanelSlot? DragSource;
 
-    // Expand state (slot-specific)
+    //expand state (slot-specific)
     private int ExpandedVisibleSlots;
 
-    // Hover tracking
+    //hover tracking
     private PanelSlot? LastHoveredSlot;
 
     /// <summary>
@@ -61,7 +61,7 @@ public abstract class PanelBase : ExpandablePanel
     /// <summary>
     ///     The number of currently visible grid slots.
     /// </summary>
-    public int VisibleSlotCount { get; protected set; } = DEFAULT_VISIBLE_SLOTS;
+    public int VisibleSlotCount { get; protected set; }
 
     /// <summary>
     ///     The 1-based slot number being dragged, or 0 if not dragging.
@@ -94,7 +94,7 @@ public abstract class PanelBase : ExpandablePanel
         VisibleSlotCount = normalVisibleSlots;
         SlotOffset = secondary ? DEFAULT_VISIBLE_SLOTS : 0;
 
-        // Large HUD compact backgrounds (1-row) have extra top padding before the grid
+        //large hud compact backgrounds (1-row) have extra top padding before the grid
         CompactGridPadding = normalVisibleSlots < DEFAULT_VISIBLE_SLOTS ? 4 : 0;
         GridOffsetY = gridOffsetY + CompactGridPadding;
 
@@ -110,14 +110,14 @@ public abstract class PanelBase : ExpandablePanel
 
         SlotNumberOverlay ??= UiRenderer.Instance!.GetSpfTexture("_ninvn.spf");
 
-        // Set panel dimensions from background or grid bounds so hit-testing works
+        //set panel dimensions from background or grid bounds so hit-testing works
         if (Background is not null)
         {
             Width = Background.Width;
             Height = Background.Height;
         }
 
-        // Create slot controls for all possible grid cells (visibility controlled per slot)
+        //create slot controls for all possible grid cells (visibility controlled per slot)
         var totalSlots = Math.Min(maxSlots - SlotOffset, maxSlots);
         Slots = new PanelSlot[totalSlots];
 
@@ -185,10 +185,10 @@ public abstract class PanelBase : ExpandablePanel
         if (!Visible)
             return;
 
-        // ExpandablePanel.Draw handles expanded background + children, or normal background + children
+        //expandablepanel.draw handles expanded background + children, or normal background + children
         base.Draw(spriteBatch);
 
-        // Slot number overlay — positioned at expanded or normal Y
+        //slot number overlay — positioned at expanded or normal y
         if (SlotNumberOverlay is not null)
         {
             var overlayY = IsExpanded ? ScreenY + 3 : ScreenY + 3 + CompactGridPadding;
@@ -323,7 +323,7 @@ public abstract class PanelBase : ExpandablePanel
     /// </summary>
     public event Action<byte, byte>? OnSlotSwapped;
 
-    protected abstract Texture2D? RenderIcon(ushort spriteId);
+    protected abstract Texture2D RenderIcon(ushort spriteId);
 
     /// <summary>
     ///     Sets the expand state. Adjusts slot visibility and Y positions for the expanded grid.
@@ -335,7 +335,7 @@ public abstract class PanelBase : ExpandablePanel
 
         base.SetExpanded(expanded);
 
-        // Apply additional CompactGridPadding shift for large HUD compact backgrounds
+        //apply additional compactgridpadding shift for large hud compact backgrounds
         var padShift = expanded ? -CompactGridPadding : CompactGridPadding;
 
         var targetSlots = expanded ? ExpandedVisibleSlots : NormalVisibleSlots;

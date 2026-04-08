@@ -55,7 +55,7 @@ public abstract class RepositoryBase
     }
 
     /// <summary>
-    ///     Removes a cached entry so it will be reloaded on next access.
+    ///     Removes a cached entry by key.
     /// </summary>
     public void Invalidate(string key) => Cache.Remove(key);
 }

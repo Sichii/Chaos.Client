@@ -24,11 +24,11 @@ namespace Chaos.Client.Screens;
 public sealed partial class WorldScreen
 {
     #region Server Event Handlers
-    // --- Entity display / removal ---
+    //--- entity display / removal ---
 
     private void HandleDisplayAisling(DisplayAislingArgs args)
     {
-        // Update player name in HUD when the player's own aisling is displayed
+        //update player name in hud when the player's own aisling is displayed
         if (args.Id == Game.Connection.AislingId)
         {
             WorldState.PlayerName = args.Name;
@@ -43,14 +43,14 @@ public sealed partial class WorldScreen
             StatusBook.SetProfileText(LoadProfileText());
         }
 
-        // Check for idle animation ("04") frames on this aisling's body
+        //check for idle animation ("04") frames on this aisling's body
         var entity = WorldState.GetEntity(args.Id);
 
         if (entity?.Appearance is { } appearance)
         {
             entity.IdleAnimFrameCount = Game.AislingRenderer.GetIdleAnimFrameCount(in appearance);
 
-            // Start idle cycling if entity is currently idle
+            //start idle cycling if entity is currently idle
             if (entity.AnimState == EntityAnimState.Idle)
                 AnimationSystem.ResetToIdle(entity);
         }
@@ -58,22 +58,22 @@ public sealed partial class WorldScreen
 
     private void HandleRemoveEntity(uint id)
     {
-        // Capture creature sprite for death dissolve before removing from WorldState
+        //capture creature sprite for death dissolve before removing from worldstate
         var entity = WorldState.GetEntity(id);
 
         if (entity is { Type: ClientEntityType.Creature })
             CreateDyingEffect(entity);
 
-        // Clean up aisling composited texture cache
+        //clean up aisling composited texture cache
         Game.AislingRenderer.RemoveCachedEntity(id);
 
-        // Clean up all overlay caches (name tag, chat bubble, health bar, chant)
+        //clean up all overlay caches (name tag, chat bubble, health bar, chant)
         Overlays.RemoveEntity(id);
 
-        // Clean up cached debug label texture
+        //clean up cached debug label texture
         DebugRenderer.RemoveEntity(id);
 
-        // Remove entity from WorldState (ChaosGame skips removal when WorldScreen is active)
+        //remove entity from worldstate (chaosgame skips removal when worldscreen is active)
         WorldState.RemoveEntity(id);
     }
 
@@ -109,7 +109,7 @@ public sealed partial class WorldScreen
         WorldState.DyingEffects.Add(dyingEffect);
     }
 
-    // --- Movement ---
+    //--- movement ---
 
     /// <summary>
     ///     Client-side prediction: sends Walk packet and immediately starts the walk animation locally without waiting for
@@ -117,7 +117,7 @@ public sealed partial class WorldScreen
     /// </summary>
     private void PredictAndWalk(WorldEntity player, Direction direction)
     {
-        // Bounds check — don't walk off the map edge
+        //bounds check — don't walk off the map edge
         (var dx, var dy) = direction.ToTileOffset();
         var newX = player.TileX + dx;
         var newY = player.TileY + dy;
@@ -125,7 +125,7 @@ public sealed partial class WorldScreen
         if (MapFile is null || (newX < 0) || (newY < 0) || (newX >= MapFile.Width) || (newY >= MapFile.Height))
             return;
 
-        // Swimming check — if on a water tile and don't have the "swimming" skill, block movement
+        //swimming check — if on a water tile and don't have the "swimming" skill, block movement
         if (player.IsOnSwimmingTile && !IsGameMaster && !WorldState.SkillBook.HasSkillByName("swimming"))
         {
             WorldState.Chat.AddMessage("You need to learn how to swim.", Color.White);
@@ -133,22 +133,20 @@ public sealed partial class WorldScreen
             return;
         }
 
-        // Collision check — GM bypasses all collision
+        //collision check — gm bypasses all collision
         if (!IsGameMaster && !IsTilePassable(newX, newY))
             return;
 
         Game.Connection.Walk(direction);
 
-        // Record prediction for server reconciliation
+        //record prediction for server reconciliation
         PendingWalks.Enqueue(
             new PendingWalk(
                 player.TileX,
                 player.TileY,
-                newX,
-                newY,
                 direction));
 
-        // Predict position locally
+        //predict position locally
         player.TileX = newX;
         player.TileY = newY;
         WorldState.MarkSortDirty();
@@ -175,17 +173,17 @@ public sealed partial class WorldScreen
         var serverX = oldX + dx;
         var serverY = oldY + dy;
 
-        // Check if the server confirmation matches our oldest pending prediction
+        //check if the server confirmation matches our oldest pending prediction
         if (PendingWalks.TryPeek(out var pending) && (pending.FromX == oldX) && (pending.FromY == oldY) && (pending.Direction == direction))
         {
-            // Prediction confirmed — discard it
+            //prediction confirmed — discard it
             PendingWalks.Dequeue();
 
             return;
         }
 
-        // Mismatch — server sent a walk we didn't predict. Clear all pending predictions,
-        // rubberband to the server's source position, and play a walk to the destination.
+        //mismatch — server sent a walk we didn't predict. clear all pending predictions,
+        //rubberband to the server's source position, and play a walk to the destination.
         PendingWalks.Clear();
         QueuedWalkDirection = null;
 
@@ -206,13 +204,13 @@ public sealed partial class WorldScreen
         Pathfinding.Clear();
     }
 
-    // --- Attributes ---
+    //--- attributes ---
 
     private void HandleAttributes(AttributesArgs args)
         => IsGameMaster = args.StatUpdateType.HasFlag(StatUpdateType.GameMasterA)
                           || args.StatUpdateType.HasFlag(StatUpdateType.GameMasterB);
 
-    // --- Chat / messages ---
+    //--- chat / messages ---
 
     private void HandleDisplayPublicMessage(DisplayPublicMessageArgs args)
     {
@@ -321,7 +319,7 @@ public sealed partial class WorldScreen
         if (message.Length < 2)
             return;
 
-        // Single option toggle response: "{digit}{description,-25}:{ON/OFF,-3}"
+        //single option toggle response: "{digit}{description,-25}:{on/off,-3}"
         if (message[0] != '0')
         {
             if (!char.IsDigit(message[0]))
@@ -337,8 +335,8 @@ public sealed partial class WorldScreen
             return;
         }
 
-        // Full request response: "0{opt1_desc}:{state}\t{opt2_desc}:{state}\t..."
-        // Leading '0' prefix, then 8 options in order with digits stripped
+        //full request response: "0{opt1_desc}:{state}\t{opt2_desc}:{state}\t..."
+        //leading '0' prefix, then 8 options in order with digits stripped
         var entries = message[1..]
             .Split('\t', StringSplitOptions.RemoveEmptyEntries);
 
@@ -363,12 +361,12 @@ public sealed partial class WorldScreen
             .Trim();
         var isOn = stateStr.StartsWithI("ON");
 
-        // Server settings: use the full formatted text as the display name (includes :ON/:OFF)
+        //server settings: use the full formatted text as the display name (includes :on/:off)
         SettingsDialog.SetSettingName(optionIndex, entry.TrimEnd());
         WorldState.UserOptions.SetValue(optionIndex, isOn);
     }
 
-    // --- NPC dialog / menu ---
+    //--- npc dialog / menu ---
 
     private void HandleDialogChanged()
     {
@@ -398,7 +396,7 @@ public sealed partial class WorldScreen
 
     private void RenderNpcSessionPortrait()
     {
-        // Phase 1: Try full-art illustration SPF (only when ShouldIllustrate is true)
+        //phase 1: try full-art illustration spf (only when shouldillustrate is true)
         if (NpcSession.ShouldIllustrate && !string.IsNullOrEmpty(NpcSession.NpcName))
         {
             var illustTexture = TryLoadNpcIllustration(NpcSession.NpcName);
@@ -411,7 +409,7 @@ public sealed partial class WorldScreen
             }
         }
 
-        // Phase 2: Fall back to entity sprite portrait based on EntityType
+        //phase 2: fall back to entity sprite portrait based on entitytype
         if (NpcSession.PortraitSpriteId == 0)
         {
             NpcSession.SetPortrait(null, false);
@@ -490,10 +488,10 @@ public sealed partial class WorldScreen
     private void HandleRefreshResponse()
         =>
 
-            // Server acknowledged the refresh request — re-center camera
+            //server acknowledged the refresh request — re-center camera
             FollowPlayerCamera();
 
-    // --- Exchange ---
+    //--- exchange ---
 
     private void HandleExchangeAmountRequested(byte fromSlot)
     {
@@ -501,7 +499,7 @@ public sealed partial class WorldScreen
         GoldDrop.ShowForTarget(Exchange.OtherUserId, 0, 0);
     }
 
-    // --- Board / mail ---
+    //--- board / mail ---
 
     private void HandleBoardListReceived()
     {
@@ -584,7 +582,7 @@ public sealed partial class WorldScreen
         }
     }
 
-    // --- Group ---
+    //--- group ---
 
     private void HandleGroupInviteReceived()
     {
@@ -650,6 +648,9 @@ public sealed partial class WorldScreen
 
     private void ShowGroupInvitePopup(string message, string sourceName)
     {
+        if (Root is null)
+            return;
+
         var popup = new OkPopupMessageControl(true);
         Root.AddChild(popup);
 
@@ -669,7 +670,7 @@ public sealed partial class WorldScreen
         popup.Show(message);
     }
 
-    // --- Profiles ---
+    //--- profiles ---
 
     private void HandleEditableProfileRequest() => Game.Connection.SendEditableProfile(PlayerPortrait, StatusBook.GetProfileText());
 
@@ -712,14 +713,14 @@ public sealed partial class WorldScreen
 
     private void HandleSelfProfile(SelfProfileArgs args)
     {
-        // Nation emblem and text
+        //nation emblem and text
         StatusBook.SetNation((byte)args.Nation);
 
-        // Social status display
+        //social status display
         var status = SocialStatusPicker.CurrentStatus;
         StatusBook.SetEmoticonState((byte)status, status.ToString());
 
-        // Populate and show the status book
+        //populate and show the status book
         StatusBook.SetPlayerInfo(
             WorldHud.PlayerName,
             args.DisplayClass,
@@ -727,7 +728,7 @@ public sealed partial class WorldScreen
             args.GuildRank ?? string.Empty,
             args.Title ?? string.Empty);
 
-        // Legend marks
+        //legend marks
         var marks = args.LegendMarks
                         .Select(m => new LegendMarkEntry(
                             m.Text,
@@ -738,7 +739,7 @@ public sealed partial class WorldScreen
 
         StatusBook.SetLegendMarks(marks);
 
-        // Ability metadata (skills/spells from SClass file)
+        //ability metadata (skills/spells from sclass file)
         var abilityMetadata = DataContext.MetaFiles.GetAbilityMetadata((byte)args.BaseClass);
 
         if (abilityMetadata is not null)
@@ -746,12 +747,12 @@ public sealed partial class WorldScreen
         else
             StatusBook.ClearSkills();
 
-        // Event metadata (quests from SEvent files)
+        //event metadata (quests from sevent files)
         var eventMetadata = DataContext.MetaFiles.GetEventMetadata();
 
         if (eventMetadata.Count > 0)
         {
-            // Build a set of completed event IDs from legend marks for O(1) lookup
+            //build a set of completed event ids from legend marks for o(1) lookup
             var completedEventIds = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
             foreach (var mark in args.LegendMarks)
@@ -765,22 +766,22 @@ public sealed partial class WorldScreen
         } else
             StatusBook.ClearEvents();
 
-        // Family info
+        //family info
         StatusBook.SetFamilyInfo(args.SpouseName ?? string.Empty);
         LoadPlayerFamilyList();
 
-        // Paperdoll — render the player's full aisling at south-facing idle
+        //paperdoll — render the player's full aisling at south-facing idle
         var playerEntity = WorldState.GetPlayerEntity();
 
         if (playerEntity?.Appearance is { } appearance)
             StatusBook.SetPaperdoll(Game.AislingRenderer, in appearance);
 
-        // Group open state — server is source of truth, sync all UI
+        //group open state — server is source of truth, sync all ui
         StatusBook.SetGroupOpen(args.GroupOpen);
         WorldState.UserOptions.SetValue(12, args.GroupOpen);
         WorldHud.SetGroupOpen(args.GroupOpen);
 
-        // Group members — parse GroupString into state, UI subscribes via event
+        //group members — parse groupstring into state, ui subscribes via event
         if (!string.IsNullOrEmpty(args.GroupString))
         {
             if (args.GroupString.StartsWithI(GROUP_MEMBERS_PREFIX))
@@ -803,7 +804,8 @@ public sealed partial class WorldScreen
         } else if (SelfProfileRequested)
         {
             SelfProfileRequested = false;
-            ShowStatusBook();
+            ShowStatusBook(SelfProfileRequestedTab);
+            SelfProfileRequestedTab = StatusBookTab.Equipment;
         }
     }
 
@@ -833,7 +835,7 @@ public sealed partial class WorldScreen
             GroupHighlightTimer = 1000f;
     }
 
-    private void ShowStatusBook()
+    private void ShowStatusBook(StatusBookTab tab = StatusBookTab.Equipment)
     {
         StatusBook.RefreshEquipment();
 
@@ -846,7 +848,7 @@ public sealed partial class WorldScreen
                 attrs.Dex,
                 attrs.Ac);
 
-        StatusBook.SwitchTab(StatusBookTab.Equipment);
+        StatusBook.SwitchTab(tab);
         StatusBook.Show();
     }
 
@@ -863,7 +865,7 @@ public sealed partial class WorldScreen
         OtherProfile.Show(args, marks, Game.AislingRenderer);
     }
 
-    // --- Animations / effects / sound ---
+    //--- animations / effects / sound ---
 
     private void HandleBodyAnimation(BodyAnimationArgs args)
     {
@@ -872,11 +874,11 @@ public sealed partial class WorldScreen
         if (entity is null)
             return;
 
-        // Emotes are body animations — ignore if any body anim or emote overlay is already playing
+        //emotes are body animations — ignore if any body anim or emote overlay is already playing
         if ((entity.AnimState == EntityAnimState.BodyAnim) || (entity.ActiveEmoteFrame >= 0))
             return;
 
-        // Creatures use their MpfFile attack frame counts; aislings use EPF suffix-based frame counts
+        //creatures use their mpffile attack frame counts; aislings use epf suffix-based frame counts
         if (entity.Type == ClientEntityType.Creature)
         {
             var animInfo = Game.CreatureRenderer.GetAnimInfo(entity.SpriteId);
@@ -899,7 +901,7 @@ public sealed partial class WorldScreen
                 AnimationSystem.StartBodyAnimation(entity, args.BodyAnimation, args.AnimationSpeed);
             } else if (DataUtilities.IsEmote(args.BodyAnimation))
             {
-                // Emote overlay — face/bubble icon composited into the aisling sprite
+                //emote overlay — face/bubble icon composited into the aisling sprite
                 (var startFrame, var frameCount, var durationMs) = AnimationSystem.ResolveEmoteFrames(args.BodyAnimation);
 
                 if (startFrame >= 0)
@@ -920,7 +922,7 @@ public sealed partial class WorldScreen
 
     private void HandleAnimation(AnimationArgs args)
     {
-        // Ground-targeted effect
+        //ground-targeted effect
         if (args is { TargetPoint: not null, TargetAnimation: > 0 })
             CreateEffect(
                 args.TargetAnimation,
@@ -928,11 +930,11 @@ public sealed partial class WorldScreen
                 targetTileX: args.TargetPoint.Value.X,
                 targetTileY: args.TargetPoint.Value.Y);
 
-        // Entity-targeted effect on target
+        //entity-targeted effect on target
         if (args is { TargetId: > 0, TargetAnimation: > 0 })
             CreateEffect(args.TargetAnimation, args.AnimationSpeed, args.TargetId.Value);
 
-        // Source-side effect (caster visual)
+        //source-side effect (caster visual)
         if (args is { SourceId: > 0, SourceAnimation: > 0 })
             CreateEffect(args.SourceAnimation, args.AnimationSpeed, args.SourceId.Value);
     }
@@ -951,14 +953,14 @@ public sealed partial class WorldScreen
 
         (var frameCount, var fileIntervalMs, var isEfa, var blendMode) = info.Value;
 
-        // EFA effects use the interval from the file; EPF effects use the packet's animation speed
+        //efa effects use the interval from the file; epf effects use the packet's animation speed
         float frameIntervalMs = isEfa
             ? fileIntervalMs > 0 ? fileIntervalMs : 50
             : animationSpeed > 0
                 ? animationSpeed
                 : 50;
 
-        // Cancel any existing effect on the same entity — only one effect per entity at a time
+        //cancel any existing effect on the same entity — only one effect per entity at a time
         if (targetEntityId.HasValue)
             WorldState.ActiveEffects.RemoveAll(e => e.TargetEntityId == targetEntityId);
 
@@ -983,7 +985,7 @@ public sealed partial class WorldScreen
             Game.SoundSystem.PlaySound(args.Sound);
     }
 
-    // --- World / map / doors ---
+    //--- world / map / doors ---
 
     private void HandleWorldMap(WorldMapArgs args) => WorldMap.Show(args);
 
@@ -1001,7 +1003,7 @@ public sealed partial class WorldScreen
 
             if (door.Closed)
             {
-                // Restore closed tile: find the open tile currently set and swap it back
+                //restore closed tile: find the open tile currently set and swap it back
                 var closedLeft = DoorTable.GetClosedTileId(tile.LeftForeground);
                 var closedRight = DoorTable.GetClosedTileId(tile.RightForeground);
 
@@ -1012,7 +1014,7 @@ public sealed partial class WorldScreen
                     tile.RightForeground = closedRight.Value;
             } else
             {
-                // Open door: find the closed tile and swap to open
+                //open door: find the closed tile and swap to open
                 var openLeft = DoorTable.GetOpenTileId(tile.LeftForeground);
                 var openRight = DoorTable.GetOpenTileId(tile.RightForeground);
 
@@ -1034,7 +1036,7 @@ public sealed partial class WorldScreen
         TownMapControl.Hide();
     }
 
-    // --- Health / effects / light ---
+    //--- health / effects / light ---
 
     private void HandleEffect(EffectArgs args) => WorldHud.EffectBar.SetEffect(args.EffectIcon, args.EffectColor);
 
@@ -1055,7 +1057,7 @@ public sealed partial class WorldScreen
         DataContext.MetaFiles.BuildItemIndex();
     }
 
-    // --- Notepad ---
+    //--- notepad ---
 
     private void HandleDisplayReadonlyNotepad(DisplayReadonlyNotepadArgs args)
     {
@@ -1080,19 +1082,19 @@ public sealed partial class WorldScreen
             args.Message);
     }
 
-    // --- Exit / state ---
+    //--- exit / state ---
 
     private void HandleExitResponse(ExitResponseArgs args)
     {
-        // Server confirmed exit — send the actual logout (isRequest=false triggers server-side redirect to login)
+        //server confirmed exit — send the actual logout (isrequest=false triggers server-side redirect to login)
         if (args.ExitConfirmed)
             Game.Connection.RequestExit(false);
     }
 
     private void HandleStateChanged(ConnectionState oldState, ConnectionState newState)
     {
-        // Server redirected us back to login (e.g., after logout)
-        // State transitions go World → Connecting → Login, so just check for Login arrival
+        //server redirected us back to login (e.g., after logout)
+        //state transitions go world → connecting → login, so just check for login arrival
         if (newState == ConnectionState.Login)
         {
             RedirectInProgress = false;
@@ -1101,12 +1103,12 @@ public sealed partial class WorldScreen
             return;
         }
 
-        // Unexpected disconnect — show reconnect prompt (skip if this is part of a redirect sequence)
+        //unexpected disconnect — show reconnect prompt (skip if this is part of a redirect sequence)
         if ((newState == ConnectionState.Disconnected) && !RedirectInProgress)
             DisconnectPopup.Show("Connection lost.");
     }
 
-    // --- Helpers ---
+    //--- helpers ---
 
     private static Color MapMarkColor(MarkColor color)
     {

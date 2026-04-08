@@ -19,11 +19,11 @@ public sealed class LoginControl : PrefabPanel
         Visible = false;
         UsesControlStack = true;
 
-        // Buttons
+        //buttons
         OkButton = CreateButton("OK");
         CancelButton = CreateButton("Cancel");
 
-        // Text fields — type 7 with 0 images, must be created manually
+        //text fields — type 7 with 0 images, must be created manually
         UsernameField = CreateTextBox("Name");
         PasswordField = CreateTextBox("Password");
 
@@ -107,7 +107,7 @@ public sealed class LoginControl : PrefabPanel
                 break;
 
             case Keys.Enter:
-                // Enter in username → move to password; Enter in password → login
+                //enter in username → move to password; enter in password → login
                 if (UsernameField?.IsFocused == true)
                 {
                     UsernameField.IsFocused = false;

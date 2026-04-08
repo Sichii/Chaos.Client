@@ -6,26 +6,30 @@ using Chaos.DarkAges.Definitions;
 namespace Chaos.Client.Data.Models;
 
 /// <summary>
-///     Frozen lookup that maps (BodyAnimation, armorSpriteId) to whether that armor is allowed to play the animation.
-///     Parsed from Skill_e.tbl (normal armors) and Skill_i.tbl (overcoat armors) in Legend.dat.
+///     Lookup table that determines whether a given armor sprite is allowed to play a specific body animation.
 /// </summary>
 public sealed class AbilityAnimationTable
 {
     private const byte CLASS_ANIM_BASE = 128;
 
     /// <summary>
-    ///     Key: skill entry index (0-17, maps to BodyAnimation via (byte)anim - 128). Value: frozen set of allowed armor
-    ///     sprite IDs. Overcoat IDs stored as id + 1000.
+    ///     Allowed armor sprite IDs keyed by skill animation entry index.
     /// </summary>
+    /// <remarks>
+    ///     Entry index = (byte)BodyAnimation - 128. Overcoat armor IDs are stored with a +1000 offset.
+    /// </remarks>
     private readonly FrozenDictionary<byte, FrozenSet<int>> AllowedArmorsByEntry;
 
     internal AbilityAnimationTable(Dictionary<byte, HashSet<int>> mutableData)
         => AllowedArmorsByEntry = mutableData.ToFrozenDictionary(kvp => kvp.Key, kvp => kvp.Value.ToFrozenSet());
 
     /// <summary>
-    ///     Returns true if the given armor sprite is allowed to play the specified body animation. Animations below 0x80
-    ///     (peasant/emote) are always allowed. Unknown entries (not in the table) are allowed defensively.
+    ///     Returns true if the given armor sprite is allowed to play the specified body animation.
     /// </summary>
+    /// <remarks>
+    ///     Peasant and emote animations (below 0x80) are always allowed. Animations not present in the table are also allowed
+    ///     defensively.
+    /// </remarks>
     public bool IsAbilityAnimationAllowed(BodyAnimation anim, int spriteId)
     {
         var animByte = (byte)anim;

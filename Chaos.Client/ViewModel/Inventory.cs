@@ -107,7 +107,7 @@ public sealed class Inventory
         if (index is < 0 or >= MAX_SLOTS)
             return;
 
-        // Build display name with stack count suffix
+        //build display name with stack count suffix
         var displayName = stackable && (count > 0) ? $"{name}[ {count} ]" : name;
 
         Slots[index] = new InventorySlotData(
@@ -138,7 +138,7 @@ public sealed class Inventory
         int MaxDurability,
         int CurrentDurability)
     {
-        internal static readonly InventorySlotData Empty;
+        internal static readonly InventorySlotData Empty = default;
 
         /// <summary>
         ///     True if this slot contains an item (has a sprite assigned).

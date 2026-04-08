@@ -24,17 +24,17 @@ public sealed class MenuListPanel : FramedDialogPanelBase
     private const int ICON_TEXT_GAP = 4;
     private const int COLUMN_COUNT = 2;
 
-    // Content area from lnpcd2 template (relative to panel)
+    //content area from lnpcd2 template (relative to panel)
     private const int CONTENT_X = 13;
     private const int CONTENT_Y = 6;
     private const int CONTENT_WIDTH = 400;
     private const int CONTENT_HEIGHT = 160;
 
-    // Panel sizing
+    //panel sizing
     private const int PANEL_WIDTH = 426;
     private const int MAX_VISIBLE_ROWS = CONTENT_HEIGHT / ROW_HEIGHT;
 
-    // One extra row for the partially-visible peek effect at the bottom
+    //one extra row for the partially-visible peek effect at the bottom
     private const int DISPLAY_ROWS = MAX_VISIBLE_ROWS + 1;
 
     private static readonly RasterizerState ScissorRasterizer = new()
@@ -42,12 +42,12 @@ public sealed class MenuListPanel : FramedDialogPanelBase
         ScissorTestEnable = true
     };
 
-    // Border metrics (from FramedDialogPanel)
+    //border metrics (from frameddialogpanel)
     private const int BORDER_BOTTOM = 30;
     private const int BTN_WIDTH = 61;
     private const int BTN_HEIGHT = 22;
 
-    // Bottom of panel aligns with top of the dialog bottom bar
+    //bottom of panel aligns with top of the dialog bottom bar
     private const int BOTTOM_ANCHOR_Y = 372;
 
     private static readonly Color SELECTED_TEXT_COLOR = new(206, 0, 16);
@@ -119,7 +119,7 @@ public sealed class MenuListPanel : FramedDialogPanelBase
         if (!Visible)
             return;
 
-        // Hide entry rows so base.Draw() only renders frame + scrollbar + ok button
+        //hide entry rows so base.draw() only renders frame + scrollbar + ok button
         SetEntryVisibility(false);
         base.Draw(spriteBatch);
         SetEntryVisibility(true);
@@ -127,7 +127,7 @@ public sealed class MenuListPanel : FramedDialogPanelBase
         if (EntryControls.Count == 0)
             return;
 
-        // Draw entry controls with scissor clipping so the peek row is partially visible
+        //draw entry controls with scissor clipping so the peek row is partially visible
         var device = spriteBatch.GraphicsDevice;
 
         var clipRect = new Rectangle(
@@ -218,7 +218,7 @@ public sealed class MenuListPanel : FramedDialogPanelBase
             }
         }
 
-        // Hide remaining controls
+        //hide remaining controls
         for (; controlIndex < EntryControls.Count; controlIndex++)
         {
             EntryControls[controlIndex]
@@ -348,21 +348,21 @@ public sealed class MenuListPanel : FramedDialogPanelBase
                 break;
         }
 
-        // Column width based on scrollbar presence
+        //column width based on scrollbar presence
         var needsScroll = TotalRows > MAX_VISIBLE_ROWS;
         var availableWidth = needsScroll ? CONTENT_WIDTH - ScrollBarControl.DEFAULT_WIDTH : CONTENT_WIDTH;
         ColumnWidth = availableWidth / COLUMN_COUNT;
 
-        // Fixed panel size
+        //fixed panel size
         var contentHeight = MAX_VISIBLE_ROWS * ROW_HEIGHT;
         Height = CONTENT_Y + contentHeight + BORDER_BOTTOM;
         Width = PANEL_WIDTH;
 
-        // Right-aligned, bottom-anchored above dialog bar
+        //right-aligned, bottom-anchored above dialog bar
         X = ChaosGame.VIRTUAL_WIDTH - Width;
         Y = BOTTOM_ANCHOR_Y - Height;
 
-        // OK button positioning
+        //ok button positioning
         if (OkButton is not null)
         {
             OkButton.X = Width - BTN_WIDTH - 20;
@@ -370,7 +370,7 @@ public sealed class MenuListPanel : FramedDialogPanelBase
             OkButton.Enabled = false;
         }
 
-        // Scrollbar
+        //scrollbar
         ScrollBar.Visible = needsScroll;
         ScrollBar.Enabled = needsScroll;
         ScrollBar.Y = CONTENT_Y;
@@ -384,7 +384,7 @@ public sealed class MenuListPanel : FramedDialogPanelBase
             ScrollBar.Value = 0;
         }
 
-        // Create entry controls for visible slots (including peek row)
+        //create entry controls for visible slots (including peek row)
         var visibleCount = Math.Min(DISPLAY_ROWS * COLUMN_COUNT, Entries.Count);
 
         for (var i = 0; i < visibleCount; i++)
@@ -489,20 +489,6 @@ public sealed class MenuListPanel : FramedDialogPanelBase
         e.Handled = true;
     }
 
-    private void UpdateSelectionState()
-    {
-        var firstEntry = ScrollOffset * COLUMN_COUNT;
-
-        for (var i = 0; i < EntryControls.Count; i++)
-        {
-            var entryIndex = firstEntry + i;
-
-            if (entryIndex < Entries.Count)
-                EntryControls[i]
-                    .SetSelected(entryIndex == SelectedIndex);
-        }
-    }
-
     private sealed class ListEntryControl : UIPanel
     {
         private readonly UIImage IconImage;
@@ -552,7 +538,6 @@ public sealed class MenuListPanel : FramedDialogPanelBase
             NameLabel.ForegroundColor = selected ? SELECTED_TEXT_COLOR : TextColors.Default;
         }
 
-        public void SetSelected(bool selected) => NameLabel.ForegroundColor = selected ? SELECTED_TEXT_COLOR : TextColors.Default;
     }
 
     private sealed record ListEntryData(

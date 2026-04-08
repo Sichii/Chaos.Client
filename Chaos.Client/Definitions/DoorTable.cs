@@ -10,7 +10,7 @@ namespace Chaos.Client.Definitions;
 /// </summary>
 public static class DoorTable
 {
-    // Bidirectional: ClosedToOpen for opening, OpenToClosed for closing
+    //bidirectional: closedtoopen for opening, opentoclosed for closing
     private static readonly FrozenDictionary<short, short> ClosedToOpen;
     private static readonly FrozenDictionary<short, short> OpenToClosed;
 

@@ -44,8 +44,7 @@ public sealed class ChaosGame : Game
     public InputBuffer Input { get; private set; } = null!;
 
     /// <summary>
-    ///     Event-driven input dispatcher that produces discrete events from InputBuffer
-    ///     and dispatches them through the element tree via hit-testing and focus routing.
+    ///     Input dispatcher that routes mouse and keyboard events to UI elements via hit-testing and focus routing.
     /// </summary>
     public InputDispatcher Dispatcher { get; private set; } = null!;
 
@@ -109,15 +108,15 @@ public sealed class ChaosGame : Game
         Connection.OnMetaData += HandleMetaData;
         Connection.OnWorldEntryComplete += () => Connection.SendMetaDataRequest(MetaDataRequestType.AllCheckSums);
 
-        // Wire state events to WorldState at startup so state is tracked
-        // even during world entry (before WorldScreen is created)
+        //wire state events to worldstate at startup so state is tracked
+        //even during world entry (before worldscreen is created)
         WorldState.SubscribeTo(Connection);
         Connection.OnDisplayVisibleEntities += WorldState.AddOrUpdateVisibleEntities;
         Connection.OnDisplayAisling += WorldState.AddOrUpdateAisling;
 
-        // RemoveEntity wired in WorldScreen — it needs to capture the creature sprite for
-        // the death dissolve animation before removing the entity from WorldState.
-        // Fallback for non-world screens (e.g., during world entry before WorldScreen exists).
+        //removeentity wired in worldscreen — it needs to capture the creature sprite for
+        //the death dissolve animation before removing the entity from worldstate.
+        //fallback for non-world screens (e.g., during world entry before worldscreen exists).
         Connection.OnRemoveEntity += id =>
         {
             if (Screens.ActiveScreen is not WorldScreen)
@@ -149,7 +148,7 @@ public sealed class ChaosGame : Game
 
     protected override void Draw(GameTime gameTime)
     {
-        // Render everything at virtual resolution
+        //render everything at virtual resolution
         GraphicsDevice.SetRenderTarget(RenderTarget);
         GraphicsDevice.Clear(Color.Black);
         Screens.Draw(SpriteBatch, gameTime);
@@ -157,7 +156,7 @@ public sealed class ChaosGame : Game
         if (DebugOverlay.IsActive)
             DebugOverlay.DrawStats(SpriteBatch);
 
-        // Custom cursor — drawn in virtual space so it aligns with game content
+        //custom cursor — drawn in virtual space so it aligns with game content
         if (CursorTexture is not null)
         {
             var activeCursor = UseHandCursor && HandCursorTexture is not null ? HandCursorTexture : CursorTexture;
@@ -169,7 +168,7 @@ public sealed class ChaosGame : Game
             SpriteBatch.End();
         }
 
-        // Scale to window (aspect ratio is locked, so it always fills perfectly)
+        //scale to window (aspect ratio is locked, so it always fills perfectly)
         GraphicsDevice.SetRenderTarget(null);
         SpriteBatch.Begin(samplerState: GlobalSettings.Sampler);
         SpriteBatch.Draw(RenderTarget, GraphicsDevice.Viewport.Bounds, Color.White);
@@ -261,7 +260,7 @@ public sealed class ChaosGame : Game
             (CursorOffsetX, CursorOffsetY) = FindCursorHotspot(CursorTexture);
         }
 
-        HandCursorTexture = UiRenderer.Instance!.GetEpfTexture("mouse.epf", 1);
+        HandCursorTexture = UiRenderer.Instance.GetEpfTexture("mouse.epf", 1);
 
         if (HandCursorTexture is not null)
             (HandCursorOffsetX, HandCursorOffsetY) = FindCursorHotspot(HandCursorTexture);
@@ -283,7 +282,7 @@ public sealed class ChaosGame : Game
         if ((width <= 0) || (height <= 0))
             return;
 
-        // Determine corrected dimensions preserving 4:3
+        //determine corrected dimensions preserving 4:3
         var correctedWidth = (int)(height * ASPECT_RATIO);
         var correctedHeight = (int)(width / ASPECT_RATIO);
 
@@ -292,12 +291,12 @@ public sealed class ChaosGame : Game
 
         if (correctedWidth <= width)
         {
-            // Height is the constraining dimension
+            //height is the constraining dimension
             newWidth = correctedWidth;
             newHeight = height;
         } else
         {
-            // Width is the constraining dimension
+            //width is the constraining dimension
             newWidth = width;
             newHeight = correctedHeight;
         }
@@ -342,20 +341,20 @@ public sealed class ChaosGame : Game
     {
         DebugOverlay.BeginFrame();
 
-        // Compute scale for mouse coordinate transform (window is always 4:3, so uniform scale)
+        //compute scale for mouse coordinate transform (window is always 4:3, so uniform scale)
         var scale = (float)GraphicsDevice.PresentationParameters.BackBufferWidth / VIRTUAL_WIDTH;
         Input.SetVirtualScale(scale);
 
-        // Freeze buffered input for this frame before anything reads it
+        //freeze buffered input for this frame before anything reads it
         Input.Update(gameTime);
 
-        // F12 — toggle debug overlay (handled globally before screen update)
+        //f12 — toggle debug overlay (handled globally before screen update)
         if (Input.WasKeyPressed(Keys.F12))
             DebugOverlay.Toggle();
 
         DebugOverlay.Update(gameTime);
 
-        // Drain and process network packets each frame
+        //drain and process network packets each frame
         PacketBuffer.Clear();
         Connection.ProcessPackets(PacketBuffer);
 

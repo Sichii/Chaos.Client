@@ -59,7 +59,7 @@ public sealed class WorldMap : UIPanel
         if (!Visible)
             return;
 
-        // Draw background image
+        //draw background image
         if (BackgroundTexture is not null)
             spriteBatch.Draw(
                 BackgroundTexture,
@@ -70,7 +70,7 @@ public sealed class WorldMap : UIPanel
                     480),
                 Color.White);
 
-        // Draw node controls
+        //draw node controls
         foreach (var control in NodeControls)
             control.Draw(spriteBatch);
     }

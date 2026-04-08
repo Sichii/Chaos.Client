@@ -112,85 +112,44 @@ public static class DataUtilities
         };
 
     public static (string ArchiveName, string EntryName) DetermineKhanDetails(BodyAnimation bodyAnimation, BodySprite bodySprite)
-    {
-        var gender = DetermineGender(bodySprite);
-        var baseClass = DetermineClass(bodyAnimation);
-        var classSuffix = DetermineClassSuffix(baseClass);
-        var isEmote = IsEmote(bodyAnimation);
-
-        var archiveName = "khan";
-        var fileName = string.Empty;
-
-        if (gender == Gender.Male)
-        {
-            archiveName += "m";
-            fileName += "m";
-        } else
-        {
-            archiveName += "w";
-            fileName += "w";
-        }
-
-        return default;
-    }
+        => default;
 
     public static bool IsEmote(BodyAnimation bodyAnimation)
         => bodyAnimation switch
         {
-            BodyAnimation.None           => false,
-            BodyAnimation.Assail         => false,
-            BodyAnimation.HandsUp        => false,
-            BodyAnimation.Smile          => true,
-            BodyAnimation.Cry            => true,
-            BodyAnimation.Frown          => true,
-            BodyAnimation.Wink           => true,
-            BodyAnimation.Surprise       => true,
-            BodyAnimation.Tongue         => true,
-            BodyAnimation.Pleasant       => true,
-            BodyAnimation.Snore          => true,
-            BodyAnimation.Mouth          => true,
-            BodyAnimation.BlowKiss       => true,
-            BodyAnimation.Wave           => true,
-            BodyAnimation.RockOn         => true,
-            BodyAnimation.Peace          => true,
-            BodyAnimation.Stop           => true,
-            BodyAnimation.Ouch           => true,
-            BodyAnimation.Impatient      => true,
-            BodyAnimation.Shock          => true,
-            BodyAnimation.Pleasure       => true,
-            BodyAnimation.Love           => true,
-            BodyAnimation.SweatDrop      => true,
-            BodyAnimation.Whistle        => true,
-            BodyAnimation.Irritation     => true,
-            BodyAnimation.Silly          => true,
-            BodyAnimation.Cute           => true,
-            BodyAnimation.Yelling        => true,
-            BodyAnimation.Mischievous    => true,
-            BodyAnimation.Evil           => true,
-            BodyAnimation.Horror         => true,
-            BodyAnimation.PuppyDog       => true,
-            BodyAnimation.StoneFaced     => true,
-            BodyAnimation.Tears          => true,
-            BodyAnimation.FiredUp        => true,
-            BodyAnimation.Confused       => true,
-            BodyAnimation.PriestCast     => false,
-            BodyAnimation.TwoHandAtk     => false,
-            BodyAnimation.Jump           => false,
-            BodyAnimation.Kick           => false,
-            BodyAnimation.Punch          => false,
-            BodyAnimation.RoundHouseKick => false,
-            BodyAnimation.Stab           => false,
-            BodyAnimation.DoubleStab     => false,
-            BodyAnimation.WizardCast     => false,
-            BodyAnimation.PlayNotes      => false,
-            BodyAnimation.HandsUp2       => false,
-            BodyAnimation.Swipe          => false,
-            BodyAnimation.HeavySwipe     => false,
-            BodyAnimation.JumpAttack     => false,
-            BodyAnimation.BowShot        => false,
-            BodyAnimation.HeavyBowShot   => false,
-            BodyAnimation.LongBowShot    => false,
-            BodyAnimation.Summon         => false,
-            _                            => false
+            BodyAnimation.Smile       => true,
+            BodyAnimation.Cry         => true,
+            BodyAnimation.Frown       => true,
+            BodyAnimation.Wink        => true,
+            BodyAnimation.Surprise    => true,
+            BodyAnimation.Tongue      => true,
+            BodyAnimation.Pleasant    => true,
+            BodyAnimation.Snore       => true,
+            BodyAnimation.Mouth       => true,
+            BodyAnimation.BlowKiss    => true,
+            BodyAnimation.Wave        => true,
+            BodyAnimation.RockOn      => true,
+            BodyAnimation.Peace       => true,
+            BodyAnimation.Stop        => true,
+            BodyAnimation.Ouch        => true,
+            BodyAnimation.Impatient   => true,
+            BodyAnimation.Shock       => true,
+            BodyAnimation.Pleasure    => true,
+            BodyAnimation.Love        => true,
+            BodyAnimation.SweatDrop   => true,
+            BodyAnimation.Whistle     => true,
+            BodyAnimation.Irritation  => true,
+            BodyAnimation.Silly       => true,
+            BodyAnimation.Cute        => true,
+            BodyAnimation.Yelling     => true,
+            BodyAnimation.Mischievous => true,
+            BodyAnimation.Evil        => true,
+            BodyAnimation.Horror      => true,
+            BodyAnimation.PuppyDog    => true,
+            BodyAnimation.StoneFaced  => true,
+            BodyAnimation.Tears       => true,
+            BodyAnimation.FiredUp     => true,
+            BodyAnimation.Confused    => true,
+            _                         => false
         };
 }

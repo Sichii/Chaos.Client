@@ -84,7 +84,7 @@ public static class DebugOverlay
         var w = element.Width;
         var h = element.Height;
 
-        // Use texture dimensions as fallback when Width/Height are 0
+        //use texture dimensions as fallback when width/height are 0
         if ((w == 0) && (h == 0) && element is UIPanel { Background: not null } bgPanel)
         {
             w = bgPanel.Background.Width;
@@ -155,13 +155,13 @@ public static class DebugOverlay
 
         var barWidth = GRAPH_WIDTH / FRAME_TIME_HISTORY;
 
-        // 33ms target line (30fps — anything above this is a serious hitch)
+        //33ms target line (30fps — anything above this is a serious hitch)
         var targetY33 = GraphY + GRAPH_HEIGHT - GRAPH_HEIGHT * (33f / 50f);
 
-        // 16.67ms target line (60fps)
+        //16.67ms target line (60fps)
         var targetY16 = GraphY + GRAPH_HEIGHT - GRAPH_HEIGHT * (16.67f / 50f);
 
-        // 60fps line
+        //60fps line
         UIElement.DrawRect(
             spriteBatch,
             new Rectangle(
@@ -171,7 +171,7 @@ public static class DebugOverlay
                 1),
             Color.Lime * 0.4f);
 
-        // 30fps line
+        //30fps line
         UIElement.DrawRect(
             spriteBatch,
             new Rectangle(
@@ -181,7 +181,7 @@ public static class DebugOverlay
                 1),
             Color.Red * 0.4f);
 
-        // Draw bars
+        //draw bars
         for (var i = 0; i < FRAME_TIME_HISTORY; i++)
         {
             var idx = (FrameTimeIndex - FRAME_TIME_HISTORY + i + FRAME_TIME_HISTORY) % FRAME_TIME_HISTORY;
@@ -190,7 +190,7 @@ public static class DebugOverlay
             if (ms <= 0)
                 continue;
 
-            // Clamp to graph range (0-50ms)
+            //clamp to graph range (0-50ms)
             var normalized = Math.Min(ms / 50f, 1f);
             var barHeight = (int)(GRAPH_HEIGHT * normalized);
             var barX = (int)(GraphX + i * barWidth);
@@ -215,7 +215,7 @@ public static class DebugOverlay
 
     private static void DrawPerformanceStatsGeometry(SpriteBatch spriteBatch)
     {
-        // Background for stats area
+        //background for stats area
         var statsHeight = 82;
 
         UIElement.DrawRect(
@@ -227,10 +227,10 @@ public static class DebugOverlay
                 (int)GRAPH_HEIGHT + statsHeight + 8),
             Color.Black * 0.33f);
 
-        // Frame time graph
+        //frame time graph
         DrawFrameTimeGraph(spriteBatch);
 
-        // Flash the whole stats area red-tinted when a Gen2 collection just happened
+        //flash the whole stats area red-tinted when a gen2 collection just happened
         if (Gen2FlashTimer > 0)
         {
             var flashAlpha = Gen2FlashTimer / GEN2_FLASH_DURATION_MS * 0.3f;
@@ -248,7 +248,7 @@ public static class DebugOverlay
 
     private static void DrawPerformanceStatsText(SpriteBatch spriteBatch)
     {
-        // Text stats
+        //text stats
         var heapMb = GC.GetTotalMemory(false) / (1024.0 * 1024.0);
         var gcMode = GCSettings.IsServerGC ? "Server" : "Workstation";
         var latencyMode = GCSettings.LatencyMode;
@@ -338,7 +338,7 @@ public static class DebugOverlay
         FrameTimeHistory[FrameTimeIndex % FRAME_TIME_HISTORY] = LastFrameWorkMs;
         FrameTimeIndex++;
 
-        // FPS counter — count actual frames per second
+        //fps counter — count actual frames per second
         FpsCounter++;
         FpsElapsed += (float)gameTime.ElapsedGameTime.TotalMilliseconds;
 
@@ -349,7 +349,7 @@ public static class DebugOverlay
             FpsElapsed -= 1000f;
         }
 
-        // GC collection tracking
+        //gc collection tracking
         var g0 = GC.CollectionCount(0);
         var g1 = GC.CollectionCount(1);
         var g2 = GC.CollectionCount(2);

@@ -23,7 +23,7 @@ public sealed class EffectsRepository : RepositoryBase
     }
 
     /// <summary>
-    ///     Returns an EFA effect file by ID, or null if not found.
+    ///     Loads a frame-based animation effect (EFA format) from the Roh archive.
     /// </summary>
     public EfaView? GetEfaEffect(int effectId)
     {
@@ -64,7 +64,7 @@ public sealed class EffectsRepository : RepositoryBase
             points[i] = (x, y);
         }
 
-        // Fill remaining with last point if .tbl is shorter than frame count
+        //fill remaining with last point if .tbl is shorter than frame count
         if (frameCount > 0)
         {
             var lastValid = points[0];
@@ -80,9 +80,11 @@ public sealed class EffectsRepository : RepositoryBase
     }
 
     /// <summary>
-    ///     Returns the frame sequence for an effect from the EffectTable. A single-element [0] means EFA. Returns null if the
-    ///     effect ID has no entry.
+    ///     Returns the EffectTable entry for an effect, or null if the effect has no table entry.
     /// </summary>
+    /// <remarks>
+    ///     A single-element entry containing [0] indicates the effect uses EFA format rather than EPF frame sequences.
+    /// </remarks>
     public EffectTableEntry? GetEffectTableEntry(int effectId)
     {
         if (effectId <= 0)
@@ -92,7 +94,7 @@ public sealed class EffectsRepository : RepositoryBase
     }
 
     /// <summary>
-    ///     Returns an EPF effect file with palette by ID, or null if not found.
+    ///     Loads a palettized sprite-based effect (EPF format) from the Roh archive.
     /// </summary>
     public Palettized<EpfView>? GetEpfEffect(int effectId)
     {
@@ -114,7 +116,7 @@ public sealed class EffectsRepository : RepositoryBase
     }
 
     /// <summary>
-    ///     Returns whether the effect's palette number is >= 1000, indicating luminance-based alpha blending.
+    ///     Returns true if the effect uses luminance-based alpha blending instead of standard palette rendering.
     /// </summary>
     public bool UsesLuminanceBlending(int effectId) => EffectPalettes.Table.GetPaletteNumber(effectId) >= 1000;
 }

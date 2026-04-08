@@ -72,11 +72,11 @@ public sealed class ExchangeControl : PrefabPanel
         if (YourAckImage is not null)
             YourAckImage.Visible = false;
 
-        // Create item controls for both sides
+        //create item controls for both sides
         CreateItemControls(MyItems, MyExchangeRect);
         CreateItemControls(YourItems, YourExchangeRect);
 
-        // Subscribe to state events
+        //subscribe to state events
         WorldState.Exchange.Started += OnExchangeStarted;
         WorldState.Exchange.ItemAdded += OnExchangeItemAdded;
         WorldState.Exchange.GoldSet += OnExchangeGoldSet;
@@ -172,7 +172,7 @@ public sealed class ExchangeControl : PrefabPanel
         if (OkButton is not null)
             OkButton.Enabled = true;
 
-        // Center vertically in viewport
+        //center vertically in viewport
         Y = ViewportBounds.Y + (ViewportBounds.Height - Height) / 2;
 
         Show();

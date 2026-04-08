@@ -16,11 +16,7 @@ public sealed class EntityHighlight : IDisposable
     private Texture2D? TintedSource;
     private Texture2D? TintedTexture;
 
-    public void Dispose()
-    {
-        ClearTint();
-        GC.SuppressFinalize(this);
-    }
+    public void Dispose() => ClearTint();
 
     public void ClearTint()
     {

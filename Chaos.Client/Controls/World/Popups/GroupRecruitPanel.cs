@@ -13,7 +13,7 @@ namespace Chaos.Client.Controls.World.Popups;
 /// </summary>
 public sealed class GroupRecruitPanel : PrefabPanel
 {
-    // Class labels follow a 27px vertical spacing starting at Y=206
+    //class labels follow a 27px vertical spacing starting at y=206
     private const int CLASS_LABEL_START_Y = 206;
     private const int CLASS_ROW_SPACING = 27;
     private const int CLASS_O_X = 103;
@@ -24,19 +24,10 @@ public sealed class GroupRecruitPanel : PrefabPanel
     private const int CLASS_W_HEIGHT = 16;
     private const int NUM_CLASSES = 5;
 
-    private static readonly string[] ClassNames =
-    [
-        "Warrior",
-        "Wizard",
-        "Rogue",
-        "Priest",
-        "Monk"
-    ];
-
-    // Viewer mode labels
+    //viewer mode labels
     private readonly UILabel?[] ClassCurrentLabels = new UILabel?[NUM_CLASSES];
 
-    // Owner mode fields
+    //owner mode fields
     private readonly UITextBox?[] ClassMaxFields = new UITextBox?[NUM_CLASSES];
     private readonly UILabel?[] ClassMaxLabels = new UILabel?[NUM_CLASSES];
 
@@ -62,7 +53,7 @@ public sealed class GroupRecruitPanel : PrefabPanel
         Visible = false;
         UsesControlStack = true;
 
-        // Text fields from prefab
+        //text fields from prefab
         TitleField = CreateTextBox("TITLE", 24);
         ExtraField = CreateTextBox("EXTRA", 60);
         MinLevelField = CreateTextBox("N_LEVEL_MIN", 3);
@@ -84,18 +75,18 @@ public sealed class GroupRecruitPanel : PrefabPanel
         if (MaxLevelField is not null)
             MaxLevelField.ForegroundColor = LegendColors.White;
 
-        // Summary labels (viewer mode)
+        //summary labels (viewer mode)
         TotalOnlineLabel = CreateLabel("N_TOTAL_O");
         TotalWantedLabel = CreateLabel("N_TOTAL_W");
 
-        // Class fields — try prefab first, then create manually for missing ones
+        //class fields — try prefab first, then create manually for missing ones
         for (var i = 0; i < NUM_CLASSES; i++)
         {
             var onlineName = $"N_CLASS{i}_O";
             var wantedName = $"N_CLASS{i}_W";
             var rowY = CLASS_LABEL_START_Y + i * CLASS_ROW_SPACING;
 
-            // Owner mode: wanted (max) count as text box
+            //owner mode: wanted (max) count as text box
             ClassMaxFields[i] = CreateTextBox(wantedName, 3);
 
             if (ClassMaxFields[i] is null)
@@ -115,7 +106,7 @@ public sealed class GroupRecruitPanel : PrefabPanel
             } else
                 ClassMaxFields[i]!.ForegroundColor = LegendColors.White;
 
-            // Viewer mode: current count label
+            //viewer mode: current count label
             ClassCurrentLabels[i] = CreateLabel(onlineName);
 
             if (ClassCurrentLabels[i] is null)
@@ -133,7 +124,7 @@ public sealed class GroupRecruitPanel : PrefabPanel
                 AddChild(ClassCurrentLabels[i]!);
             }
 
-            // Viewer mode: max count label (overlays the text box position)
+            //viewer mode: max count label (overlays the text box position)
             ClassMaxLabels[i] = new UILabel
             {
                 Name = $"CLASS{i}_MAX_LABEL",
@@ -148,14 +139,14 @@ public sealed class GroupRecruitPanel : PrefabPanel
             AddChild(ClassMaxLabels[i]!);
         }
 
-        // Buttons
+        //buttons
         BeginButton = CreateButton("BTN_BEGIN");
         ModifyButton = CreateButton("BTN_MODIFY");
         ResetButton = CreateButton("BTN_RESET");
         CancelButton = CreateButton("BTN_CANCEL");
         QueryJoinButton = CreateButton("BTN_QUERY_JOIN");
 
-        // Default to owner-new state: only Begin + Cancel visible
+        //default to owner-new state: only begin + cancel visible
         if (ModifyButton is not null)
             ModifyButton.Visible = false;
 
@@ -165,7 +156,7 @@ public sealed class GroupRecruitPanel : PrefabPanel
         if (QueryJoinButton is not null)
             QueryJoinButton.Visible = false;
 
-        // Button events
+        //button events
         if (BeginButton is not null)
             BeginButton.Clicked += HandleCreate;
 

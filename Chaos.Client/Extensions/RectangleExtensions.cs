@@ -6,7 +6,7 @@ namespace Chaos.Client.Extensions;
 
 public static class RectangleExtensions
 {
-    // Horizontal — return X position
+    //horizontal — return x position
 
     extension(Rectangle rect)
     {

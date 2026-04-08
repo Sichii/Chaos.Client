@@ -20,7 +20,7 @@ public sealed class LightMaskRepository : RepositoryBase
             _                 => null
         };
 
-    public LightMask? Get(string epfName)
+    public LightMask Get(string epfName)
         => GetOrCreate(
             epfName,
             () =>

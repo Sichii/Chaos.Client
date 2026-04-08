@@ -7,18 +7,23 @@ using DALib.Data;
 namespace Chaos.Client.Data.Utilities;
 
 /// <summary>
-///     Parses Skill_e.tbl and Skill_i.tbl from Legend.dat into an <see cref="AbilityAnimationTable" />. Each file is a
-///     tab-delimited text table (EUC-KR encoded) mapping skill animation indices to sets of armor sprite IDs that support
-///     the animation.
+///     Parses Skill_e.tbl and Skill_i.tbl from Legend.dat into an <see cref="AbilityAnimationTable" />.
 /// </summary>
+/// <remarks>
+///     Each file is a tab-delimited text table (EUC-KR encoded) mapping skill animation entry indices to sets of armor
+///     sprite IDs that support the animation.
+/// </remarks>
 public static class AbilityAnimationTableParser
 {
     private static readonly Encoding EucKr = Encoding.GetEncoding(949);
 
     /// <summary>
-    ///     Parses both .tbl entries into a single merged table. The normalEntry (Skill_e.tbl) provides u-type armor IDs. The
-    ///     overcoatEntry (Skill_i.tbl) provides i-type armor IDs stored with a +1000 offset.
+    ///     Parses normal and overcoat armor animation tables into a single merged <see cref="AbilityAnimationTable" />.
     /// </summary>
+    /// <remarks>
+    ///     Overcoat armor IDs from Skill_i.tbl are stored with a +1000 offset to distinguish them from normal armor IDs from
+    ///     Skill_e.tbl.
+    /// </remarks>
     public static AbilityAnimationTable Parse(DataArchiveEntry normalEntry, DataArchiveEntry? overcoatEntry)
     {
         var data = new Dictionary<byte, HashSet<int>>();
@@ -61,7 +66,7 @@ public static class AbilityAnimationTableParser
                 data[entryIndex] = allowedIds;
             }
 
-            // Columns 4+ are space-separated armor sprite IDs (may span multiple tab columns)
+            //columns 4+ are space-separated armor sprite ids (may span multiple tab columns)
             for (var i = 4; i < columns.Length; i++)
             {
                 var tokens = columns[i]

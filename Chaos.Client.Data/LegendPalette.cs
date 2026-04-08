@@ -7,8 +7,7 @@ using SkiaSharp;
 namespace Chaos.Client.Data;
 
 /// <summary>
-///     Provides access to legend.pal colors from Legend.dat. Loaded once during initialization. Colors are accessed by
-///     <see cref="LegendColor" /> enum or raw palette index.
+///     Provides named and indexed color access to the legend.pal palette from Legend.dat.
 /// </summary>
 public static class LegendPalette
 {
@@ -21,7 +20,7 @@ public static class LegendPalette
 
     private static LegendColor?[] BuildTextColorMap()
     {
-        // 24 slots for 'a' (0) through 'x' (23)
+        //24 slots for 'a' (0) through 'x' (23)
         var map = new LegendColor?[24];
 
         map['a' - 'a'] = LegendColor.Silver;
@@ -53,12 +52,12 @@ public static class LegendPalette
     }
 
     /// <summary>
-    ///     Returns the SKColor for a named legend palette color.
+    ///     Resolves a named legend color to its ARGB value from the loaded palette.
     /// </summary>
     public static SKColor GetColor(LegendColor color) => Palette[(byte)color];
 
     /// <summary>
-    ///     Returns the SKColor for a raw palette index (0-255).
+    ///     Resolves a raw palette index (0-255) to its ARGB value.
     /// </summary>
     public static SKColor GetColor(int index) => Palette[index];
 
@@ -76,7 +75,7 @@ public static class LegendPalette
     }
 
     /// <summary>
-    ///     Returns the raw Palette instance for rendering EPF frames that require legend.pal.
+    ///     Returns the underlying Palette instance for direct rendering use.
     /// </summary>
     public static Palette GetPalette() => Palette;
 

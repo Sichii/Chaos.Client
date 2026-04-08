@@ -8,9 +8,9 @@ using Microsoft.Xna.Framework.Input;
 namespace Chaos.Client.Controls.Components;
 
 /// <summary>
-///     Read-only text label that participates in the UI element tree. Wraps CachedText for efficient re-rendering only
-///     when content changes. When WordWrap is true, text is wrapped to the label width; use ScrollOffset to scroll when
-///     ContentHeight exceeds the label bounds.
+///     Text label with optional word-wrap, text selection, and color code support. Re-renders only when content or color
+///     changes. When WordWrap is true, text wraps to the label width; use ScrollOffset to scroll when ContentHeight exceeds
+///     the label bounds.
 /// </summary>
 
 // ReSharper disable once ClassCanBeSealed.Global
@@ -57,6 +57,7 @@ public class UILabel : UIElement
     }
 
     public bool TopAligned { get; set; }
+    public bool TruncateWithEllipsis { get; set; } = true;
     public bool WordWrap { get; set; }
 
     /// <summary>
@@ -103,9 +104,9 @@ public class UILabel : UIElement
                 maxLines,
                 TextElement.Color,
                 ColorCodesEnabled);
-        } else if (TextElement.Width > innerW)
+        } else if (TruncateWithEllipsis && (TextElement.Width > innerW))
         {
-            // Ellipsis truncation — find longest prefix that fits with "..."
+            //ellipsis truncation — find longest prefix that fits with "..."
             var text = TextElement.Text;
             var ellipsisWidth = TextRenderer.MeasureWidth("...");
             var maxTextWidth = innerW - ellipsisWidth;
@@ -115,7 +116,7 @@ public class UILabel : UIElement
                 truncLen--;
 
             var truncated = truncLen > 0 ? text[..truncLen] + "..." : "...";
-            TextRenderer.DrawText(spriteBatch, new Vector2(innerX, innerY + ((TopAligned ? TextElement.Height : innerH) - TextRenderer.CHAR_HEIGHT) / 2), truncated, TextElement.Color, ColorCodesEnabled);
+            TextRenderer.DrawText(spriteBatch, new Vector2(innerX, innerY + (int)(((TopAligned ? TextElement.Height : innerH) - TextRenderer.CHAR_HEIGHT) / 2f)), truncated, TextElement.Color, ColorCodesEnabled);
         } else
         {
             TextElement.Alignment = Alignment;
@@ -145,11 +146,11 @@ public class UILabel : UIElement
 
         var drawY = innerY + (((TopAligned ? TextElement.Height : innerH) - TextElement.Height) / 2);
 
-        // Pre-selection segment
+        //pre-selection segment
         if (selStart > 0)
             TextRenderer.DrawText(spriteBatch, new Vector2(drawX, drawY), text[..selStart], TextElement.Color, ColorCodesEnabled);
 
-        // Selection segment: white rect + black text
+        //selection segment: white rect + black text
         var selStartX = drawX + (selStart > 0 ? TextRenderer.MeasureWidth(text[..selStart]) : 0);
         var selText = text[selStart..selEnd];
         var selWidth = TextRenderer.MeasureWidth(selText);
@@ -157,7 +158,7 @@ public class UILabel : UIElement
         DrawRect(spriteBatch, new Rectangle(selStartX, drawY, selWidth, TextRenderer.CHAR_HEIGHT), Color.White);
         TextRenderer.DrawText(spriteBatch, new Vector2(selStartX, drawY), selText, Color.Black, ColorCodesEnabled);
 
-        // Post-selection segment
+        //post-selection segment
         if (selEnd < text.Length)
         {
             var postX = selStartX + selWidth;
@@ -175,7 +176,7 @@ public class UILabel : UIElement
         var selEnd = SelectionEnd;
         var charOffset = 0;
 
-        // Compute character offset up to firstLine
+        //compute character offset up to firstline
         for (var i = 0; i < firstLine; i++)
             charOffset += lines[i].Length;
 
@@ -191,11 +192,11 @@ public class UILabel : UIElement
                 var hlStart = Math.Max(selStart, lineStartIdx) - lineStartIdx;
                 var hlEnd = Math.Min(selEnd, lineEndIdx) - lineStartIdx;
 
-                // Pre-selection segment
+                //pre-selection segment
                 if (hlStart > 0)
                     TextRenderer.DrawText(spriteBatch, new Vector2(innerX, lineY), lineText[..hlStart], TextElement.Color, ColorCodesEnabled);
 
-                // Selection segment: white rect + black text
+                //selection segment: white rect + black text
                 var hlX = innerX + (hlStart > 0 ? TextRenderer.MeasureWidth(lineText[..hlStart]) : 0);
                 var hlText = lineText[hlStart..hlEnd];
                 var hlWidth = TextRenderer.MeasureWidth(hlText);
@@ -203,7 +204,7 @@ public class UILabel : UIElement
                 DrawRect(spriteBatch, new Rectangle(hlX, lineY, hlWidth, TextRenderer.CHAR_HEIGHT), Color.White);
                 TextRenderer.DrawText(spriteBatch, new Vector2(hlX, lineY), hlText, Color.Black, ColorCodesEnabled);
 
-                // Post-selection segment
+                //post-selection segment
                 if (hlEnd < lineText.Length)
                 {
                     var postX = hlX + hlWidth;
@@ -220,7 +221,7 @@ public class UILabel : UIElement
 
     private void Invalidate(string text, Color color)
     {
-        // Clear selection when text content changes
+        //clear selection when text content changes
         if (text != TextElement.Text)
         {
             CursorPosition = 0;
@@ -302,7 +303,7 @@ public class UILabel : UIElement
         if ((position >= 2) && TextRenderer.IsColorCode(text, position - 2))
             return Math.Min(position + 1, text.Length);
 
-        if ((position >= 1) && ((position + 1) < text.Length) && TextRenderer.IsColorCode(text, position - 1))
+        if (((position + 1) < text.Length) && TextRenderer.IsColorCode(text, position - 1))
             return Math.Min(position + 2, text.Length);
 
         return position;
@@ -321,7 +322,7 @@ public class UILabel : UIElement
         if ((position >= 2) && TextRenderer.IsColorCode(text, position - 2))
             return position - 2;
 
-        if ((position >= 1) && ((position + 1) < text.Length) && TextRenderer.IsColorCode(text, position - 1))
+        if (((position + 1) < text.Length) && TextRenderer.IsColorCode(text, position - 1))
             return position - 1;
 
         return position;
@@ -406,7 +407,7 @@ public class UILabel : UIElement
 
         for (var i = 0; i < text.Length;)
         {
-            // Skip color codes as atomic units
+            //skip color codes as atomic units
             if (ColorCodesEnabled && TextRenderer.IsColorCode(text, i))
             {
                 i += 3;
@@ -456,7 +457,7 @@ public class UILabel : UIElement
 
         for (var i = 0; i < lineText.Length;)
         {
-            // Skip color codes as atomic units
+            //skip color codes as atomic units
             if (ColorCodesEnabled && TextRenderer.IsColorCode(lineText, i))
             {
                 i += 3;
@@ -589,8 +590,7 @@ public class UILabel : UIElement
             ? HitTestWrapped(e.ScreenX, e.ScreenY)
             : HitTestSingleLine(e.ScreenX);
 
-        if (dragPos != CursorPosition)
-            CursorPosition = dragPos;
+        CursorPosition = dragPos;
     }
 
     public override void OnMouseUp(MouseUpEvent e)

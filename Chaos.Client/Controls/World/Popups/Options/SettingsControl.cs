@@ -54,8 +54,8 @@ public sealed class SettingsControl : PrefabPanel
         if (CancelButton is not null)
             CancelButton.Clicked += Close;
 
-        // Create per-setting number buttons from _nsettb.spf (2 frames per setting: normal, pressed)
-        // 2-column layout: settings 0-9 in left column, 10-12 in right column
+        //create per-setting number buttons from _nsettb.spf (2 frames per setting: normal, pressed)
+        //2-column layout: settings 0-9 in left column, 10-12 in right column
         var cache = UiRenderer.Instance!;
 
         for (var i = 0; i < UserOptions.SETTING_COUNT; i++)
@@ -97,7 +97,7 @@ public sealed class SettingsControl : PrefabPanel
             AddChild(label);
         }
 
-        // Default names for client-local settings (server settings populated via SendOptionToggle(Request))
+        //default names for client-local settings (server settings populated via sendoptiontoggle(request))
         SetSettingName(6, "Use Group Window");
         SetSettingName(8, "Scroll Screen");
         SetSettingName(9, "the Shift key.");
@@ -105,7 +105,7 @@ public sealed class SettingsControl : PrefabPanel
         SetSettingName(11, "NPC Record Mundane Chat");
         SetSettingName(12, "group recruiting");
 
-        // Refresh all labels to reflect current option values
+        //refresh all labels to reflect current option values
         for (var i = 0; i < UserOptions.SETTING_COUNT; i++)
             RefreshLabel(i);
 
@@ -148,16 +148,16 @@ public sealed class SettingsControl : PrefabPanel
 
         var text = index switch
         {
-            // "Scroll Screen : Rough" / "Scroll Screen : Smooth"
+            //"scroll screen : rough" / "scroll screen : smooth"
             8 => $"Scroll Screen : {(value ? "Smooth" : "Rough")}",
 
-            // "the Shift key." / "not use the Shift key."
+            //"the shift key." / "not use the shift key."
             9 => value ? "the Shift key." : "not use the Shift key.",
 
-            // Server settings — full text from server (already includes :ON/:OFF)
+            //server settings — full text from server (already includes :on/:off)
             _ when UserOptions.IsServerSetting(index) => baseName,
 
-            // Client-local settings — append :ON/:OFF
+            //client-local settings — append :on/:off
             _ => $"{baseName} :{(value ? "ON" : "OFF")}"
         };
 

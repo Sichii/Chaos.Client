@@ -23,7 +23,7 @@ public static class Clipboard
             TextCopy.ClipboardService.SetText(text);
         } catch
         {
-            // Clipboard unavailable — silently ignore
+            //clipboard unavailable — silently ignore
         }
     }
 }

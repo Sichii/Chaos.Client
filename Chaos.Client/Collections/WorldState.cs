@@ -17,7 +17,8 @@ using Chaos.Networking.Entities.Server;
 namespace Chaos.Client.Collections;
 
 /// <summary>
-///     Tracks all visible entities in the current map. Updated from network packets, read by GameScreen for rendering.
+///     Tracks all visible entities in the current map and exposes all authoritative game state (inventory, skills, spells,
+///     equipment, chat, etc.) via static ViewModel properties. Updated from network packets, read by WorldScreen for rendering.
 /// </summary>
 public static class WorldState
 {
@@ -26,7 +27,7 @@ public static class WorldState
     private static int SortVersion;
     private static int LastSortedVersion = -1;
 
-    // Cached chant data — loaded once per login, invalidated on save
+    //cached chant data — loaded once per login, invalidated on save
     private static List<SkillChantEntry>? CachedSkillChants;
     private static List<SpellChantEntry>? CachedSpellChants;
 
@@ -153,7 +154,7 @@ public static class WorldState
         entity.RestPosition = args.RestPosition;
         entity.GroupBoxText = args.GroupBoxText;
 
-        // Check for morph mode (creature form)
+        //check for morph mode (creature form)
         if (args.Sprite.HasValue)
         {
             entity.SpriteId = args.Sprite.Value;
@@ -293,7 +294,7 @@ public static class WorldState
             if ((entity.TileX != tileX) || (entity.TileY != tileY))
                 continue;
 
-            // Prefer clickable entities over ground items
+            //prefer clickable entities over ground items
             if (entity.Type is ClientEntityType.Aisling or ClientEntityType.Creature)
                 return entity;
 
@@ -350,7 +351,7 @@ public static class WorldState
     }
 
     /// <summary>
-    ///     Handles another entity changing facing direction.
+    ///     Updates a tracked entity's facing direction from a server CreatureTurn packet.
     /// </summary>
     public static void HandleCreatureTurn(uint id, Direction direction)
     {
@@ -361,7 +362,7 @@ public static class WorldState
     }
 
     /// <summary>
-    ///     Handles another entity walking from oldPoint in a direction.
+    ///     Updates a tracked entity's position and starts its walk animation from a server CreatureWalk packet.
     /// </summary>
     public static void HandleCreatureWalk(
         uint id,
@@ -373,7 +374,7 @@ public static class WorldState
         if (!Entities.TryGetValue(id, out var entity))
             return;
 
-        // Compute new position from oldPoint + direction
+        //compute new position from oldpoint + direction
         (var dx, var dy) = direction.ToTileOffset();
         entity.TileX = oldX + dx;
         entity.TileY = oldY + dy;
@@ -389,7 +390,7 @@ public static class WorldState
     }
 
     /// <summary>
-    ///     Handles the player's own walk being confirmed by the server.
+    ///     Updates the player entity's position and starts its walk animation after the server confirms the walk.
     /// </summary>
     public static void HandlePlayerWalk(Direction direction, int oldX, int oldY)
     {
@@ -576,7 +577,7 @@ public static class WorldState
                 SpellBook.SetCooldown(args.Slot, args.CooldownSecs);
         };
 
-        // Inventory
+        //inventory
         connection.OnAddItemToPane += args => Inventory.SetSlot(
             args.Item.Slot,
             args.Item.Sprite,
@@ -589,7 +590,7 @@ public static class WorldState
 
         connection.OnRemoveItemFromPane += args => Inventory.ClearSlot(args.Slot);
 
-        // Equipment
+        //equipment
         connection.OnEquipment += args => Equipment.SetSlot(
             args.Slot,
             args.Item.Sprite,
@@ -600,14 +601,14 @@ public static class WorldState
 
         connection.OnDisplayUnequip += args => Equipment.ClearSlot(args.EquipmentSlot);
 
-        // Attributes (stats, HP/MP, etc.) — gold also routed to inventory
+        //attributes (stats, hp/mp, etc.) — gold also routed to inventory
         connection.OnAttributes += args =>
         {
             Attributes.Update(args);
             Inventory.SetGold(args.Gold);
         };
 
-        // Exchange
+        //exchange
         connection.OnDisplayExchange += args =>
         {
             switch (args.ExchangeResponseType)
@@ -662,11 +663,11 @@ public static class WorldState
             }
         };
 
-        // NPC dialog/menu
+        //npc dialog/menu
         connection.OnDisplayDialog += args => NpcInteraction.ShowDialog(args);
         connection.OnDisplayMenu += args => NpcInteraction.ShowMenu(args);
 
-        // Board/mail
+        //board/mail
         connection.OnDisplayBoard += args =>
         {
             switch (args.Type)
@@ -735,10 +736,10 @@ public static class WorldState
             }
         };
 
-        // Group invite
+        //group invite
         connection.OnDisplayGroupInvite += args => GroupInvite.Set(args);
 
-        // World list (online players)
+        //world list (online players)
         connection.OnWorldList += args =>
         {
             var entries = args.CountryList

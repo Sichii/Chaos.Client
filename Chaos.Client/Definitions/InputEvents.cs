@@ -36,7 +36,7 @@ public abstract class InputEvent
     }
 }
 
-// ── Mouse Events ──
+//── mouse events ──
 
 public abstract class MouseEvent : InputEvent
 {
@@ -69,7 +69,7 @@ public sealed class MouseScrollEvent : MouseEvent
     public int Delta { get; set; }
 }
 
-// ── Key Events ──
+//── key events ──
 
 public abstract class KeyEvent : InputEvent
 {
@@ -90,7 +90,7 @@ public sealed class TextInputEvent : InputEvent
     public char Character { get; set; }
 }
 
-// ── Drag Events ──
+//── drag events ──
 
 public abstract class DragEvent : InputEvent
 {

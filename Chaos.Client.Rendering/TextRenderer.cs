@@ -43,11 +43,11 @@ public static class TextRenderer
         var lead = bytes[0];
         var trail = bytes[1];
 
-        // Hangul Jamo: lead 0xA4, trail 0xA1-0xD3 -> indices 0-50
+        //hangul jamo: lead 0xa4, trail 0xa1-0xd3 -> indices 0-50
         if ((lead == 0xA4) && trail is >= 0xA1 and <= 0xD3)
             return trail - 0xA1;
 
-        // Hangul syllables: lead 0xB0-0xC8, trail 0xA1-0xFE -> indices 51-2400
+        //hangul syllables: lead 0xb0-0xc8, trail 0xa1-0xfe -> indices 51-2400
         if (lead is >= 0xB0 and <= 0xC8 && trail is >= 0xA1 and <= 0xFE)
             return 51 + (lead - 0xB0) * 94 + (trail - 0xA1);
 
@@ -123,7 +123,7 @@ public static class TextRenderer
                 continue;
             }
 
-            // Space or unmapped — advance without drawing
+            //space or unmapped — advance without drawing
             cursorX += ENGLISH_ADVANCE;
         }
     }
@@ -144,7 +144,7 @@ public static class TextRenderer
         if (string.IsNullOrEmpty(text))
             return;
 
-        // Shadow at down-right (+1,+1) and down-left (-1,+1) relative to main text at (1,0) within the bounding box
+        //shadow at down-right (+1,+1) and down-left (-1,+1) relative to main text at (1,0) within the bounding box
         DrawText(
             spriteBatch,
             position + new Vector2(2, 1),
@@ -168,7 +168,7 @@ public static class TextRenderer
     }
 
     /// <summary>
-    ///     Draws pre-wrapped text lines sequentially.
+    ///     Draws a list of text lines top-to-bottom, each on its own row (12px line height).
     /// </summary>
     public static void DrawLines(
         SpriteBatch spriteBatch,
@@ -192,7 +192,7 @@ public static class TextRenderer
     }
 
     /// <summary>
-    ///     Draws a range of pre-wrapped text lines starting at startLine, up to maxLines lines.
+    ///     Draws a visible window of text lines, supporting scrollable text areas.
     /// </summary>
     public static void DrawLines(
         SpriteBatch spriteBatch,
@@ -232,7 +232,7 @@ public static class TextRenderer
 
         for (var i = 0; i < text.Length; i++)
         {
-            // Skip color codes — they have zero visual width when enabled
+            //skip color codes — they have zero visual width when enabled
             if (colorCodesEnabled && IsColorCode(text, i))
             {
                 i += 2;
@@ -274,7 +274,7 @@ public static class TextRenderer
     private static bool IsKorean(char c) => c > 127;
 
     /// <summary>
-    ///     Returns the advance width of a single character.
+    ///     Returns the horizontal pixel advance for a single character (6px for English, 14px for Korean).
     /// </summary>
     public static int MeasureCharWidth(char c) => IsKorean(c) ? KOREAN_ADVANCE : ENGLISH_ADVANCE;
 
@@ -290,7 +290,7 @@ public static class TextRenderer
 
         for (var i = 0; i < text.Length; i++)
         {
-            // Skip color codes — they have zero visual width
+            //skip color codes — they have zero visual width
             if (IsColorCode(text, i))
             {
                 i += 2;
@@ -348,11 +348,11 @@ public static class TextRenderer
     {
         var lines = new List<string>();
 
-        // Handle literal escape sequences (\n, \r) in addition to actual control characters
+        //handle literal escape sequences (\n, \r) in addition to actual control characters
         text = text.Replace("\\n", "\n")
                    .Replace("\\r", "\r");
 
-        // Collapse consecutive tabs into a single newline
+        //collapse consecutive tabs into a single newline
         while (text.Contains("\t\t"))
             text = text.Replace("\t\t", "\t");
 

@@ -11,14 +11,17 @@ using TileFlags = DALib.Definitions.TileFlags;
 namespace Chaos.Client.Rendering;
 
 /// <summary>
-///     Renders the Tab map overlay (press Tab to toggle). Wall tiles shown as isometric diamonds (20x10, ~36% of full
-///     56x27) with black fill and white border. Adjacent walls collapse shared borders via a 4-bit neighbor mask → 16
-///     pre-baked atlas variants. Entities: yellow (player), red (monsters), green (merchants), white (aislings).
-///     PageUp/PageDown to zoom. Map centered so player diamond aligns with aisling on screen.
+///     Renders the Tab map overlay: a simplified isometric view of the current map showing walls as diamond outlines and
+///     entities as colored diamonds. Supports PageUp/PageDown zoom. Centered on the player.
 /// </summary>
+/// <remarks>
+///     Wall tiles use 20x10 scaled diamonds (~36% of 56x27). Adjacent walls collapse shared borders via a 4-bit neighbor
+///     mask mapped to 16 pre-baked atlas variants. Entity colors: yellow (player), red (monsters), green (merchants),
+///     blue (aislings). Entity overlap is handled via stencil masking.
+/// </remarks>
 public sealed class TabMapRenderer : IDisposable
 {
-    // ~33% of original 56x27 tile, rounded to clean staircase (20x10)
+    //~33% of original 56x27 tile, rounded to clean staircase (20x10)
     private const int TILE_W = 20;
     private const int TILE_H = 10;
     private const int HALF_TILE_W = 10;
@@ -29,20 +32,19 @@ public sealed class TabMapRenderer : IDisposable
     private const float ZOOM_STEP = 0.25f;
     private const float ZOOM_DEFAULT = 1.0f;
 
-    // Neighbor mask bits — which edges have adjacent tab-map tiles
+    //neighbor mask bits — which edges have adjacent tab-map tiles
     private const int MASK_TOP_LEFT = 0x1;
     private const int MASK_TOP_RIGHT = 0x2;
     private const int MASK_BOTTOM_RIGHT = 0x4;
     private const int MASK_BOTTOM_LEFT = 0x8;
 
-    // Atlas indices for entity diamonds (after the 16 border-collapse variants)
+    //atlas indices for entity diamonds (after the 16 border-collapse variants)
     private const int ATLAS_PLAYER = 16;
     private const int ATLAS_CREATURE = 17;
     private const int ATLAS_AISLING = 18;
     private const int ATLAS_MERCHANT = 19;
-    private const int ATLAS_TOTAL = 20;
 
-    // Fill is 25% transparent black; border is fully opaque white
+    //fill is 25% transparent black; border is fully opaque white
     private static readonly Color FILL_COLOR = Color.LightGray * 0.25f;
     private static readonly Color BORDER_COLOR = Color.White;
     private static readonly Color COLOR_PLAYER = new(255, 231, 57);
@@ -50,10 +52,10 @@ public sealed class TabMapRenderer : IDisposable
     private static readonly Color COLOR_MERCHANT = new(0, 255, 0);
     private static readonly Color COLOR_AISLING = new(123, 166, 247);
 
-    // Diamond row bounds for 20x10 tile (staircase: 4px at top, +4px/row, full 20px at center)
+    //diamond row bounds for 20x10 tile (staircase: 4px at top, +4px/row, full 20px at center)
     private static readonly (int StartX, int EndX)[] DiamondRows = ComputeDiamondRows();
 
-    // Stencil states for entity overlap masking
+    //stencil states for entity overlap masking
     private static readonly DepthStencilState StencilWrite = new()
     {
         StencilEnable = true,
@@ -82,7 +84,7 @@ public sealed class TabMapRenderer : IDisposable
     private TextureAtlas? Atlas;
     private (int X, int Y, byte Mask)[] Entries = [];
 
-    // Precomputed: which tiles are walls, and their neighbor masks
+    //precomputed: which tiles are walls, and their neighbor masks
     private bool[,]? IsWallTile;
     private int MapHeight;
     private int MapWidth;
@@ -112,7 +114,7 @@ public sealed class TabMapRenderer : IDisposable
             TILE_W,
             TILE_H);
 
-        // 16 border-collapse variants (indices 0-15)
+        //16 border-collapse variants (indices 0-15)
         for (var mask = 0; mask < 16; mask++)
         {
             var hasTopLeft = (mask & MASK_TOP_LEFT) != 0;
@@ -160,7 +162,7 @@ public sealed class TabMapRenderer : IDisposable
                 TILE_H);
         }
 
-        // Entity diamonds: solid fill (indices 16-19)
+        //entity diamonds: solid fill (indices 16-19)
         Color[] entityColors =
         [
             COLOR_PLAYER,
@@ -242,11 +244,11 @@ public sealed class TabMapRenderer : IDisposable
         if (Atlas is null || (Entries.Length == 0))
             return;
 
-        // Player's tile center in iso space
+        //player's tile center in iso space
         var playerIsoX = (MapHeight - 1 + playerTileX - playerTileY) * HALF_TILE_W + HALF_TILE_W;
         var playerIsoY = (playerTileX + playerTileY) * HALF_TILE_H + HALF_TILE_H;
 
-        // Offset so player's iso position maps to viewport center
+        //offset so player's iso position maps to viewport center
         var centerX = viewport.X + viewport.Width / 2f;
         var centerY = viewport.Y + viewport.Height / 2f;
         var offsetX = centerX - playerIsoX * Zoom;
@@ -255,7 +257,7 @@ public sealed class TabMapRenderer : IDisposable
         var scaledTileW = (int)(TILE_W * Zoom);
         var scaledTileH = (int)(TILE_H * Zoom);
 
-        // Pass 1: Draw wall tiles (normal alpha blend)
+        //pass 1: draw wall tiles (normal alpha blend)
         spriteBatch.Begin(samplerState: SamplerState.PointClamp, rasterizerState: ScissorRasterizer);
         device.ScissorRectangle = viewport;
 
@@ -284,7 +286,7 @@ public sealed class TabMapRenderer : IDisposable
 
         spriteBatch.End();
 
-        // AlphaTestEffect discards transparent pixels so only diamond-shaped pixels write to stencil
+        //alphatesteffect discards transparent pixels so only diamond-shaped pixels write to stencil
         AlphaTest ??= new AlphaTestEffect(device)
         {
             VertexColorEnabled = true
@@ -300,8 +302,8 @@ public sealed class TabMapRenderer : IDisposable
             0,
             1);
 
-        // Pass 2: Stamp entity diamonds into stencil buffer (no color output)
-        // Only opaque diamond pixels increment stencil — transparent rectangle areas are discarded
+        //pass 2: stamp entity diamonds into stencil buffer (no color output)
+        //only opaque diamond pixels increment stencil — transparent rectangle areas are discarded
         device.Clear(
             ClearOptions.Stencil,
             Color.Transparent,
@@ -327,8 +329,8 @@ public sealed class TabMapRenderer : IDisposable
             scaledTileH);
         spriteBatch.End();
 
-        // Pass 3: Draw entity diamonds with color, but only where stencil == 1 (single coverage)
-        // Pixels where multiple entities overlap (stencil > 1) stay transparent
+        //pass 3: draw entity diamonds with color, but only where stencil == 1 (single coverage)
+        //pixels where multiple entities overlap (stencil > 1) stay transparent
         spriteBatch.Begin(
             depthStencilState: StencilTestSingleCoverage,
             samplerState: SamplerState.PointClamp,
@@ -399,8 +401,7 @@ public sealed class TabMapRenderer : IDisposable
     }
 
     /// <summary>
-    ///     Generates the tab map data from a MapFile. Builds the atlas on first call. Only wall tiles (detected via SOTP
-    ///     HasFlag) are shown. Neighbor masks precomputed for border collapse.
+    ///     Generates the tab map wall data from a MapFile. Call when the map changes. Builds the diamond atlas on first call.
     /// </summary>
     public void Generate(GraphicsDevice device, MapFile mapFile)
     {
@@ -410,7 +411,7 @@ public sealed class TabMapRenderer : IDisposable
         MapWidth = mapFile.Width;
         MapHeight = mapFile.Height;
 
-        // Determine which tiles are walls via SOTP (matching ChaosAssetManager's detection)
+        //determine which tiles are walls via sotp (matching chaosassetmanager's detection)
         IsWallTile = new bool[MapWidth, MapHeight];
 
         for (var y = 0; y < MapHeight; y++)
@@ -422,7 +423,7 @@ public sealed class TabMapRenderer : IDisposable
                     IsWallTile[x, y] = true;
             }
 
-        // Precompute entries with neighbor masks for border collapse
+        //precompute entries with neighbor masks for border collapse
         var entries = new List<(int, int, byte)>();
 
         for (var y = 0; y < MapHeight; y++)
@@ -433,19 +434,19 @@ public sealed class TabMapRenderer : IDisposable
 
                 byte mask = 0;
 
-                // Top-left edge neighbor: (x-1, y)
+                //top-left edge neighbor: (x-1, y)
                 if ((x > 0) && IsWallTile[x - 1, y])
                     mask |= MASK_TOP_LEFT;
 
-                // Top-right edge neighbor: (x, y-1)
+                //top-right edge neighbor: (x, y-1)
                 if ((y > 0) && IsWallTile[x, y - 1])
                     mask |= MASK_TOP_RIGHT;
 
-                // Bottom-right edge neighbor: (x+1, y)
+                //bottom-right edge neighbor: (x+1, y)
                 if ((x < (MapWidth - 1)) && IsWallTile[x + 1, y])
                     mask |= MASK_BOTTOM_RIGHT;
 
-                // Bottom-left edge neighbor: (x, y+1)
+                //bottom-left edge neighbor: (x, y+1)
                 if ((y < (MapHeight - 1)) && IsWallTile[x, y + 1])
                     mask |= MASK_BOTTOM_LEFT;
 

@@ -1,7 +1,7 @@
 namespace Chaos.Client.Data.Models;
 
 /// <summary>
-///     A skill or spell name paired with its chant line.
+///     A skill name paired with its chant text.
 /// </summary>
 public sealed class SkillChantEntry
 {

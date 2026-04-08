@@ -20,8 +20,8 @@ public sealed class UiRenderer : IDisposable
 {
     private const int CHECKER_SIZE = 32;
     private const int CELL_SIZE = 4;
-    private static readonly Color CheckerA = new(255, 0, 255); // neon purple
-    private static readonly Color CheckerB = new(0, 255, 0); // neon green
+    private static readonly Color CheckerA = new(255, 0, 255); //neon purple
+    private static readonly Color CheckerB = new(0, 255, 0); //neon green
 
     private const int MAX_ATLAS_ENTRY_SIZE = 512;
 
@@ -49,7 +49,7 @@ public sealed class UiRenderer : IDisposable
     /// </summary>
     public void BuildAtlas()
     {
-        // Dispose previous atlas and clear regions
+        //dispose previous atlas and clear regions
         UiAtlas?.Dispose();
         UiAtlas = null;
 
@@ -71,7 +71,7 @@ public sealed class UiRenderer : IDisposable
 
         atlas.Build();
 
-        // Set AtlasRegion on each cached texture that was packed
+        //set atlasregion on each cached texture that was packed
         foreach ((var key, var texture) in Cache)
         {
             var region = atlas.TryGetRegion(key);
@@ -168,7 +168,7 @@ public sealed class UiRenderer : IDisposable
 
         var images = DataContext.UserControls.GetEpfImages(fileName);
 
-        // Bulk-cache all frames, then dispose all SKImages
+        //bulk-cache all frames, then dispose all skimages
         for (var i = 0; i < images.Length; i++)
         {
             var frameKey = $"epf:{fileName}:{i}";
@@ -223,6 +223,7 @@ public sealed class UiRenderer : IDisposable
 
         using var fullImage = Graphics.RenderImage(palettized.Entity, palettized.Palette);
 
+        // ReSharper disable once ConditionIsAlwaysTrueOrFalseAccordingToNullableAPIContract
         if (fullImage is null)
             return MissingTexture;
 
@@ -332,7 +333,7 @@ public sealed class UiRenderer : IDisposable
     }
 
     /// <summary>
-    ///     Returns a cached texture for a specific image within a ControlPrefabSet control.
+    ///     Returns the texture for a specific image index within a named control of a ControlPrefabSet.
     /// </summary>
     public Texture2D GetPrefabTexture(string prefabSetName, string controlName, int imageIndex)
     {
@@ -358,7 +359,7 @@ public sealed class UiRenderer : IDisposable
     }
 
     /// <summary>
-    ///     Renders and caches a grey skill icon (used as cooldown base).
+    ///     Renders and caches a greyed-out skill icon, used as the background layer during cooldown rendering.
     /// </summary>
     public Texture2D GetSkillGreyIcon(ushort spriteId)
     {
@@ -519,7 +520,8 @@ public sealed class UiRenderer : IDisposable
     }
 
     /// <summary>
-    ///     Returns a cached blue-shifted copy of the texture identified by sourceKey.
+    ///     Returns a cached blue-shifted (hover highlight) copy of the given source texture, keyed by sourceKey for
+    ///     deduplication.
     /// </summary>
     public Texture2D GetTintedTexture(string sourceKey, Texture2D source)
     {
@@ -541,6 +543,7 @@ public sealed class UiRenderer : IDisposable
 
         using var image = Graphics.RenderImage(palettized.Entity, palettized.Palette);
 
+        // ReSharper disable once ConditionIsAlwaysTrueOrFalseAccordingToNullableAPIContract
         return image is not null ? Convert(image) : null;
     }
 }

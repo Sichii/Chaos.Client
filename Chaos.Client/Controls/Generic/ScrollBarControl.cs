@@ -15,8 +15,8 @@ public sealed class ScrollBarControl : UIElement
     public const int DEFAULT_WIDTH = 16;
     private const int BUTTON_SIZE = 16;
 
-    // scroll.epf frame order: left(0,1), right(2,3), up(4,5), down(6,7), thumb(8), track(9)
-    // Each pair: [normal, active]
+    //scroll.epf frame order: left(0,1), right(2,3), up(4,5), down(6,7), thumb(8), track(9)
+    //each pair: [normal, active]
     private const int FRAME_UP_NORMAL = 4;
     private const int FRAME_UP_ACTIVE = 5;
     private const int FRAME_DOWN_NORMAL = 6;
@@ -51,7 +51,7 @@ public sealed class ScrollBarControl : UIElement
         var trackEnd = sy + Height - BUTTON_SIZE;
         var scrollable = TotalItems > VisibleItems;
 
-        // Tiled track background
+        //tiled track background
         var trackTex = GetFrame(FRAME_TRACK);
 
         for (var tileY = trackStart; tileY < trackEnd; tileY += BUTTON_SIZE)
@@ -70,7 +70,7 @@ public sealed class ScrollBarControl : UIElement
                 Color.White);
         }
 
-        // Up arrow — NORMAL when idle, ACTIVE when pressed or disabled (active frame doubles as disabled)
+        //up arrow — normal when idle, active when pressed or disabled (active frame doubles as disabled)
         var upFrame = !scrollable || (ActiveZone == 0) ? FRAME_UP_ACTIVE : FRAME_UP_NORMAL;
 
         AtlasHelper.Draw(
@@ -79,7 +79,7 @@ public sealed class ScrollBarControl : UIElement
             new Vector2(sx, sy),
             Color.White);
 
-        // Down arrow — NORMAL when idle, ACTIVE when pressed or disabled
+        //down arrow — normal when idle, active when pressed or disabled
         var downFrame = !scrollable || (ActiveZone == 4) ? FRAME_DOWN_ACTIVE : FRAME_DOWN_NORMAL;
 
         AtlasHelper.Draw(
@@ -88,7 +88,7 @@ public sealed class ScrollBarControl : UIElement
             new Vector2(sx, trackEnd),
             Color.White);
 
-        // Thumb (only when scrollable)
+        //thumb (only when scrollable)
         if (scrollable)
         {
             var thumbY = GetThumbY(trackStart, trackEnd);

@@ -47,7 +47,7 @@ public sealed class Exchange
         ushort sprite,
         string? name)
     {
-        // Server sends 1-based indices
+        //server sends 1-based indices
         var index = exchangeIndex - 1;
 
         if (index is < 0 or >= MAX_ITEMS)

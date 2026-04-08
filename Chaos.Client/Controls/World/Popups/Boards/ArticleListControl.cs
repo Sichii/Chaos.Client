@@ -15,7 +15,7 @@ namespace Chaos.Client.Controls.World.Popups.Boards;
 /// </summary>
 public sealed class ArticleListControl : PrefabPanel
 {
-    // Server caps board responses at sbyte.MaxValue posts per page
+    //server caps board responses at sbyte.maxvalue posts per page
     private const int MAX_POSTS_PER_PAGE = 127;
     private const int ROW_HEIGHT = 18;
     private const int TEXT_INDENT = 24;
@@ -98,7 +98,7 @@ public sealed class ArticleListControl : PrefabPanel
         ArticleListRect = GetRect("ArticleList");
         MaxVisibleRows = ArticleListRect.Height > 0 ? ArticleListRect.Height / ROW_HEIGHT : 0;
 
-        // Scrollbar
+        //scrollbar
         ScrollBar = new ScrollBarControl
         {
             Name = "ScrollBar",
@@ -115,7 +115,7 @@ public sealed class ArticleListControl : PrefabPanel
 
         AddChild(ScrollBar);
 
-        // Row labels — one per visible row, columns via fixed-width string formatting
+        //row labels — one per visible row, columns via fixed-width string formatting
         var usableWidth = ArticleListRect.Width - ScrollBarControl.DEFAULT_WIDTH;
         MaxSubjectChars = Math.Max(0, (usableWidth - TEXT_INDENT) / TextRenderer.CHAR_WIDTH - PREFIX_CHARS);
 
@@ -286,12 +286,12 @@ public sealed class ArticleListControl : PrefabPanel
 
         var row = localY / ROW_HEIGHT;
 
-        if ((row < 0) || (row >= MaxVisibleRows))
+        if (row >= MaxVisibleRows)
             return;
 
         var entryIndex = ScrollOffset + row;
 
-        // "Load More" row
+        //"load more" row
         if (HasMorePosts && (entryIndex == Entries.Count))
         {
             if (Entries.Count > 0)
@@ -302,7 +302,7 @@ public sealed class ArticleListControl : PrefabPanel
             return;
         }
 
-        if ((entryIndex < 0) || (entryIndex >= Entries.Count))
+        if (entryIndex >= Entries.Count)
             return;
 
         SelectedIndex = entryIndex;
@@ -324,12 +324,12 @@ public sealed class ArticleListControl : PrefabPanel
 
         var row = localY / ROW_HEIGHT;
 
-        if ((row < 0) || (row >= MaxVisibleRows))
+        if (row >= MaxVisibleRows)
             return;
 
         var entryIndex = ScrollOffset + row;
 
-        if ((entryIndex < 0) || (entryIndex >= Entries.Count))
+        if (entryIndex >= Entries.Count)
             return;
 
         SelectedIndex = entryIndex;
@@ -381,7 +381,7 @@ public sealed class ArticleListControl : PrefabPanel
 
     private void UpdateScrollBar()
     {
-        // Add 1 virtual row for the "Load More" indicator when more posts exist
+        //add 1 virtual row for the "load more" indicator when more posts exist
         var totalRows = Entries.Count + (HasMorePosts ? 1 : 0);
 
         ScrollBar.TotalItems = totalRows;

@@ -68,10 +68,9 @@ public sealed class EventMetadataDetailsControl : PrefabPanel
         {
             var iconFrame = state switch
             {
-                EventState.Completed   => 0,
-                EventState.Available   => 1,
-                EventState.Unavailable => 2,
-                _                      => 2
+                EventState.Completed => 0,
+                EventState.Available => 1,
+                _                    => 2
             };
 
             IconImage.Texture = UiRenderer.Instance!.GetEpfTexture("leicon.epf", iconFrame);

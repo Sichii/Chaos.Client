@@ -59,7 +59,7 @@ public sealed class ItemRenderer : IDisposable
     }
 
     /// <summary>
-    ///     Returns the cached item sprite for the given sprite ID and color, loading and caching on first access.
+    ///     Returns the ground item sprite for the given sprite ID and dye color. Applies palette dye if color is non-zero.
     /// </summary>
     public ItemSprite? GetSprite(int spriteId, byte color = 0)
     {
@@ -83,12 +83,13 @@ public sealed class ItemRenderer : IDisposable
 
         var palette = palettized.Palette;
 
-        // Apply dye color if specified
+        //apply dye color if specified
         if ((color > 0) && DataContext.AislingDrawData.DyeColorTable.Contains(color))
             palette = palette.Dye(DataContext.AislingDrawData.DyeColorTable[color]);
 
         using var image = Graphics.RenderImage(palettized.Entity, palette);
 
+        // ReSharper disable once ConditionIsAlwaysTrueOrFalseAccordingToNullableAPIContract
         if (image is null)
             return null;
 
@@ -98,7 +99,8 @@ public sealed class ItemRenderer : IDisposable
     }
 
     /// <summary>
-    ///     An item sprite with frame offset metadata for centering.
+    ///     A ground item sprite texture with its EPF frame's Left/Top transparent padding offsets, used to compute visual
+    ///     content bounds for tile-centered drawing.
     /// </summary>
     public readonly record struct ItemSprite(Texture2D Texture, int FrameLeft, int FrameTop);
 }

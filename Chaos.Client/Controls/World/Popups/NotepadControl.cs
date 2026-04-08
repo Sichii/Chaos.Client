@@ -20,11 +20,11 @@ public sealed class NotepadControl : UIPanel
     private const int TILE_SIZE = 16;
     private const int MAX_MESSAGE_LENGTH = 3500;
 
-    // Notepad type frames start at frame 48 in line001.epf
+    //notepad type frames start at frame 48 in line001.epf
     private const int NOTEPAD_BASE_FRAME = 48;
 
-    // 9-slice piece indices within each type's 9-frame group
-    // Standard clockwise: TL, Top, TR, Right, BR, Bottom, BL, Left, Fill
+    //9-slice piece indices within each type's 9-frame group
+    //standard clockwise: tl, top, tr, right, br, bottom, bl, left, fill
     private const int PIECE_COUNT = 9;
     private const int PIECE_TL = 0;
     private const int PIECE_TOP = 1;
@@ -88,7 +88,7 @@ public sealed class NotepadControl : UIPanel
             if (text.Length > MAX_MESSAGE_LENGTH)
                 text = text[..MAX_MESSAGE_LENGTH];
 
-            // Convert newlines back to TAB for the protocol
+            //convert newlines back to tab for the protocol
             text = text.Replace('\n', '\t');
 
             OnSave?.Invoke(EditSlot, text);
@@ -103,7 +103,7 @@ public sealed class NotepadControl : UIPanel
 
     private void ComposeBackground(byte notepadType)
     {
-        // Dispose any previous background
+        //dispose any previous background
         Background?.Dispose();
         Background = null;
 
@@ -114,7 +114,7 @@ public sealed class NotepadControl : UIPanel
 
         var baseFrame = NOTEPAD_BASE_FRAME + notepadType * PIECE_COUNT;
 
-        // Load the 9 pieces, skipping any that fall outside the EPF frame count
+        //load the 9 pieces, skipping any that fall outside the epf frame count
         var pieces = new SKImage?[PIECE_COUNT];
 
         for (var i = 0; i < PIECE_COUNT; i++)
@@ -138,7 +138,7 @@ public sealed class NotepadControl : UIPanel
         var canvas = surface.Canvas;
         canvas.Clear(SKColors.Transparent);
 
-        // Fill: tile across the inset area
+        //fill: tile across the inset area
         TilePiece(
             canvas,
             pieces[PIECE_FILL],
@@ -147,8 +147,8 @@ public sealed class NotepadControl : UIPanel
             Width - TILE_SIZE * 2,
             Height - TILE_SIZE * 2);
 
-        // Draw order (back to front): Top -> Bottom -> Left -> Right -> TL -> TR -> BL -> BR
-        // Edges first (tiled), then corners on top
+        //draw order (back to front): top -> bottom -> left -> right -> tl -> tr -> bl -> br
+        //edges first (tiled), then corners on top
         TilePieceH(
             canvas,
             pieces[PIECE_TOP],
@@ -177,7 +177,7 @@ public sealed class NotepadControl : UIPanel
             TILE_SIZE,
             Height - TILE_SIZE * 2);
 
-        // Corners (drawn last, on top of edges)
+        //corners (drawn last, on top of edges)
         DrawPiece(
             canvas,
             pieces[PIECE_TL],
@@ -208,7 +208,7 @@ public sealed class NotepadControl : UIPanel
 
     private void ConfigureSize(byte notepadType, byte width, byte height)
     {
-        // Exact sizing formula: (field + offset) * 16
+        //exact sizing formula: (field + offset) * 16
         var pixelWidth = (width + 2) * TILE_SIZE;
         var pixelHeight = (height + 3) * TILE_SIZE;
 
@@ -217,10 +217,10 @@ public sealed class NotepadControl : UIPanel
 
         this.CenterOnScreen();
 
-        // Compose the 9-slice background
+        //compose the 9-slice background
         ComposeBackground(notepadType);
 
-        // Text area: left=16, top=26, right=W-16, bottom=height*16+36
+        //text area: left=16, top=26, right=w-16, bottom=height*16+36
         var contentX = TILE_SIZE;
         var contentY = 26;
         var contentWidth = pixelWidth - TILE_SIZE * 2;
@@ -281,7 +281,7 @@ public sealed class NotepadControl : UIPanel
         if (string.IsNullOrEmpty(message))
             return string.Empty;
 
-        // Protocol uses TAB (0x09) as line separator; convert to newlines for display
+        //protocol uses tab (0x09) as line separator; convert to newlines for display
         return message.Replace('\t', '\n');
     }
 

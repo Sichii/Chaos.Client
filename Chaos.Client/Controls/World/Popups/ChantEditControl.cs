@@ -15,7 +15,7 @@ namespace Chaos.Client.Controls.World.Popups;
 /// </summary>
 public sealed class ChantEditControl : PrefabPanel
 {
-    // butt001.epf frame indices
+    //butt001.epf frame indices
     private const int OK_NORMAL = 15;
     private const int OK_PRESSED = 16;
     private const int CANCEL_NORMAL = 21;
@@ -40,8 +40,6 @@ public sealed class ChantEditControl : PrefabPanel
     private readonly UIButton? OkButton;
 
     private readonly UITextBox[] TextInputs;
-    private readonly UIImage? TopImage;
-
     private byte EditingSlot;
     private bool IsSpell;
     private int LineCount;
@@ -56,11 +54,11 @@ public sealed class ChantEditControl : PrefabPanel
         Width = PANEL_WIDTH;
         Height = TOP_HEIGHT + MID_HEIGHT + BOT_HEIGHT;
 
-        // 3-part composite background: TopImage, tiled MidImage, BotImage
-        TopImage = CreateImage("TopImage");
+        //3-part composite background: topimage, tiled midimage, botimage
+        CreateImage("TopImage");
         BotImage = CreateImage("BotImage");
 
-        // MidImage is tiled vertically — store the texture directly instead of using a UIImage child
+        //midimage is tiled vertically — store the texture directly instead of using a uiimage child
         if (PrefabSet.Contains("MidImage"))
         {
             var midPrefab = PrefabSet["MidImage"];
@@ -69,7 +67,7 @@ public sealed class ChantEditControl : PrefabPanel
                 MidTexture = UiRenderer.Instance!.GetPrefabTexture(PrefabSet.Name, "MidImage", 0);
         }
 
-        // Get OK/Cancel rects from prefab for positioning, then create custom buttons with butt001.epf
+        //get ok/cancel rects from prefab for positioning, then create custom buttons with butt001.epf
         var okRect = GetRect("OK");
         var cancelRect = GetRect("Cancel");
 
@@ -97,7 +95,7 @@ public sealed class ChantEditControl : PrefabPanel
         LevelLabel = CreateLabel("Level");
         Icon = CreateImage("Icon");
 
-        // Pre-create all text boxes — shown/hidden based on line count
+        //pre-create all text boxes — shown/hidden based on line count
         TextInputs = new UITextBox[MAX_LINES];
 
         for (var i = 0; i < MAX_LINES; i++)
@@ -131,7 +129,7 @@ public sealed class ChantEditControl : PrefabPanel
         Hide();
     }
 
-    private UIButton? CreateButtonWithEpf(
+    private UIButton CreateButtonWithEpf(
         string name,
         int normalFrame,
         int pressedFrame,
@@ -147,8 +145,8 @@ public sealed class ChantEditControl : PrefabPanel
             Name = name,
             X = x,
             Y = y,
-            Width = normalTex?.Width ?? 82,
-            Height = normalTex?.Height ?? 31,
+            Width = normalTex.Width,
+            Height = normalTex.Height,
             NormalTexture = normalTex,
             PressedTexture = pressedTex,
             ZIndex = 1
@@ -172,7 +170,7 @@ public sealed class ChantEditControl : PrefabPanel
         if (!Visible)
             return;
 
-        // Tile MidImage between TopImage and BotImage
+        //tile midimage between topimage and botimage
         if (MidTexture is not null && (LineCount > 0))
         {
             var midStartY = ScreenY + TOP_HEIGHT;
@@ -185,7 +183,7 @@ public sealed class ChantEditControl : PrefabPanel
                     Color.White);
         }
 
-        // Draw children (TopImage, BotImage, text inputs, buttons, labels, icon)
+        //draw children (topimage, botimage, text inputs, buttons, labels, icon)
         base.Draw(spriteBatch);
     }
 
@@ -221,7 +219,7 @@ public sealed class ChantEditControl : PrefabPanel
         if (Icon is not null)
             Icon.Texture = icon;
 
-        // Show/hide text inputs based on line count
+        //show/hide text inputs based on line count
         for (var i = 0; i < MAX_LINES; i++)
             if (i < LineCount)
             {
@@ -235,7 +233,7 @@ public sealed class ChantEditControl : PrefabPanel
                 TextInputs[i].IsFocused = false;
             }
 
-        // Reposition bot image and buttons for the line count
+        //reposition bot image and buttons for the line count
         var totalMidHeight = LineCount * MID_HEIGHT;
         var botY = TOP_HEIGHT + totalMidHeight;
 

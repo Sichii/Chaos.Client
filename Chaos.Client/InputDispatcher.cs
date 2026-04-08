@@ -9,40 +9,40 @@ namespace Chaos.Client;
 public sealed class InputDispatcher
 {
     private const float DOUBLE_CLICK_MS = 300f;
-    private const int DRAG_THRESHOLD_SQ = 16; // 4px squared
+    private const int DRAG_THRESHOLD_SQ = 16; //4px squared
 
     private readonly InputBuffer Input;
 
-    // Control stack — ordered list of panels that participate in keyboard dispatch.
-    // Last element is the "top" (active keyboard target).
+    //control stack — ordered list of panels that participate in keyboard dispatch.
+    //last element is the "top" (active keyboard target).
     private readonly List<UIPanel> ControlStack = [];
 
-    // Explicit focus — the single element (typically a UITextBox) that receives
-    // keyboard events before the control stack. Set via TextBoxFocusGained.
+    //explicit focus — the single element (typically a uitextbox) that receives
+    //keyboard events before the control stack. set via textboxfocusgained.
     private UIElement? ExplicitFocusElement;
 
-    // Hover state
+    //hover state
     private UIElement? HoveredElement;
 
-    // Mouse capture state
+    //mouse capture state
     private UIElement? CapturedElement;
     private Point MouseDownPosition;
     private MouseButton MouseDownButton;
 
-    // Click synthesis
+    //click synthesis
     private UIElement? LastClickTarget;
     private float LastClickTime;
 
-    // Drag state
+    //drag state
     private bool DragActive;
     private object? DragPayload;
 
-    // Previous mouse position for delta
+    //previous mouse position for delta
     private int PreviousMouseX;
     private int PreviousMouseY;
 
-    // Pooled event instances — reused each frame to avoid per-frame allocations.
-    // Safe because dispatch is synchronous (event is fully consumed before the next dispatch).
+    //pooled event instances — reused each frame to avoid per-frame allocations.
+    //safe because dispatch is synchronous (event is fully consumed before the next dispatch).
     private readonly MouseDownEvent MouseDown = new();
     private readonly MouseUpEvent MouseUp = new();
     private readonly ClickEvent Click = new();
@@ -70,15 +70,11 @@ public sealed class InputDispatcher
     }
 
     /// <summary>
-    ///     Bridges UITextBox.IsFocused -> dispatcher explicit focus. When any textbox gains internal
-    ///     focus (Tab switch, programmatic set, etc.), automatically route keyboard events to it.
-    ///     No visibility check here — the two-phase dispatch handles stale focus (clears it if the
-    ///     element is not effectively visible when dispatch runs). This allows Show() methods to
-    ///     set textbox focus before calling base.Show() without losing the focus claim.
+    ///     Routes keyboard events to the newly focused textbox by setting it as the explicit focus target.
     /// </summary>
     private void OnTextBoxFocusGained(UITextBox textBox) => SetExplicitFocus(textBox);
 
-    // ── Explicit Focus ──
+    //── explicit focus ──
 
     /// <summary>
     ///     Current explicit focus target (typically a UITextBox). When set, keyboard events
@@ -106,7 +102,7 @@ public sealed class InputDispatcher
     /// </summary>
     public void ClearExplicitFocus() => SetExplicitFocus(null);
 
-    // ── Control Stack ──
+    //── control stack ──
 
     /// <summary>
     ///     Pushes a panel onto the control stack. Idempotent — if already present, removes
@@ -156,7 +152,7 @@ public sealed class InputDispatcher
         HoveredElement = null;
     }
 
-    // ── Main Per-Frame Entry Point ──
+    //── main per-frame entry point ──
 
     /// <summary>
     ///     Main per-frame entry point. Reads buffered input, produces events, dispatches them.
@@ -168,8 +164,8 @@ public sealed class InputDispatcher
         var mouseY = Input.MouseY;
         var modifiers = GetModifiers();
 
-        // Mouse blocking: when a textbox has explicit focus, restrict mouse events
-        // to the panel containing the focused textbox. Clicks outside are consumed.
+        //mouse blocking: when a textbox has explicit focus, restrict mouse events
+        //to the panel containing the focused textbox. clicks outside are consumed.
         var mouseBlocked = false;
 
         if (ExplicitFocusElement is not null)
@@ -182,7 +178,7 @@ public sealed class InputDispatcher
 
         if (!mouseBlocked)
         {
-            // ── Mouse position changed -> MouseMove + hover tracking ──
+            //── mouse position changed -> mousemove + hover tracking ──
             if ((mouseX != PreviousMouseX) || (mouseY != PreviousMouseY))
             {
                 var deltaX = mouseX - PreviousMouseX;
@@ -190,12 +186,12 @@ public sealed class InputDispatcher
                 PreviousMouseX = mouseX;
                 PreviousMouseY = mouseY;
 
-                // Hit-test once for hover tracking, drag-move, and free-movement dispatch
+                //hit-test once for hover tracking, drag-move, and free-movement dispatch
                 var hitUnderCursor = HitTest(root, mouseX, mouseY);
 
                 if (CapturedElement is not null)
                 {
-                    // Route MouseMove to captured element (for scrollbar drag, text selection, etc.)
+                    //route mousemove to captured element (for scrollbar drag, text selection, etc.)
                     MouseMove.Reset();
                     MouseMove.ScreenX = mouseX;
                     MouseMove.ScreenY = mouseY;
@@ -205,7 +201,7 @@ public sealed class InputDispatcher
                     MouseMove.Target = CapturedElement;
                     CapturedElement.OnMouseMove(MouseMove);
 
-                    // Check drag threshold
+                    //check drag threshold
                     if (!DragActive)
                     {
                         var dx = mouseX - MouseDownPosition.X;
@@ -229,7 +225,7 @@ public sealed class InputDispatcher
                         }
                     }
 
-                    // DragMove fires on element under cursor (hit-tested, not captured)
+                    //dragmove fires on element under cursor (hit-tested, not captured)
                     if (DragActive)
                     {
                         DragMove.Reset();
@@ -241,7 +237,7 @@ public sealed class InputDispatcher
                     }
                 } else
                 {
-                    // No capture — dispatch MouseMove to the hit-tested element (for hover effects)
+                    //no capture — dispatch mousemove to the hit-tested element (for hover effects)
                     MouseMove.Reset();
                     MouseMove.ScreenX = mouseX;
                     MouseMove.ScreenY = mouseY;
@@ -251,7 +247,7 @@ public sealed class InputDispatcher
                     DispatchBubble(hitUnderCursor ?? root, MouseMove);
                 }
 
-                // Hover tracking — reuse cached hit-test result
+                //hover tracking — reuse cached hit-test result
                 var newHover = hitUnderCursor;
 
                 if (newHover != HoveredElement)
@@ -262,7 +258,7 @@ public sealed class InputDispatcher
                 }
             }
 
-            // ── Mouse scroll ──
+            //── mouse scroll ──
             var scrollDelta = Input.ScrollDelta;
 
             if (scrollDelta != 0)
@@ -277,17 +273,17 @@ public sealed class InputDispatcher
                 DispatchBubble(scrollTarget ?? root, MouseScroll);
             }
 
-            // ── Mouse buttons ──
+            //── mouse buttons ──
             ProcessMouseButton(root, mouseX, mouseY, totalMs, modifiers, MouseButton.Left, Input.WasLeftButtonPressed, Input.WasLeftButtonReleased);
             ProcessMouseButton(root, mouseX, mouseY, totalMs, modifiers, MouseButton.Right, Input.WasRightButtonPressed, Input.WasRightButtonReleased);
         } else
         {
-            // Mouse is blocked — still track position for delta calculation next frame
+            //mouse is blocked — still track position for delta calculation next frame
             PreviousMouseX = mouseX;
             PreviousMouseY = mouseY;
         }
 
-        // ── Keyboard (always processed, never blocked by mouse blocking) ──
+        //── keyboard (always processed, never blocked by mouse blocking) ──
         foreach (var key in Input.FramePresses)
         {
             KeyDown.Reset();
@@ -304,7 +300,7 @@ public sealed class InputDispatcher
             DispatchKeyboardEvent(root, KeyUp);
         }
 
-        // ── Text input ──
+        //── text input ──
         foreach (var c in Input.TextInput)
         {
             TextInput.Reset();
@@ -327,7 +323,7 @@ public sealed class InputDispatcher
         {
             var target = HitTest(root, mouseX, mouseY) ?? root;
 
-            // Set capture
+            //set capture
             CapturedElement = target;
 
             MouseDownPosition = new Point(mouseX, mouseY);
@@ -345,7 +341,7 @@ public sealed class InputDispatcher
         {
             var wasDragging = DragActive;
 
-            // Drag drop
+            //drag drop
             if (DragActive && (button == MouseDownButton))
             {
                 var dropTarget = HitTest(root, mouseX, mouseY);
@@ -363,7 +359,7 @@ public sealed class InputDispatcher
 
             }
 
-            // MouseUp routes to captured element
+            //mouseup routes to captured element
             var upTarget = CapturedElement ?? HitTest(root, mouseX, mouseY) ?? root;
 
             MouseUp.Reset();
@@ -373,7 +369,7 @@ public sealed class InputDispatcher
             MouseUp.Modifiers = modifiers;
             DispatchBubble(upTarget, MouseUp);
 
-            // Click synthesis — cursor must still be within captured element's bounds, and no drag occurred
+            //click synthesis — cursor must still be within captured element's bounds, and no drag occurred
             if ((CapturedElement is not null) && !wasDragging && CapturedElement.ContainsPoint(mouseX, mouseY))
             {
                 Click.Reset();
@@ -383,7 +379,7 @@ public sealed class InputDispatcher
                 Click.Modifiers = modifiers;
                 DispatchBubble(CapturedElement, Click);
 
-                // DoubleClick synthesis
+                //doubleclick synthesis
                 if ((CapturedElement == LastClickTarget) && ((totalMs - LastClickTime) < DOUBLE_CLICK_MS))
                 {
                     DoubleClick.Reset();
@@ -401,13 +397,13 @@ public sealed class InputDispatcher
                 }
             }
 
-            // Release capture
+            //release capture
             CapturedElement = null;
     
         }
     }
 
-    // ── Hit-Test ──
+    //── hit-test ──
 
     /// <summary>
     ///     Walks the element tree top-down, deepest-child-first, highest-ZIndex-first.
@@ -418,11 +414,11 @@ public sealed class InputDispatcher
         if (!panel.Visible || !panel.Enabled || !panel.IsHitTestVisible)
             return null;
 
-        // Ensure children are sorted before hit-testing — ProcessInput runs before Update,
-        // so the sort from Update/Draw may not have run yet this frame.
+        //ensure children are sorted before hit-testing — processinput runs before update,
+        //so the sort from update/draw may not have run yet this frame.
         panel.EnsureChildOrder();
 
-        // Children are sorted by ZIndex ascending — iterate in reverse for highest-first
+        //children are sorted by zindex ascending — iterate in reverse for highest-first
         var children = panel.Children;
 
         for (var i = children.Count - 1; i >= 0; i--)
@@ -434,7 +430,7 @@ public sealed class InputDispatcher
 
             if (child is UIPanel childPanel)
             {
-                // Skip panels that don't contain the cursor — children don't extend beyond parent bounds
+                //skip panels that don't contain the cursor — children don't extend beyond parent bounds
                 if (!childPanel.ContainsPoint(screenX, screenY))
                     continue;
 
@@ -446,14 +442,14 @@ public sealed class InputDispatcher
                 return child;
         }
 
-        // Check the panel itself — pass-through panels only match children, never themselves
+        //check the panel itself — pass-through panels only match children, never themselves
         if (!panel.IsPassThrough && panel.ContainsPoint(screenX, screenY))
             return panel;
 
         return null;
     }
 
-    // ── Dispatch ──
+    //── dispatch ──
 
     private static void DispatchBubble(UIElement target, InputEvent e)
     {
@@ -472,14 +468,13 @@ public sealed class InputDispatcher
     }
 
     /// <summary>
-    ///     Two-phase keyboard dispatch. Replaces the old DispatchToFocusOrRoot.
-    ///     Phase 1: If ExplicitFocus is set and visible, deliver to it only (no bubbling).
-    ///              If handled, stop. If not handled, fall through to Phase 2.
-    ///     Phase 2: Target = TopControl or root. DispatchBubble with normal parent bubbling.
+    ///     Two-phase keyboard dispatch.
+    ///     Phase 1: If ExplicitFocus is set and visible, deliver to it (no bubbling). Falls through to Phase 2 if unhandled.
+    ///     Phase 2: Target = TopControl or root. Dispatches with normal parent bubbling.
     /// </summary>
     private void DispatchKeyboardEvent(UIPanel root, InputEvent e)
     {
-        // Phase 1: Explicit focus (single target, no bubbling)
+        //phase 1: explicit focus (single target, no bubbling)
         if (ExplicitFocusElement is not null && IsEffectivelyVisible(ExplicitFocusElement))
         {
             DispatchSingle(ExplicitFocusElement, e);
@@ -487,9 +482,9 @@ public sealed class InputDispatcher
             if (e.Handled)
                 return;
 
-            // Phase 1.5: If the focused element is not a panel, bubble to its immediate
-            // parent panel. This lets parent controls handle keys their children don't
-            // (e.g. DialogTextEntryPanel closes on Escape, chat panel unfocuses on Escape).
+            //phase 1.5: if the focused element is not a panel, bubble to its immediate
+            //parent panel. this lets parent controls handle keys their children don't
+            //(e.g. dialogtextentrypanel closes on escape, chat panel unfocuses on escape).
             if (ExplicitFocusElement is not UIPanel && ExplicitFocusElement!.Parent is { } parentPanel)
             {
                 DispatchSingle(parentPanel, e);
@@ -499,11 +494,11 @@ public sealed class InputDispatcher
             }
         } else if (ExplicitFocusElement is not null)
         {
-            // Explicit focus is no longer visible — clear it
+            //explicit focus is no longer visible — clear it
             ClearExplicitFocus();
         }
 
-        // Phase 2: Stack dispatch with bubbling
+        //phase 2: stack dispatch with bubbling
         var target = TopControl ?? root;
         DispatchBubble(target, e);
     }
@@ -578,7 +573,7 @@ public sealed class InputDispatcher
         }
     }
 
-    // ── Helpers ──
+    //── helpers ──
 
     private KeyModifiers GetModifiers()
     {

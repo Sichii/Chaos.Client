@@ -29,10 +29,10 @@ public sealed class HotkeyHelpControl : PrefabPanel
         Visible = false;
         UsesControlStack = true;
 
-        // MAIN rect — keyboard diagram position. C## key rects are relative to this.
+        //main rect — keyboard diagram position. c## key rects are relative to this.
         var mainRect = GetRect("MAIN");
 
-        // EX area — where detail images appear on hover
+        //ex area — where detail images appear on hover
         var exRect = GetRect("EX");
 
         if (exRect != Rectangle.Empty)
@@ -51,7 +51,7 @@ public sealed class HotkeyHelpControl : PrefabPanel
             AddChild(DetailDisplay);
         }
 
-        // Load the second control file (_nhotkey) which defines the key-group hit rects
+        //load the second control file (_nhotkey) which defines the key-group hit rects
         var keyPrefabSet = DataContext.UserControls.Get("_nhotkey");
 
         if (keyPrefabSet is null || (mainRect == Rectangle.Empty))
@@ -61,7 +61,7 @@ public sealed class HotkeyHelpControl : PrefabPanel
         {
             var name = $"C{i:D2}";
 
-            // Standard single-rect key group
+            //standard single-rect key group
             if (keyPrefabSet.Contains(name))
             {
                 var element = CreateKeyElement(keyPrefabSet[name], mainRect);
@@ -75,7 +75,7 @@ public sealed class HotkeyHelpControl : PrefabPanel
                 continue;
             }
 
-            // Multi-rect key group (e.g. C02 → C021, C022)
+            //multi-rect key group (e.g. c02 → c021, c022)
             var subElements = new List<UIElement>();
 
             for (var s = 1; s <= 9; s++)
@@ -175,7 +175,7 @@ public sealed class HotkeyHelpControl : PrefabPanel
             group.Primary?.Visible = visible;
     }
 
-    private static Texture2D? TryLoadDetailImage(int index) => UiRenderer.Instance!.GetNationalSpfTexture($"_nhke{index:D2}.spf");
+    private static Texture2D TryLoadDetailImage(int index) => UiRenderer.Instance!.GetNationalSpfTexture($"_nhke{index:D2}.spf");
 
     public override void OnKeyDown(KeyDownEvent e)
     {
@@ -189,7 +189,7 @@ public sealed class HotkeyHelpControl : PrefabPanel
 
     public override void OnClick(ClickEvent e)
     {
-        // Consume clicks so they don't pass through to the world
+        //consume clicks so they don't pass through to the world
         e.Handled = true;
     }
 
@@ -200,7 +200,7 @@ public sealed class HotkeyHelpControl : PrefabPanel
         if (newIndex == HoveredIndex)
             return;
 
-        // Hide previous key group highlight
+        //hide previous key group highlight
         if (HoveredIndex >= 0)
         {
             SetKeyGroupVisible(HoveredIndex, false);
@@ -211,7 +211,7 @@ public sealed class HotkeyHelpControl : PrefabPanel
 
         HoveredIndex = newIndex;
 
-        // Show new key group highlight and detail image
+        //show new key group highlight and detail image
         if (HoveredIndex >= 0)
         {
             SetKeyGroupVisible(HoveredIndex, true);

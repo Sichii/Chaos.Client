@@ -107,8 +107,8 @@ public sealed class PaletteCyclingManager : IDisposable
     private static int Lcm(int a, int b) => a / Gcd(a, b) * b;
 
     /// <summary>
-    ///     Phase 1: Scans the map for cycling tiles, pre-renders all step variants as SKImages and adds them to the respective
-    ///     image caches (which feed the atlas builds). Must be called BEFORE atlases are built.
+    ///     Scans the map for tiles that use palette cycling and pre-renders all palette-shifted variants into the provided
+    ///     image caches. Must be called before building tile atlases, since the atlas build consumes these images.
     /// </summary>
     public void PrepareVariants(
         MapFile mapFile,
@@ -191,7 +191,7 @@ public sealed class PaletteCyclingManager : IDisposable
         Func<int, Palettized<T>?> getTile,
         Func<T, Palette, SKImage> render)
     {
-        // Collect all render work items: (encodedKey, entity, cycledPalette) — each is independent
+        //collect all render work items: (encodedkey, entity, cycledpalette) — each is independent
         var workItems = new List<(int EncodedKey, T Entity, Palette CycledPalette)>();
 
         foreach ((var paletteNumber, var tileIds) in tilesByPalette)
@@ -220,7 +220,7 @@ public sealed class PaletteCyclingManager : IDisposable
                     entities[tileId] = palettized.Entity;
             }
 
-            // Step 0 is the base tile already in imageCache — only add steps 1..N-1 as variants
+            //step 0 is the base tile already in imagecache — only add steps 1..n-1 as variants
             for (var step = 1; step < totalSteps; step++)
             {
                 var cycledPalette = originalPalette;
@@ -240,7 +240,7 @@ public sealed class PaletteCyclingManager : IDisposable
             };
         }
 
-        // Render all variants in parallel (CPU-only, thread-safe)
+        //render all variants in parallel (cpu-only, thread-safe)
         Parallel.ForEach(
             workItems,
             item =>
@@ -253,7 +253,7 @@ public sealed class PaletteCyclingManager : IDisposable
     }
 
     /// <summary>
-    ///     Phase 2: Resolves atlas regions for all pre-rendered variants. Must be called AFTER atlases are built.
+    ///     Resolves atlas regions for all pre-rendered cycling variants. Must be called after tile atlases are built.
     /// </summary>
     public void ResolveRegions(TextureAtlas? bgAtlas, TextureAtlas? fgAtlas)
     {
@@ -345,7 +345,7 @@ public sealed class PaletteCyclingManager : IDisposable
 
         LastTick = animationTick;
 
-        // BG path: swap atlas region pointers — zero GPU work
+        //bg path: swap atlas region pointers — zero gpu work
         foreach ((_, var slot) in BgSlots)
         {
             if (!AdvanceSlot(slot))
@@ -358,7 +358,7 @@ public sealed class PaletteCyclingManager : IDisposable
             }
         }
 
-        // FG path: swap atlas region pointers — zero GPU work
+        //fg path: swap atlas region pointers — zero gpu work
         foreach ((_, var slot) in FgSlots)
         {
             if (!AdvanceSlot(slot))

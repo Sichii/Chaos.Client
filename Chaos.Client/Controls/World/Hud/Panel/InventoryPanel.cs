@@ -38,7 +38,7 @@ public sealed class InventoryPanel : PanelBase
 
         ConfigureExpand(expandedBackground ?? UiRenderer.Instance!.GetSpfTexture("_ninv5.spf"), EXPANDED_SLOTS);
 
-        // Gold bag occupies the last visible grid cell, overlaying the slot at that index
+        //gold bag occupies the last visible grid cell, overlaying the slot at that index
         GoldSlot = new PanelSlot
         {
             Name = "GoldBag",
@@ -53,10 +53,10 @@ public sealed class InventoryPanel : PanelBase
         GoldSlot.DragStarted += OnDragStarted;
         AddChild(GoldSlot);
 
-        // Position gold at last visible cell and hide the slot underneath
+        //position gold at last visible cell and hide the slot underneath
         PositionGoldSlot(normalVisibleSlots - 1);
 
-        // Subscribe to state events
+        //subscribe to state events
         WorldState.Inventory.SlotChanged += OnSlotChanged;
         WorldState.Inventory.GoldChanged += OnGoldChanged;
         WorldState.Inventory.Cleared += OnCleared;
@@ -120,7 +120,7 @@ public sealed class InventoryPanel : PanelBase
             GoldSlot.Y = Slots[gridIndex].Y;
         } else if (Slots.Length > 0)
         {
-            // Beyond the last real slot (e.g. 60th cell in 5-row expanded with 59 slots)
+            //beyond the last real slot (e.g. 60th cell in 5-row expanded with 59 slots)
             var lastIndex = Slots.Length - 1;
             var colDelta = (gridIndex % COLUMNS) - (lastIndex % COLUMNS);
             var rowDelta = (gridIndex / COLUMNS) - (lastIndex / COLUMNS);
@@ -129,7 +129,7 @@ public sealed class InventoryPanel : PanelBase
             GoldSlot.Y = Slots[lastIndex].Y + rowDelta * CELL_HEIGHT;
         }
 
-        // Hide the real slot underneath the gold bag (no-op when gold is beyond real slots)
+        //hide the real slot underneath the gold bag (no-op when gold is beyond real slots)
         for (var i = 0; i < Slots.Length; i++)
             if (i < VisibleSlotCount)
                 Slots[i].Visible = i != gridIndex;
@@ -138,7 +138,7 @@ public sealed class InventoryPanel : PanelBase
             Slots[gridIndex].Visible = false;
     }
 
-    protected override Texture2D? RenderIcon(ushort spriteId) => UiRenderer.Instance!.GetItemIcon(spriteId);
+    protected override Texture2D RenderIcon(ushort spriteId) => UiRenderer.Instance!.GetItemIcon(spriteId);
 
     public override void SetExpanded(bool expanded)
     {

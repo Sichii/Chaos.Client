@@ -21,7 +21,7 @@ public sealed class PasswordChangeControl : PrefabPanel
         Visible = false;
         UsesControlStack = true;
 
-        // Buttons
+        //buttons
         OkButton = CreateButton("OK");
         CancelButton = CreateButton("Cancel");
 
@@ -31,7 +31,7 @@ public sealed class PasswordChangeControl : PrefabPanel
         if (CancelButton is not null)
             CancelButton.Clicked += () => OnCancel?.Invoke();
 
-        // Text fields — type 7 with 0 images, manually created
+        //text fields — type 7 with 0 images, manually created
         NameField = CreateTextBox("Name");
         CurrentPasswordField = CreateTextBox("Password");
         NewPasswordField = CreateTextBox("NewPassword");
@@ -45,7 +45,7 @@ public sealed class PasswordChangeControl : PrefabPanel
         NewPasswordField?.IsMasked = true;
         ConfirmPasswordField?.IsMasked = true;
 
-        // Focus management
+        //focus management
         if (NameField is not null)
             NameField.OnFocused += OnTextBoxFocused;
 
@@ -118,7 +118,7 @@ public sealed class PasswordChangeControl : PrefabPanel
         switch (e.Key)
         {
             case Keys.Tab:
-                // Cycle focus through all 4 fields: Name → CurrentPassword → NewPassword → Confirm → Name
+                //cycle focus through all 4 fields: name → currentpassword → newpassword → confirm → name
                 if (NameField?.IsFocused == true)
                 {
                     NameField.IsFocused = false;

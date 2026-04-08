@@ -1,7 +1,7 @@
 namespace Chaos.Client.Data.Models;
 
 /// <summary>
-///     Family member names loaded from Familylist.cfg. Order: Mother, Father, Son1, Son2, Brother1-6.
+///     Family member names for the current character's family tree.
 /// </summary>
 public sealed class FamilyList
 {

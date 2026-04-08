@@ -38,7 +38,7 @@ public sealed class SpriteAnimation : IDisposable
         if ((index < 0) || (index >= Frames.Length))
             return null;
 
-        // If this frame has no texture (skipped during load), use the previous valid frame
+        //if this frame has no texture (skipped during load), use the previous valid frame
         // ReSharper disable once ConditionIsAlwaysTrueOrFalseAccordingToNullableAPIContract
         if (Frames[index].Texture is not null)
             return Frames[index];

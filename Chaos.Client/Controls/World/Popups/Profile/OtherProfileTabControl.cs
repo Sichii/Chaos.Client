@@ -42,13 +42,13 @@ public sealed class OtherProfileTabControl : PrefabPanel
 
         ContentRect = GetRect("CONTENT");
 
-        // Close button
+        //close button
         CloseButton = CreateButton("TAB_CLOSE");
 
         if (CloseButton is not null)
             CloseButton.Clicked += Hide;
 
-        // Only create Equipment + Legend tab buttons
+        //only create equipment + legend tab buttons
         var cache = UiRenderer.Instance!;
 
         for (var i = 0; i < EnabledTabs.Length; i++)
@@ -61,10 +61,10 @@ public sealed class OtherProfileTabControl : PrefabPanel
             TabButtons[i] = tabBtn;
             tabBtn.CenterTexture = true;
 
-            // Prefab image is big/selected — swap to SelectedTexture
+            //prefab image is big/selected — swap to selectedtexture
             tabBtn.SelectedTexture = tabBtn.NormalTexture;
 
-            // Load small/normal texture from _nui_tb1.spf
+            //load small/normal texture from _nui_tb1.spf
             var frameIndex = (int)tab;
 
             if (PrefabSet.Contains(controlName))
@@ -158,7 +158,7 @@ public sealed class OtherProfileTabControl : PrefabPanel
     /// </summary>
     public void Show(OtherProfileArgs args, List<LegendMarkEntry> legendMarks, AislingRenderer aislingRenderer)
     {
-        // Equipment tab
+        //equipment tab
         var equipPage = GetOrCreatePage<OtherProfileEquipmentTab>(StatusBookTab.Equipment);
 
         if (equipPage is not null)
@@ -184,14 +184,14 @@ public sealed class OtherProfileTabControl : PrefabPanel
             equipPage.SetProfileText(args.ProfileText ?? string.Empty);
             equipPage.SetPortrait(args.Portrait);
 
-            // Paperdoll from the entity's current appearance on the map
+            //paperdoll from the entity's current appearance on the map
             var entity = WorldState.GetEntity(args.Id);
 
             if (entity?.Appearance is { } appearance)
                 equipPage.SetPaperdoll(aislingRenderer, in appearance);
         }
 
-        // Legend tab
+        //legend tab
         var legendPage = GetOrCreatePage<SelfProfileLegendTab>(StatusBookTab.Legend);
 
         legendPage?.SetMarks(legendMarks);
@@ -203,15 +203,15 @@ public sealed class OtherProfileTabControl : PrefabPanel
 
     public void SwitchTab(StatusBookTab tab)
     {
-        // Only allow Equipment or Legend
+        //only allow equipment or legend
         if (tab is not (StatusBookTab.Equipment or StatusBookTab.Legend))
             return;
 
-        // Hide current tab page
+        //hide current tab page
         if (TabPages.TryGetValue(ActiveTab, out var currentPage) && currentPage is not null)
             currentPage.Visible = false;
 
-        // Deselect old tab, select new
+        //deselect old tab, select new
         var oldIndex = FindTabIndex(ActiveTab);
         var newIndex = FindTabIndex(tab);
 
@@ -223,7 +223,7 @@ public sealed class OtherProfileTabControl : PrefabPanel
         if ((newIndex >= 0) && TabButtons[newIndex] is not null)
             TabButtons[newIndex]!.IsSelected = true;
 
-        // Lazy-load and show
+        //lazy-load and show
         if (!TabPages.TryGetValue(tab, out var page) || page is null)
         {
             page = CreateTabPage(tab);

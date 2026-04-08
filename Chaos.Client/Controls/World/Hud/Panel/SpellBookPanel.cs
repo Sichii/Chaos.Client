@@ -83,7 +83,7 @@ public sealed class SpellBookPanel : PanelBase
 
         var data = WorldState.SpellBook.GetSlot(slot);
 
-        // Dispose old textures — sprite may have changed
+        //dispose old textures — sprite may have changed
         control.CooldownTexture?.Dispose();
         control.CooldownTexture = null;
 
@@ -114,7 +114,7 @@ public sealed class SpellBookPanel : PanelBase
         }
     }
 
-    protected override Texture2D? RenderIcon(ushort spriteId) => UiRenderer.Instance!.GetSpellIcon(spriteId);
+    protected override Texture2D RenderIcon(ushort spriteId) => UiRenderer.Instance!.GetSpellIcon(spriteId);
 
     private Texture2D RenderTintedIcon(ushort spriteId)
     {
@@ -127,7 +127,7 @@ public sealed class SpellBookPanel : PanelBase
     {
         base.Update(gameTime);
 
-        // Read cooldown state each frame — swap style: fully on or off
+        //read cooldown state each frame — swap style: fully on or off
         for (var i = 0; (i < VisibleSlotCount) && (i < Slots.Length); i++)
         {
             var slot = (byte)(i + SlotOffset + 1);

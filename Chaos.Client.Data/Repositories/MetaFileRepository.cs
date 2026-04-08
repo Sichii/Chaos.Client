@@ -27,8 +27,7 @@ public sealed class MetaFileRepository
     private FrozenDictionary<int, ushort>? ItemIndex;
 
     /// <summary>
-    ///     Builds the item name hash → file number index by scanning all ItemInfo files. Call once after metadata sync
-    ///     completes.
+    ///     Builds the item name-to-file index for fast lookups. Must be called once after metadata files are synced to disk.
     /// </summary>
     public void BuildItemIndex()
     {
@@ -60,7 +59,7 @@ public sealed class MetaFileRepository
                         index.TryAdd(StringComparer.OrdinalIgnoreCase.GetHashCode(entry.Key), file.Number);
                 } catch
                 {
-                    // Skip corrupt files
+                    //skip corrupt files
                 }
             });
 
@@ -68,7 +67,7 @@ public sealed class MetaFileRepository
     }
 
     /// <summary>
-    ///     Loads a raw MetaFile from disk by name.
+    ///     Loads an unparsed MetaFile from the metafile directory by filename.
     /// </summary>
     public MetaFile? Get(string name)
     {
@@ -87,7 +86,7 @@ public sealed class MetaFileRepository
     }
 
     /// <summary>
-    ///     Loads and parses the ability metadata for a given base class (SClass{N}).
+    ///     Loads and parses skill/spell metadata for a base class.
     /// </summary>
     public AbilityMetadata? GetAbilityMetadata(byte baseClass)
     {
@@ -121,7 +120,7 @@ public sealed class MetaFileRepository
                 results.Add(MetaFile.FromFile(filePath, true));
             } catch
             {
-                // Skip corrupt files
+                //skip corrupt files
             }
         }
 
@@ -134,15 +133,15 @@ public sealed class MetaFileRepository
     public IReadOnlyList<EventMetadataEntry> GetEventMetadata() => EventMetadataEntry.ParseAll(GetAll("SEvent"));
 
     /// <summary>
-    ///     Looks up item metadata for one or more items in parallel. Groups items by file number
-    ///     so each file is loaded at most once. Returns a dictionary of found items keyed by name.
+    ///     Looks up item metadata for the given item names. Returns a dictionary of found entries keyed by name
+    ///     (case-insensitive). Requires <see cref="BuildItemIndex" /> to have been called.
     /// </summary>
     public IDictionary<string, ItemMetadataEntry> GetItemMetadata(params ReadOnlySpan<string> itemNames)
     {
         if (ItemIndex is null || (itemNames.Length == 0))
             return new Dictionary<string, ItemMetadataEntry>(StringComparer.OrdinalIgnoreCase);
 
-        // Group requested names by file number
+        //group requested names by file number
         var fileGroups = new Dictionary<ushort, HashSet<string>>();
 
         foreach (var name in itemNames)
@@ -177,7 +176,7 @@ public sealed class MetaFileRepository
                     ScanFile(filePath, group.Value, results);
                 } catch
                 {
-                    // Skip corrupt files
+                    //skip corrupt files
                 }
             });
 
@@ -185,7 +184,7 @@ public sealed class MetaFileRepository
     }
 
     /// <summary>
-    ///     Loads and parses the "Light" metadata file.
+    ///     Loads per-map darkness overlay configuration from the "Light" metadata file.
     /// </summary>
     public LightMetadata? GetLightMetadata()
     {
@@ -198,7 +197,7 @@ public sealed class MetaFileRepository
     }
 
     /// <summary>
-    ///     Loads and parses the "NationDesc" metadata file.
+    ///     Loads nation ID-to-name mappings from the "NationDesc" metadata file.
     /// </summary>
     public NationMetadata? GetNationMetadata()
     {
@@ -211,7 +210,7 @@ public sealed class MetaFileRepository
     }
 
     /// <summary>
-    ///     Loads and parses the "NPCIllust" metadata file.
+    ///     Loads NPC name-to-illustration-filename mappings from the "NPCIllust" metadata file.
     /// </summary>
     public NpcIllustrationMetadata? GetNpcIllustrationMetadata()
     {
@@ -224,8 +223,7 @@ public sealed class MetaFileRepository
     }
 
     /// <summary>
-    ///     Scans a single MetaFile for entries matching the requested names. Skips non-matching entries without allocating
-    ///     property strings. Stops early when all names are found.
+    ///     Scans a single MetaFile on disk for entries matching the requested names, adding matches to the results dictionary.
     /// </summary>
     private static void ScanFile(string filePath, HashSet<string> names, ConcurrentDictionary<string, ItemMetadataEntry> results)
     {

@@ -37,7 +37,7 @@ public sealed class ChantText : UIPanel
         var text = message.Length > MAX_CHARS ? message[..MAX_CHARS] : message;
         var centered = text.Length <= CENTER_THRESHOLD;
 
-        // Character-wrap into visual lines
+        //character-wrap into visual lines
         var visualLines = new List<string>();
         var remaining = text;
 

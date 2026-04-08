@@ -19,10 +19,10 @@ namespace Chaos.Client.Controls.World.Popups.Dialog;
 /// </summary>
 public sealed class NpcSessionControl : PrefabPanel
 {
-    // Scroll arrow buttons for dialog text overflow (nd_arw.spf)
+    //scroll arrow buttons for dialog text overflow (nd_arw.spf)
     private const float ARROW_ANIM_INTERVAL = 0.5f;
 
-    // Container controls from lnpcd prefab
+    //container controls from lnpcd prefab
     private readonly UIButton? CloseButton;
     private readonly UILabel DialogTextLabel;
     private readonly MenuShopPanel MenuShop;
@@ -33,7 +33,7 @@ public sealed class NpcSessionControl : PrefabPanel
     private readonly Rectangle PortraitRect;
     private readonly UIButton? PreviousButton;
 
-    // Sub-panels (Layer 2 content) — exposed for focus tracking by InputDispatcher
+    //sub-panels (layer 2 content) — exposed for focus tracking by inputdispatcher
     public DialogTextEntryPanel DialogTextEntry { get; }
     public MenuListPanel MenuList { get; }
     public MenuTextEntryPanel MenuTextEntry { get; }
@@ -49,7 +49,7 @@ public sealed class NpcSessionControl : PrefabPanel
     private bool OwnsPortraitTexture;
     private SpriteFrame? PortraitSpriteFrame;
 
-    // Portrait texture (owned illustration or cached sprite frame)
+    //portrait texture (owned illustration or cached sprite frame)
     private Texture2D? PortraitTexture;
     private int ScrollLine;
     public DialogType? CurrentDialogType { get; private set; }
@@ -57,21 +57,21 @@ public sealed class NpcSessionControl : PrefabPanel
     public ushort DialogId { get; private set; }
     public bool IsDialogOpcode { get; private set; }
 
-    // Menu args echoed back for MenuWithArgs
+    //menu args echoed back for menuwithargs
     public string? MenuArgs { get; private set; }
 
-    // Portrait metadata for rendering by WorldScreen
+    //portrait metadata for rendering by worldscreen
     public string? NpcName { get; private set; }
     public DisplayColor PortraitColor { get; private set; }
     public ushort PortraitSpriteId { get; private set; }
     public ushort PursuitId { get; private set; }
     public bool ShouldIllustrate { get; private set; }
 
-    // Session state
+    //session state
     public EntityType SourceEntityType { get; private set; }
     public uint? SourceId { get; private set; }
 
-    // Speak dialog: prompt prefix and epilog suffix for the Say broadcast
+    //speak dialog: prompt prefix and epilog suffix for the say broadcast
     public string? SpeakEpilog { get; private set; }
     public string? SpeakPrompt { get; private set; }
 
@@ -84,20 +84,20 @@ public sealed class NpcSessionControl : PrefabPanel
         X = 0;
         Y = 0;
 
-        // Darkness gradient (behind everything else in the dialog)
+        //darkness gradient (behind everything else in the dialog)
         AddChild(new DialogAlphaGradient());
 
-        // Background images (drawn after gradient so they render on top of it)
-        CreateImage("MessageDialog"); // nd_talk.spf — bottom dialog bar
-        NpcTileImage = CreateImage("NPCTile"); // nd_npcbg.spf — portrait background
+        //background images (drawn after gradient so they render on top of it)
+        CreateImage("MessageDialog"); //nd_talk.spf — bottom dialog bar
+        NpcTileImage = CreateImage("NPCTile"); //nd_npcbg.spf — portrait background
 
-        // Container buttons (added after images so they draw on top)
+        //container buttons (added after images so they draw on top)
         CloseButton = CreateButton("CloseBtn");
         NextButton = CreateButton("NextBtn");
         PreviousButton = CreateButton("PrevBtn");
         TopButton = CreateButton("TopBtn");
 
-        // Scroll arrow buttons for dialog text overflow (nd_arw.spf: 0-1 = up, 2-3 = down)
+        //scroll arrow buttons for dialog text overflow (nd_arw.spf: 0-1 = up, 2-3 = down)
         var uiCache = UiRenderer.Instance!;
         ScrollUpFrames[0] = uiCache.GetSpfTexture("nd_arw.spf");
         ScrollUpFrames[1] = uiCache.GetSpfTexture("nd_arw.spf", 1);
@@ -137,11 +137,11 @@ public sealed class NpcSessionControl : PrefabPanel
             ScrollUpButton.Clicked += () => ScrollText(-1);
         }
 
-        // Layout rects
+        //layout rects
         NpcNameLabel = CreateLabel("Name");
         PortraitRect = GetRect("NPCTile");
 
-        // Dialog text label — word-wrapped, shifted up 10px from prefab rect
+        //dialog text label — word-wrapped, shifted up 10px from prefab rect
         var textRect = GetRect("Text");
 
         DialogTextLabel = new UILabel
@@ -156,7 +156,7 @@ public sealed class NpcSessionControl : PrefabPanel
 
         AddChild(DialogTextLabel);
 
-        // Wire container button events
+        //wire container button events
         if (CloseButton is not null)
             CloseButton.Clicked += () =>
             {
@@ -177,7 +177,7 @@ public sealed class NpcSessionControl : PrefabPanel
                 OnTop?.Invoke();
             };
 
-        // Create sub-panels as children
+        //create sub-panels as children
         DialogOption = new DialogOptionPanel();
         DialogTextEntry = new DialogTextEntryPanel();
         MenuTextEntry = new MenuTextEntryPanel();
@@ -192,7 +192,7 @@ public sealed class NpcSessionControl : PrefabPanel
         AddChild(MenuList);
         AddChild(DialogProtectedTextEntry);
 
-        // Wire sub-panel events — forward to container events
+        //wire sub-panel events — forward to container events
         DialogOption.OnOptionSelected += index => OnOptionSelected?.Invoke(index);
 
         DialogOption.OnClose += () =>
@@ -264,7 +264,7 @@ public sealed class NpcSessionControl : PrefabPanel
         if (!Visible)
             return;
 
-        // 1. Background
+        //1. background
         if (Background is not null)
             AtlasHelper.Draw(
                 spriteBatch,
@@ -272,7 +272,7 @@ public sealed class NpcSessionControl : PrefabPanel
                 new Vector2(ScreenX, ScreenY),
                 Color.White);
 
-        // 2. Base-layer children (alpha pane, bottom bar, portrait bg, buttons, labels)
+        //2. base-layer children (alpha pane, bottom bar, portrait bg, buttons, labels)
         foreach (var child in Children)
             if (child.Visible && !IsSubPanel(child))
             {
@@ -280,10 +280,10 @@ public sealed class NpcSessionControl : PrefabPanel
                 DebugOverlay.DrawElement(spriteBatch, child);
             }
 
-        // 3. Portrait — on top of base layer, behind sub-panels
+        //3. portrait — on top of base layer, behind sub-panels
         DrawPortrait(spriteBatch);
 
-        // 4. Sub-panels — always in front of portrait
+        //4. sub-panels — always in front of portrait
         foreach (var child in Children)
             if (child.Visible && IsSubPanel(child))
             {
@@ -299,12 +299,12 @@ public sealed class NpcSessionControl : PrefabPanel
 
         if (OwnsPortraitTexture)
         {
-            // NPCIllustration: left-aligned, bottom edge sits on top of the bottom bar (y=372)
+            //npcillustration: left-aligned, bottom edge sits on top of the bottom bar (y=372)
             var illustY = 372 - PortraitTexture.Height;
             spriteBatch.Draw(PortraitTexture, new Vector2(0, illustY), Color.White);
         } else if (PortraitRect != Rectangle.Empty)
         {
-            // Creature/item sprite: center the sprite's visual anchor in the NPCTile rect
+            //creature/item sprite: center the sprite's visual anchor in the npctile rect
             var sx = ScreenX;
             var sy = ScreenY;
             var rectCenterX = sx + PortraitRect.X + PortraitRect.Width / 2;
@@ -319,7 +319,7 @@ public sealed class NpcSessionControl : PrefabPanel
             } else
                 spriteBatch.Draw(
                     PortraitTexture,
-                    new Vector2(rectCenterX - PortraitTexture.Width / 2, rectCenterY - PortraitTexture.Height / 2),
+                    new Vector2((int)(rectCenterX - PortraitTexture.Width / 2f), (int)(rectCenterY - PortraitTexture.Height / 2f)),
                     Color.White);
         }
     }
@@ -413,7 +413,7 @@ public sealed class NpcSessionControl : PrefabPanel
            || (child == MenuList)
            || (child == DialogProtectedTextEntry);
 
-    // Events — WorldScreen.Wiring subscribes to these
+    //events — worldscreen.wiring subscribes to these
     public event Action? OnClose;
     public event Action<string>? OnItemHoverEnter;
     public event Action? OnItemHoverExit;
@@ -485,7 +485,7 @@ public sealed class NpcSessionControl : PrefabPanel
         PortraitSpriteFrame = null;
         OwnsPortraitTexture = ownsTexture;
 
-        // Show the NPCTile background only for sprite portraits (not illustrations, not when hidden)
+        //show the npctile background only for sprite portraits (not illustrations, not when hidden)
         if (NpcTileImage is not null)
             NpcTileImage.Visible = texture is not null && !ownsTexture;
     }
@@ -574,7 +574,7 @@ public sealed class NpcSessionControl : PrefabPanel
 
             case DialogType.Protected:
                 HideNavigationButtons();
-                DialogProtectedTextEntry.ShowProtected(args.Text ?? string.Empty);
+                DialogProtectedTextEntry.ShowProtected(args.Text);
 
                 break;
 
@@ -584,7 +584,7 @@ public sealed class NpcSessionControl : PrefabPanel
 
         if (NpcNameLabel is not null)
         {
-            NpcNameLabel.Text = args.Name ?? string.Empty;
+            NpcNameLabel.Text = args.Name;
             NpcNameLabel.ForegroundColor = new Color(0, 255, 0);
         }
 
@@ -681,7 +681,7 @@ public sealed class NpcSessionControl : PrefabPanel
 
         if (NpcNameLabel is not null)
         {
-            NpcNameLabel.Text = args.Name ?? string.Empty;
+            NpcNameLabel.Text = args.Name;
             NpcNameLabel.ForegroundColor = new Color(0, 255, 0);
         }
 
@@ -693,7 +693,7 @@ public sealed class NpcSessionControl : PrefabPanel
         if (!Visible || !Enabled)
             return;
 
-        // Animate scroll arrow buttons (flip frames every 500ms)
+        //animate scroll arrow buttons (flip frames every 500ms)
         var anyArrowVisible = ScrollUpButton is { Visible: true } || ScrollDownButton is { Visible: true };
 
         if (anyArrowVisible)
@@ -728,7 +728,7 @@ public sealed class NpcSessionControl : PrefabPanel
             return;
         }
 
-        // Space — advance normal dialogs via Next button, or select first option in menus
+        //space — advance normal dialogs via next button, or select first option in menus
         if (e.Key == Keys.Space)
         {
             if (DialogOption.Visible && DialogOption.OptionCount > 0)

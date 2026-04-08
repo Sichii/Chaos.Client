@@ -45,17 +45,17 @@ public sealed class CharacterCreationControl : PrefabPanel
     private readonly Texture2D? MaleSelected;
     private readonly UIElement? MaleToggleArea;
 
-    // Gender toggle — custom hover behavior, not standard buttons
+    //gender toggle — custom hover behavior, not standard buttons
     private readonly Texture2D? MaleUnselected;
     private readonly int PreviewHeight;
     private readonly int PreviewWidth;
 
-    // Preview area
+    //preview area
     private readonly int PreviewX;
     private readonly int PreviewY;
     private readonly AislingRenderer Renderer;
 
-    // Hair color swatch
+    //hair color swatch
     private readonly UIImage? SwatchImage;
     private bool FemaleHovered;
 
@@ -74,10 +74,10 @@ public sealed class CharacterCreationControl : PrefabPanel
     public UIButton? HairLeftButton { get; }
     public UIButton? HairRightButton { get; }
 
-    // Text fields — type 7 with 0 images, manually created
+    //text fields — type 7 with 0 images, manually created
     public UITextBox? NameField { get; }
 
-    // Buttons
+    //buttons
     public UIButton? OkButton { get; }
     public UITextBox? PasswordConfirmField { get; }
     public UITextBox? PasswordField { get; }
@@ -92,7 +92,7 @@ public sealed class CharacterCreationControl : PrefabPanel
         X = 0;
         Y = 0;
 
-        // Buttons
+        //buttons
         OkButton = CreateButton("OK");
         CancelButton = CreateButton("Cancel");
         AngleLeftButton = CreateButton("AngleLeft");
@@ -118,7 +118,7 @@ public sealed class CharacterCreationControl : PrefabPanel
         if (HairRightButton is not null)
             HairRightButton.Clicked += OnHairRightClicked;
 
-        // Text fields
+        //text fields
         NameField = CreateTextBox("NAME");
         PasswordField = CreateTextBox("PASSWD", 8);
         PasswordConfirmField = CreateTextBox("PASSWD2", 8);
@@ -138,8 +138,8 @@ public sealed class CharacterCreationControl : PrefabPanel
         if (PasswordConfirmField is not null)
             PasswordConfirmField.OnFocused += OnTextBoxFocused;
 
-        // Gender toggles — these use hover images, not button press behavior.
-        // Create as UIButtons to get textures + position, then use custom draw logic.
+        //gender toggles — these use hover images, not button press behavior.
+        //create as uibuttons to get textures + position, then use custom draw logic.
         MaleToggleArea = CreateButton("Male");
         FemaleToggleArea = CreateButton("Female");
 
@@ -148,7 +148,7 @@ public sealed class CharacterCreationControl : PrefabPanel
             MaleUnselected = maleBtn.NormalTexture;
             MaleSelected = maleBtn.PressedTexture;
 
-            // Prevent button click behavior — we handle clicks manually via panel OnClick
+            //prevent button click behavior — we handle clicks manually via panel onclick
             maleBtn.NormalTexture = null;
             maleBtn.PressedTexture = null;
             maleBtn.IsHitTestVisible = false;
@@ -163,7 +163,7 @@ public sealed class CharacterCreationControl : PrefabPanel
             femaleBtn.IsHitTestVisible = false;
         }
 
-        // Character preview area (HUMAN rect — type 7, 0 images)
+        //character preview area (human rect — type 7, 0 images)
         var humanRect = GetRect("HUMAN");
 
         if (humanRect != Rectangle.Empty)
@@ -174,7 +174,7 @@ public sealed class CharacterCreationControl : PrefabPanel
             PreviewHeight = humanRect.Height;
         }
 
-        // Hair color swatch (HairColor — type 7, 1 image)
+        //hair color swatch (haircolor — type 7, 1 image)
         SwatchImage = CreateImage("HairColor");
     }
 
@@ -206,7 +206,7 @@ public sealed class CharacterCreationControl : PrefabPanel
         var sx = ScreenX;
         var sy = ScreenY;
 
-        // Gender toggle images (custom hover rendering)
+        //gender toggle images (custom hover rendering)
         var maleTexture = MaleHovered ? MaleSelected : MaleUnselected;
         var femaleTexture = FemaleHovered ? FemaleSelected : FemaleUnselected;
 
@@ -216,7 +216,7 @@ public sealed class CharacterCreationControl : PrefabPanel
         if (femaleTexture is not null && FemaleToggleArea is not null)
             spriteBatch.Draw(femaleTexture, new Vector2(sx + FemaleToggleArea.X, sy + FemaleToggleArea.Y), Color.White);
 
-        // Character preview
+        //character preview
         if (AnimFrameTextures[WalkFrame] is { } currentFrame)
         {
             var centerX = sx + PreviewX + PreviewWidth / 2 - BODY_CENTER_X;
@@ -392,7 +392,7 @@ public sealed class CharacterCreationControl : PrefabPanel
         switch (e.Key)
         {
             case Keys.Tab:
-                // Cycle focus: Name → Password → PasswordConfirm → Name
+                //cycle focus: name → password → passwordconfirm → name
                 if (NameField?.IsFocused == true)
                 {
                     NameField.IsFocused = false;
@@ -455,14 +455,14 @@ public sealed class CharacterCreationControl : PrefabPanel
         if (!Visible)
             return;
 
-        // Pre-render walk frames when appearance changes
+        //pre-render walk frames when appearance changes
         if (PreviewDirty)
         {
             RenderWalkFrames();
             PreviewDirty = false;
         }
 
-        // Advance walk animation
+        //advance walk animation
         WalkTimer += (float)gameTime.ElapsedGameTime.TotalMilliseconds;
 
         if (WalkTimer >= WALK_FRAME_INTERVAL_MS)

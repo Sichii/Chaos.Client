@@ -99,7 +99,7 @@ public class PanelSlot : UIButton
                 Color.Black);
         }
 
-        // Icon rendering with cooldown overlay
+        //icon rendering with cooldown overlay
         var icon = NormalTexture;
 
         if (icon is null)
@@ -120,14 +120,14 @@ public class PanelSlot : UIButton
                     break;
 
                 case CooldownStyle.Progressive:
-                    // Grey base icon (skill003 variant)
+                    //grey base icon (skill003 variant)
                     AtlasHelper.Draw(
                         spriteBatch,
                         GreyTexture ?? icon,
                         pos,
                         Color.White);
 
-                    // Tinted icon progressively revealed top-to-bottom as cooldown elapses
+                    //tinted icon progressively revealed top-to-bottom as cooldown elapses
                     var elapsed = 1f - CooldownPercent;
                     var revealHeight = (int)(CooldownTexture.Height * elapsed);
 
@@ -235,11 +235,11 @@ public class PanelSlot : UIButton
         if (e.Payload is not SlotDragPayload payload)
             return;
 
-        // Only accept drops from slots within the same parent panel
+        //only accept drops from slots within the same parent panel
         if (Parent is not PanelBase panel || payload.Source.Parent != Parent)
             return;
 
-        // Dropping on the same slot is a no-op — just end drag
+        //dropping on the same slot is a no-op — just end drag
         if (payload.SlotIndex == Slot)
         {
             panel.EndDrag();

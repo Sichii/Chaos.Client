@@ -56,7 +56,7 @@ public sealed class StatsPanel : ExpandablePanel
 
     private readonly UILabel?[] Labels = new UILabel?[LABEL_COUNT];
 
-    // Expand repositioning — compact and expanded label layouts
+    //expand repositioning — compact and expanded label layouts
     private LabelLayout[]? CompactLayouts;
     private bool[]? ExistsInCompact;
     private LabelLayout[]? ExpandedLayouts;
@@ -102,7 +102,7 @@ public sealed class StatsPanel : ExpandablePanel
         {
             ExistsInCompact[i] = Labels[i] is not null;
 
-            // Create missing labels that only exist in the expanded prefab
+            //create missing labels that only exist in the expanded prefab
             if (Labels[i] is null)
             {
                 var exRect = PrefabPanel.GetRect(expandedPrefabSet, LABEL_NAMES[i]);
@@ -180,7 +180,7 @@ public sealed class StatsPanel : ExpandablePanel
             if (Labels[i] is null)
                 continue;
 
-            // Labels that only exist in the expanded prefab are hidden when collapsed
+            //labels that only exist in the expanded prefab are hidden when collapsed
             if (!ExistsInCompact[i])
             {
                 Labels[i]!.Visible = expanded;

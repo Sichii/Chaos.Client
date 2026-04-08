@@ -1,8 +1,8 @@
 namespace Chaos.Client.Systems;
 
 /// <summary>
-///     Reads and writes the client settings file in the original DarkAges format. File is a line-delimited key-value
-///     format: "Key : Value" or "Key: Value". Settings file is saved next to the executable as "DarkAges" (no extension).
+///     Reads and writes the client settings file (Darkages.cfg) in the original DarkAges format. File is a line-delimited
+///     key-value format: "Key : Value" or "Key: Value". Saved next to the executable.
 /// </summary>
 public static class ClientSettings
 {
@@ -16,7 +16,7 @@ public static class ClientSettings
     public static bool RecordNpcChat { get; set; } = true;
     public static int ScrollLevel { get; set; }
 
-    // Defaults match the original client
+    //defaults match the original client
     public static int SoundVolume { get; set; } = 5;
     public static int Speed { get; set; } = 100;
     public static bool UseShiftKeyForAltPanels { get; set; } = true;
@@ -24,7 +24,7 @@ public static class ClientSettings
     private static string FilePath => Path.Combine(AppContext.BaseDirectory, FILE_NAME);
 
     /// <summary>
-    ///     Loads settings from the DarkAges file into static properties. Uses defaults if the file doesn't exist.
+    ///     Loads settings from Darkages.cfg into static properties. Uses defaults if the file doesn't exist or is corrupt.
     /// </summary>
     public static void Load()
     {
@@ -111,12 +111,12 @@ public static class ClientSettings
             }
         } catch
         {
-            // Corrupted file — use whatever defaults/partial state was already set
+            //corrupted file — use whatever defaults/partial state was already set
         }
     }
 
     /// <summary>
-    ///     Saves the current settings to the DarkAges file in the original format.
+    ///     Saves the current settings to Darkages.cfg in the original format.
     /// </summary>
     public static void Save()
     {
@@ -146,7 +146,7 @@ public static class ClientSettings
             writer.WriteLine($"GroupObjectOption : {(UseGroupWindow ? 1 : 0)}");
         } catch
         {
-            // Best effort — don't crash on save failure
+            //best effort — don't crash on save failure
         }
     }
 }

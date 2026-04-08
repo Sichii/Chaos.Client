@@ -83,7 +83,7 @@ public sealed class OrangeBarControl : UIPanel
         var contentHeight = ExpandedLines * GLYPH_HEIGHT;
         var totalHeight = expandY - topY + contentHeight;
 
-        // Solid opaque fill
+        //solid opaque fill
         DrawRect(
             spriteBatch,
             new Rectangle(
@@ -93,7 +93,7 @@ public sealed class OrangeBarControl : UIPanel
                 totalHeight),
             Color.Black);
 
-        // Reveal expand texture (1:1, no stretching)
+        //reveal expand texture (1:1, no stretching)
         var revealHeight = Math.Min(totalHeight, PaneBg.Height - 4);
 
         AtlasHelper.Draw(
@@ -107,7 +107,7 @@ public sealed class OrangeBarControl : UIPanel
                 revealHeight),
             Color.White);
 
-        // Bottom 4px edge
+        //bottom 4px edge
         var srcY = PaneBg.Height - 4;
 
         AtlasHelper.Draw(
@@ -121,10 +121,10 @@ public sealed class OrangeBarControl : UIPanel
                 4),
             Color.White);
 
-        // Update and position line labels
+        //update and position line labels
         RefreshLines();
 
-        // Children (line labels) drawn by base
+        //children (line labels) drawn by base
         base.Draw(spriteBatch);
     }
 
@@ -140,7 +140,7 @@ public sealed class OrangeBarControl : UIPanel
             return;
         }
 
-        // TextBounds.Y is relative to the HUD parent, WrapBounds.Y is our own Y — compute relative offset
+        //textbounds.y is relative to the hud parent, wrapbounds.y is our own y — compute relative offset
         var baseRelY = TextBounds.Y - WrapBounds.Y;
         var slot = 0;
 

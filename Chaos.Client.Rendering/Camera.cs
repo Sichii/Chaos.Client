@@ -6,8 +6,8 @@ using Microsoft.Xna.Framework.Graphics;
 namespace Chaos.Client.Rendering;
 
 /// <summary>
-///     Isometric camera that converts between world pixel coordinates and screen coordinates. Uses the same isometric tile
-///     math as DALib's Graphics.RenderMap.
+///     Isometric camera that converts between world pixel coordinates, screen coordinates, and tile coordinates. Supports
+///     viewport clipping, zoom, and a configurable center offset.
 /// </summary>
 public sealed class Camera
 {
@@ -129,7 +129,7 @@ public sealed class Camera
         => MathF.Min(MathF.Min(a, b), MathF.Min(c, d));
 
     /// <summary>
-    ///     Updates the viewport dimensions to the given width and height.
+    ///     Resizes the viewport. Use when the window size changes but no MonoGame Viewport struct is available.
     /// </summary>
     public void Resize(int width, int height)
     {
@@ -163,7 +163,7 @@ public sealed class Camera
     }
 
     /// <summary>
-    ///     Updates the viewport dimensions from a MonoGame Viewport.
+    ///     Syncs the camera's viewport dimensions from the current MonoGame Viewport.
     /// </summary>
     public void Update(Viewport viewport)
     {
@@ -186,9 +186,9 @@ public sealed class Camera
     /// </summary>
     public static Point WorldToTile(float worldX, float worldY, int mapHeight)
     {
-        // Shift by half-tile width to align picking with the visual tile grid.
-        // TileToWorld returns the image origin (top-left), but the image center
-        // is HALF_TILE_WIDTH to the right of the mathematical diamond center.
+        //shift by half-tile width to align picking with the visual tile grid.
+        //tiletoworld returns the image origin (top-left), but the image center
+        //is half_tile_width to the right of the mathematical diamond center.
         var isoX = (worldX - HALF_TILE_WIDTH) / HALF_TILE_WIDTH;
         var isoY = worldY / HALF_TILE_HEIGHT;
 

@@ -23,7 +23,7 @@ public sealed class SelfProfileTextEditorControl : UIPanel
     private const int INSET_TOP = 9;
     private const int INSET_BOTTOM = 6;
 
-    // butt001.epf frame indices — 2 frames per button (normal/pressed)
+    //butt001.epf frame indices — 2 frames per button (normal/pressed)
     private const int OK_NORMAL = 15;
     private const int OK_PRESSED = 16;
     private const int CANCEL_NORMAL = 21;
@@ -44,7 +44,7 @@ public sealed class SelfProfileTextEditorControl : UIPanel
         Width = TOTAL_WIDTH;
         Height = TOTAL_HEIGHT;
 
-        // Composite background with DialogFrame border
+        //composite background with dialogframe border
         using var bgTile = DataContext.UserControls.GetSpfImage("DlgBack2.spf");
 
         if (bgTile is not null)
@@ -55,23 +55,23 @@ public sealed class SelfProfileTextEditorControl : UIPanel
                 Background = TextureConverter.ToTexture2D(composite);
         }
 
-        // Button textures from butt001.epf
+        //button textures from butt001.epf
         var cache = UiRenderer.Instance!;
         var okNormalTex = cache.GetEpfTexture("butt001.epf", OK_NORMAL);
         var okPressedTex = cache.GetEpfTexture("butt001.epf", OK_PRESSED);
         var cancelNormalTex = cache.GetEpfTexture("butt001.epf", CANCEL_NORMAL);
         var cancelPressedTex = cache.GetEpfTexture("butt001.epf", CANCEL_PRESSED);
 
-        var btnHeight = okNormalTex?.Height ?? 0;
+        var btnHeight = okNormalTex.Height;
         var buttonY = TOTAL_HEIGHT - INSET_BOTTOM - btnHeight;
 
-        // OK button — bottom-left
+        //ok button — bottom-left
         OkButton = new UIButton
         {
             Name = "OK",
             X = INSET_LEFT,
             Y = buttonY,
-            Width = okNormalTex?.Width ?? 0,
+            Width = okNormalTex.Width,
             Height = btnHeight,
             NormalTexture = okNormalTex,
             PressedTexture = okPressedTex
@@ -79,21 +79,21 @@ public sealed class SelfProfileTextEditorControl : UIPanel
         OkButton.Clicked += Confirm;
         AddChild(OkButton);
 
-        // Cancel button — bottom-right
+        //cancel button — bottom-right
         CancelButton = new UIButton
         {
             Name = "Cancel",
-            X = TOTAL_WIDTH - INSET_RIGHT - (cancelNormalTex?.Width ?? 0),
+            X = TOTAL_WIDTH - INSET_RIGHT - cancelNormalTex.Width,
             Y = buttonY,
-            Width = cancelNormalTex?.Width ?? 0,
-            Height = cancelNormalTex?.Height ?? 0,
+            Width = cancelNormalTex.Width,
+            Height = cancelNormalTex.Height,
             NormalTexture = cancelNormalTex,
             PressedTexture = cancelPressedTex
         };
         CancelButton.Clicked += Cancel;
         AddChild(CancelButton);
 
-        // Multiline textbox fills the area between top inset and buttons
+        //multiline textbox fills the area between top inset and buttons
         var textBoxHeight = buttonY - BUTTON_GAP - INSET_TOP;
 
         TextBox = new UITextBox

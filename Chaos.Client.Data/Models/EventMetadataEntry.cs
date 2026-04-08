@@ -35,9 +35,12 @@ public sealed record EventMetadataEntry
     public required string Title { get; init; }
 
     /// <summary>
-    ///     Parses all entries from one or more SEvent MetaFiles. Each event is encoded as 9 sequential sub-nodes:
-    ///     {page}_start, _title, _id, _qual, _sum, _result, _sub, _reward, _end.
+    ///     Parses all event entries from one or more SEvent MetaFiles.
     /// </summary>
+    /// <remarks>
+    ///     Each event is encoded as 9 sequential sub-nodes: {page}_start, _title, _id, _qual, _sum, _result, _sub, _reward,
+    ///     _end.
+    /// </remarks>
     public static IReadOnlyList<EventMetadataEntry> ParseAll(IEnumerable<MetaFile> metaFiles)
     {
         var events = new List<EventMetadataEntry>();
@@ -60,7 +63,7 @@ public sealed record EventMetadataEntry
 
                 if (key.EndsWith("_start", StringComparison.Ordinal))
                 {
-                    // Extract page from key prefix (e.g. "01_start" → page 1)
+                    //extract page from key prefix (e.g. "01_start" → page 1)
                     var underscoreIndex = key.IndexOf('_');
 
                     if ((underscoreIndex > 0)

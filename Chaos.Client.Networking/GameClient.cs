@@ -50,8 +50,7 @@ public sealed class GameClient : IDisposable
     public bool Connected => IsAlive && (Socket?.Connected ?? false);
 
     /// <summary>
-    ///     Initializes a new instance of the <see cref="GameClient" /> class, building the packet serializer from all
-    ///     converters in the Chaos.Networking assembly.
+    ///     Initializes a new instance of the <see cref="GameClient" /> class.
     /// </summary>
     public GameClient()
     {
@@ -77,8 +76,10 @@ public sealed class GameClient : IDisposable
     }
 
     /// <summary>
-    ///     Connects to the specified host and port synchronously, then starts the receive loop.
+    ///     Connects synchronously to the specified host and port and begins receiving packets.
     /// </summary>
+    /// <param name="host">The server hostname or IP address.</param>
+    /// <param name="port">The server port.</param>
     public void Connect(string host, int port)
     {
         if (Disposed)
@@ -97,8 +98,11 @@ public sealed class GameClient : IDisposable
     }
 
     /// <summary>
-    ///     Connects to the specified host and port, then starts the receive loop.
+    ///     Connects asynchronously to the specified host and port and begins receiving packets.
     /// </summary>
+    /// <param name="host">The server hostname or IP address.</param>
+    /// <param name="port">The server port.</param>
+    /// <param name="ct">Cancellation token.</param>
     public async Task ConnectAsync(string host, int port, CancellationToken ct = default)
     {
         if (Disposed)
@@ -117,17 +121,19 @@ public sealed class GameClient : IDisposable
     }
 
     /// <summary>
-    ///     Deserializes a packet into a typed args object.
+    ///     Deserializes a <see cref="ServerPacket" /> into a strongly-typed args instance.
     /// </summary>
+    /// <typeparam name="T">The args type to deserialize into.</typeparam>
+    /// <param name="serverPacket">The server packet to deserialize.</param>
     public T Deserialize<T>(in ServerPacket serverPacket) where T: IPacketSerializable
     {
         var span = serverPacket.Data.AsSpan(0, serverPacket.Length);
         var isEncrypted = serverPacket.IsEncrypted;
         var packet = new Packet(ref span, isEncrypted);
 
-        // The buffer in serverPacket.Data has already been decrypted,
-        // so we reconstruct a Packet for the serializer to read
-        // (the Packet constructor expects the full wire bytes including header)
+        //the buffer in serverpacket.data has already been decrypted,
+        //so we reconstruct a packet for the serializer to read
+        //(the packet constructor expects the full wire bytes including header)
         return PacketSerializer.Deserialize<T>(in packet);
     }
 
@@ -167,9 +173,9 @@ public sealed class GameClient : IDisposable
 
         Socket = null;
 
-        // Wait for the receive task to fully exit before cleaning up.
-        // This prevents a race where the old task's finally block runs after
-        // a new connection sets IsAlive=true, killing the new connection.
+        //wait for the receive task to fully exit before cleaning up.
+        //this prevents a race where the old task's finally block runs after
+        //a new connection sets isalive=true, killing the new connection.
         try
         {
             ReceiveTask?.GetAwaiter()
@@ -198,8 +204,11 @@ public sealed class GameClient : IDisposable
     }
 
     /// <summary>
-    ///     Drains all queued inbound packets. Call from the game loop thread.
+    ///     Drains queued inbound packets into the provided buffer. Call from the game loop thread.
     /// </summary>
+    /// <param name="buffer">The list to append dequeued packets to.</param>
+    /// <param name="maxCount">Maximum number of packets to drain per call.</param>
+    /// <returns>The number of packets drained.</returns>
     public int DrainPackets(List<ServerPacket> buffer, int maxCount = int.MaxValue)
     {
         var count = 0;
@@ -219,8 +228,8 @@ public sealed class GameClient : IDisposable
     public event Action? OnDisconnected;
 
     /// <summary>
-    ///     Fired when a packet is received that is not handled internally (heartbeat/sync). The handler receives the opcode
-    ///     and the deserialized packet data as a raw Packet.
+    ///     Fired when a packet is received that is not handled internally (heartbeat/sync). The subscriber receives the raw
+    ///     <see cref="ServerPacket" /> for deferred deserialization.
     /// </summary>
     public event Action<ServerPacket>? OnPacketReceived;
 
@@ -267,8 +276,9 @@ public sealed class GameClient : IDisposable
     }
 
     /// <summary>
-    ///     Sets the outbound sequence number.
+    ///     Resets the outbound packet sequence counter, typically after a redirect or new connection.
     /// </summary>
+    /// <param name="newSequence">The new sequence value.</param>
     public void SetSequence(byte newSequence) => Sequence = newSequence;
 
     private void StartReceiveLoop()
@@ -301,7 +311,7 @@ public sealed class GameClient : IDisposable
 
                 if (memory.Length == 0)
                 {
-                    // Buffer overflow — reset
+                    //buffer overflow — reset
                     ReceiveCount = 0;
                     memory = ReceiveMemoryOwner.Memory;
                 }
@@ -328,8 +338,8 @@ public sealed class GameClient : IDisposable
             }
         } finally
         {
-            // Only fire OnDisconnected if this is still the active connection.
-            // During redirects, a new connection may already be established.
+            //only fire ondisconnected if this is still the active connection.
+            //during redirects, a new connection may already be established.
             if (IsAlive && (generation == Volatile.Read(ref ConnectionGeneration)))
             {
                 IsAlive = false;
@@ -384,7 +394,7 @@ public sealed class GameClient : IDisposable
         if (isEncrypted)
             Crypto.ClientDecrypt(ref packet.Buffer, packet.OpCode, packet.Sequence);
 
-        // Dispatch to registered handler (e.g. HeartBeat, SynchronizeTicks auto-responders)
+        //dispatch to registered handler (e.g. heartbeat, synchronizeticks auto-responders)
         var handler = ServerHandlers[opCode];
 
         if (handler is not null)
@@ -394,7 +404,7 @@ public sealed class GameClient : IDisposable
             return;
         }
 
-        // Default: enqueue for game loop consumption (rented buffer returned after deserialization)
+        //default: enqueue for game loop consumption (rented buffer returned after deserialization)
         var wireLength = rawPacket.Length;
         var rented = ArrayPool<byte>.Shared.Rent(wireLength);
         rawPacket.CopyTo(rented);

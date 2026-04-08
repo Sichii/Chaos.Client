@@ -30,7 +30,7 @@ public sealed class SelfProfileEventMetadataTab : PrefabPanel
         ScissorTestEnable = true
     };
 
-    // 6 display slots (3 pages x 2 columns), each holding events for that slot
+    //6 display slots (3 pages x 2 columns), each holding events for that slot
     private readonly List<EventMetadataEntry>[] DisplaySlots = new List<EventMetadataEntry>[MAX_DISPLAY_SLOTS];
     private readonly Rectangle LeftRect;
 
@@ -192,12 +192,12 @@ public sealed class SelfProfileEventMetadataTab : PrefabPanel
         if (!Visible)
             return;
 
-        // Hide entry rows so base.Draw() only renders background + scrollbars + buttons
+        //hide entry rows so base.draw() only renders background + scrollbars + buttons
         SetRowVisibilityForBaseDraw(false);
         base.Draw(spriteBatch);
         SetRowVisibilityForBaseDraw(true);
 
-        // Draw each column's rows clipped to the column rect
+        //draw each column's rows clipped to the column rect
         var device = spriteBatch.GraphicsDevice;
         var sx = ScreenX;
         var sy = ScreenY;
@@ -291,14 +291,14 @@ public sealed class SelfProfileEventMetadataTab : PrefabPanel
 
     private EventState ResolveEventState(EventMetadataEntry entry)
     {
-        // Completed: player has a legend mark with key matching this event's ID
+        //completed: player has a legend mark with key matching this event's id
         if (!string.IsNullOrEmpty(entry.Id) && CompletedEventIds.Contains(entry.Id))
             return EventState.Completed;
 
         var attrs = WorldState.Attributes.Current;
         var playerLevel = attrs?.Level ?? 1;
 
-        // Derive player's circle from level; master flag overrides to circle 6
+        //derive player's circle from level; master flag overrides to circle 6
         var playerCircle = EnableMasterQuests
             ? 6
             : playerLevel switch
@@ -310,7 +310,7 @@ public sealed class SelfProfileEventMetadataTab : PrefabPanel
                 _     => 1
             };
 
-        // Check qualifying circles — player's circle must be in the list
+        //check qualifying circles — player's circle must be in the list
         if (!string.IsNullOrEmpty(entry.QualifyingCircles))
         {
             var circleChar = (char)('0' + playerCircle);
@@ -319,7 +319,7 @@ public sealed class SelfProfileEventMetadataTab : PrefabPanel
                 return EventState.Unavailable;
         }
 
-        // Check qualifying classes — player's class must be in the list
+        //check qualifying classes — player's class must be in the list
         if (!string.IsNullOrEmpty(entry.QualifyingClasses))
         {
             var classChar = (char)('0' + (int)BaseClass);
@@ -328,7 +328,7 @@ public sealed class SelfProfileEventMetadataTab : PrefabPanel
                 return EventState.Unavailable;
         }
 
-        // Check prerequisite event — must be completed
+        //check prerequisite event — must be completed
         if (!string.IsNullOrEmpty(entry.PreRequisiteId) && !CompletedEventIds.Contains(entry.PreRequisiteId))
             return EventState.Unavailable;
 
@@ -351,8 +351,8 @@ public sealed class SelfProfileEventMetadataTab : PrefabPanel
         for (var i = 0; i < MAX_DISPLAY_SLOTS; i++)
             DisplaySlots[i] = [];
 
-        // Distribute events to display slots: SEvent page → slot = min(page - 1, 5)
-        // Slot layout: 0=SEvent1, 1=SEvent2, 2=SEvent3, 3=SEvent4, 4=SEvent5, 5=SEvent6+7
+        //distribute events to display slots: sevent page → slot = min(page - 1, 5)
+        //slot layout: 0=sevent1, 1=sevent2, 2=sevent3, 3=sevent4, 4=sevent5, 5=sevent6+7
         foreach (var entry in events)
         {
             var slotIndex = Math.Min(entry.Page - 1, MAX_DISPLAY_SLOTS - 1);

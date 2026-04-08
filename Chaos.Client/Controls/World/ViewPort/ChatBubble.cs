@@ -40,7 +40,6 @@ public sealed class ChatBubble : UIImage
     private static readonly Color NormalTextColor = LegendColors.White;
     private static readonly Color ShoutTextColor = TextColors.Shout;
 
-    private readonly int BubbleBodyHeight;
     private readonly List<string> Lines;
     private readonly Color TextColor;
 
@@ -56,7 +55,6 @@ public sealed class ChatBubble : UIImage
         Texture2D backgroundTexture,
         List<string> lines,
         Color textColor,
-        int bubbleBodyHeight,
         int width,
         int height)
     {
@@ -64,7 +62,6 @@ public sealed class ChatBubble : UIImage
         Texture = backgroundTexture;
         Lines = lines;
         TextColor = textColor;
-        BubbleBodyHeight = bubbleBodyHeight;
         Width = width;
         Height = height;
     }
@@ -115,7 +112,6 @@ public sealed class ChatBubble : UIImage
                 texture,
                 lines,
                 textColor,
-                bubbleHeight,
                 totalWidth,
                 totalHeight);
         } finally
@@ -129,7 +125,7 @@ public sealed class ChatBubble : UIImage
         if (!Visible || Texture is null)
             return;
 
-        // Draw bubble background
+        //draw bubble background
         var bgEffect = TailOnTop ? SpriteEffects.FlipVertically : SpriteEffects.None;
 
         spriteBatch.Draw(
@@ -143,7 +139,7 @@ public sealed class ChatBubble : UIImage
             bgEffect,
             0f);
 
-        // Draw text lines on top of the bubble background
+        //draw text lines on top of the bubble background
         var textX = ScreenX + LEFT_CAP_WIDTH + INNER_PADDING_LEFT;
         var textY = TailOnTop ? ScreenY + TAIL_HEIGHT + INNER_PADDING_TOP : ScreenY + INNER_PADDING_TOP;
 
@@ -216,7 +212,7 @@ public sealed class ChatBubble : UIImage
             if (startX > endX)
                 continue;
 
-            // Fill
+            //fill
             for (var col = startX + 1; col <= (endX - 1); col++)
                 SetPixel(
                     pixels,
@@ -225,7 +221,7 @@ public sealed class ChatBubble : UIImage
                     y + row,
                     fill);
 
-            // Border
+            //border
             SetPixel(
                 pixels,
                 stride,
@@ -240,7 +236,7 @@ public sealed class ChatBubble : UIImage
                 y + row,
                 border);
 
-            // Top and bottom edge spans
+            //top and bottom edge spans
             if ((row == 0) || (row == (height - 1)))
                 for (var col = startX; col <= endX; col++)
                     SetPixel(
@@ -250,7 +246,7 @@ public sealed class ChatBubble : UIImage
                         y + row,
                         border);
 
-            // Smooth horizontal transitions when inset changes from previous row
+            //smooth horizontal transitions when inset changes from previous row
             if (row > 0)
             {
                 var prevLi = GetBubbleInset(
@@ -448,13 +444,13 @@ public sealed class ChatBubble : UIImage
 
             lines.Add(line);
 
-            // Track the last color code in this line so the next line inherits it
+            //track the last color code in this line so the next line inherits it
             activeColorCode = FindLastColorCode(line) ?? activeColorCode;
 
             remaining = remaining[line.Length..]
                 .TrimStart();
 
-            // Prepend the active color code to the next line so it carries over
+            //prepend the active color code to the next line so it carries over
             if (activeColorCode is not null && (remaining.Length > 0))
                 remaining = activeColorCode + remaining;
         }

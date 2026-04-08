@@ -53,8 +53,8 @@ public sealed class DialogAlphaGradient : UIElement
 
         for (var i = 0; i < HEIGHT; i++)
         {
-            // Linear gradient: slightly dark at top, near-opaque black at bottom
-            // Shifted +1 on the 0-32 darkness scale (~8/255) to darken uniformly
+            //linear gradient: slightly dark at top, near-opaque black at bottom
+            //shifted +1 on the 0-32 darkness scale (~8/255) to darken uniformly
             var alpha = (byte)Math.Min(255, i * 247 / (HEIGHT - 1) + 8);
 
             pixels[i] = new Color(

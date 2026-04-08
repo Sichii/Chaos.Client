@@ -19,7 +19,7 @@ public sealed class SelfProfileTabControl : PrefabPanel
 {
     private const int TAB_COUNT = 6;
 
-    // Tab control names in the _nui prefab, in order matching StatusBookTab enum
+    //tab control names in the _nui prefab, in order matching statusbooktab enum
     private static readonly string[] TabControlNames =
     [
         "TAB_INTRO",
@@ -50,10 +50,10 @@ public sealed class SelfProfileTabControl : PrefabPanel
         X = 0;
         Y = 0;
 
-        // CONTENT rect defines where tab page content is positioned
+        //content rect defines where tab page content is positioned
         ContentRect = GetRect("CONTENT");
 
-        // Close button (TAB_CLOSE)
+        //close button (tab_close)
         CloseButton = CreateButton("TAB_CLOSE");
 
         if (CloseButton is not null)
@@ -63,9 +63,9 @@ public sealed class SelfProfileTabControl : PrefabPanel
                 OnClose?.Invoke();
             };
 
-        // Configure tab buttons — CreateButton creates them as UIButtons with the big/selected
-        // texture as NormalTexture (the only image in the prefab). We swap that to SelectedTexture
-        // and assign the small/normal texture from _nui_tb1.spf.
+        //configure tab buttons — createbutton creates them as uibuttons with the big/selected
+        //texture as normaltexture (the only image in the prefab). we swap that to selectedtexture
+        //and assign the small/normal texture from _nui_tb1.spf.
         var cache = UiRenderer.Instance!;
 
         for (var i = 0; i < TAB_COUNT; i++)
@@ -78,10 +78,10 @@ public sealed class SelfProfileTabControl : PrefabPanel
             TabButtons[i] = tabBtn;
             tabBtn.CenterTexture = true;
 
-            // The prefab's image is the big/selected state — move it to SelectedTexture
+            //the prefab's image is the big/selected state — move it to selectedtexture
             tabBtn.SelectedTexture = tabBtn.NormalTexture;
 
-            // Load the small/normal texture from _nui_tb1.spf using the same frame index
+            //load the small/normal texture from _nui_tb1.spf using the same frame index
             var frameIndex = i;
 
             if (PrefabSet.Contains(TabControlNames[i]))
@@ -94,20 +94,20 @@ public sealed class SelfProfileTabControl : PrefabPanel
 
             tabBtn.NormalTexture = cache.GetSpfTexture("_nui_tb1.spf", frameIndex);
 
-            // Wire click → switch tab
+            //wire click → switch tab
             var capturedTab = tab;
             tabBtn.Clicked += () => SwitchTab(capturedTab);
 
-            // Set initial selection state
+            //set initial selection state
             tabBtn.IsSelected = tab == ActiveTab;
 
-            // Draw tabs on top of tab page content
+            //draw tabs on top of tab page content
             tabBtn.ZIndex = 1;
         }
 
         CloseButton?.ZIndex = 1;
 
-        // Lazily load tab pages
+        //lazily load tab pages
         TabPages[StatusBookTab.Equipment] = null;
         TabPages[StatusBookTab.Skills] = null;
         TabPages[StatusBookTab.Legend] = null;
@@ -115,7 +115,7 @@ public sealed class SelfProfileTabControl : PrefabPanel
         TabPages[StatusBookTab.Album] = null;
         TabPages[StatusBookTab.Family] = null;
 
-        // Load the default tab so content is visible immediately
+        //load the default tab so content is visible immediately
         SwitchTab(StatusBookTab.Equipment);
     }
 
@@ -135,7 +135,7 @@ public sealed class SelfProfileTabControl : PrefabPanel
         if (prefabName is null)
             return null;
 
-        // Tab pages may not exist in all client versions
+        //tab pages may not exist in all client versions
         if (DataContext.UserControls.Get(prefabName) is null)
             return null;
 
@@ -214,11 +214,11 @@ public sealed class SelfProfileTabControl : PrefabPanel
 
     public void SwitchTab(StatusBookTab tab)
     {
-        // Hide current tab page
+        //hide current tab page
         if (TabPages.TryGetValue(ActiveTab, out var currentPage) && currentPage is not null)
             currentPage.Visible = false;
 
-        // Deselect old tab button, select new
+        //deselect old tab button, select new
         var oldIndex = (int)ActiveTab;
         var newIndex = (int)tab;
 
@@ -230,7 +230,7 @@ public sealed class SelfProfileTabControl : PrefabPanel
         if ((newIndex < TAB_COUNT) && TabButtons[newIndex] is not null)
             TabButtons[newIndex]!.IsSelected = true;
 
-        // Lazy-load and show the new tab page
+        //lazy-load and show the new tab page
         if (!TabPages.TryGetValue(tab, out var page) || page is null)
         {
             page = CreateTabPage(tab);
@@ -468,7 +468,7 @@ public sealed class SelfProfileTabControl : PrefabPanel
         if (TabPages.TryGetValue(StatusBookTab.Equipment, out var page) && page is SelfProfileEquipmentTab existing)
             return existing;
 
-        // Force lazy-create if not yet created
+        //force lazy-create if not yet created
         if (page is null)
         {
             page = CreateTabPage(StatusBookTab.Equipment);

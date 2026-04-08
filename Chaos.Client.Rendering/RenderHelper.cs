@@ -6,7 +6,7 @@ using Microsoft.Xna.Framework.Graphics;
 namespace Chaos.Client.Rendering;
 
 /// <summary>
-///     Shared rendering utilities for the Rendering project.
+///     Provides primitive drawing helpers (filled rectangles) using a shared 1x1 white pixel texture.
 /// </summary>
 public static class RenderHelper
 {

@@ -11,7 +11,7 @@ namespace Chaos.Client.Utilities;
 /// </summary>
 public static class DialogFrame
 {
-    // dlgframe.epf frame indices (16×16 each)
+    //dlgframe.epf frame indices (16×16 each)
     private const int FRAME_TL = 0;
     private const int FRAME_TOP = 1;
     private const int FRAME_TR = 2;
@@ -44,7 +44,7 @@ public static class DialogFrame
         var canvas = surface.Canvas;
         canvas.Clear(SKColors.Transparent);
 
-        // Tile background across the full surface — border draws on top
+        //tile background across the full surface — border draws on top
         for (var tx = 0; tx < totalWidth; tx += bgTile.Width)
             for (var ty = 0; ty < totalHeight; ty += bgTile.Height)
                 canvas.DrawImage(bgTile, tx, ty);
@@ -84,23 +84,23 @@ public static class DialogFrame
         if (frames is null)
             return;
 
-        // Top edge (tiled)
+        //top edge (tiled)
         for (var x = BORDER_SIZE; x < (totalWidth - BORDER_SIZE); x += frames[FRAME_TOP].Width)
             canvas.DrawImage(frames[FRAME_TOP], x, 0);
 
-        // Bottom edge (tiled)
+        //bottom edge (tiled)
         for (var x = BORDER_SIZE; x < (totalWidth - BORDER_SIZE); x += frames[FRAME_BOTTOM].Width)
             canvas.DrawImage(frames[FRAME_BOTTOM], x, totalHeight - BORDER_SIZE);
 
-        // Left edge (tiled)
+        //left edge (tiled)
         for (var y = BORDER_SIZE; y < (totalHeight - BORDER_SIZE); y += frames[FRAME_LEFT].Height)
             canvas.DrawImage(frames[FRAME_LEFT], 0, y);
 
-        // Right edge (tiled)
+        //right edge (tiled)
         for (var y = BORDER_SIZE; y < (totalHeight - BORDER_SIZE); y += frames[FRAME_RIGHT].Height)
             canvas.DrawImage(frames[FRAME_RIGHT], totalWidth - BORDER_SIZE, y);
 
-        // Corners (drawn last to cover edge overlap)
+        //corners (drawn last to cover edge overlap)
         canvas.DrawImage(frames[FRAME_TL], 0, 0);
         canvas.DrawImage(frames[FRAME_TR], totalWidth - BORDER_SIZE, 0);
         canvas.DrawImage(frames[FRAME_BL], 0, totalHeight - BORDER_SIZE);

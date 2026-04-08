@@ -29,17 +29,17 @@ namespace Chaos.Client.Screens;
 
 public sealed partial class WorldScreen : IScreen
 {
-    // Walk queue: when walk animation is >= 75% complete, one walk can be queued
+    //walk queue: when walk animation is >= 75% complete, one walk can be queued
     private const float WALK_QUEUE_THRESHOLD = 0.75f;
 
-    // Spacebar (assail) repeat interval when held
+    //spacebar (assail) repeat interval when held
     private const float SPACEBAR_INTERVAL_MS = 100f;
 
-    // Aisling body anchor within the padded composite canvas — matches AislingRenderer.CANVAS_CENTER_X/Y.
+    //aisling body anchor within the padded composite canvas — matches aislingrenderer.canvas_center_x/y.
     private const int BODY_CENTER_X = AislingRenderer.CANVAS_CENTER_X;
     private const int BODY_CENTER_Y = AislingRenderer.CANVAS_CENTER_Y;
 
-    // Entity hitbox dimensions (screen pixels)
+    //entity hitbox dimensions (screen pixels)
     private const int HITBOX_WIDTH = 28;
     private const int HITBOX_HEIGHT = 60;
 
@@ -50,10 +50,10 @@ public sealed partial class WorldScreen : IScreen
 
     private readonly WorldDebugRenderer DebugRenderer = new();
 
-    // Draw-pass hitbox list: rebuilt every frame during entity rendering, in draw order (back-to-front)
+    //draw-pass hitbox list: rebuilt every frame during entity rendering, in draw order (back-to-front)
     private readonly List<EntityHitBox> EntityHitBoxes = new(256);
 
-    // Set of entity IDs currently highlighted as group members (auto-expires after 1000ms)
+    //set of entity ids currently highlighted as group members (auto-expires after 1000ms)
     private readonly HashSet<uint> GroupHighlightedIds = [];
     private readonly EntityHighlight Highlight = new();
     private readonly EntityOverlayManager Overlays = new();
@@ -68,7 +68,7 @@ public sealed partial class WorldScreen : IScreen
     private ArticleReadControl ArticleRead = null!;
     private ArticleSendControl ArticleSend = null!;
 
-    // Board/mail controls — 7 instances for 7 prefabs
+    //board/mail controls — 7 instances for 7 prefabs
     private bool AwaitingMapData;
     private BoardListControl BoardList = null!;
     private Camera Camera = null!;
@@ -82,7 +82,7 @@ public sealed partial class WorldScreen : IScreen
     private GraphicsDevice Device = null!;
     private OkPopupMessageControl DisconnectPopup = null!;
 
-    // Event detail popup (from Events tab)
+    //event detail popup (from events tab)
     private EventMetadataDetailsControl EventMetadataDetails = null!;
     private ExchangeControl Exchange = null!;
     private byte? ExchangeAmountSlot;
@@ -93,7 +93,7 @@ public sealed partial class WorldScreen : IScreen
     private AmountControl GoldDrop = null!;
     private GroupRecruitPanel GroupBoxViewer = null!;
 
-    // True when J was pressed — the next SelfProfile response triggers group highlighting instead of opening the panel
+    //true when j was pressed — the next selfprofile response triggers group highlighting instead of opening the panel
     private bool GroupHighlightRequested;
     private float GroupHighlightTimer;
     private GroupTabControl GroupPanel = null!;
@@ -102,10 +102,10 @@ public sealed partial class WorldScreen : IScreen
     private bool IsGameMaster;
     private ItemTooltipControl ItemTooltip = null!;
     private LargeWorldHudControl LargeHud = null!;
-    private TileClickTracker LeftClickTracker = new();
+    private TileClickTracker LeftClickTracker;
     private LightSource[] LightSourceBuffer = new LightSource[16];
 
-    // True while awaiting a paginated board response (append instead of replace)
+    //true while awaiting a paginated board response (append instead of replace)
     private bool LoadingMoreBoardPosts;
     private MacrosListControl MacrosList = null!;
     private MailListControl MailList = null!;
@@ -118,7 +118,7 @@ public sealed partial class WorldScreen : IScreen
     private bool MapPreloaded;
     private MapRenderer MapRenderer = null!;
 
-    // Overlay panels (rendered on top of HUD)
+    //overlay panels (rendered on top of hud)
     private NotepadControl Notepad = null!;
     private NpcSessionControl NpcSession = null!;
     private OtherProfileTabControl OtherProfile = null!;
@@ -128,11 +128,12 @@ public sealed partial class WorldScreen : IScreen
     private SelfProfileTextEditorControl SelfProfileTextEditor = null!;
     private Direction? QueuedWalkDirection;
     private bool RedirectInProgress;
-    private TileClickTracker RightClickTracker = new();
+    private TileClickTracker RightClickTracker;
     private RasterizerState ScissorRasterizerState = null!;
 
-    // True when the client explicitly requested its own profile — prevents unsolicited SelfProfile packets from opening the panel
+    //true when the client explicitly requested its own profile — prevents unsolicited selfprofile packets from opening the panel
     private bool SelfProfileRequested;
+    private StatusBookTab SelfProfileRequestedTab = StatusBookTab.Equipment;
     private SettingsControl SettingsDialog = null!;
     private SilhouetteRenderer SilhouetteRenderer = null!;
     private WorldHudControl SmallHud = null!;
@@ -145,7 +146,7 @@ public sealed partial class WorldScreen : IScreen
     private TextPopupControl TextPopup = null!;
     private Texture2D? TileCursorDragTexture;
 
-    // Tile cursor: dashed ellipse drawn on the hovered tile
+    //tile cursor: dashed ellipse drawn on the hovered tile
     private Texture2D? TileCursorTexture;
     private IWorldHud WorldHud = null!;
     private WorldListControl WorldList = null!;
@@ -164,87 +165,87 @@ public sealed partial class WorldScreen : IScreen
         Game = game;
         Chat = new ChatSystem(game.Connection, () => WorldHud);
 
-        // Player identity
+        //player identity
         Game.Connection.OnUserId += HandleUserId;
 
-        // Map assembly events
+        //map assembly events
         Game.Connection.OnMapInfo += HandleMapInfo;
         Game.Connection.OnMapData += HandleMapData;
         Game.Connection.OnMapLoadComplete += HandleMapLoadComplete;
         Game.Connection.OnLocationChanged += HandleLocationChanged;
 
-        // Entity events
-        // WorldState updates (entity add/remove/walk/turn) are wired in ChaosGame so they
-        // work during world entry before this screen exists. We subscribe here only for
-        // screen-specific side effects (HUD updates, cache cleanup).
+        //entity events
+        //worldstate updates (entity add/remove/walk/turn) are wired in chaosgame so they
+        //work during world entry before this screen exists. we subscribe here only for
+        //screen-specific side effects (hud updates, cache cleanup).
         Game.Connection.OnDisplayAisling += HandleDisplayAisling;
         Game.Connection.OnRemoveEntity += HandleRemoveEntity;
         Game.Connection.OnClientWalkResponse += HandleClientWalkResponse;
 
-        // HUD data events
+        //hud data events
         Game.Connection.OnAttributes += HandleAttributes;
 
-        // Chat events
+        //chat events
         Game.Connection.OnDisplayPublicMessage += HandleDisplayPublicMessage;
         Game.Connection.OnServerMessage += HandleServerMessage;
 
-        // NPC dialog/menu
+        //npc dialog/menu
         WorldState.NpcInteraction.DialogChanged += HandleDialogChanged;
         WorldState.NpcInteraction.MenuChanged += HandleMenuChanged;
 
-        // Refresh response
+        //refresh response
         Game.Connection.OnRefreshResponse += HandleRefreshResponse;
 
         WorldState.Exchange.AmountRequested += HandleExchangeAmountRequested;
 
-        // Board — subscribe to state events
+        //board — subscribe to state events
         WorldState.Board.PostListChanged += HandleBoardPostListChanged;
         WorldState.Board.PostViewed += HandleBoardPostViewed;
         WorldState.Board.BoardListReceived += HandleBoardListReceived;
         WorldState.Board.ResponseReceived += msg => WorldState.Chat.AddOrangeBarMessage(msg);
 
-        // Group invite — subscribe to state event
+        //group invite — subscribe to state event
         WorldState.GroupInvite.Received += HandleGroupInviteReceived;
 
-        // Profiles
+        //profiles
         Game.Connection.OnEditableProfileRequest += HandleEditableProfileRequest;
         Game.Connection.OnSelfProfile += HandleSelfProfile;
         Game.Connection.OnOtherProfile += HandleOtherProfile;
 
-        // Animations / effects / sound
+        //animations / effects / sound
         Game.Connection.OnBodyAnimation += HandleBodyAnimation;
         Game.Connection.OnAnimation += HandleAnimation;
         Game.Connection.OnSound += HandleSound;
         Game.Connection.OnCancelCasting += CastingSystem.Reset;
 
-        // Map transitions
+        //map transitions
         Game.Connection.OnMapChangePending += HandleMapChangePending;
 
-        // Logout / disconnect
+        //logout / disconnect
         Game.Connection.OnExitResponse += HandleExitResponse;
         Game.Connection.StateChanged += HandleStateChanged;
         Game.Connection.OnRedirectReceived += _ => RedirectInProgress = true;
 
-        // Health bars
+        //health bars
         Game.Connection.OnHealthBar += HandleHealthBar;
 
-        // Status effects
+        //status effects
         Game.Connection.OnEffect += HandleEffect;
 
-        // Light level
+        //light level
         Game.Connection.OnLightLevel += HandleLightLevel;
 
-        // Metadata sync — reload metadata consumers after server handshake completes
+        //metadata sync — reload metadata consumers after server handshake completes
         Game.OnMetaDataSyncComplete += HandleMetaDataSyncComplete;
 
-        // Notepad popups
+        //notepad popups
         Game.Connection.OnDisplayReadonlyNotepad += HandleDisplayReadonlyNotepad;
         Game.Connection.OnDisplayEditableNotepad += HandleDisplayEditableNotepad;
 
-        // World map
+        //world map
         Game.Connection.OnWorldMap += HandleWorldMap;
 
-        // Doors
+        //doors
         Game.Connection.OnDoor += HandleDoor;
     }
 
@@ -253,8 +254,8 @@ public sealed partial class WorldScreen : IScreen
     {
         Device = graphicsDevice;
 
-        // Create both HUD layouts — '/' key swaps between them
-        // ZIndex=-1 so HUD frames render behind all popup panels
+        //create both hud layouts — '/' key swaps between them
+        //zindex=-1 so hud frames render behind all popup panels
         SmallHud = new WorldHudControl
         {
             ZIndex = -1
@@ -286,7 +287,7 @@ public sealed partial class WorldScreen : IScreen
         TileCursorTexture = CreateTileCursorTexture(graphicsDevice, new Color(247, 142, 24));
         TileCursorDragTexture = CreateTileCursorTexture(graphicsDevice, new Color(100, 149, 237));
 
-        // Overlay panels — ZIndex: -2 sub-panels, -1 slide panels, 0 standard (default), 1 popups, 2 context menu
+        //overlay panels — zindex: -2 sub-panels, -1 slide panels, 0 standard (default), 1 popups, 2 context menu
         NpcSession = new NpcSessionControl();
         WireNpcSession();
 
@@ -297,11 +298,11 @@ public sealed partial class WorldScreen : IScreen
         MainOptions.SetViewportBounds(WorldHud.ViewportBounds);
         WireOptionsDialog();
 
-        // Sub-panels slide out from MainOptions' left edge, render behind it
+        //sub-panels slide out from mainoptions' left edge, render behind it
         var optionsAnchorX = WorldHud.ViewportBounds.X + WorldHud.ViewportBounds.Width - MainOptions.Width + 10;
         var optionsAnchorY = WorldHud.ViewportBounds.Y;
 
-        // Initialize client-local settings into UserOptions from persisted config
+        //initialize client-local settings into useroptions from persisted config
         var userOptions = WorldState.UserOptions;
         userOptions.SetValue(6, ClientSettings.UseGroupWindow);
         userOptions.SetValue(8, ClientSettings.ScrollLevel > 0);
@@ -310,7 +311,7 @@ public sealed partial class WorldScreen : IScreen
         userOptions.SetValue(11, ClientSettings.RecordNpcChat);
         userOptions.SetValue(12, ClientSettings.GroupOpen);
 
-        // Route user-initiated toggles to server or local persistence
+        //route user-initiated toggles to server or local persistence
         userOptions.SettingToggled += (index, value) =>
         {
             if (UserOptions.IsServerSetting(index))
@@ -342,7 +343,7 @@ public sealed partial class WorldScreen : IScreen
 
                         break;
                     case 12:
-                        // Server-authoritative — send toggle, server responds with updated profile
+                        //server-authoritative — send toggle, server responds with updated profile
                         Game.Connection.ToggleGroup();
 
                         return;
@@ -400,7 +401,7 @@ public sealed partial class WorldScreen : IScreen
 
         GroupPanel.RecruitPanel.OnRequestJoin += name => Game.Connection.SendGroupInvite(ClientGroupSwitch.RequestToJoin, name);
 
-        GroupBoxViewer = new GroupRecruitPanel(center: true);
+        GroupBoxViewer = new GroupRecruitPanel(true);
 
         GroupBoxViewer.OnRequestJoin += name => Game.Connection.SendGroupInvite(ClientGroupSwitch.RequestToJoin, name);
 
@@ -428,7 +429,7 @@ public sealed partial class WorldScreen : IScreen
         {
             if (ExchangeAmountSlot.HasValue)
             {
-                // Exchange stackable item amount response
+                //exchange stackable item amount response
                 Game.Connection.SendExchangeInteraction(
                     ExchangeRequestType.AddStackableItem,
                     Exchange.OtherUserId,
@@ -438,7 +439,7 @@ public sealed partial class WorldScreen : IScreen
                 ExchangeAmountSlot = null;
             } else if (Exchange.Visible && (GoldDrop.TargetEntityId == Exchange.OtherUserId))
 
-                // Exchange gold setting
+                //exchange gold setting
                 Game.Connection.SendExchangeInteraction(ExchangeRequestType.SetGold, Exchange.OtherUserId, goldAmount: (int)amount);
             else if (GoldDrop.TargetEntityId.HasValue)
                 Game.Connection.DropGoldOnCreature((int)amount, GoldDrop.TargetEntityId.Value);
@@ -661,10 +662,10 @@ public sealed partial class WorldScreen : IScreen
         WireHudPanels(SmallHud);
         WireHudPanels(LargeHud);
 
-        // Build UI atlas after all HUD controls are constructed
+        //build ui atlas after all hud controls are constructed
         UiRenderer.Instance?.BuildAtlas();
 
-        // Load local portrait and profile text from character folder
+        //load local portrait and profile text from character folder
         var playerName = Game.Connection.AislingName;
         PlayerPortrait = LoadPortraitFile(playerName);
         StatusBook.SetProfileText(LoadProfileText());
@@ -712,7 +713,7 @@ public sealed partial class WorldScreen : IScreen
         Game.Connection.OnWorldMap -= HandleWorldMap;
         Game.Connection.OnDoor -= HandleDoor;
 
-        // Unwire panel click-to-use events
+        //unwire panel click-to-use events
         WorldHud.Inventory.OnSlotClicked -= HandleInventorySlotClicked;
         WorldHud.SkillBook.OnSlotClicked -= HandleSkillSlotClicked;
         WorldHud.SkillBookAlt.OnSlotClicked -= HandleSkillSlotClicked;
@@ -736,7 +737,5 @@ public sealed partial class WorldScreen : IScreen
     private readonly record struct PendingWalk(
         int FromX,
         int FromY,
-        int ToX,
-        int ToY,
         Direction Direction);
 }

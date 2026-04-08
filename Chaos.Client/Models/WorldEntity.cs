@@ -16,21 +16,21 @@ public sealed class WorldEntity
 {
     public BodyAnimation? ActiveBodyAnimation { get; set; }
 
-    // Emote overlay — animated frame range in emot01.epf, -1 = no active emote
+    //emote overlay — animated frame range in emot01.epf, -1 = no active emote
     public int ActiveEmoteFrame { get; set; } = -1;
     public float AnimElapsedMs { get; set; }
     public int AnimFrameCount { get; set; }
     public int AnimFrameIndex { get; set; }
     public float AnimFrameIntervalMs { get; set; }
 
-    // Animation state — managed by AnimationManager
+    //animation state — managed by animationmanager
     public EntityAnimState AnimState { get; set; }
 
-    // Appearance
+    //appearance
     public AislingAppearance? Appearance { get; set; }
 
-    // Draw ordering: monotonic counter incremented each time entity enters a tile.
-    // Higher = arrived more recently = draws on top of entities in the same category at the same tile.
+    //draw ordering: monotonic counter incremented each time entity enters a tile.
+    //higher = arrived more recently = draws on top of entities in the same category at the same tile.
     public uint ArrivalOrder { get; set; }
     public int BodyAnimRepeatsLeft { get; set; }
     public CreatureType CreatureType { get; set; }
@@ -56,8 +56,8 @@ public sealed class WorldEntity
     public uint Id { get; init; }
     public float IdleAnimElapsedMs { get; set; }
 
-    // Idle animation — frames per direction in "04" EPF (0 = no idle anim)
-    // IdleAnimTick increments independently of AnimState so idle cycling survives body animations.
+    //idle animation — frames per direction in "04" epf (0 = no idle anim)
+    //idleanimtick increments independently of animstate so idle cycling survives body animations.
     public int IdleAnimFrameCount { get; set; }
     public int IdleAnimTick { get; set; }
     public int IdleCycleEndsAt { get; set; }
@@ -83,7 +83,7 @@ public sealed class WorldEntity
     /// </summary>
     public int SwimWalkFrames { get; set; }
 
-    // Position
+    //position
     public int TileX { get; set; }
     public int TileY { get; set; }
     public ClientEntityType Type { get; set; }

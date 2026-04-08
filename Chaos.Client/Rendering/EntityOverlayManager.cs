@@ -17,13 +17,13 @@ namespace Chaos.Client.Rendering;
 /// </summary>
 public sealed class EntityOverlayManager
 {
-    // Health bar Y offset from entity tile center (higher = further above entity)
+    //health bar y offset from entity tile center (higher = further above entity)
     private const int HEALTH_BAR_Y_OFFSET = 61;
 
-    // Name tag Y offset from entity tile center (above health bars)
+    //name tag y offset from entity tile center (above health bars)
     private const int NAME_TAG_Y_OFFSET = 72;
 
-    // Group box Y offset — sits 2px above name tags
+    //group box y offset — sits 2px above name tags
     private const int GROUP_BOX_Y_OFFSET = 74;
     private static readonly Color NAME_TAG_SHADOW_COLOR = new(20, 20, 20);
     private readonly Dictionary<uint, ChantText> ChantOverlays = new();
@@ -44,7 +44,7 @@ public sealed class EntityOverlayManager
         if (string.IsNullOrEmpty(message))
             return;
 
-        // Chant replaces any active chat bubble
+        //chant replaces any active chat bubble
         RemoveChatBubble(entityId);
 
         ChantOverlays[entityId] = ChantText.Create(entityId, message);
@@ -55,7 +55,7 @@ public sealed class EntityOverlayManager
     /// </summary>
     public void AddChatBubble(uint entityId, string message, bool isShout)
     {
-        // Chat bubble replaces any active chant overlay
+        //chat bubble replaces any active chant overlay
         RemoveChantOverlay(entityId);
 
         if (ChatBubbles.TryGetValue(entityId, out var existing))
@@ -140,7 +140,7 @@ public sealed class EntityOverlayManager
         int mapHeight,
         IReadOnlyList<WorldEntity> sortedEntities)
     {
-        // Determine which group box (if any) the mouse is over, using positions from previous frame
+        //determine which group box (if any) the mouse is over, using positions from previous frame
         var mouseState = Mouse.GetState();
 
         var hoveredGroupBoxId = GetGroupBoxAtScreen(mouseState.X, mouseState.Y)
@@ -165,7 +165,7 @@ public sealed class EntityOverlayManager
             groupBox.UpdateText(entity.GroupBoxText);
             groupBox.IsHovered = hoveredGroupBoxId == entity.Id;
 
-            // Position panel centered on entity, bottom edge at Y offset
+            //position panel centered on entity, bottom edge at y offset
             var tileWorld = Camera.TileToWorld(entity.TileX, entity.TileY, mapHeight);
             var entityWorldX = tileWorld.X + DaLibConstants.HALF_TILE_WIDTH + entity.VisualOffset.X;
             var entityWorldY = tileWorld.Y + DaLibConstants.HALF_TILE_HEIGHT + entity.VisualOffset.Y - GROUP_BOX_Y_OFFSET;
@@ -200,8 +200,8 @@ public sealed class EntityOverlayManager
             if (string.IsNullOrEmpty(entity.Name))
                 continue;
 
-            // NeutralHover/FriendlyHover: only show on hover, and not during targeting/dragging
-            // Never show hover nametag for the player's own character
+            //neutralhover/friendlyhover: only show on hover, and not during targeting/dragging
+            //never show hover nametag for the player's own character
             var isHoverOnly = entity.NameTagStyle is NameTagStyle.NeutralHover or NameTagStyle.FriendlyHover;
 
             if (isHoverOnly && (showTintHighlight || (hoveredEntityId != entity.Id) || (entity.Id == playerEntityId)))
@@ -296,28 +296,23 @@ public sealed class EntityOverlayManager
     ///     Ticks bubble/bar/overlay timers, updates screen positions from entity world positions, and removes expired entries.
     /// </summary>
     public void Update(
-        GameTime gameTime,
         Camera camera,
         int mapHeight)
     {
         UpdateChatBubbles(
-            gameTime,
             camera,
             mapHeight);
 
         UpdateChantOverlays(
-            gameTime,
             camera,
             mapHeight);
 
         UpdateHealthBars(
-            gameTime,
             camera,
             mapHeight);
     }
 
     private void UpdateChantOverlays(
-        GameTime gameTime,
         Camera camera,
         int mapHeight)
     {
@@ -366,7 +361,6 @@ public sealed class EntityOverlayManager
     }
 
     private void UpdateChatBubbles(
-        GameTime gameTime,
         Camera camera,
         int mapHeight)
     {
@@ -415,7 +409,6 @@ public sealed class EntityOverlayManager
     }
 
     private void UpdateHealthBars(
-        GameTime gameTime,
         Camera camera,
         int mapHeight)
     {

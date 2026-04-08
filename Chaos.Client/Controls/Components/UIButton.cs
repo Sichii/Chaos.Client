@@ -46,7 +46,7 @@ public class UIButton : UIElement
 
     public override void Dispose()
     {
-        // SelectedTexture may share the same object as PressedTexture — only dispose if distinct
+        //selectedtexture may share the same object as pressedtexture — only dispose if distinct
         if (SelectedTexture is not null && (SelectedTexture != PressedTexture))
             SelectedTexture.Dispose();
 

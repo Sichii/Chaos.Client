@@ -21,7 +21,7 @@ public sealed class SelfProfileAbilityMetadataTab : PrefabPanel
     private const int ROW_HEIGHT = 45;
     private const int MAX_VISIBLE_ROWS = 5;
 
-    // One extra row for the peek effect at the bottom of each column
+    //one extra row for the peek effect at the bottom of each column
     private const int DISPLAY_ROWS = MAX_VISIBLE_ROWS + 1;
 
     private static readonly RasterizerState ScissorRasterizer = new()
@@ -152,12 +152,12 @@ public sealed class SelfProfileAbilityMetadataTab : PrefabPanel
         if (!Visible)
             return;
 
-        // Hide entry rows so base.Draw() only renders background + scrollbars
+        //hide entry rows so base.draw() only renders background + scrollbars
         SetRowVisibilityForBaseDraw(false);
         base.Draw(spriteBatch);
         SetRowVisibilityForBaseDraw(true);
 
-        // Draw each column's rows clipped to the column rect
+        //draw each column's rows clipped to the column rect
         var device = spriteBatch.GraphicsDevice;
         var sx = ScreenX;
         var sy = ScreenY;
@@ -211,21 +211,21 @@ public sealed class SelfProfileAbilityMetadataTab : PrefabPanel
         if (name is null)
             return true;
 
-        // Check spell book
+        //check spell book
         for (byte i = 1; i <= SpellBook.MAX_SLOTS; i++)
         {
             ref readonly var slot = ref WorldState.SpellBook.GetSlot(i);
 
-            if (slot.IsOccupied && slot.AbilityName.EqualsI(name))
+            if (slot.IsOccupied && slot.AbilityName?.EqualsI(name) == true && slot.CurrentLevel >= requiredLevel)
                 return true;
         }
 
-        // Check skill book
+        //check skill book
         for (byte i = 1; i <= SkillBook.MAX_SLOTS; i++)
         {
             ref readonly var slot = ref WorldState.SkillBook.GetSlot(i);
 
-            if (slot.IsOccupied && slot.AbilityName.EqualsI(name))
+            if (slot.IsOccupied && slot.AbilityName?.EqualsI(name) == true && slot.CurrentLevel >= requiredLevel)
                 return true;
         }
 
@@ -270,13 +270,13 @@ public sealed class SelfProfileAbilityMetadataTab : PrefabPanel
 
     private static AbilityIconState ResolveIconState(AbilityMetadataEntry entry)
     {
-        // Check if player already knows this ability
+        //check if player already knows this ability
         if (entry.IsSpell)
             for (byte i = 1; i <= SpellBook.MAX_SLOTS; i++)
             {
                 ref readonly var slot = ref WorldState.SpellBook.GetSlot(i);
 
-                if (slot.IsOccupied && slot.AbilityName.EqualsI(entry.Name))
+                if (slot.IsOccupied && slot.AbilityName?.EqualsI(entry.Name) == true)
                     return AbilityIconState.Known;
             }
         else
@@ -284,11 +284,11 @@ public sealed class SelfProfileAbilityMetadataTab : PrefabPanel
             {
                 ref readonly var slot = ref WorldState.SkillBook.GetSlot(i);
 
-                if (slot.IsOccupied && slot.AbilityName.EqualsI(entry.Name))
+                if (slot.IsOccupied && slot.AbilityName?.EqualsI(entry.Name) == true)
                     return AbilityIconState.Known;
             }
 
-        // Check if player meets the requirements to learn it
+        //check if player meets the requirements to learn it
         if (WorldState.Attributes.Current is not { } attrs)
             return AbilityIconState.Locked;
 
@@ -302,7 +302,7 @@ public sealed class SelfProfileAbilityMetadataTab : PrefabPanel
             || (attrs.Con < entry.Con))
             return AbilityIconState.Locked;
 
-        // Check prerequisite abilities
+        //check prerequisite abilities
         if (!HasPreRequisite(entry.PreReq1Name, entry.PreReq1Level))
             return AbilityIconState.Locked;
 

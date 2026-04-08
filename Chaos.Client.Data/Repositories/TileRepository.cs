@@ -28,15 +28,16 @@ public sealed class TileRepository
                                                                          .Freeze();
 
     /// <summary>
-    ///     Ground tile attributes parsed from gndattr.tbl in seo.dat. Maps background tile IDs to their ground attributes
-    ///     (color tint, walk-blocking, foreground height override).
+    ///     Background tile ID to ground attribute mapping (color tint, walk-blocking, foreground height override). Parsed from
+    ///     gndattr.tbl.
     /// </summary>
     public Dictionary<int, GroundAttribute> GroundAttributes { get; } = DatArchives.Seo.TryGetValue("gndattr.tbl", out var gndAttrEntry)
         ? GroundAttributeParser.Parse(gndAttrEntry)
         : [];
 
     /// <summary>
-    ///     SOTP (Sector Object Type Properties) data loaded from Ia archive. Used for tile walkability checks in the tab map.
+    ///     SOTP (Sector Object Type Properties) raw byte data from the Ia archive. Each byte encodes tile properties such as
+    ///     walkability for a given foreground tile index.
     /// </summary>
     public byte[] SotpData { get; } = DatArchives.Ia.TryGetValue("sotp.dat", out var sotpEntry)
         ? sotpEntry.ToSpan()

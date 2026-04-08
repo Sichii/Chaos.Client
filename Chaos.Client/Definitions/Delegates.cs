@@ -12,12 +12,12 @@ namespace Chaos.Client.Definitions;
 public delegate void SlotChangedHandler(byte slot);
 
 /// <summary>
-///     All data was cleared.
+///     Fired when all entries in the owning collection are cleared (e.g. on logout or full server re-entry).
 /// </summary>
 public delegate void ClearedHandler();
 
 /// <summary>
-///     The data changed (parameterless notification).
+///     Fired when the owning state object is updated by the server.
 /// </summary>
 public delegate void ChangedHandler();
 #endregion

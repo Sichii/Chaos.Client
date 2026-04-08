@@ -41,7 +41,7 @@ public sealed record ItemMetadataEntry
     public static ItemMetadataEntry? ParseEntry(MetaFileEntry entry) => ParseEntry(entry.Key, entry.Properties);
 
     /// <summary>
-    ///     Parses item metadata from a name and property list. Returns null if there are fewer than 5 properties.
+    ///     Parses item metadata from a name and raw property list. Returns null if the properties are insufficient.
     /// </summary>
     public static ItemMetadataEntry? ParseEntry(string name, IReadOnlyList<string> properties)
     {

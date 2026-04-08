@@ -84,16 +84,16 @@ public sealed class OtherProfileEquipmentTab : PrefabPanel
             SlotVisuals[slot] = visual;
         }
 
-        // No stat labels — _nui_eqa does not have N_STR/INT/WIS/CON/DEX/AC
+        //no stat labels — _nui_eqa does not have n_str/int/wis/con/dex/ac
 
-        // Player info labels
+        //player info labels
         NameLabel = CreateLabel("NAME");
         ClassLabel = CreateLabel("CLASSTEXT");
         ClanLabel = CreateLabel("CLANTEXT");
         ClanTitleLabel = CreateLabel("CLANTITLETEXT");
         TitleLabel = CreateLabel("TITLETEXT");
 
-        // Group button — sends group invite for the displayed player
+        //group button — sends group invite for the displayed player
         GroupBtn = CreateButton("GroupBtn");
 
         if (GroupBtn is not null)
@@ -117,21 +117,29 @@ public sealed class OtherProfileEquipmentTab : PrefabPanel
             disabledImage.Dispose();
         }
 
-        // Nation icon and text
+        //nation icon and text
         NationImage = CreateImage("Nation");
         NationTextLabel = CreateLabel("NationText");
 
         if (NationTextLabel is not null)
             NationTextLabel.TopAligned = true;
 
-        // Paperdoll area
+        //paperdoll area
         PaperdollImage = CreateImage("HumanImage");
 
-        // Portrait and profile text
+        //portrait and profile text
         PortraitImage = CreateImage("Portrait");
         PortraitTextLabel = CreateLabel("PortraitText");
 
-        // Emoticon status
+        if (PortraitTextLabel is not null)
+        {
+            PortraitTextLabel.WordWrap = true;
+            PortraitTextLabel.Alignment = TextAlignment.Left;
+            PortraitTextLabel.ForegroundColor = Color.White;
+            PortraitTextLabel.TopAligned = true;
+        }
+
+        //emoticon status
         HumanIconRect = GetRect("HumanIcon");
 
         EmoticonIcons = new Texture2D?[EMOTICON_FRAME_COUNT];
@@ -141,7 +149,7 @@ public sealed class OtherProfileEquipmentTab : PrefabPanel
 
         EmoticonLabel = CreateLabel("HumanState", TextAlignment.Center);
 
-        // Tooltip label for equipment slot hover
+        //tooltip label for equipment slot hover
         TooltipLabel = new UILabel
         {
             Name = "Tooltip",
@@ -204,7 +212,7 @@ public sealed class OtherProfileEquipmentTab : PrefabPanel
 
         base.Draw(spriteBatch);
 
-        // Emoticon icon — draw at HumanIcon rect origin (not a UIImage since frame changes per state)
+        //emoticon icon — draw at humanicon rect origin (not a uiimage since frame changes per state)
         if ((HumanIconRect != Rectangle.Empty)
             && (EmoticonState < EmoticonIcons.Length)
             && EmoticonIcons[EmoticonState] is { } emoticonIcon)

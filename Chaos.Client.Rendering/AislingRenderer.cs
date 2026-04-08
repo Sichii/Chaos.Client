@@ -46,7 +46,8 @@ public record struct AislingAppearance
 }
 
 /// <summary>
-///     A cached per-layer texture with the positioning metadata needed at draw time.
+///     A cached per-layer texture tagged with its EPF type letter (e.g., 'u' for armor body, 'w' for weapon) for draw-time
+///     offset calculation via <see cref="AislingRenderer.GetLayerOffsetX" />.
 /// </summary>
 public readonly record struct AislingLayerTexture(Texture2D Texture, char TypeLetter);
 
@@ -115,15 +116,15 @@ public sealed class AislingRenderer : IDisposable
     public const int BODY_CENTER_X = BODY_WIDTH / 2;
     public const int BODY_CENTER_Y = BODY_HEIGHT / 2;
 
-    // Composite canvas anchor: body center within the full padded canvas (111x85).
-    // Canvas is padded by LAYER_OFFSET_PADDING (27px) on each side, so body center shifts right.
+    //composite canvas anchor: body center within the full padded canvas (111x85).
+    //canvas is padded by LAYER_OFFSET_PADDING (27px) on each side, so body center shifts right.
     public const int CANVAS_CENTER_X = BODY_CENTER_X + LAYER_OFFSET_PADDING;
     public const int CANVAS_CENTER_Y = 70;
 
-    // EPFs contain frames for 2 base directions only:
-    //   Frames 0-4: Up (away-facing)
-    //   Frames 5-9: Right (front-facing)
-    // Down = Right frames + horizontal flip, Left = Up frames + horizontal flip
+    //epfs contain frames for 2 base directions only:
+    //frames 0-4: up (away-facing)
+    //frames 5-9: right (front-facing)
+    //down = right frames + horizontal flip, left = up frames + horizontal flip
     private const int UP_IDLE_FRAME = 0;
     private const int RIGHT_IDLE_FRAME = 5;
 
@@ -136,7 +137,7 @@ public sealed class AislingRenderer : IDisposable
         9
     ];
 
-    // Front-facing composite order (first drawn = back-most)
+    //front-facing composite order (first drawn = back-most)
     public static readonly LayerSlot[] FRONT_ORDER =
     [
         LayerSlot.BodyB,
@@ -161,7 +162,7 @@ public sealed class AislingRenderer : IDisposable
         LayerSlot.Acc3C
     ];
 
-    // Back-facing composite order
+    //back-facing composite order
     public static readonly LayerSlot[] BACK_ORDER =
     [
         LayerSlot.BodyB,
@@ -241,7 +242,7 @@ public sealed class AislingRenderer : IDisposable
                     if (pixel.A == 0)
                         continue;
 
-                    // Unpremultiply, lerp toward tint color, re-premultiply
+                    //unpremultiply, lerp toward tint color, re-premultiply
                     var a = pixel.A / 255f;
                     var r = (byte)(pixel.R / a * (1 - alpha) + tintR * alpha);
                     var g = (byte)(pixel.G / a * (1 - alpha) + tintG * alpha);
@@ -279,7 +280,7 @@ public sealed class AislingRenderer : IDisposable
     }
 
     /// <summary>
-    ///     Clears the group tint cache. Call when group membership changes.
+    ///     Disposes all cached group-tinted composite textures. Call when group membership changes.
     /// </summary>
     public void ClearGroupTintCache()
     {
@@ -302,7 +303,7 @@ public sealed class AislingRenderer : IDisposable
     }
 
     /// <summary>
-    ///     Clears all cached tinted textures. Call when the highlighted entity changes.
+    ///     Disposes all cached hover-highlight tinted textures. Call when the highlighted entity changes.
     /// </summary>
     public void ClearTintedCache()
     {
@@ -345,15 +346,17 @@ public sealed class AislingRenderer : IDisposable
 
             cached.Texture?.Dispose();
 
-            cached = new CompositeEntry(
-                p.Appearance,
-                p.FrameIndex,
-                p.Flip,
-                p.IsFrontFacing,
-                p.AnimSuffix,
-                p.EmotionFrame,
-                p.GroundPaintHeight,
-                texture);
+            cached = new CompositeEntry
+            {
+                Appearance = p.Appearance,
+                FrameIndex = p.FrameIndex,
+                Flip = p.Flip,
+                IsFrontFacing = p.IsFrontFacing,
+                AnimSuffix = p.AnimSuffix,
+                EmotionFrame = p.EmotionFrame,
+                GroundPaintHeight = p.GroundPaintHeight,
+                Texture = texture
+            };
             CompositeCache[p.EntityId] = cached;
         }
 
@@ -457,31 +460,41 @@ public sealed class AislingRenderer : IDisposable
     #endregion
 
     /// <summary>
-    ///     A rendered layer with its EpfFrame positioning metadata preserved (composited rendering path only).
+    ///     Per-entity cached composite: stores the appearance state at render time alongside the composited texture, enabling
+    ///     cache invalidation when any visual parameter changes.
     /// </summary>
-    private record struct CompositeEntry(
-        AislingAppearance Appearance,
-        int FrameIndex,
-        bool Flip,
-        bool IsFrontFacing,
-        string AnimSuffix,
-        int EmotionFrame,
-        int GroundPaintHeight,
-        Texture2D? Texture);
-
-    private readonly record struct LayerInfo(
-        SKImage Image,
-        short FrameLeft,
-        short FrameTop,
-        char TypeLetter) : IDisposable
+    private record struct CompositeEntry
     {
+        public AislingAppearance Appearance { get; init; }
+        public int FrameIndex { get; init; }
+        public bool Flip { get; init; }
+
+        // ReSharper disable once MemberHidesStaticFromOuterClass
+        public bool IsFrontFacing { get; init; }
+        public string AnimSuffix { get; init; }
+        public int EmotionFrame { get; init; }
+        public int GroundPaintHeight { get; init; }
+        public Texture2D? Texture { get; init; }
+    }
+
+    private readonly record struct LayerInfo : IDisposable
+    {
+        public SKImage Image { get; }
+        public char TypeLetter { get; }
+
+        public LayerInfo(SKImage image, char typeLetter)
+        {
+            Image = image;
+            TypeLetter = typeLetter;
+        }
+
         public void Dispose() => Image.Dispose();
     }
 
     #region Per-Layer Rendering (GPU draw path)
     /// <summary>
-    ///     Resolves all layers for an aisling into individually cached textures. Returns draw data that can be rendered via
-    ///     multiple SpriteBatch.Draw() calls — no SkiaSharp compositing needed.
+    ///     Resolves all visible layers for an aisling into individually cached GPU textures with draw ordering. Use for world
+    ///     rendering where layers need to be drawn separately (e.g., transparent aisling compositing).
     /// </summary>
     public AislingDrawData GetLayerFrames(
         in AislingAppearance appearance,
@@ -507,7 +520,7 @@ public sealed class AislingRenderer : IDisposable
             animSuffix,
             idleFallbackFrame);
 
-        // Emotion overlay — only on front-facing frames
+        //emotion overlay — only on front-facing frames
         var emotionsEpf = DrawData.EmotionsEpf;
 
         if (isFront && (emotionFrame >= 0) && emotionsEpf is not null && (emotionFrame < emotionsEpf.Count))
@@ -546,7 +559,7 @@ public sealed class AislingRenderer : IDisposable
     {
         var bodySpriteId = appearance.BodySpriteId > 0 ? appearance.BodySpriteId : BODY_ID;
 
-        // Body base (type b) — uses non-standard sprite ID for ghost/invis/jester
+        //body base (type b) — uses non-standard sprite id for ghost/invis/jester
         layers[(int)LayerSlot.BodyB] = ResolveEquipLayerTexture(
             'b',
             bodySpriteId,
@@ -556,7 +569,7 @@ public sealed class AislingRenderer : IDisposable
             anim,
             idleFallbackFrame);
 
-        // Body skin (type m) — only for standard body
+        //body skin (type m) — only for standard body
         if (bodySpriteId == BODY_ID)
             layers[(int)LayerSlot.Body] = ResolveBodyPaletteLayerTexture(
                 'm',
@@ -566,7 +579,7 @@ public sealed class AislingRenderer : IDisposable
                 anim,
                 idleFallbackFrame);
 
-        // Pants (type n, always id 1) — only if server sent a pants color
+        //pants (type n, always id 1) — only if server sent a pants color
 
         if (appearance.PantsColor.HasValue)
             layers[(int)LayerSlot.Pants] = ResolveEquipLayerTexture(
@@ -578,7 +591,7 @@ public sealed class AislingRenderer : IDisposable
                 anim,
                 idleFallbackFrame);
 
-        // Face (type o, uses body palette)
+        //face (type o, uses body palette)
         if (appearance.FaceSprite > 0)
             layers[(int)LayerSlot.Face] = ResolveBodyPaletteLayerTexture(
                 'o',
@@ -588,7 +601,7 @@ public sealed class AislingRenderer : IDisposable
                 anim,
                 idleFallbackFrame);
 
-        // Boots
+        //boots
         if (appearance.BootsSprite > 0)
             layers[(int)LayerSlot.Boots] = ResolveEquipLayerTexture(
                 'l',
@@ -599,7 +612,7 @@ public sealed class AislingRenderer : IDisposable
                 anim,
                 idleFallbackFrame);
 
-        // Head layers (h, e, f)
+        //head layers (h, e, f)
         if (appearance.HeadSprite > 0)
         {
             layers[(int)LayerSlot.HeadH] = ResolveEquipLayerTexture(
@@ -630,7 +643,7 @@ public sealed class AislingRenderer : IDisposable
                 idleFallbackFrame);
         }
 
-        // Armor/Overcoat
+        //armor/overcoat
         if (appearance.OvercoatSprite > 0)
             ResolveArmorLayers(
                 layers,
@@ -650,7 +663,7 @@ public sealed class AislingRenderer : IDisposable
                 anim,
                 idleFallbackFrame);
 
-        // Weapon (w + p sub-layers)
+        //weapon (w + p sub-layers)
         if (appearance.WeaponSprite > 0)
         {
             layers[(int)LayerSlot.WeaponW] = ResolveEquipLayerTexture(
@@ -672,7 +685,7 @@ public sealed class AislingRenderer : IDisposable
                 idleFallbackFrame);
         }
 
-        // Shield
+        //shield
         if (appearance.ShieldSprite > 0)
             layers[(int)LayerSlot.Shield] = ResolveEquipLayerTexture(
                 's',
@@ -683,7 +696,7 @@ public sealed class AislingRenderer : IDisposable
                 anim,
                 idleFallbackFrame);
 
-        // Accessories (c + g sub-layers each)
+        //accessories (c + g sub-layers each)
         if (appearance.Accessory1Sprite > 0)
         {
             layers[(int)LayerSlot.Acc1C] = ResolveEquipLayerTexture(
@@ -891,23 +904,18 @@ public sealed class AislingRenderer : IDisposable
         if (LayerTextureCache.TryGetValue(cacheKey, out var cached))
             return cached;
 
-        var image = Graphics.RenderImage(frame, palette);
+        using var image = Graphics.RenderImage(frame, palette);
 
+        // ReSharper disable once ConditionIsAlwaysTrueOrFalseAccordingToNullableAPIContract
         if (image is null)
             return null;
 
-        try
-        {
-            var texture = TextureConverter.ToTexture2D(image);
+        var texture = TextureConverter.ToTexture2D(image);
 
-            var entry = new AislingLayerTexture(texture, typeLetter);
-            LayerTextureCache[cacheKey] = entry;
+        var entry = new AislingLayerTexture(texture, typeLetter);
+        LayerTextureCache[cacheKey] = entry;
 
-            return entry;
-        } finally
-        {
-            image.Dispose();
-        }
+        return entry;
     }
     #endregion
 
@@ -974,7 +982,7 @@ public sealed class AislingRenderer : IDisposable
                 animSuffix,
                 idleFallbackFrame);
 
-            // Emotion overlay — only on front-facing frames
+            //emotion overlay — only on front-facing frames
             var emotionsEpf = DrawData.EmotionsEpf;
 
             if (isFront && (emotionFrame >= 0) && emotionsEpf is not null && (emotionFrame < emotionsEpf.Count))
@@ -985,12 +993,9 @@ public sealed class AislingRenderer : IDisposable
                 {
                     var image = Graphics.RenderImage(frame, palette);
 
+                    // ReSharper disable once ConditionIsAlwaysTrueOrFalseAccordingToNullableAPIContract
                     if (image is not null)
-                        layers[(int)LayerSlot.Emotion] = new LayerInfo(
-                            image,
-                            frame.Left,
-                            frame.Top,
-                            'o');
+                        layers[(int)LayerSlot.Emotion] = new LayerInfo(image, 'o');
                 }
             }
 
@@ -1314,14 +1319,11 @@ public sealed class AislingRenderer : IDisposable
 
         var image = Graphics.RenderImage(frame, palette);
 
+        // ReSharper disable once ConditionIsAlwaysTrueOrFalseAccordingToNullableAPIContract
         if (image is null)
             return null;
 
-        return new LayerInfo(
-            image,
-            frame.Left,
-            frame.Top,
-            typeLetter);
+        return new LayerInfo(image, typeLetter);
     }
 
     private LayerInfo? RenderEquipLayer(
@@ -1361,14 +1363,11 @@ public sealed class AislingRenderer : IDisposable
 
         var image = Graphics.RenderImage(frame, palette);
 
+        // ReSharper disable once ConditionIsAlwaysTrueOrFalseAccordingToNullableAPIContract
         if (image is null)
             return null;
 
-        return new LayerInfo(
-            image,
-            frame.Left,
-            frame.Top,
-            typeLetter);
+        return new LayerInfo(image, typeLetter);
     }
     #endregion
 
@@ -1415,6 +1414,7 @@ public sealed class AislingRenderer : IDisposable
 
         using var image = Graphics.RenderImage(frame, swim.Palette);
 
+        // ReSharper disable once ConditionIsAlwaysTrueOrFalseAccordingToNullableAPIContract
         if (image is null)
             return null;
 
@@ -1447,8 +1447,8 @@ public sealed class AislingRenderer : IDisposable
         var maxWidth = GetSwimMaxFrameWidth(isFemale);
         var drawX = tileCenterX + visualOffset.X - maxWidth / 2f;
 
-        // When flipped, compensate for the difference between maxWidth and actual texture width
-        // so the flip pivot stays at the center of maxWidth rather than the center of the texture
+        //when flipped, compensate for the difference between maxwidth and actual texture width
+        //so the flip pivot stays at the center of maxwidth rather than the center of the texture
         if (flip)
             drawX += maxWidth - texture.Width;
 
@@ -1498,10 +1498,10 @@ public sealed class AislingRenderer : IDisposable
         if (pos is < 1 or > 3)
             return null;
 
-        // Front-facing with active emote: use the emote SPF composite
+        //front-facing with active emote: use the emote spf composite
         if (isFrontFacing && (emoteFrame >= 0))
         {
-            var emoteSpf = DrawData.GetRestSpf(isFemale, pos, isEmote: true);
+            var emoteSpf = DrawData.GetRestSpf(isFemale, pos, true);
 
             if (emoteSpf is not null && (emoteFrame < emoteSpf.Count))
             {
@@ -1517,18 +1517,19 @@ public sealed class AislingRenderer : IDisposable
                     ? Graphics.RenderImage(emoteSpfFrame)
                     : Graphics.RenderImage(emoteSpfFrame, emoteSpf.PrimaryColors!);
 
-                if (emoteImage is not null)
-                {
-                    var emoteTexture = TextureConverter.ToTexture2D(emoteImage);
-                    emoteCache[emoteCacheKey] = emoteTexture;
+                // ReSharper disable once ConditionIsAlwaysTrueOrFalseAccordingToNullableAPIContract
+                if (emoteImage is null)
+                    return null;
 
-                    return emoteTexture;
-                }
+                var emoteTexture = TextureConverter.ToTexture2D(emoteImage);
+                emoteCache[emoteCacheKey] = emoteTexture;
+
+                return emoteTexture;
             }
         }
 
-        // Base rest sprite
-        var spf = DrawData.GetRestSpf(isFemale, pos, isEmote: false);
+        //base rest sprite
+        var spf = DrawData.GetRestSpf(isFemale, pos, false);
 
         if (spf is null || spf.Count < 2)
             return null;
@@ -1546,6 +1547,7 @@ public sealed class AislingRenderer : IDisposable
             ? Graphics.RenderImage(frame)
             : Graphics.RenderImage(frame, spf.PrimaryColors!);
 
+        // ReSharper disable once ConditionIsAlwaysTrueOrFalseAccordingToNullableAPIContract
         if (image is null)
             return null;
 
@@ -1622,7 +1624,8 @@ public sealed class AislingRenderer : IDisposable
 
     #region Helpers
     /// <summary>
-    ///     Loads the EPF for a layer, handling "04" idle wrapping and "01" fallback.
+    ///     Loads the EPF for a layer, handling idle animation ("04") frame wrapping and fallback to walk animation ("01") when
+    ///     the requested animation file doesn't exist.
     /// </summary>
     private (EpfView? Epf, int FrameIndex) ResolveLayerEpf(
         char typeLetter,
@@ -1656,7 +1659,8 @@ public sealed class AislingRenderer : IDisposable
     private EpfView? TryLoadEpf(char typeLetter, bool isMale, string fileName) => DrawData.GetEquipmentEpf(typeLetter, isMale, fileName);
 
     /// <summary>
-    ///     Scans all equipped layers for "04" idle animation EPFs and returns the max frames per direction found.
+    ///     Returns the maximum idle animation frame count (per direction) across all equipped layers that have an idle ("04")
+    ///     EPF file. Returns 0 if no layers have idle animations.
     /// </summary>
     public int GetIdleAnimFrameCount(in AislingAppearance appearance)
     {
@@ -1748,8 +1752,8 @@ public sealed class AislingRenderer : IDisposable
     }
 
     /// <summary>
-    ///     Returns true if the displayed armor/overcoat is allowed to play the given body animation,
-    ///     according to the ability animation tables (Skill_e.tbl / Skill_i.tbl).
+    ///     Returns true if the displayed armor/overcoat supports the given body animation. Some armor sprites lack
+    ///     ability-specific animation frames and must fall back to the default body animation.
     /// </summary>
     public bool HasArmorAnimation(in AislingAppearance appearance, BodyAnimation anim)
     {

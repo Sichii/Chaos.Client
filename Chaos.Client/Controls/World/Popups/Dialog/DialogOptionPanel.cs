@@ -21,24 +21,24 @@ public sealed class DialogOptionPanel : FramedDialogPanelBase
     private const int BTN_WIDTH = 61;
     private const int BTN_HEIGHT = 22;
 
-    // Border thickness from edge tiles (content measured from inside of these)
+    //border thickness from edge tiles (content measured from inside of these)
     private const int BORDER_TOP = 6;
     private const int BORDER_LEFT = 13;
     private const int BORDER_RIGHT = 31;
     private const int BORDER_BOTTOM = 47;
 
-    // Content padding from inside of border to stripes
+    //content padding from inside of border to stripes
     private const int CONTENT_PADDING_TOP = 2;
     private const int CONTENT_PADDING_BOTTOM = -16;
     private const int CONTENT_PADDING_LEFT = 7;
     private const int CONTENT_PADDING_RIGHT = -11;
 
-    // Bottom of panel aligns with top of the dialog bottom bar
+    //bottom of panel aligns with top of the dialog bottom bar
     private const int BOTTOM_ANCHOR_Y = 372;
 
     private readonly List<OptionLabel> OptionLabels = [];
 
-    // 3-slice stripe pieces
+    //3-slice stripe pieces
     private Texture2D? StripeLeft;
     private Texture2D? StripeLeftOn;
     private Texture2D? StripeMid;
@@ -81,7 +81,7 @@ public sealed class DialogOptionPanel : FramedDialogPanelBase
 
         EnsureStripeTextures();
 
-        // Frame + children drawn by base
+        //frame + children drawn by base
         base.Draw(spriteBatch);
     }
 
@@ -129,10 +129,7 @@ public sealed class DialogOptionPanel : FramedDialogPanelBase
         ClearOptionLabels();
         EnsureStripeTextures();
 
-        var capLeftW = StripeLeft?.Width ?? 11;
-        var capRightW = StripeRight?.Width ?? 11;
-
-        // Dynamic width from longest option text
+        //dynamic width from longest option text
         var maxTextWidth = 0;
 
         foreach ((var text, _) in options)
@@ -151,15 +148,15 @@ public sealed class DialogOptionPanel : FramedDialogPanelBase
 
         Width = stripeWidth + stripeLeft + stripeRight;
 
-        // Dynamic height: top border + padding + stripes + padding + bottom border
+        //dynamic height: top border + padding + stripes + padding + bottom border
         var stripesHeight = options.Count * (ROW_HEIGHT + STRIPE_GAP) - STRIPE_GAP;
         Height = BORDER_TOP + CONTENT_PADDING_TOP + stripesHeight + CONTENT_PADDING_BOTTOM + BORDER_BOTTOM;
 
-        // Right-aligned, bottom-anchored above dialog bar
+        //right-aligned, bottom-anchored above dialog bar
         X = ChaosGame.VIRTUAL_WIDTH - Width;
         Y = BOTTOM_ANCHOR_Y - Height;
 
-        // Create option label children
+        //create option label children
         for (var i = 0; i < options.Count; i++)
         {
             (var text, var pursuit) = options[i];
@@ -187,7 +184,7 @@ public sealed class DialogOptionPanel : FramedDialogPanelBase
             AddChild(label);
         }
 
-        // OK button: 20px from right outer edge, 4px from bottom outer edge, shown as disabled
+        //ok button: 20px from right outer edge, 4px from bottom outer edge, shown as disabled
         if (OkButton is not null)
         {
             OkButton.X = Width - BTN_WIDTH - 20;
@@ -255,7 +252,7 @@ public sealed class DialogOptionPanel : FramedDialogPanelBase
             var sx = ScreenX;
             var sy = ScreenY;
 
-            // Draw 3-slice stripe background
+            //draw 3-slice stripe background
             var left = IsHovered ? StripeLeftOn ?? StripeLeft : StripeLeft;
             var mid = IsHovered ? StripeMidOn ?? StripeMid : StripeMid;
             var right = IsHovered ? StripeRightOn ?? StripeRight : StripeRight;
@@ -287,7 +284,7 @@ public sealed class DialogOptionPanel : FramedDialogPanelBase
                     new Vector2(sx + Width - rightW, sy),
                     Color.White);
 
-            // Centered text on top
+            //centered text on top
             TextCache.Update(Text, Color.White);
 
             var textX = sx + (Width - TextWidth) / 2;

@@ -63,7 +63,7 @@ public sealed class ChatPanel : ExpandablePanel
 
         RepositionLabels();
 
-        // Position relative to panel origin (panel is placed at panelBounds by RegisterTab)
+        //position relative to panel origin (panel is placed at panelbounds by registertab)
         var relY = displayBounds.Y - panelBounds.Y;
 
         ScrollBar = new ScrollBarControl
@@ -108,7 +108,7 @@ public sealed class ChatPanel : ExpandablePanel
         if (ChatLog.Count > MAX_CHAT_LINES)
             ChatLog.RemoveRange(0, ChatLog.Count - MAX_CHAT_LINES);
 
-        // Auto-scroll to bottom on new message
+        //auto-scroll to bottom on new message
         ScrollOffset = 0;
         LogVersion++;
 
@@ -125,14 +125,14 @@ public sealed class ChatPanel : ExpandablePanel
     {
         ExpandedDisplayBounds = expandedBounds;
 
-        // Clear the normal background so ExpandYOffset is computed from panel Height, not the
-        // texture height (which is the same as the expanded texture, yielding ExpandYOffset=0).
+        //clear the normal background so expandyoffset is computed from panel height, not the
+        //texture height (which is the same as the expanded texture, yielding expandyoffset=0).
         Background = null;
         Height = panelBounds.Height;
 
         ConfigureExpand(expandedBackground);
 
-        // Create additional labels needed for the expanded line count
+        //create additional labels needed for the expanded line count
         var expandedMaxLines = expandedBounds.Height / GLYPH_HEIGHT;
 
         if (expandedMaxLines > Lines.Length)
@@ -160,7 +160,7 @@ public sealed class ChatPanel : ExpandablePanel
             }
         }
 
-        // In the large HUD, the compact chat area is too small for a scrollbar
+        //in the large hud, the compact chat area is too small for a scrollbar
         ScrollBar.Visible = false;
     }
 
@@ -171,7 +171,7 @@ public sealed class ChatPanel : ExpandablePanel
         base.Dispose();
     }
 
-    // Labels are children — drawn automatically by base.Draw()
+    //labels are children — drawn automatically by base.draw()
 
     private void OnMessageAdded(Chat.ChatMessage msg) => AddMessage(msg.Text, msg.Color);
 
@@ -206,7 +206,7 @@ public sealed class ChatPanel : ExpandablePanel
         for (var i = 0; i < Lines.Length; i++)
             if (i < maxLines)
             {
-                // Bottom-up: line 0 at top, line maxLines-1 at bottom
+                //bottom-up: line 0 at top, line maxlines-1 at bottom
                 Lines[i].Y = relY + DisplayBounds.Height - (maxLines - i) * GLYPH_HEIGHT;
                 Lines[i].Visible = true;
             } else
@@ -222,11 +222,11 @@ public sealed class ChatPanel : ExpandablePanel
         ScrollBar.Visible = expanded;
         ScrollBar.Height = DisplayBounds.Height;
 
-        // Show/hide labels based on current line count
+        //show/hide labels based on current line count
         for (var i = 0; i < Lines.Length; i++)
             Lines[i].Visible = i < MaxVisibleLines;
 
-        // Force re-render with new line count
+        //force re-render with new line count
         LogVersion++;
     }
 

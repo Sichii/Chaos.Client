@@ -22,7 +22,7 @@ public sealed class CreatureRenderer : IDisposable
     public void Dispose() => Clear();
 
     /// <summary>
-    ///     Disposes all cached textures and clears the cache.
+    ///     Disposes all cached frame and tint textures. Call on map change.
     /// </summary>
     public void Clear()
     {
@@ -34,7 +34,7 @@ public sealed class CreatureRenderer : IDisposable
     }
 
     /// <summary>
-    ///     Disposes and clears all cached tint textures.
+    ///     Disposes all cached highlight and group tint textures. Call when tint state changes (e.g., hovered entity changes).
     /// </summary>
     public void ClearTintCaches()
     {
@@ -103,8 +103,8 @@ public sealed class CreatureRenderer : IDisposable
     }
 
     /// <summary>
-    ///     Gets the MpfFile animation metadata for a creature sprite (frame counts, indices). Returns null if the sprite
-    ///     cannot be loaded.
+    ///     Returns animation metadata for a creature sprite — walk/attack/standing frame ranges and total frame count. Returns
+    ///     null if the sprite cannot be loaded.
     /// </summary>
     public CreatureAnimInfo? GetAnimInfo(int spriteId)
     {
@@ -132,8 +132,8 @@ public sealed class CreatureRenderer : IDisposable
     }
 
     /// <summary>
-    ///     Gets or creates a cached SpriteFrame for the given creature sprite and frame index. Returns null if the sprite or
-    ///     frame cannot be loaded.
+    ///     Returns the rendered sprite frame for a creature at the given frame index. Returns null if the sprite or frame
+    ///     cannot be loaded.
     /// </summary>
     public SpriteFrame? GetFrame(int spriteId, int frameIndex)
     {
@@ -156,6 +156,7 @@ public sealed class CreatureRenderer : IDisposable
 
         using var image = Graphics.RenderImage(mpfFrame, palettized.Palette);
 
+        // ReSharper disable once ConditionIsAlwaysTrueOrFalseAccordingToNullableAPIContract
         if (image is null)
             return null;
 
@@ -207,7 +208,7 @@ public sealed class CreatureRenderer : IDisposable
 }
 
 /// <summary>
-///     Animation metadata from an MpfFile header. Used to determine which frames correspond to which animation states.
+///     Creature animation metadata: frame index ranges and counts for each animation state (walk, attack, standing).
 /// </summary>
 public readonly record struct CreatureAnimInfo(
     byte WalkFrameIndex,

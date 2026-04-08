@@ -23,7 +23,7 @@ public abstract class PrefabPanel : UIPanel
 
         PrefabSet = prefabSet ?? throw new InvalidOperationException($"Failed to load {prefabName} control prefab set");
 
-        // Anchor — panel dimensions and background
+        //anchor — panel dimensions and background
         var anchor = prefabSet[0];
         var anchorRect = anchor.Control.Rect!.Value;
 
@@ -32,7 +32,7 @@ public abstract class PrefabPanel : UIPanel
 
         if (center)
         {
-            // Use anchor position if non-zero, otherwise center on screen
+            //use anchor position if non-zero, otherwise center on screen
             var anchorLeft = (int)anchorRect.Left;
             var anchorTop = (int)anchorRect.Top;
 
@@ -179,8 +179,8 @@ public abstract class PrefabPanel : UIPanel
         var cache = UiRenderer.Instance!;
         Texture2D[] frames;
 
-        // Single-entry IMAGE lines in control files encode the last frame index.
-        // Load all frames (0 through frameIndex inclusive) from the referenced SPF file.
+        //single-entry image lines in control files encode the last frame index.
+        //load all frames (0 through frameindex inclusive) from the referenced spf file.
         if (prefab.Control.Images is [{ FrameIndex: > 1 } _] rawImages)
         {
             (var imageName, var lastFrameIndex) = rawImages[0];
@@ -294,7 +294,7 @@ public abstract class PrefabPanel : UIPanel
         {
             if (Children[i]
                 .Name
-                ?.EqualsI(name) is not true)
+                .EqualsI(name) is not true)
                 continue;
 
             if (reusable is null && Children[i] is T match)

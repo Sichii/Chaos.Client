@@ -9,8 +9,8 @@ using Microsoft.Xna.Framework.Graphics;
 namespace Chaos.Client;
 
 /// <summary>
-///     Forces dependent assemblies to load into the AppDomain so that reflection-based scanning (e.g. LoadImplementations)
-///     can discover their types. Call <see cref="InitializeOthers" /> once at startup before any scanning occurs.
+///     Static configuration for the client: version, data path, lobby host/port, and sampler state. Triggers all one-time
+///     initialization (encoding providers, data archives, text colors) via the static constructor.
 /// </summary>
 public static class GlobalSettings
 {

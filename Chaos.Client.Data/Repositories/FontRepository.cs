@@ -5,8 +5,7 @@ using DALib.Drawing;
 namespace Chaos.Client.Data.Repositories;
 
 /// <summary>
-///     Provides bitmap font data (FntFile) for text rendering. English (8x12) and Korean (16x12) fonts are loaded from
-///     Legend.dat on first access.
+///     Provides bitmap font data loaded from Legend.dat: English (8x12 glyphs) and Korean (16x12 glyphs).
 /// </summary>
 public sealed class FontRepository
 {

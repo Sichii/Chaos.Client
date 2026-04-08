@@ -14,7 +14,7 @@ public interface IWorldHud
 {
     HudTab ActiveTab { get; }
 
-    // Buttons — nullable since some may not exist in a given prefab
+    //buttons — nullable since some may not exist in a given prefab
     UIButton? BulletinButton { get; }
     UIButton? ChangeLayoutButton { get; }
     ChatPanel ChatDisplay { get; }

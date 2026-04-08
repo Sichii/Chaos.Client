@@ -25,7 +25,7 @@ public sealed class DialogTextEntryPanel : FramedDialogPanelBase
         Visible = false;
 
 
-        // Right-aligned, bottom-anchored above dialog bar (same position as option menu)
+        //right-aligned, bottom-anchored above dialog bar (same position as option menu)
         X = ChaosGame.VIRTUAL_WIDTH - Width;
         Y = BOTTOM_ANCHOR_Y - Height;
 

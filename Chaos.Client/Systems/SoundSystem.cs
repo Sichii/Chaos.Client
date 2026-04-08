@@ -250,7 +250,7 @@ public sealed class SoundSystem : IDisposable
     /// </summary>
     public void Update()
     {
-        // Clean up finished sounds
+        //clean up finished sounds
         for (var i = PlayingSounds.Count - 1; i >= 0; i--)
         {
             if (PlayingSounds[i].Instance.State != SoundState.Stopped)
@@ -266,7 +266,7 @@ public sealed class SoundSystem : IDisposable
             PlayingSounds.RemoveAt(i);
         }
 
-        // Play sounds that finished decoding on background threads
+        //play sounds that finished decoding on background threads
         while (PendingSoundQueue.TryDequeue(out var pending))
         {
             try
@@ -285,14 +285,14 @@ public sealed class SoundSystem : IDisposable
                 PlayingSounds.Add(new PlayingSound(sfx, instance));
             } catch
             {
-                // Sound creation failure is non-critical
+                //sound creation failure is non-critical
             } finally
             {
                 ArrayPool<byte>.Shared.Return(pending.PcmBuffer);
             }
         }
 
-        // Music
+        //music
         if (PendingMusicLoad is not { IsCompleted: true })
             return;
 

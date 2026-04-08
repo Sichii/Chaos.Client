@@ -21,14 +21,14 @@ public static class AnimationSystem
     private const float MORPHED_AISLING_WALK_FRAME_MS = 75f;
     private const float MIN_WALK_DURATION_MS = 75f;
 
-    // The server's AnimationSpeed value × 10 = total animation duration in ms.
-    // Smaller speed = faster animation (e.g. speed=25 → 250ms, speed=100 → 1000ms).
+    //the server's animationspeed value × 10 = total animation duration in ms.
+    //smaller speed = faster animation (e.g. speed=25 → 250ms, speed=100 → 1000ms).
     private const float BODY_ANIM_SPEED_TO_MS = 10f;
     private const float DEFAULT_BODY_ANIM_FRAME_MS = 150f;
     private const float CREATURE_ATTACK_FRAME_MS = 300f;
     private const float IDLE_ANIM_FRAME_MS = 300f;
 
-    // Aisling walk anim "01": frame 0 = Up idle, 1-4 = Up walk; frame 5 = Right idle, 6-9 = Right walk
+    //aisling walk anim "01": frame 0 = up idle, 1-4 = up walk; frame 5 = right idle, 6-9 = right walk
     private const int AISLING_UP_WALK_BASE = 1;
     private const int AISLING_RIGHT_WALK_BASE = 6;
 
@@ -43,7 +43,7 @@ public static class AnimationSystem
         bool isLocalPlayer = false,
         int? walkFrameOverride = null)
     {
-        // Swimming is not a form — use swim animation frame count and normal walk speed on water tiles
+        //swimming is not a form — use swim animation frame count and normal walk speed on water tiles
         var swimming = entity is { IsOnSwimmingTile: true, SwimWalkFrames: > 0 };
 
         var frameCount = swimming ? entity.SwimWalkFrames : walkFrameOverride ?? DEFAULT_WALK_FRAMES;
@@ -84,14 +84,14 @@ public static class AnimationSystem
 
         float frameIntervalMs;
 
-        // Emotes with body animations use total duration from the emote table, divided across frames and repeats
+        //emotes with body animations use total duration from the emote table, divided across frames and repeats
         if (DataUtilities.IsEmote(bodyAnim))
         {
             (_, _, var emoteDuration) = ResolveEmoteFrames(bodyAnim);
             frameIntervalMs = (emoteDuration > 0 ? emoteDuration : DEFAULT_BODY_ANIM_FRAME_MS) / framesPerDir / (1 + repeats);
         } else
 
-            // Non-emote body animations: animSpeed * 10 = per-frame interval
+            //non-emote body animations: animspeed * 10 = per-frame interval
             frameIntervalMs = animSpeed > 0 ? animSpeed * BODY_ANIM_SPEED_TO_MS : DEFAULT_BODY_ANIM_FRAME_MS;
 
         entity.AnimState = EntityAnimState.BodyAnim;
@@ -155,20 +155,17 @@ public static class AnimationSystem
     ///     Advances an entity's animation by the given elapsed milliseconds. Handles walk offset, frame stepping, and
     ///     completion reset to idle.
     /// </summary>
-    /// <param name="elapsedMs">
-    /// </param>
+    /// <param name="entity">The entity whose animation state to advance.</param>
+    /// <param name="elapsedMs">Milliseconds elapsed since the last frame.</param>
     /// <param name="smoothScroll">
-    ///     When true (smooth), the player's walk visual offset lerps continuously between frames. When false (rough/default),
-    ///     the visual offset steps discretely with each animation frame, matching how all non-player entities move. Only
-    ///     relevant for the player entity.
-    /// </param>
-    /// <param name="entity">
+    ///     When true, the player's walk visual offset lerps continuously between frames. When false (default),
+    ///     the visual offset steps discretely with each animation frame, matching how all non-player entities move.
     /// </param>
     public static void Advance(WorldEntity entity, float elapsedMs, bool smoothScroll = false)
     {
-        // Idle animation ticks independently so it survives body animations.
-        // Aislings use IdleAnimFrameCount (from "04" EPF); creatures always tick.
-        // Swimming aislings always tick so the swim animation cycles while idle.
+        //idle animation ticks independently so it survives body animations.
+        //aislings use idleanimframecount (from "04" epf); creatures always tick.
+        //swimming aislings always tick so the swim animation cycles while idle.
         if ((entity.IdleAnimFrameCount > 0) || (entity.Type == ClientEntityType.Creature) || entity.IsOnSwimmingTile)
             AdvanceIdleAnim(entity, elapsedMs);
 
@@ -190,24 +187,24 @@ public static class AnimationSystem
     {
         entity.AnimElapsedMs += elapsedMs;
 
-        // Total duration includes all frames — each frame gets a full interval (including the last).
+        //total duration includes all frames — each frame gets a full interval (including the last).
         var totalDuration = Math.Max(MIN_WALK_DURATION_MS, entity.AnimFrameCount * entity.AnimFrameIntervalMs);
         var progress = Math.Clamp(entity.AnimElapsedMs / totalDuration, 0f, 1f);
 
         entity.AnimFrameIndex = Math.Clamp((int)(progress * entity.AnimFrameCount), 0, entity.AnimFrameCount - 1);
 
-        // Both smooth and stepped use integer-only offsets to prevent sub-pixel wobble.
-        // The walk start offsets are always integer (±28, ±14), and integer division
-        // ensures every intermediate value is also integer.
+        //both smooth and stepped use integer-only offsets to prevent sub-pixel wobble.
+        //the walk start offsets are always integer (±28, ±14), and integer division
+        //ensures every intermediate value is also integer.
         if (smoothScroll)
         {
-            // Smooth: interpolate at 2x the stepped frame rate (double the visual steps).
+            //smooth: interpolate at 2x the stepped frame rate (double the visual steps).
             var smoothFrameCount = entity.AnimFrameCount * 2;
             var smoothFrameIndex = Math.Clamp((int)(progress * smoothFrameCount), 0, smoothFrameCount - 1);
             entity.VisualOffset = GetSteppedWalkOffset(entity.WalkStartOffset, smoothFrameIndex, smoothFrameCount);
         } else
 
-            // Stepped: offset jumps discretely with each animation frame
+            //stepped: offset jumps discretely with each animation frame
             entity.VisualOffset = GetSteppedWalkOffset(entity.WalkStartOffset, entity.AnimFrameIndex, entity.AnimFrameCount);
 
         if (progress >= 1f)
@@ -237,7 +234,7 @@ public static class AnimationSystem
         if (entity.IdleAnimTick < entity.IdleCycleEndsAt)
             return;
 
-        // Roll for next cycle: OptionalAnimationRatio is % chance to play extended frames
+        //roll for next cycle: optionalanimationratio is % chance to play extended frames
         if ((info.OptionalAnimationFrameCount > info.StandingFrameCount) && (info.OptionalAnimationRatio > 0))
             entity.IdleOptionalActive = Random.Shared.Next(100) < info.OptionalAnimationRatio;
         else
@@ -295,7 +292,7 @@ public static class AnimationSystem
 
                 var mappedFrame = MapFrameIndex(entity.AnimFrameIndex, entity.AnimFrameCount, framesPerDir);
 
-                // Single-direction sprite: reuse base frames for all directions
+                //single-direction sprite: reuse base frames for all directions
                 var walkOffset = (info.WalkFrameIndex + framesPerDir + mappedFrame) >= info.TotalFrameCount ? 0 : framesPerDir;
 
                 return entity.Direction switch
@@ -310,7 +307,7 @@ public static class AnimationSystem
 
             case EntityAnimState.BodyAnim:
             {
-                // Use the correct attack range based on the active BodyAnimation
+                //use the correct attack range based on the active bodyanimation
                 (var attackStart, var framesPerDir) = ResolveCreatureAttack(entity.ActiveBodyAnimation ?? BodyAnimation.Assail, in info);
 
                 if (framesPerDir == 0)
@@ -318,7 +315,7 @@ public static class AnimationSystem
 
                 var animFrame = Math.Min(entity.AnimFrameIndex, framesPerDir - 1);
 
-                // Single-direction sprite: reuse base frames for all directions
+                //single-direction sprite: reuse base frames for all directions
                 var atkOffset = (attackStart + framesPerDir + animFrame) >= info.TotalFrameCount ? 0 : framesPerDir;
 
                 return entity.Direction switch
@@ -391,7 +388,7 @@ public static class AnimationSystem
     {
         if (DataUtilities.IsEmote(anim))
         {
-            // BlowKiss and Wave are emotes with body animations from "03"
+            //blowkiss and wave are emotes with body animations from "03"
             return anim switch
             {
                 BodyAnimation.BlowKiss => ("03", 2, 2, 4),
@@ -400,46 +397,46 @@ public static class AnimationSystem
             };
         }
 
-        // Reference: ChaosAssetManager AnimationDefinitions
+        //reference: chaosassetmanager animationdefinitions
         return anim switch
         {
-            // 02 — assail (2 frames per dir)
+            //02 — assail (2 frames per dir)
             BodyAnimation.Assail => ("02", 2, 0, 2),
 
-            // 03 — peasant animations (shared file)
+            //03 — peasant animations (shared file)
             BodyAnimation.HandsUp => ("03", 1, 0, 1),
 
-            // b — priest/bard
+            //b — priest/bard
             BodyAnimation.PriestCast => ("b", 3, 0, 3),
             BodyAnimation.PlayNotes  => ("b", 3, 6, 9),
 
-            // c — warrior
+            //c — warrior
             BodyAnimation.TwoHandAtk => ("c", 4, 0, 4),
             BodyAnimation.JumpAttack => ("c", 3, 8, 11),
             BodyAnimation.Swipe      => ("c", 2, 14, 16),
             BodyAnimation.HeavySwipe => ("c", 3, 18, 21),
             BodyAnimation.Jump       => ("c", 3, 24, 27),
 
-            // d — monk
+            //d — monk
             BodyAnimation.Kick           => ("d", 3, 0, 3),
             BodyAnimation.Punch          => ("d", 2, 6, 8),
             BodyAnimation.RoundHouseKick => ("d", 4, 10, 14),
 
-            // e — rogue
+            //e — rogue
             BodyAnimation.Stab         => ("e", 2, 0, 2),
             BodyAnimation.DoubleStab   => ("e", 2, 4, 6),
             BodyAnimation.BowShot      => ("e", 4, 8, 12),
             BodyAnimation.HeavyBowShot => ("e", 6, 16, 22),
             BodyAnimation.LongBowShot  => ("e", 4, 28, 32),
 
-            // f — wizard
+            //f — wizard
             BodyAnimation.WizardCast => ("f", 2, 0, 2),
             BodyAnimation.Summon     => ("f", 4, 4, 8),
 
-            // HandsUp2 — same as HandsUp
+            //handsup2 — same as handsup
             BodyAnimation.HandsUp2 => ("03", 1, 0, 1),
 
-            // Default fallback — assail
+            //default fallback — assail
             _ => ("02", 2, 0, 2)
         };
     }
@@ -502,17 +499,17 @@ public static class AnimationSystem
             dirOffset = info.OptionalAnimationFrameCount > 0 ? info.OptionalAnimationFrameCount : info.StandingFrameCount;
         } else
         {
-            // Fallback: static first walk frame per direction (no cycling)
+            //fallback: static first walk frame per direction (no cycling)
             baseIndex = info.WalkFrameIndex;
             dirOffset = info.WalkFrameCount;
             frameCount = 1;
         }
 
-        // Single-direction sprite: second direction frames don't exist — reuse base frames for all directions
+        //single-direction sprite: second direction frames don't exist — reuse base frames for all directions
         if ((baseIndex + dirOffset) >= info.TotalFrameCount)
             dirOffset = 0;
 
-        // Cycle through the standing frames using the entity's idle tick
+        //cycle through the standing frames using the entity's idle tick
         var frameTick = frameCount > 1 ? entity.IdleAnimTick % frameCount : 0;
 
         return entity.Direction switch
@@ -573,15 +570,15 @@ public static class AnimationSystem
         if (frameCount <= 0)
             return Vector2.Zero;
 
-        // Compute remaining offset, ensuring X is always even so that Y = X/2 is exact.
-        // This maintains the 2:1 isometric pixel ratio and prevents 1px wobble.
+        //compute remaining offset, ensuring x is always even so that y = x/2 is exact.
+        //this maintains the 2:1 isometric pixel ratio and prevents 1px wobble.
         var startX = (int)startOffset.X;
         var startY = (int)startOffset.Y;
         var framesLeft = frameCount - (frameIndex + 1);
 
         var x = startX * framesLeft / frameCount;
 
-        // Round X to nearest even number (toward zero) to keep the 2:1 ratio exact
+        //round x to nearest even number (toward zero) to keep the 2:1 ratio exact
         if ((x & 1) != 0)
             x += x > 0 ? -1 : 1;
 

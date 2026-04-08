@@ -30,8 +30,8 @@ public sealed class GroupTabControl : PrefabPanel
 
         var cache = UiRenderer.Instance!;
 
-        // Tab buttons — prefab image is _ngcbtnb.spf (selected/big), swap to SelectedTexture
-        // and load _ngcbtns.spf (normal/small) from TAB0_S/TAB1_S prefab entries as NormalTexture
+        //tab buttons — prefab image is _ngcbtnb.spf (selected/big), swap to selectedtexture
+        //and load _ngcbtns.spf (normal/small) from tab0_s/tab1_s prefab entries as normaltexture
         Tab0Button = CreateButton("TAB0");
 
         if (Tab0Button is not null)
@@ -52,7 +52,7 @@ public sealed class GroupTabControl : PrefabPanel
             Tab1Button.Clicked += () => SwitchTab(1);
         }
 
-        // Create child panels — positioned at DLGFRAME rect (0,0 within the main container)
+        //create child panels — positioned at dlgframe rect (0,0 within the main container)
         MembersPanel = new GroupTab();
         MembersPanel.Visible = true;
 
@@ -62,7 +62,7 @@ public sealed class GroupTabControl : PrefabPanel
         AddChild(MembersPanel);
         AddChild(RecruitPanel);
 
-        // Wire close events from child panels
+        //wire close events from child panels
         MembersPanel.OnClose += () =>
         {
             Hide();

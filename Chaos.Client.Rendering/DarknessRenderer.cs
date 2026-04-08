@@ -193,7 +193,7 @@ public sealed class DarknessRenderer : IDisposable
 
     private void EnsureLayerCache(
         ref byte[,]? cache,
-        ref int cachedIndex,
+        out int cachedIndex,
         int neededIndex,
         int vpHeight)
     {
@@ -228,7 +228,7 @@ public sealed class DarknessRenderer : IDisposable
             DarknessColor = new Color(props.R, props.G, props.B);
         } else if (IsDarkMap)
         {
-            // Dark map with no light metadata — pure black darkness
+            //dark map with no light metadata — pure black darkness
             Alpha = 1f;
             DarknessColor = Color.Black;
         } else
@@ -237,7 +237,7 @@ public sealed class DarknessRenderer : IDisposable
             DarknessColor = Color.Transparent;
         }
 
-        // Invalidate dirty tracking so pixels are recomputed with updated alpha/color
+        //invalidate dirty tracking so pixels are recomputed with updated alpha/color
         LastOffsetX = int.MinValue;
         LastOffsetY = int.MinValue;
 
@@ -260,7 +260,7 @@ public sealed class DarknessRenderer : IDisposable
         IsDarkMap = isDarkMap;
         CurrentLightType = LightData?.MapLightTypes.TryGetValue(mapId, out var lightType) is true ? lightType : "default";
 
-        // Dark maps start dark immediately — light metadata can refine via OnLightLevel
+        //dark maps start dark immediately — light metadata can refine via onlightlevel
         if (isDarkMap)
         {
             Alpha = 1f;
@@ -298,7 +298,7 @@ public sealed class DarknessRenderer : IDisposable
         if ((vpWidth <= 0) || (vpHeight <= 0))
             return;
 
-        // Dirty check — skip rebuild if light sources haven't changed
+        //dirty check — skip rebuild if light sources haven't changed
         if (LastOffsetX != int.MinValue)
             return;
 
@@ -313,7 +313,7 @@ public sealed class DarknessRenderer : IDisposable
         if (Pixels is null || (Pixels.Length < pixelCount))
             Pixels = new Color[pixelCount];
 
-        // Fill with flat darkness — use same alpha encoding as ComputePixelsFromCache
+        //fill with flat darkness — use same alpha encoding as computepixelsfromcache
         var ambientAlpha32 = (byte)(32 * (1f - Alpha));
         var flatAlpha = (byte)(255 - ambientAlpha32 * 255 / 32);
 
@@ -326,7 +326,7 @@ public sealed class DarknessRenderer : IDisposable
         for (var i = 0; i < pixelCount; i++)
             Pixels[i] = darkColor;
 
-        // Stamp light sources
+        //stamp light sources
         StampLightSources(vpWidth, vpHeight);
 
         Texture.SetData(Pixels, 0, pixelCount);
@@ -334,7 +334,7 @@ public sealed class DarknessRenderer : IDisposable
         LastOffsetY = 0;
     }
 
-    private void RebuildTexture(Camera camera, Rectangle viewport = default)
+    private void RebuildTexture(Camera camera, Rectangle viewport)
     {
         if (HeaFile is null)
             return;
@@ -373,24 +373,24 @@ public sealed class DarknessRenderer : IDisposable
         if (Pixels is null || (Pixels.Length < pixelCount))
             Pixels = new Color[pixelCount];
 
-        // Determine which layers the viewport overlaps
+        //determine which layers the viewport overlaps
         (var leftLayer, var rightLayer) = DetermineViewportLayers(heaOffsetX, vpWidth);
 
-        // Capture old indices before EnsureLayerCache mutates them — needed for layersMatch check
+        //capture old indices before ensurelayercache mutates them — needed for layersmatch check
         var prevLayerIndex0 = CachedLayerIndex0;
         var prevLayerIndex1 = CachedLayerIndex1;
 
-        // Allocate/reuse layer caches
+        //allocate/reuse layer caches
         EnsureLayerCache(
             ref CachedLayer0,
-            ref CachedLayerIndex0,
+            out CachedLayerIndex0,
             leftLayer,
             vpHeight);
 
         if (rightLayer != leftLayer)
             EnsureLayerCache(
                 ref CachedLayer1,
-                ref CachedLayerIndex1,
+                out CachedLayerIndex1,
                 rightLayer,
                 vpHeight);
         else
@@ -399,7 +399,7 @@ public sealed class DarknessRenderer : IDisposable
             CachedLayer1 = null;
         }
 
-        // Check if incremental update is possible
+        //check if incremental update is possible
         var dy = heaOffsetY - CacheBaseY;
         var expectedIndex1 = leftLayer != rightLayer ? rightLayer : -1;
         var layersMatch = (prevLayerIndex0 == leftLayer) && (prevLayerIndex1 == expectedIndex1);
@@ -407,7 +407,7 @@ public sealed class DarknessRenderer : IDisposable
 
         if (canIncrement && (dy != 0))
         {
-            // Shift cached rows and decode only new rows
+            //shift cached rows and decode only new rows
             if (CachedLayerIndex0 >= 0)
                 ShiftAndDecodeRows(
                     CachedLayer0!,
@@ -425,7 +425,7 @@ public sealed class DarknessRenderer : IDisposable
                     vpHeight);
         } else if (!canIncrement)
         {
-            // Full decode — layers changed, large shift, or first frame
+            //full decode — layers changed, large shift, or first frame
             if (CachedLayerIndex0 >= 0)
                 DecodeLayerRows(
                     CachedLayerIndex0,
@@ -443,19 +443,19 @@ public sealed class DarknessRenderer : IDisposable
                     CachedLayer1!);
         }
 
-        // else: canIncrement && dy == 0 → only X shifted within same layers, cache is valid as-is
+        //else: canincrement && dy == 0 → only x shifted within same layers, cache is valid as-is
 
         CacheBaseY = heaOffsetY;
         CacheValid = true;
 
-        // Compute pixels from cache
+        //compute pixels from cache
         ComputePixelsFromCache(
             heaOffsetX,
             vpWidth,
             vpHeight,
             ambientAlpha32);
 
-        // Stamp lantern/dynamic light sources via max-blend
+        //stamp lantern/dynamic light sources via max-blend
         StampLightSources(vpWidth, vpHeight);
 
         Texture.SetData(Pixels, 0, pixelCount);
@@ -480,7 +480,7 @@ public sealed class DarknessRenderer : IDisposable
         sources.CopyTo(LightSources);
         LightSourceCount = sources.Length;
 
-        // Compute a cheap hash to detect changes — position + count
+        //compute a cheap hash to detect changes — position + count
         var hash = LightSourceCount;
 
         for (var i = 0; i < LightSourceCount; i++)
@@ -501,7 +501,7 @@ public sealed class DarknessRenderer : IDisposable
             LastOffsetY = int.MinValue;
         }
 
-        // Clean up flat-dark texture when no longer needed
+        //clean up flat-dark texture when no longer needed
         if ((LightSourceCount == 0) && HeaFile is null)
         {
             DisposeTexture();
@@ -521,7 +521,7 @@ public sealed class DarknessRenderer : IDisposable
 
         if (dy > 0)
         {
-            // Camera moved down — shift rows up, decode new rows at bottom
+            //camera moved down — shift rows up, decode new rows at bottom
             Array.Copy(
                 cache,
                 dy * layerWidth,
@@ -537,7 +537,7 @@ public sealed class DarknessRenderer : IDisposable
                 cache);
         } else
         {
-            // Camera moved up — shift rows down, decode new rows at top
+            //camera moved up — shift rows down, decode new rows at top
             Array.Copy(
                 cache,
                 0,
@@ -569,11 +569,11 @@ public sealed class DarknessRenderer : IDisposable
             var source = LightSources[i];
             var mask = source.Mask;
 
-            // Mask rect centered on screen position
+            //mask rect centered on screen position
             var maskLeft = (int)source.ScreenPosition.X - mask.Width / 2;
             var maskTop = (int)source.ScreenPosition.Y - mask.Height / 2;
 
-            // Clip to viewport
+            //clip to viewport
             var startX = Math.Max(0, -maskLeft);
             var startY = Math.Max(0, -maskTop);
             var endX = Math.Min(mask.Width, vpWidth - maskLeft);
@@ -598,14 +598,14 @@ public sealed class DarknessRenderer : IDisposable
                     var vpX = maskLeft + mx;
                     var pixelIndex = pixelRowOffset + vpX;
 
-                    // Reverse the existing alpha to get the current effective 0-32 value
+                    //reverse the existing alpha to get the current effective 0-32 value
                     var currentAlpha = pixels[pixelIndex].A;
                     var currentEffective = (byte)(32 - currentAlpha * 32 / 255);
 
                     if (maskValue <= currentEffective)
                         continue;
 
-                    // Recompute the pixel with the brighter value
+                    //recompute the pixel with the brighter value
                     var newAlpha = (byte)(255 - maskValue * 255 / 32);
 
                     pixels[pixelIndex] = new Color(
@@ -635,8 +635,8 @@ public sealed class DarknessRenderer : IDisposable
     }
 
     /// <summary>
-    ///     Rebuilds the per-pixel darkness texture from HEA data for the visible viewport. Call each frame before drawing when
-    ///     HEA data exists.
+    ///     Rebuilds the darkness overlay texture for the current viewport. Handles both HEA-based per-pixel light maps and flat
+    ///     overlays with dynamic light sources. Call each frame before <see cref="Draw" />.
     /// </summary>
     public void Update(Camera camera, Rectangle viewport)
     {

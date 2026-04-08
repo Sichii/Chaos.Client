@@ -45,7 +45,7 @@ public static class MachineIdentity
     [SupportedOSPlatform("windows")]
     private static (uint, uint) LoadOrCreateWindows()
     {
-        // Read from HKCR (merged view of HKLM + HKCU, no admin needed for reads)
+        //read from hkcr (merged view of hklm + hkcu, no admin needed for reads)
         using var readKey1 = Registry.ClassesRoot.OpenSubKey(@"NXKRI.Ctrl.1");
         using var readKey2 = Registry.ClassesRoot.OpenSubKey(@"KRIHC.Ctrl.1");
 
@@ -57,7 +57,7 @@ public static class MachineIdentity
 
         (var newId1, var newId2) = Generate();
 
-        // Write to HKCU\Software\Classes (no admin needed, visible via HKCR)
+        //write to hkcu\software\classes (no admin needed, visible via hkcr)
         using var writeKey1 = Registry.CurrentUser.CreateSubKey(@"Software\Classes\NXKRI.Ctrl.1");
         using var writeKey2 = Registry.CurrentUser.CreateSubKey(@"Software\Classes\KRIHC.Ctrl.1");
 

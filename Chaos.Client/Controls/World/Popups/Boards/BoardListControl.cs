@@ -234,12 +234,12 @@ public sealed class BoardListControl : PrefabPanel
 
         var row = localY / ROW_HEIGHT;
 
-        if ((row < 0) || (row >= MaxVisibleRows))
+        if (row >= MaxVisibleRows)
             return;
 
         var entryIndex = ScrollOffset + row;
 
-        if ((entryIndex < 0) || (entryIndex >= Boards.Count))
+        if (entryIndex >= Boards.Count)
             return;
 
         SelectedIndex = entryIndex;
@@ -261,12 +261,12 @@ public sealed class BoardListControl : PrefabPanel
 
         var row = localY / ROW_HEIGHT;
 
-        if ((row < 0) || (row >= MaxVisibleRows))
+        if (row >= MaxVisibleRows)
             return;
 
         var entryIndex = ScrollOffset + row;
 
-        if ((entryIndex < 0) || (entryIndex >= Boards.Count))
+        if (entryIndex >= Boards.Count)
             return;
 
         SelectedIndex = entryIndex;

@@ -12,7 +12,7 @@ namespace Chaos.Client.Rendering;
 /// <summary>
 ///     Renders debug overlays for the world viewport: foreground tile outlines, entity tile rects with color coding,
 ///     entity click-detection hitboxes, player crosshair, mouse hover tile highlight, and per-entity name/position labels.
-///     All visualization is opt-in via <see cref="DebugOverlay.IsActive" />.
+///     All visualization is opt-in via DebugOverlay.IsActive.
 /// </summary>
 public sealed class WorldDebugRenderer
 {
@@ -74,7 +74,7 @@ public sealed class WorldDebugRenderer
             viewportBounds);
         DrawEntityClickHitboxes(spriteBatch, pixel, entityHitBoxes);
 
-        // Deferred entity debug labels — drawn after all pixel-texture geometry to minimize batch breaks
+        //deferred entity debug labels — drawn after all pixel-texture geometry to minimize batch breaks
         foreach ((var text, var pos) in PendingLabels)
             text.Draw(spriteBatch, pos);
     }
@@ -124,7 +124,7 @@ public sealed class WorldDebugRenderer
                 color * 0.6f);
             spriteBatch.Draw(pixel, tileRect, color * 0.15f);
 
-            // Entity name/info label (cached, deferred to draw after all pixel-texture geometry)
+            //entity name/info label (cached, deferred to draw after all pixel-texture geometry)
             var label = $"{entity.Name} [{entity.Id}] ({entity.TileX},{entity.TileY})";
 
             if (!LabelCache.TryGetValue(entity.Id, out var cachedLabel))

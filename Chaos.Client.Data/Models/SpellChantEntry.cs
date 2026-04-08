@@ -1,7 +1,7 @@
 namespace Chaos.Client.Data.Models;
 
 /// <summary>
-///     A spell name paired with its 10 chant lines (Spell0-Spell9).
+///     A spell name paired with its 10 sequential chant lines.
 /// </summary>
 public sealed class SpellChantEntry
 {

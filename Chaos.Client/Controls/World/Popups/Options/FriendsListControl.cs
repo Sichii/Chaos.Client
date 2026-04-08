@@ -54,11 +54,11 @@ public sealed class FriendsListControl : PrefabPanel
         if (OkButton is not null)
             OkButton.Clicked += CloseWithOk;
 
-        // Column rects from prefab
+        //column rects from prefab
         LeftColumnRect = GetRect("TextTopLeft");
         RightColumnRect = GetRect("TextTopRight");
 
-        // If no rects found, use defaults based on prefab layout
+        //if no rects found, use defaults based on prefab layout
         if (LeftColumnRect == Rectangle.Empty)
             LeftColumnRect = new Rectangle(
                 40,
@@ -140,7 +140,7 @@ public sealed class FriendsListControl : PrefabPanel
 
         RefreshCaches();
 
-        // Labels are children — drawn by base.Draw()
+        //labels are children — drawn by base.draw()
         base.Draw(spriteBatch);
     }
 

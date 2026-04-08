@@ -32,7 +32,7 @@ public sealed class WorldListControl : PrefabPanel
     private readonly ScrollBarControl ScrollBar;
     private readonly Texture2D?[] StatusIcons = new Texture2D?[STATUS_ICON_COUNT];
 
-    // Tab buttons
+    //tab buttons
     private readonly UIButton[] TabButtons = new UIButton[TAB_COUNT];
     private readonly UILabel[] TabCountLabels = new UILabel[TAB_COUNT];
     private readonly UILabel TotalNumLabel;
@@ -41,7 +41,7 @@ public sealed class WorldListControl : PrefabPanel
 
     private int ActiveTab;
 
-    // Player data
+    //player data
     private IReadOnlyList<WorldListEntry> AllEntries = [];
     private HashSet<string> FamilyNames = new(StringComparer.OrdinalIgnoreCase);
     private HashSet<string> FriendNames = new(StringComparer.OrdinalIgnoreCase);
@@ -49,7 +49,7 @@ public sealed class WorldListControl : PrefabPanel
     private bool RowsDirty;
     private int ScrollOffset;
 
-    // Slide animation
+    //slide animation
     private SlideAnimator Slide;
     private ushort TotalOnline;
 
@@ -62,7 +62,7 @@ public sealed class WorldListControl : PrefabPanel
         Visible = false;
         UsesControlStack = true;
 
-        // Position: right-aligned, starts off-screen
+        //position: right-aligned, starts off-screen
         Slide.SetViewportBounds(
             new Rectangle(
                 0,
@@ -72,11 +72,11 @@ public sealed class WorldListControl : PrefabPanel
             Width);
         X = Slide.OffScreenX;
 
-        // UsersList rect
+        //userslist rect
         UsersListRect = GetRect("UsersList");
         MaxVisibleRows = UsersListRect.Height > 0 ? UsersListRect.Height / ROW_HEIGHT : 0;
 
-        // Scrollbar
+        //scrollbar
         ScrollBar = new ScrollBarControl
         {
             Name = "ScrollBar",
@@ -92,7 +92,7 @@ public sealed class WorldListControl : PrefabPanel
         };
         AddChild(ScrollBar);
 
-        // Count labels
+        //count labels
         var totalNumRect = GetRect("TotalNum");
         var countryNumRect = GetRect("CountryNum");
 
@@ -112,7 +112,7 @@ public sealed class WorldListControl : PrefabPanel
         TotalNumLabel.Text = "0";
         AddChild(TotalNumLabel);
 
-        // Row entries
+        //row entries
         var rowWidth = UsersListRect.Width - ScrollBarControl.DEFAULT_WIDTH - 5;
         RowEntries = new WorldListEntryControl[MaxVisibleRows];
 
@@ -131,20 +131,20 @@ public sealed class WorldListControl : PrefabPanel
             AddChild(RowEntries[i]);
         }
 
-        // Social status icons from _nemots.spf (frame 0 of each 3-frame group)
+        //social status icons from _nemots.spf (frame 0 of each 3-frame group)
         LoadStatusIcons();
 
-        // Tab buttons — built from _nusersb.spf frames (9 tabs x 2 states)
+        //tab buttons — built from _nusersb.spf frames (9 tabs x 2 states)
         var countryBtnRect = GetRect("CountryBtn");
         var masterBtnRect = GetRect("MasterBtn");
 
-        // Spacing derived from the Y gap between the first two prefab buttons
+        //spacing derived from the y gap between the first two prefab buttons
         var tabStride = masterBtnRect.Y - countryBtnRect.Y;
 
         if (tabStride <= 0)
             tabStride = 22;
 
-        // Label stride derived from the Y gap between first two prefab labels (same stride)
+        //label stride derived from the y gap between first two prefab labels (same stride)
         var labelStride = tabStride;
 
         var cache = UiRenderer.Instance!;
@@ -187,7 +187,7 @@ public sealed class WorldListControl : PrefabPanel
 
         TabButtons[0].IsSelected = true;
 
-        // Close button
+        //close button
         var closeButton = CreateButton("Close");
 
         if (closeButton is not null)

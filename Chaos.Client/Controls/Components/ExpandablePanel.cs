@@ -65,12 +65,12 @@ public abstract class ExpandablePanel : UIPanel
     }
 
     /// <summary>
-    ///     Sets the expand state. Subclasses should call
-    ///     <c>
-    ///         base.SetExpanded
-    ///     </c>
-    ///     first, then apply type-specific changes (slot visibility, text bounds, etc.).
+    ///     Toggles between normal and expanded mode, adjusting the panel origin, height, and ZIndex.
     /// </summary>
+    /// <remarks>
+    ///     Subclasses should call <c>base.SetExpanded</c> first, then apply type-specific changes (slot visibility, text
+    ///     bounds, etc.).
+    /// </remarks>
     public virtual void SetExpanded(bool expanded)
     {
         if ((expanded == IsExpanded) || ExpandedBackground is null)
@@ -79,8 +79,8 @@ public abstract class ExpandablePanel : UIPanel
         IsExpanded = expanded;
         ZIndex = expanded ? 10 : 0;
 
-        // Adjust panel origin and height so hit-testing covers the expanded area.
-        // Children keep their original Y values — the panel origin shift positions them correctly.
+        //adjust panel origin and height so hit-testing covers the expanded area.
+        //children keep their original y values — the panel origin shift positions them correctly.
         var yShift = expanded ? -ExpandYOffset : ExpandYOffset;
         Y += yShift;
         Height -= yShift;
