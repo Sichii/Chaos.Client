@@ -16,7 +16,7 @@ namespace Chaos.Client.Controls.World.Popups.Profile;
 ///     Each row uses the _nui_ski prefab with a leicon.epf state icon (completed/available/unavailable).
 ///     Layout: Page 0 = SEvent1|SEvent2, Page 1 = SEvent3|SEvent4, Page 2 = SEvent5|SEvent6+7.
 /// </summary>
-public sealed class SelfProfileEventsTab : PrefabPanel
+public sealed class SelfProfileEventMetadataTab : PrefabPanel
 {
     private const int ROW_HEIGHT = 45;
     private const int MAX_VISIBLE_ROWS = 5;
@@ -50,7 +50,7 @@ public sealed class SelfProfileEventsTab : PrefabPanel
     private int LeftScrollOffset;
     private int RightScrollOffset;
 
-    public SelfProfileEventsTab(string prefabName)
+    public SelfProfileEventMetadataTab(string prefabName)
         : base(prefabName, false)
     {
         Name = prefabName;

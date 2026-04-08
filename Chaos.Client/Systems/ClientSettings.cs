@@ -7,7 +7,7 @@ namespace Chaos.Client.Systems;
 public static class ClientSettings
 {
     private const string FILE_NAME = "Darkages.cfg";
-    public static bool AutoAcceptGroupInvites { get; set; } = true;
+    public static bool UseGroupWindow { get; set; } = true;
     public static int ChattingMode { get; set; }
     public static bool DoGroundAnimation { get; set; } = true;
     public static bool EnableProfileClick { get; set; }
@@ -92,7 +92,7 @@ public static class ClientSettings
                         break;
 
                     case "GroupObjectOption":
-                        AutoAcceptGroupInvites = value == "1";
+                        UseGroupWindow = value == "1";
 
                         break;
 
@@ -143,7 +143,7 @@ public static class ClientSettings
             writer.WriteLine($"ScrollLevel : {ScrollLevel}");
             writer.WriteLine($"UserClickMode : {(EnableProfileClick ? 1 : 0)}");
             writer.WriteLine($"MonsterSayRecordMode : {(RecordNpcChat ? 1 : 0)}");
-            writer.WriteLine($"GroupObjectOption : {(AutoAcceptGroupInvites ? 1 : 0)}");
+            writer.WriteLine($"GroupObjectOption : {(UseGroupWindow ? 1 : 0)}");
         } catch
         {
             // Best effort — don't crash on save failure

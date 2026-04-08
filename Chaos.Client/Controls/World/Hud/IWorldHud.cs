@@ -18,6 +18,7 @@ public interface IWorldHud
     UIButton? BulletinButton { get; }
     UIButton? ChangeLayoutButton { get; }
     ChatPanel ChatDisplay { get; }
+    SystemMessagePanel MessageHistory { get; }
     UITextBox ChatInput { get; }
     EffectBarControl EffectBar { get; }
     UIButton? EmoteButton { get; }

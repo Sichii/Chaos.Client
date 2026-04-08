@@ -724,6 +724,22 @@ public sealed class NpcSessionControl : PrefabPanel
             HideAll();
             OnClose?.Invoke();
             e.Handled = true;
+
+            return;
+        }
+
+        // Space — advance normal dialogs via Next button, or select first option in menus
+        if (e.Key == Keys.Space)
+        {
+            if (DialogOption.Visible && DialogOption.OptionCount > 0)
+            {
+                OnOptionSelected?.Invoke(0);
+                e.Handled = true;
+            } else if (NextButton is { Visible: true, Enabled: true })
+            {
+                OnNext?.Invoke();
+                e.Handled = true;
+            }
         }
     }
 

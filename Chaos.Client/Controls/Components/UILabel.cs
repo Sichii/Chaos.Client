@@ -103,6 +103,19 @@ public class UILabel : UIElement
                 maxLines,
                 TextElement.Color,
                 ColorCodesEnabled);
+        } else if (TextElement.Width > innerW)
+        {
+            // Ellipsis truncation — find longest prefix that fits with "..."
+            var text = TextElement.Text;
+            var ellipsisWidth = TextRenderer.MeasureWidth("...");
+            var maxTextWidth = innerW - ellipsisWidth;
+            var truncLen = text.Length;
+
+            while ((truncLen > 0) && (TextRenderer.MeasureWidth(text[..truncLen]) > maxTextWidth))
+                truncLen--;
+
+            var truncated = truncLen > 0 ? text[..truncLen] + "..." : "...";
+            TextRenderer.DrawText(spriteBatch, new Vector2(innerX, innerY + ((TopAligned ? TextElement.Height : innerH) - TextRenderer.CHAR_HEIGHT) / 2), truncated, TextElement.Color, ColorCodesEnabled);
         } else
         {
             TextElement.Alignment = Alignment;

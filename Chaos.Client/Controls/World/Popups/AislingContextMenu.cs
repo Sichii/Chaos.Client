@@ -11,7 +11,7 @@ namespace Chaos.Client.Controls.World.Popups;
 ///     A popup menu that appears when Ctrl+clicking a non-self aisling. Uses popupbox.epf as background. Top row shows the
 ///     player's name, bottom 3 rows are clickable options: info, group request, whisper.
 /// </summary>
-public sealed class AislingPopupMenu : UIPanel
+public sealed class AislingContextMenu : UIPanel
 {
     private const string EPF_FILE = "popupbox.epf";
     private const int BOX_X = 4;
@@ -36,7 +36,7 @@ public sealed class AislingPopupMenu : UIPanel
     private Texture2D? FrameTexture;
     private int HoveredIndex = -1;
 
-    public AislingPopupMenu()
+    public AislingContextMenu()
     {
         Visible = false;
         UsesControlStack = true;

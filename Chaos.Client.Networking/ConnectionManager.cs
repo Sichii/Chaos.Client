@@ -675,6 +675,9 @@ public sealed class ConnectionManager : IDisposable
             } catch
             {
                 // Malformed packet — skip
+            } finally
+            {
+                ArrayPool<byte>.Shared.Return(pkt.Data);
             }
         }
 

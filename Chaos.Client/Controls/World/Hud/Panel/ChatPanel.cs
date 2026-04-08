@@ -75,7 +75,7 @@ public sealed class ChatPanel : ExpandablePanel
 
         ScrollBar.OnValueChanged += v =>
         {
-            ScrollOffset = v;
+            ScrollOffset = ScrollBar.MaxValue - v;
             LogVersion++;
         };
 
@@ -115,7 +115,7 @@ public sealed class ChatPanel : ExpandablePanel
         ScrollBar.TotalItems = ChatLog.Count;
         ScrollBar.VisibleItems = MaxVisibleLines;
         ScrollBar.MaxValue = Math.Max(0, ChatLog.Count - MaxVisibleLines);
-        ScrollBar.Value = 0;
+        ScrollBar.Value = ScrollBar.MaxValue;
     }
 
     /// <summary>
@@ -215,7 +215,6 @@ public sealed class ChatPanel : ExpandablePanel
 
     public override void SetExpanded(bool expanded)
     {
-        // Base handles ExpandYOffset child shift
         base.SetExpanded(expanded);
 
         DisplayBounds = expanded ? ExpandedDisplayBounds : NormalDisplayBounds;
@@ -231,12 +230,19 @@ public sealed class ChatPanel : ExpandablePanel
         LogVersion++;
     }
 
+    public void ScrollToBottom()
+    {
+        ScrollOffset = 0;
+        ScrollBar.Value = ScrollBar.MaxValue;
+        LogVersion++;
+    }
+
     public override void OnMouseScroll(MouseScrollEvent e)
     {
         if (ChatLog.Count > MaxVisibleLines)
         {
             ScrollOffset = Math.Clamp(ScrollOffset + e.Delta, 0, ChatLog.Count - MaxVisibleLines);
-            ScrollBar.Value = ScrollOffset;
+            ScrollBar.Value = ScrollBar.MaxValue - ScrollOffset;
             LogVersion++;
             e.Handled = true;
         }

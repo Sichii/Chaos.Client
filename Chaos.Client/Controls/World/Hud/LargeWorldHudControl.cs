@@ -46,6 +46,7 @@ public sealed class LargeWorldHudControl : PrefabPanel, IWorldHud
 
     public HudTab ActiveTab { get; private set; } = HudTab.Inventory;
     public ChatPanel ChatDisplay { get; private set; } = null!;
+    public SystemMessagePanel MessageHistory { get; private set; } = null!;
     public ExtendedStatsPanel ExtendedStatsPanel { get; private set; } = null!;
     public InventoryPanel Inventory { get; private set; } = null!;
     public SkillBookPanel SkillBook { get; private set; } = null!;
@@ -270,6 +271,8 @@ public sealed class LargeWorldHudControl : PrefabPanel, IWorldHud
 
             if (ExtendedTabFrame is not null)
                 ExtendedTabFrame.Visible = false;
+
+            Expanded = false;
         }
 
         foreach (var panel in TabPanels)
@@ -389,9 +392,9 @@ public sealed class LargeWorldHudControl : PrefabPanel, IWorldHud
         RegisterTab(HudTab.Tools, tools, tabRect);
 
         var msgHistoryBounds = GetRect("ChattingRect");
-        var msgHistoryPanel = new SystemMessagePanel(msgHistoryBounds, tabRect, WorldState.Chat.GetOrangeBarHistory());
-        msgHistoryPanel.ConfigureExpand(chatExpandedTexture, ExpandedChatBounds, tabRect);
-        RegisterTab(HudTab.MessageHistory, msgHistoryPanel, tabRect);
+        MessageHistory = new SystemMessagePanel(msgHistoryBounds, tabRect, WorldState.Chat.GetOrangeBarHistory());
+        MessageHistory.ConfigureExpand(chatExpandedTexture, ExpandedChatBounds, tabRect);
+        RegisterTab(HudTab.MessageHistory, MessageHistory, tabRect);
 
         HudTab[] tabMapping =
         [
@@ -407,7 +410,17 @@ public sealed class LargeWorldHudControl : PrefabPanel, IWorldHud
             if (InventoryTabButtons[i] is not null && (i < tabMapping.Length))
             {
                 var tab = tabMapping[i];
-                InventoryTabButtons[i]!.Clicked += () => ShowTab(tab);
+
+                InventoryTabButtons[i]!.Clicked += () =>
+                {
+                    // Toggle between primary and alt panes for Skills/Spells when clicking the same button
+                    if (tab == HudTab.Skills && (ActiveTab is HudTab.Skills or HudTab.SkillsAlt))
+                        ShowTab(ActiveTab == HudTab.Skills ? HudTab.SkillsAlt : HudTab.Skills);
+                    else if (tab == HudTab.Spells && (ActiveTab is HudTab.Spells or HudTab.SpellsAlt))
+                        ShowTab(ActiveTab == HudTab.Spells ? HudTab.SpellsAlt : HudTab.Spells);
+                    else
+                        ShowTab(tab);
+                };
             }
 
         ShowTab(HudTab.Inventory);
@@ -475,7 +488,7 @@ public sealed class LargeWorldHudControl : PrefabPanel, IWorldHud
 
     public void SetZoneName(string zone) => ZoneNameLabel.Text = zone;
     public void SetWeight(int current, int max) => WeightLabel.Text = $"{current}/{max}";
-    public void SetCoords(int x, int y) => CoordsLabel.Text = $"{x},{y}";
+    public void SetCoords(int x, int y) => CoordsLabel.Text = $"{x}, {y}";
     public void SetServerName(string name) => ServerNameLabel?.Text = name;
 
     public void SetDescription(string? text)
@@ -491,6 +504,10 @@ public sealed class LargeWorldHudControl : PrefabPanel, IWorldHud
         if (e.Key == Keys.Escape && ChatInput.IsFocused)
         {
             ChatInput.IsFocused = false;
+            ChatInput.Text = string.Empty;
+            ChatInput.Prefix = string.Empty;
+            ChatInput.ForegroundColor = Color.White;
+            InputDispatcher.Instance?.ClearExplicitFocus();
             e.Handled = true;
         }
     }

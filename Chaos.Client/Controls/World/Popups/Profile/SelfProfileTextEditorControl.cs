@@ -14,7 +14,7 @@ namespace Chaos.Client.Controls.World.Popups.Profile;
 ///     Contains a multiline UITextBox for editing and OK/Cancel buttons. OK saves and fires OnSave; Cancel discards
 ///     changes.
 /// </summary>
-public sealed class ProfileTextEditorControl : UIPanel
+public sealed class SelfProfileTextEditorControl : UIPanel
 {
     private const int TOTAL_WIDTH = 200;
     private const int TOTAL_HEIGHT = 200;
@@ -35,7 +35,7 @@ public sealed class ProfileTextEditorControl : UIPanel
     private readonly UIButton OkButton;
     private readonly UITextBox TextBox;
 
-    public ProfileTextEditorControl()
+    public SelfProfileTextEditorControl()
     {
         Name = "ProfileTextEditor";
         Visible = false;

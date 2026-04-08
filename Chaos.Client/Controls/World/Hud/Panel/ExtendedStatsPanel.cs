@@ -206,7 +206,7 @@ public sealed class ExtendedStatsPanel : ExpandablePanel
             }
 
             Labels[i]!.X = layouts[i].X;
-            Labels[i]!.Y = expanded ? layouts[i].Y - ExpandYOffset : layouts[i].Y;
+            Labels[i]!.Y = layouts[i].Y;
             Labels[i]!.Width = layouts[i].Width;
             Labels[i]!.Height = layouts[i].Height;
         }

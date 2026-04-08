@@ -191,7 +191,7 @@ public abstract class PanelBase : ExpandablePanel
         // Slot number overlay — positioned at expanded or normal Y
         if (SlotNumberOverlay is not null)
         {
-            var overlayY = IsExpanded ? ScreenY - ExpandYOffset + 3 : ScreenY + 3 + CompactGridPadding;
+            var overlayY = IsExpanded ? ScreenY + 3 : ScreenY + 3 + CompactGridPadding;
 
             AtlasHelper.Draw(
                 spriteBatch,
@@ -333,7 +333,6 @@ public abstract class PanelBase : ExpandablePanel
         if ((expanded == IsExpanded) || (ExpandedVisibleSlots == 0))
             return;
 
-        // Base handles the ExpandYOffset shift for all children
         base.SetExpanded(expanded);
 
         // Apply additional CompactGridPadding shift for large HUD compact backgrounds

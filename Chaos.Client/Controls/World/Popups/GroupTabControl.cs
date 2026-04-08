@@ -9,19 +9,17 @@ namespace Chaos.Client.Controls.World.Popups;
 
 /// <summary>
 ///     Tabbed group window using _ngcmain prefab. Tab 0 = group member list, Tab 1 = group recruitment config. Hosts
-///     <see cref="GroupControl" /> and <see cref="GroupRecruitPanel" /> as child panels swapped by tab selection.
+///     <see cref="GroupTab" /> and <see cref="GroupRecruitPanel" /> as child panels swapped by tab selection.
 /// </summary>
-public sealed class GroupMainControl : PrefabPanel
+public sealed class GroupTabControl : PrefabPanel
 {
-    private int ActiveTab;
-
-    public GroupControl MembersPanel { get; }
+    public GroupTab MembersPanel { get; }
     public GroupRecruitPanel RecruitPanel { get; }
 
     private UIButton? Tab0Button { get; }
     private UIButton? Tab1Button { get; }
 
-    public GroupMainControl()
+    public GroupTabControl()
         : base("_ngcmain", false)
     {
         Name = "GroupMain";
@@ -55,7 +53,7 @@ public sealed class GroupMainControl : PrefabPanel
         }
 
         // Create child panels — positioned at DLGFRAME rect (0,0 within the main container)
-        MembersPanel = new GroupControl();
+        MembersPanel = new GroupTab();
         MembersPanel.Visible = true;
 
         RecruitPanel = new GroupRecruitPanel();
@@ -139,8 +137,6 @@ public sealed class GroupMainControl : PrefabPanel
 
     private void SwitchTab(int tab)
     {
-        ActiveTab = tab;
-
         MembersPanel.Visible = tab == 0;
         RecruitPanel.Visible = tab == 1;
 

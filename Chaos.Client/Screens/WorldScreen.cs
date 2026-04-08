@@ -55,13 +55,13 @@ public sealed partial class WorldScreen : IScreen
 
     // Set of entity IDs currently highlighted as group members (auto-expires after 1000ms)
     private readonly HashSet<uint> GroupHighlightedIds = [];
-    private readonly EntityHighlightState Highlight = new();
+    private readonly EntityHighlight Highlight = new();
     private readonly EntityOverlayManager Overlays = new();
     private readonly PathfindingState Pathfinding = new();
     private readonly Queue<PendingWalk> PendingWalks = new();
 
     private AbilityMetadataDetailsControl AbilityMetadataDetails = null!;
-    private AislingPopupMenu AislingPopup = null!;
+    private AislingContextMenu AislingContext = null!;
 
     private int AnimationTick;
     private ArticleListControl ArticleList = null!;
@@ -74,7 +74,6 @@ public sealed partial class WorldScreen : IScreen
     private Camera Camera = null!;
     private ChantEditControl ChantEdit = null!;
     private ChatSystem Chat = null!;
-    private ContextMenu ContextMenu = null!;
     private MapFlags CurrentMapFlags;
     private short CurrentMapId;
 
@@ -84,20 +83,20 @@ public sealed partial class WorldScreen : IScreen
     private OkPopupMessageControl DisconnectPopup = null!;
 
     // Event detail popup (from Events tab)
-    private EventDetailControl EventDetail = null!;
+    private EventMetadataDetailsControl EventMetadataDetails = null!;
     private ExchangeControl Exchange = null!;
     private byte? ExchangeAmountSlot;
 
     private FriendsListControl FriendsList = null!;
 
     private ChaosGame Game = null!;
-    private GoldExchangeControl GoldDrop = null!;
+    private AmountControl GoldDrop = null!;
     private GroupRecruitPanel GroupBoxViewer = null!;
 
     // True when J was pressed — the next SelfProfile response triggers group highlighting instead of opening the panel
     private bool GroupHighlightRequested;
     private float GroupHighlightTimer;
-    private GroupMainControl GroupPanel = null!;
+    private GroupTabControl GroupPanel = null!;
     private HotkeyHelpControl HotkeyHelp = null!;
     private PanelSlot? HoveredInventorySlot;
     private bool IsGameMaster;
@@ -126,7 +125,7 @@ public sealed partial class WorldScreen : IScreen
     private Action? PendingDeleteAction;
     private bool PendingLoginSwitch;
     private byte[] PlayerPortrait = [];
-    private ProfileTextEditorControl ProfileTextEditor = null!;
+    private SelfProfileTextEditorControl SelfProfileTextEditor = null!;
     private Direction? QueuedWalkDirection;
     private bool RedirectInProgress;
     private TileClickTracker RightClickTracker = new();
@@ -150,7 +149,7 @@ public sealed partial class WorldScreen : IScreen
     private Texture2D? TileCursorTexture;
     private IWorldHud WorldHud = null!;
     private WorldListControl WorldList = null!;
-    private TownMap TownMap = null!;
+    private TownMapControl TownMapControl = null!;
     private WorldMap WorldMap = null!;
 
     /// <inheritdoc />
@@ -304,7 +303,7 @@ public sealed partial class WorldScreen : IScreen
 
         // Initialize client-local settings into UserOptions from persisted config
         var userOptions = WorldState.UserOptions;
-        userOptions.SetValue(6, ClientSettings.AutoAcceptGroupInvites);
+        userOptions.SetValue(6, ClientSettings.UseGroupWindow);
         userOptions.SetValue(8, ClientSettings.ScrollLevel > 0);
         userOptions.SetValue(9, ClientSettings.UseShiftKeyForAltPanels);
         userOptions.SetValue(10, ClientSettings.EnableProfileClick);
@@ -323,7 +322,7 @@ public sealed partial class WorldScreen : IScreen
                 switch (index)
                 {
                     case 6:
-                        ClientSettings.AutoAcceptGroupInvites = value;
+                        ClientSettings.UseGroupWindow = value;
 
                         break;
                     case 8:
@@ -373,7 +372,7 @@ public sealed partial class WorldScreen : IScreen
 
         HotkeyHelp = new HotkeyHelpControl();
 
-        GroupPanel = new GroupMainControl();
+        GroupPanel = new GroupTabControl();
 
         GroupPanel.MembersPanel.OnKick += name => Game.Connection.SendGroupInvite(ClientGroupSwitch.TryInvite, name);
 
@@ -420,7 +419,7 @@ public sealed partial class WorldScreen : IScreen
 
         Exchange = new ExchangeControl(WorldHud.ViewportBounds);
 
-        GoldDrop = new GoldExchangeControl
+        GoldDrop = new AmountControl
         {
             ZIndex = 2
         };
@@ -519,21 +518,21 @@ public sealed partial class WorldScreen : IScreen
 
         StatusBook.OnProfileTextClicked += () =>
         {
-            ProfileTextEditor.Show(StatusBook.GetProfileText());
+            SelfProfileTextEditor.Show(StatusBook.GetProfileText());
         };
 
         StatusBook.OnAbilityDetailRequested += entry =>
         {
             AbilityMetadataDetails.ShowEntry(entry, WorldHud.ViewportBounds);
         };
-        StatusBook.OnEventDetailRequested += (entry, state) => EventDetail.ShowEntry(entry, state, WorldHud.ViewportBounds);
+        StatusBook.OnEventDetailRequested += (entry, state) => EventMetadataDetails.ShowEntry(entry, state, WorldHud.ViewportBounds);
 
-        ProfileTextEditor = new ProfileTextEditorControl
+        SelfProfileTextEditor = new SelfProfileTextEditorControl
         {
             ZIndex = 3
         };
 
-        ProfileTextEditor.OnSave += text =>
+        SelfProfileTextEditor.OnSave += text =>
         {
             StatusBook.SetProfileText(text);
             SaveProfileText(text);
@@ -544,7 +543,7 @@ public sealed partial class WorldScreen : IScreen
             ZIndex = 3
         };
 
-        EventDetail = new EventDetailControl
+        EventMetadataDetails = new EventMetadataDetailsControl
         {
             ZIndex = 3
         };
@@ -597,7 +596,7 @@ public sealed partial class WorldScreen : IScreen
             ZIndex = 2
         };
 
-        TownMap = new TownMap();
+        TownMapControl = new TownMapControl();
 
         MapLoading = new MapLoadingBar
         {
@@ -605,12 +604,7 @@ public sealed partial class WorldScreen : IScreen
         };
         MapLoading.CenterIn(viewport);
 
-        AislingPopup = new AislingPopupMenu
-        {
-            ZIndex = 3
-        };
-
-        ContextMenu = new ContextMenu
+        AislingContext = new AislingContextMenu
         {
             ZIndex = 3
         };
@@ -649,18 +643,18 @@ public sealed partial class WorldScreen : IScreen
         Root.AddChild(MailSend);
         Root.AddChild(DeleteConfirm);
         Root.AddChild(StatusBook);
-        Root.AddChild(ProfileTextEditor);
+        Root.AddChild(SelfProfileTextEditor);
         Root.AddChild(AbilityMetadataDetails);
-        Root.AddChild(EventDetail);
+        Root.AddChild(EventMetadataDetails);
         Root.AddChild(OtherProfile);
         Root.AddChild(TextPopup);
         Root.AddChild(Notepad);
         Root.AddChild(ChantEdit);
         Root.AddChild(WorldMap);
         Root.AddChild(SocialStatusPicker);
-        Root.AddChild(AislingPopup);
-        Root.AddChild(ContextMenu);
-        Root.AddChild(TownMap);
+        Root.AddChild(AislingContext);
+
+        Root.AddChild(TownMapControl);
         Root.AddChild(MapLoading);
         Root.AddChild(DisconnectPopup);
 

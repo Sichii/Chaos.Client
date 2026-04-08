@@ -14,7 +14,7 @@ namespace Chaos.Client.Controls.World.Popups;
 ///     national map background with an animated player marker. Triggered by T key or HUD button, dismissed by Escape, T,
 ///     or any click.
 /// </summary>
-public sealed class TownMap : UIPanel
+public sealed class TownMapControl : UIPanel
 {
     private const int FRAME_WIDTH = 568;
     private const int FRAME_HEIGHT = 406;
@@ -42,7 +42,7 @@ public sealed class TownMap : UIPanel
     // Click-to-dismiss tracking (requires down then up)
     private bool MouseDownReceived;
 
-    public TownMap()
+    public TownMapControl()
     {
         Width = FRAME_WIDTH;
         Height = FRAME_HEIGHT;

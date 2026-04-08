@@ -50,6 +50,7 @@ public sealed class WorldHudControl : PrefabPanel, IWorldHud
     private readonly UILabel ZoneNameLabel;
     public HudTab ActiveTab { get; private set; } = HudTab.Inventory;
     public ChatPanel ChatDisplay { get; private set; } = null!;
+    public SystemMessagePanel MessageHistory { get; private set; } = null!;
     public ExtendedStatsPanel ExtendedStatsPanel { get; private set; } = null!;
     public InventoryPanel Inventory { get; private set; } = null!;
     public SkillBookPanel SkillBook { get; private set; } = null!;
@@ -289,6 +290,10 @@ public sealed class WorldHudControl : PrefabPanel, IWorldHud
     /// </summary>
     public void ShowTab(HudTab tab)
     {
+        // Collapse inventory when switching away so it doesn't persist expanded state
+        if (Inventory.IsExpanded && (tab != HudTab.Inventory))
+            Inventory.SetExpanded(false);
+
         // Hide ALL unique panels to prevent stale visibility
         foreach (var panel in TabPanels)
             panel?.Visible = false;
@@ -360,8 +365,8 @@ public sealed class WorldHudControl : PrefabPanel, IWorldHud
         // Message History (Shift+F) — displays orange bar messages in a tab panel
         var msgHistoryBounds = GetRect("ChattingRect");
 
-        var msgHistoryPanel = new SystemMessagePanel(msgHistoryBounds, tabRect, WorldState.Chat.GetOrangeBarHistory());
-        RegisterTab(HudTab.MessageHistory, msgHistoryPanel, tabRect);
+        MessageHistory = new SystemMessagePanel(msgHistoryBounds, tabRect, WorldState.Chat.GetOrangeBarHistory());
+        RegisterTab(HudTab.MessageHistory, MessageHistory, tabRect);
 
         // Wire tab button clicks: BTN_INV0=A, BTN_INV1=S, BTN_INV2=D, BTN_INV3=F, BTN_INV4=G, BTN_INV5=H
         HudTab[] tabMapping =
@@ -378,7 +383,17 @@ public sealed class WorldHudControl : PrefabPanel, IWorldHud
             if (InventoryTabButtons[i] is not null && (i < tabMapping.Length))
             {
                 var tab = tabMapping[i];
-                InventoryTabButtons[i]!.Clicked += () => ShowTab(tab);
+
+                InventoryTabButtons[i]!.Clicked += () =>
+                {
+                    // Toggle between primary and alt panes for Skills/Spells when clicking the same button
+                    if (tab == HudTab.Skills && (ActiveTab is HudTab.Skills or HudTab.SkillsAlt))
+                        ShowTab(ActiveTab == HudTab.Skills ? HudTab.SkillsAlt : HudTab.Skills);
+                    else if (tab == HudTab.Spells && (ActiveTab is HudTab.Spells or HudTab.SpellsAlt))
+                        ShowTab(ActiveTab == HudTab.Spells ? HudTab.SpellsAlt : HudTab.Spells);
+                    else
+                        ShowTab(tab);
+                };
             }
 
         // Default to inventory visible
@@ -448,9 +463,9 @@ public sealed class WorldHudControl : PrefabPanel, IWorldHud
 
     public void SetZoneName(string zone) => ZoneNameLabel.Text = zone;
 
-    public void SetWeight(int current, int max) => WeightLabel.Text = $"{current}/{max}";
+    public void SetWeight(int current, int max) => WeightLabel.Text = $"{current} / {max}";
 
-    public void SetCoords(int x, int y) => CoordsLabel.Text = $"{x},{y}";
+    public void SetCoords(int x, int y) => CoordsLabel.Text = $"{x}, {y}";
 
     public void SetServerName(string name) => ServerNameLabel?.Text = name;
 
@@ -472,6 +487,10 @@ public sealed class WorldHudControl : PrefabPanel, IWorldHud
         if (e.Key == Keys.Escape && ChatInput.IsFocused)
         {
             ChatInput.IsFocused = false;
+            ChatInput.Text = string.Empty;
+            ChatInput.Prefix = string.Empty;
+            ChatInput.ForegroundColor = Color.White;
+            InputDispatcher.Instance?.ClearExplicitFocus();
             e.Handled = true;
         }
     }

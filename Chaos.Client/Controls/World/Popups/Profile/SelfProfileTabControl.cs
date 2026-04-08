@@ -144,10 +144,10 @@ public sealed class SelfProfileTabControl : PrefabPanel
             StatusBookTab.Equipment => new SelfProfileEquipmentTab(prefabName),
             StatusBookTab.Skills    => new SelfProfileAbilityMetadataTab(prefabName),
             StatusBookTab.Legend    => new SelfProfileLegendTab(prefabName),
-            StatusBookTab.Events    => new SelfProfileEventsTab(prefabName),
-            StatusBookTab.Album     => new StatusBookTabPage(prefabName),
+            StatusBookTab.Events    => new SelfProfileEventMetadataTab(prefabName),
+            StatusBookTab.Album     => new SelfProfileBlankTab(prefabName),
             StatusBookTab.Family    => new SelfProfileFamilyTab(prefabName),
-            _                       => new StatusBookTabPage(prefabName)
+            _                       => new SelfProfileBlankTab(prefabName)
         };
 
         page.X = ContentRect.X;
@@ -163,7 +163,7 @@ public sealed class SelfProfileTabControl : PrefabPanel
         if (page is SelfProfileAbilityMetadataTab skillsTab)
             skillsTab.OnEntryClicked += entry => OnAbilityDetailRequested?.Invoke(entry);
 
-        if (page is SelfProfileEventsTab eventsTab)
+        if (page is SelfProfileEventMetadataTab eventsTab)
             eventsTab.OnEntryClicked += (entry, state) => OnEventDetailRequested?.Invoke(entry, state);
 
         return page;
@@ -263,7 +263,7 @@ public sealed class SelfProfileTabControl : PrefabPanel
         BaseClass baseClass,
         bool enableMasterQuests)
     {
-        if (GetOrCreatePage<SelfProfileEventsTab>(StatusBookTab.Events) is { } page)
+        if (GetOrCreatePage<SelfProfileEventMetadataTab>(StatusBookTab.Events) is { } page)
             page.SetEvents(
                 events,
                 completedEventIds,
@@ -276,7 +276,7 @@ public sealed class SelfProfileTabControl : PrefabPanel
     /// </summary>
     public void ClearEvents()
     {
-        if (GetOrCreatePage<SelfProfileEventsTab>(StatusBookTab.Events) is { } page)
+        if (GetOrCreatePage<SelfProfileEventMetadataTab>(StatusBookTab.Events) is { } page)
             page.ClearAll();
     }
     #endregion

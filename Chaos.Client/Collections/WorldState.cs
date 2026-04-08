@@ -43,7 +43,7 @@ public static class WorldState
     /// <summary>
     ///     Active spell/effect animations currently playing in the world.
     /// </summary>
-    public static List<ActiveEffect> ActiveEffects { get; } = [];
+    public static List<Animation> ActiveEffects { get; } = [];
 
     /// <summary>
     ///     Authoritative player attributes (stats, HP/MP, exp, etc.).
@@ -63,7 +63,7 @@ public static class WorldState
     /// <summary>
     ///     Active creature death dissolve animations.
     /// </summary>
-    public static List<DyingEffect> DyingEffects { get; } = [];
+    public static List<EntityRemovalAnimation> DyingEffects { get; } = [];
 
     /// <summary>
     ///     Authoritative equipment state.

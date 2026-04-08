@@ -10,7 +10,7 @@ namespace Chaos.Client.Controls.World.ViewPort;
 ///     chars per visual line with character wrap (not word wrap). If total character count is 10 or less, text is centered
 ///     per line; otherwise left-aligned.
 /// </summary>
-public sealed class ChantOverlay : UIPanel
+public sealed class ChantText : UIPanel
 {
     private const int CHARS_PER_LINE = 18;
     private const int LINE_HEIGHT = 12;
@@ -25,14 +25,14 @@ public sealed class ChantOverlay : UIPanel
     public uint EntityId { get; }
     public bool IsExpired => ElapsedMs >= DISPLAY_DURATION_MS;
 
-    private ChantOverlay(uint entityId, int width, int height)
+    private ChantText(uint entityId, int width, int height)
     {
         EntityId = entityId;
         Width = width;
         Height = height;
     }
 
-    public static ChantOverlay Create(uint entityId, string message)
+    public static ChantText Create(uint entityId, string message)
     {
         var text = message.Length > MAX_CHARS ? message[..MAX_CHARS] : message;
         var centered = text.Length <= CENTER_THRESHOLD;
@@ -60,7 +60,7 @@ public sealed class ChantOverlay : UIPanel
         var textAreaWidth = CHARS_PER_LINE * 6 + 2;
         var totalHeight = visualLines.Count * LINE_HEIGHT;
 
-        var overlay = new ChantOverlay(entityId, textAreaWidth, totalHeight);
+        var overlay = new ChantText(entityId, textAreaWidth, totalHeight);
 
         for (var i = 0; i < visualLines.Count; i++)
         {

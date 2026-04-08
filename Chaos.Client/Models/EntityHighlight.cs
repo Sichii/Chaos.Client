@@ -8,7 +8,7 @@ namespace Chaos.Client.Models;
 ///     Caches a tinted (highlight) version of an entity texture. Reuses the cached texture if the source and entity
 ///     haven't changed.
 /// </summary>
-public sealed class EntityHighlightState : IDisposable
+public sealed class EntityHighlight : IDisposable
 {
     public uint? HoveredEntityId;
     public bool ShowTintHighlight;

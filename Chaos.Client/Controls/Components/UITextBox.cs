@@ -491,6 +491,23 @@ public class UITextBox : UIElement
         return LineStarts.Count > VisibleLineCount;
     }
 
+    /// <summary>
+    ///     Returns true if the current text (plus prefix) would render beyond the textbox width.
+    ///     Only applies to single-line textboxes.
+    /// </summary>
+    private bool ExceedsTextBoxWidth()
+    {
+        if (IsMultiLine)
+            return false;
+
+        var displayText = IsMasked ? new string('*', Text.Length) : Text;
+        var textWidth = TextRenderer.MeasureWidth(displayText);
+        var prefixWidth = (Prefix.Length > 0) && IsFocused ? TextRenderer.MeasureWidth(Prefix) : 0;
+        var availableWidth = Width - PaddingLeft;
+
+        return (prefixWidth + textWidth) > availableWidth;
+    }
+
     private int FindWordBoundaryLeft(int from)
     {
         if (from <= 0)
@@ -818,7 +835,7 @@ public class UITextBox : UIElement
         SelectionAnchor = CursorPosition;
         ResetCursor();
 
-        if (ClampToVisibleArea && IsMultiLine && ExceedsVisibleArea())
+        if (ExceedsTextBoxWidth() || (ClampToVisibleArea && IsMultiLine && ExceedsVisibleArea()))
         {
             Text = savedText;
             CursorPosition = savedCursor;
@@ -1160,6 +1177,15 @@ public class UITextBox : UIElement
                 e.Handled = true;
 
                 break;
+
+            default:
+                // Consume all other key presses while focused so they don't bubble
+                // to hotkey handlers. Actual character insertion happens via OnTextInput.
+                // Let Escape and Tab bubble for unfocus / focus cycling.
+                if (e.Key is not Keys.Escape && !(e.Key is Keys.Enter && !IsMultiLine) && !(e.Key is Keys.Tab && IsTabStop))
+                    e.Handled = true;
+
+                break;
         }
 
         if (IsMultiLine)
@@ -1241,7 +1267,7 @@ public class UITextBox : UIElement
         SelectionAnchor = CursorPosition;
         ResetCursor();
 
-        if (ClampToVisibleArea && IsMultiLine && ExceedsVisibleArea())
+        if (ExceedsTextBoxWidth() || (ClampToVisibleArea && IsMultiLine && ExceedsVisibleArea()))
         {
             Text = priorText;
             CursorPosition = priorCursor;

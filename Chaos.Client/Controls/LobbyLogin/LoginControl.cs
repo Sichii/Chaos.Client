@@ -32,6 +32,12 @@ public sealed class LoginControl : PrefabPanel
         PasswordField?.IsMasked = true;
 
         if (UsernameField is not null)
+            UsernameField.IsTabStop = true;
+
+        if (PasswordField is not null)
+            PasswordField.IsTabStop = true;
+
+        if (UsernameField is not null)
             UsernameField.OnFocused += OnTextBoxFocused;
 
         if (PasswordField is not null)

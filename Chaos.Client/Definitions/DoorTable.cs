@@ -8,13 +8,13 @@ namespace Chaos.Client.Definitions;
 ///     Hardcoded door tile mapping extracted from DarkAges.exe (table at 0x0068b8b0). Maps closed foreground tile IDs to
 ///     their open counterparts. 66 pairs, bidirectional lookup.
 /// </summary>
-public static class DoorTileTable
+public static class DoorTable
 {
     // Bidirectional: ClosedToOpen for opening, OpenToClosed for closing
     private static readonly FrozenDictionary<short, short> ClosedToOpen;
     private static readonly FrozenDictionary<short, short> OpenToClosed;
 
-    static DoorTileTable()
+    static DoorTable()
     {
         var pairs = new (short Closed, short Open)[]
         {

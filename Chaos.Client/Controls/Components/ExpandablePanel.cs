@@ -16,11 +16,8 @@ public abstract class ExpandablePanel : UIPanel
     private Texture2D? ExpandedBackground;
 
     /// <summary>
-    ///     The Y offset (in pixels) between the expanded and normal backgrounds. The expanded background is drawn at
-    ///     <c>
-    ///         ScreenY - ExpandYOffset
-    ///     </c>
-    ///     so it grows upward from the bottom edge.
+    ///     The Y offset (in pixels) between the expanded and normal backgrounds. When expanded, the panel's Y is shifted
+    ///     upward by this amount and Height grows by the same amount so that hit-testing covers the expanded area.
     /// </summary>
     public int ExpandYOffset { get; private set; }
 
@@ -51,7 +48,7 @@ public abstract class ExpandablePanel : UIPanel
             AtlasHelper.Draw(
                 spriteBatch,
                 ExpandedBackground,
-                new Vector2(ScreenX, ScreenY - ExpandYOffset),
+                new Vector2(ScreenX, ScreenY),
                 Color.White);
 
             foreach (var child in Children)
@@ -82,10 +79,10 @@ public abstract class ExpandablePanel : UIPanel
         IsExpanded = expanded;
         ZIndex = expanded ? 10 : 0;
 
-        // Shift all children up/down by ExpandYOffset so they align with the expanded/normal background
+        // Adjust panel origin and height so hit-testing covers the expanded area.
+        // Children keep their original Y values — the panel origin shift positions them correctly.
         var yShift = expanded ? -ExpandYOffset : ExpandYOffset;
-
-        foreach (var child in Children)
-            child.Y += yShift;
+        Y += yShift;
+        Height -= yShift;
     }
 }

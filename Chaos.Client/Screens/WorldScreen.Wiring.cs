@@ -720,14 +720,14 @@ public sealed partial class WorldScreen
         if (hud.TownMapButton is not null)
             hud.TownMapButton.Clicked += () =>
             {
-                if (TownMap.Visible)
-                    TownMap.Hide();
+                if (TownMapControl.Visible)
+                    TownMapControl.Hide();
                 else
                 {
                     var player = WorldState.GetPlayerEntity();
 
                     if (player is not null)
-                        TownMap.Show(CurrentMapId, player.TileX, player.TileY);
+                        TownMapControl.Show(CurrentMapId, player.TileX, player.TileY);
                 }
             };
 

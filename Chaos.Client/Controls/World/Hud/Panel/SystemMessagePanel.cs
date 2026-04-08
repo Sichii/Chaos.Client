@@ -73,7 +73,7 @@ public sealed class SystemMessagePanel : ExpandablePanel
 
         ScrollBar.OnValueChanged += v =>
         {
-            ScrollOffset = v;
+            ScrollOffset = ScrollBar.MaxValue - v;
             RenderedScrollOffset = -1;
         };
 
@@ -167,7 +167,6 @@ public sealed class SystemMessagePanel : ExpandablePanel
 
     public override void SetExpanded(bool expanded)
     {
-        // Base handles ExpandYOffset child shift
         base.SetExpanded(expanded);
 
         DisplayBounds = expanded ? ExpandedDisplayBounds : NormalDisplayBounds;
@@ -182,12 +181,19 @@ public sealed class SystemMessagePanel : ExpandablePanel
         RenderedScrollOffset = -1;
     }
 
+    public void ScrollToBottom()
+    {
+        ScrollOffset = 0;
+        ScrollBar.Value = ScrollBar.MaxValue;
+        RenderedScrollOffset = -1;
+    }
+
     public override void OnMouseScroll(MouseScrollEvent e)
     {
         if (History.Count > MaxVisibleLines)
         {
-            ScrollOffset = Math.Clamp(ScrollOffset - e.Delta, 0, History.Count - MaxVisibleLines);
-            ScrollBar.Value = ScrollOffset;
+            ScrollOffset = Math.Clamp(ScrollOffset + e.Delta, 0, History.Count - MaxVisibleLines);
+            ScrollBar.Value = ScrollBar.MaxValue - ScrollOffset;
             e.Handled = true;
         }
     }
@@ -208,7 +214,7 @@ public sealed class SystemMessagePanel : ExpandablePanel
             ScrollBar.TotalItems = History.Count;
             ScrollBar.VisibleItems = MaxVisibleLines;
             ScrollBar.MaxValue = Math.Max(0, History.Count - MaxVisibleLines);
-            ScrollBar.Value = 0;
+            ScrollBar.Value = ScrollBar.MaxValue;
         }
 
         RefreshDisplay();

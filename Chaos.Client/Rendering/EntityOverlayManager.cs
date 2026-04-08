@@ -26,7 +26,7 @@ public sealed class EntityOverlayManager
     // Group box Y offset — sits 2px above name tags
     private const int GROUP_BOX_Y_OFFSET = 74;
     private static readonly Color NAME_TAG_SHADOW_COLOR = new(20, 20, 20);
-    private readonly Dictionary<uint, ChantOverlay> ChantOverlays = new();
+    private readonly Dictionary<uint, ChantText> ChantOverlays = new();
 
     private readonly Dictionary<uint, ChatBubble> ChatBubbles = new();
     private readonly Dictionary<uint, GroupBox> GroupBoxes = new();
@@ -47,7 +47,7 @@ public sealed class EntityOverlayManager
         // Chant replaces any active chat bubble
         RemoveChatBubble(entityId);
 
-        ChantOverlays[entityId] = ChantOverlay.Create(entityId, message);
+        ChantOverlays[entityId] = ChantText.Create(entityId, message);
     }
 
     /// <summary>

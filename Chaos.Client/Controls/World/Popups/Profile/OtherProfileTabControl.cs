@@ -111,7 +111,7 @@ public sealed class OtherProfileTabControl : PrefabPanel
         {
             StatusBookTab.Equipment => new OtherProfileEquipmentTab(prefabName),
             StatusBookTab.Legend    => new SelfProfileLegendTab(prefabName),
-            _                       => new StatusBookTabPage(prefabName)
+            _                       => new SelfProfileBlankTab(prefabName)
         };
 
         page.X = ContentRect.X;

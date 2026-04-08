@@ -601,16 +601,6 @@ public sealed partial class WorldScreen
             return;
         }
 
-        // Escape — unfocus chat
-        if (e.Key == Keys.Escape && WorldHud.ChatInput.IsFocused)
-        {
-            Chat.Unfocus();
-            Game.Dispatcher.ClearExplicitFocus();
-            e.Handled = true;
-
-            return;
-        }
-
         // Stack guard: suppress all game hotkeys when a popup is active
         if (Game.Dispatcher.ControlStackCount > 0)
             return;
@@ -684,9 +674,9 @@ public sealed partial class WorldScreen
             return;
         }
 
-        if (e.Key == Keys.T && TownMap.Visible)
+        if (e.Key == Keys.T && TownMapControl.Visible)
         {
-            TownMap.Hide();
+            TownMapControl.Hide();
             e.Handled = true;
 
             return;
@@ -757,7 +747,16 @@ public sealed partial class WorldScreen
 
             if (e.Key == Keys.F)
             {
-                WorldHud.ShowTab(e.Shift ? HudTab.MessageHistory : HudTab.Chat);
+                if (e.Shift)
+                {
+                    WorldHud.ShowTab(HudTab.MessageHistory);
+                    WorldHud.MessageHistory.ScrollToBottom();
+                } else
+                {
+                    WorldHud.ShowTab(HudTab.Chat);
+                    WorldHud.ChatDisplay.ScrollToBottom();
+                }
+
                 e.Handled = true;
 
                 return;
@@ -854,14 +853,7 @@ public sealed partial class WorldScreen
             return;
         }
 
-        // F8 — group panel
-        if (e.Key == Keys.F8)
-        {
-            GroupPanel.ShowMembers();
-            e.Handled = true;
-
-            return;
-        }
+        // F8 — unused (group panel moved to Y key)
 
         // F9 — ignore list management
         if (e.Key == Keys.F9)
@@ -927,11 +919,25 @@ public sealed partial class WorldScreen
         // T — town map toggle
         if (e.Key == Keys.T)
         {
-            var player = WorldState.GetPlayerEntity();
+            if (TownMapControl.Visible)
+                TownMapControl.Hide();
+            else
+            {
+                var player = WorldState.GetPlayerEntity();
 
-            if (player is not null)
-                TownMap.Show(CurrentMapId, player.TileX, player.TileY);
+                if (player is not null)
+                    TownMapControl.Show(CurrentMapId, player.TileX, player.TileY);
+            }
 
+            e.Handled = true;
+
+            return;
+        }
+
+        // Y — group panel (members tab)
+        if (e.Key == Keys.Y)
+        {
+            GroupPanel.ShowMembers();
             e.Handled = true;
 
             return;
@@ -945,13 +951,17 @@ public sealed partial class WorldScreen
         if (HandleSlotHotkey(e))
             return;
 
-        // Player movement — arrow keys
+        // Player movement — arrow keys and ZXCV
         Direction? direction = e.Key switch
         {
             Keys.Up    => Direction.Up,
             Keys.Right => Direction.Right,
             Keys.Down  => Direction.Down,
             Keys.Left  => Direction.Left,
+            Keys.C     => Direction.Up,
+            Keys.V     => Direction.Right,
+            Keys.X     => Direction.Down,
+            Keys.Z     => Direction.Left,
             _          => null
         };
 
@@ -1290,7 +1300,7 @@ public sealed partial class WorldScreen
             var name = entity.Name;
             var id = entity.Id;
 
-            AislingPopup.Show(
+            AislingContext.Show(
                 mouseX,
                 mouseY,
                 name,

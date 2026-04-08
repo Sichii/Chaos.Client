@@ -15,7 +15,7 @@ namespace Chaos.Client.Controls.World.Popups;
 ///     When the player is the leader, quit buttons next to other members are enabled (kick).
 ///     BTN_OK closes the panel.
 /// </summary>
-public sealed class GroupControl : PrefabPanel
+public sealed class GroupTab : PrefabPanel
 {
     private const int MAX_MEMBERS = 13;
     private const int ROW_HEIGHT = 22;
@@ -34,7 +34,7 @@ public sealed class GroupControl : PrefabPanel
 
     public UIButton? OkButton { get; }
 
-    public GroupControl()
+    public GroupTab()
         : base("_ngcdlg0", false)
     {
         Name = "Group";

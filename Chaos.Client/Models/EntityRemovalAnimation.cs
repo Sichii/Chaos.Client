@@ -10,7 +10,7 @@ namespace Chaos.Client.Models;
 ///     frames (540ms) alternating scanlines shift downward while the whole image fades out. Matches the original DA client
 ///     behavior.
 /// </summary>
-public sealed class DyingEffect : IDisposable
+public sealed class EntityRemovalAnimation : IDisposable
 {
     private const int FRAME_COUNT = 9;
     private const float FRAME_INTERVAL_MS = 60f;
@@ -36,7 +36,7 @@ public sealed class DyingEffect : IDisposable
     public short Top { get; }
     public bool IsComplete => CurrentFrame >= FRAME_COUNT;
 
-    public DyingEffect(
+    public EntityRemovalAnimation(
         GraphicsDevice device,
         Texture2D sourceTexture,
         int tileX,

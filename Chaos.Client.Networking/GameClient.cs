@@ -121,7 +121,7 @@ public sealed class GameClient : IDisposable
     /// </summary>
     public T Deserialize<T>(in ServerPacket serverPacket) where T: IPacketSerializable
     {
-        var span = serverPacket.Data.AsSpan();
+        var span = serverPacket.Data.AsSpan(0, serverPacket.Length);
         var isEncrypted = serverPacket.IsEncrypted;
         var packet = new Packet(ref span, isEncrypted);
 
@@ -394,14 +394,17 @@ public sealed class GameClient : IDisposable
             return;
         }
 
-        // Default: enqueue for game loop consumption
-        var wireBytes = packet.ToArray();
+        // Default: enqueue for game loop consumption (rented buffer returned after deserialization)
+        var wireLength = rawPacket.Length;
+        var rented = ArrayPool<byte>.Shared.Rent(wireLength);
+        rawPacket.CopyTo(rented);
 
         var serverPacket = new ServerPacket(
             opCode,
             packet.Sequence,
             isEncrypted,
-            wireBytes);
+            rented,
+            wireLength);
 
         InboundQueue.Enqueue(serverPacket);
         OnPacketReceived?.Invoke(serverPacket);
@@ -490,4 +493,5 @@ public readonly record struct ServerPacket(
     byte OpCode,
     byte Sequence,
     bool IsEncrypted,
-    byte[] Data);
+    byte[] Data,
+    int Length);

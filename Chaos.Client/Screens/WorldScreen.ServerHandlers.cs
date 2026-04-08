@@ -1,5 +1,6 @@
 #region
 using Chaos.Client.Collections;
+using Chaos.Client.Controls.Generic;
 using Chaos.Client.Data;
 using Chaos.Client.Data.Utilities;
 using Chaos.Client.Extensions;
@@ -94,7 +95,7 @@ public sealed partial class WorldScreen
 
         var frame = spriteFrame.Value;
 
-        var dyingEffect = new DyingEffect(
+        var dyingEffect = new EntityRemovalAnimation(
             Device,
             frame.Texture,
             entity.TileX,
@@ -600,22 +601,14 @@ public sealed partial class WorldScreen
             {
                 WorldState.Chat.AddOrangeBarMessage($"{sourceName} invites you to join a group.");
 
-                if (ClientSettings.AutoAcceptGroupInvites)
+                if (!ClientSettings.UseGroupWindow)
                 {
                     Game.Connection.SendGroupInvite(ClientGroupSwitch.AcceptInvite, sourceName);
 
                     break;
                 }
 
-                var vp = WorldHud.ViewportBounds;
-                var menuX = vp.X + vp.Width / 2;
-                var menuY = vp.Y + vp.Height / 2;
-
-                ContextMenu.Show(
-                    menuX,
-                    menuY,
-                    ($"Accept {sourceName}'s invite", () => Game.Connection.SendGroupInvite(ClientGroupSwitch.AcceptInvite, sourceName)),
-                    ("Decline", () => { }));
+                ShowGroupInvitePopup($"{sourceName} invites you to join a group.", sourceName);
 
                 break;
             }
@@ -624,22 +617,14 @@ public sealed partial class WorldScreen
             {
                 WorldState.Chat.AddOrangeBarMessage($"{sourceName} wants to join your group.");
 
-                if (ClientSettings.AutoAcceptGroupInvites)
+                if (!ClientSettings.UseGroupWindow)
                 {
                     Game.Connection.SendGroupInvite(ClientGroupSwitch.AcceptInvite, sourceName);
 
                     break;
                 }
 
-                var vp = WorldHud.ViewportBounds;
-                var menuX = vp.X + vp.Width / 2;
-                var menuY = vp.Y + vp.Height / 2;
-
-                ContextMenu.Show(
-                    menuX,
-                    menuY,
-                    ($"Accept {sourceName}", () => Game.Connection.SendGroupInvite(ClientGroupSwitch.AcceptInvite, sourceName)),
-                    ("Decline", () => { }));
+                ShowGroupInvitePopup($"{sourceName} wants to join your group.", sourceName);
 
                 break;
             }
@@ -661,6 +646,27 @@ public sealed partial class WorldScreen
                 break;
             }
         }
+    }
+
+    private void ShowGroupInvitePopup(string message, string sourceName)
+    {
+        var popup = new OkPopupMessageControl(true);
+        Root.AddChild(popup);
+
+        popup.OnOk += () =>
+        {
+            Game.Connection.SendGroupInvite(ClientGroupSwitch.AcceptInvite, sourceName);
+            popup.Hide();
+            Root.RemoveChild(popup.Name);
+        };
+
+        popup.OnCancel += () =>
+        {
+            popup.Hide();
+            Root.RemoveChild(popup.Name);
+        };
+
+        popup.Show(message);
     }
 
     // --- Profiles ---
@@ -957,7 +963,7 @@ public sealed partial class WorldScreen
             WorldState.ActiveEffects.RemoveAll(e => e.TargetEntityId == targetEntityId);
 
         WorldState.ActiveEffects.Add(
-            new ActiveEffect
+            new Animation
             {
                 EffectId = effectId,
                 TargetEntityId = targetEntityId,
@@ -996,8 +1002,8 @@ public sealed partial class WorldScreen
             if (door.Closed)
             {
                 // Restore closed tile: find the open tile currently set and swap it back
-                var closedLeft = DoorTileTable.GetClosedTileId(tile.LeftForeground);
-                var closedRight = DoorTileTable.GetClosedTileId(tile.RightForeground);
+                var closedLeft = DoorTable.GetClosedTileId(tile.LeftForeground);
+                var closedRight = DoorTable.GetClosedTileId(tile.RightForeground);
 
                 if (closedLeft.HasValue)
                     tile.LeftForeground = closedLeft.Value;
@@ -1007,8 +1013,8 @@ public sealed partial class WorldScreen
             } else
             {
                 // Open door: find the closed tile and swap to open
-                var openLeft = DoorTileTable.GetOpenTileId(tile.LeftForeground);
-                var openRight = DoorTileTable.GetOpenTileId(tile.RightForeground);
+                var openLeft = DoorTable.GetOpenTileId(tile.LeftForeground);
+                var openRight = DoorTable.GetOpenTileId(tile.RightForeground);
 
                 if (openLeft.HasValue)
                     tile.LeftForeground = openLeft.Value;
@@ -1025,7 +1031,7 @@ public sealed partial class WorldScreen
         QueuedWalkDirection = null;
         Pathfinding.Clear();
         WorldMap.HideMap();
-        TownMap.Hide();
+        TownMapControl.Hide();
     }
 
     // --- Health / effects / light ---

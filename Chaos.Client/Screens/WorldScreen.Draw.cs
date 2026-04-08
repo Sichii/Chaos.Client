@@ -433,7 +433,7 @@ public sealed partial class WorldScreen
 
     private void DrawSingleEffect(
         SpriteBatch spriteBatch,
-        ActiveEffect effect,
+        Animation effect,
         float tileCenterX,
         float tileCenterY,
         Vector2 visualOffset)

@@ -7,7 +7,7 @@ namespace Chaos.Client.Models;
 /// <summary>
 ///     Tracks a single in-flight spell/effect animation. Can be attached to an entity or positioned at a tile.
 /// </summary>
-public sealed class ActiveEffect
+public sealed class Animation
 {
     public EffectBlendMode BlendMode { get; init; }
     public int CurrentFrame { get; set; }

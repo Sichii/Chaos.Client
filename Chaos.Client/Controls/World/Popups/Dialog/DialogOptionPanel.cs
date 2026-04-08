@@ -104,6 +104,8 @@ public sealed class DialogOptionPanel : FramedDialogPanelBase
         StripeRightOn = renderer.GetSpfTexture("nd_n02on.spf");
     }
 
+    public int OptionCount => OptionLabels.Count;
+
     public ushort GetOptionPursuitId(int index)
     {
         if ((index < 0) || (index >= OptionLabels.Count))

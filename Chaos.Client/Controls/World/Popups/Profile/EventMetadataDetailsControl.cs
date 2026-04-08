@@ -13,7 +13,7 @@ namespace Chaos.Client.Controls.World.Popups.Profile;
 ///     prerequisites, reward, and description (Result when completed, Summary otherwise). Dismisses on any click or
 ///     Escape.
 /// </summary>
-public sealed class EventDetailControl : PrefabPanel
+public sealed class EventMetadataDetailsControl : PrefabPanel
 {
     private readonly UILabel? DescLabel;
     private readonly UIImage? IconImage;
@@ -22,7 +22,7 @@ public sealed class EventDetailControl : PrefabPanel
     private readonly UILabel? NameLabel;
     private readonly UILabel? RewardLabel;
 
-    public EventDetailControl()
+    public EventMetadataDetailsControl()
         : base("_nui_eve")
     {
         Visible = false;
