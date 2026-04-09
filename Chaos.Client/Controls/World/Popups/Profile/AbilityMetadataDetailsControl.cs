@@ -48,8 +48,7 @@ public sealed class AbilityMetadataDetailsControl : PrefabPanel
         Sub2Label = CreateLabel("SUB2");
         DescLabel = CreateLabel("DESC");
 
-        if (DescLabel is not null)
-            DescLabel.WordWrap = true;
+        DescLabel?.WordWrap = true;
     }
 
     private static string FormatPreReq(string? name, byte level)
@@ -97,8 +96,7 @@ public sealed class AbilityMetadataDetailsControl : PrefabPanel
 
         var attrs = WorldState.Attributes.Current;
 
-        if (NameLabel is not null)
-            NameLabel.Text = entry.Name;
+        NameLabel?.Text = entry.Name;
 
         if (LevelLabel is not null)
         {
@@ -148,8 +146,7 @@ public sealed class AbilityMetadataDetailsControl : PrefabPanel
             Sub2Label.ForegroundColor = RequirementColor(HasPreRequisite(entry.PreReq2Name, entry.PreReq2Level));
         }
 
-        if (DescLabel is not null)
-            DescLabel.Text = entry.Description;
+        DescLabel?.Text = entry.Description;
 
         if (IconImage is not null)
         {

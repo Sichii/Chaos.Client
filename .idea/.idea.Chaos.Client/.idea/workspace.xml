@@ -14,175 +14,44 @@
     <configurations />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="2cf40e53-e49e-4e2b-a433-eb4f57999662" name="Changes" comment="bugfixes and renaming">
+    <list default="true" id="2cf40e53-e49e-4e2b-a433-eb4f57999662" name="Changes" comment="style and minor features">
       <change beforePath="$PROJECT_DIR$/.idea/.idea.Chaos.Client/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/.idea.Chaos.Client/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Chaos.Client.Data/Abstractions/RepositoryBase.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client.Data/Abstractions/RepositoryBase.cs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Chaos.Client.Data/DataContext.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client.Data/DataContext.cs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Chaos.Client.Data/Definitions/Enums.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client.Data/Definitions/Enums.cs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Chaos.Client.Data/LegendPalette.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client.Data/LegendPalette.cs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Chaos.Client.Data/Models/AbilityAnimationTable.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client.Data/Models/AbilityAnimationTable.cs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Chaos.Client.Data/Models/AbilityMetadata.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client.Data/Models/AbilityMetadata.cs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Chaos.Client.Data/Models/CompressedHpfFile.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client.Data/Models/CompressedHpfFile.cs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Chaos.Client.Data/Models/ControlPrefab.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client.Data/Models/ControlPrefab.cs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Chaos.Client.Data/Models/EventMetadataEntry.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client.Data/Models/EventMetadataEntry.cs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Chaos.Client.Data/Models/FamilyList.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client.Data/Models/FamilyList.cs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Chaos.Client.Data/Models/GroundAttribute.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client.Data/Models/GroundAttribute.cs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Chaos.Client.Data/Models/ItemMetadataEntry.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client.Data/Models/ItemMetadataEntry.cs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Chaos.Client.Data/Models/LightMetadata.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client.Data/Models/LightMetadata.cs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Chaos.Client.Data/Models/NationMetadata.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client.Data/Models/NationMetadata.cs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Chaos.Client.Data/Models/SkillChantEntry.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client.Data/Models/SkillChantEntry.cs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Chaos.Client.Data/Models/SpellChantEntry.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client.Data/Models/SpellChantEntry.cs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Chaos.Client.Data/Repositories/AislingDrawDataRepository.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client.Data/Repositories/AislingDrawDataRepository.cs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Chaos.Client.Data/Repositories/EffectsRepository.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client.Data/Repositories/EffectsRepository.cs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Chaos.Client.Data/Repositories/FontRepository.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client.Data/Repositories/FontRepository.cs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Chaos.Client.Data/Repositories/LightMaskRepository.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client.Data/Repositories/LightMaskRepository.cs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Chaos.Client.Data/Repositories/LocalPlayerSettingsRepository.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client.Data/Repositories/LocalPlayerSettingsRepository.cs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Chaos.Client.Data/Repositories/MetaFileRepository.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client.Data/Repositories/MetaFileRepository.cs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Chaos.Client.Data/Repositories/TileRepository.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client.Data/Repositories/TileRepository.cs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Chaos.Client.Data/Repositories/UiComponentRepository.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client.Data/Repositories/UiComponentRepository.cs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Chaos.Client.Data/Utilities/AbilityAnimationTableParser.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client.Data/Utilities/AbilityAnimationTableParser.cs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Chaos.Client.Data/Utilities/DataUtilities.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client.Data/Utilities/DataUtilities.cs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Chaos.Client.Data/Utilities/GroundAttributeParser.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client.Data/Utilities/GroundAttributeParser.cs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Chaos.Client.Networking/ConnectionManager.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client.Networking/ConnectionManager.cs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Chaos.Client.Networking/GameClient.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client.Networking/GameClient.cs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Chaos.Client.Networking/ServerTableData.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client.Networking/ServerTableData.cs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Chaos.Client.Rendering/AislingRenderer.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client.Rendering/AislingRenderer.cs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Chaos.Client.Rendering/Camera.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client.Rendering/Camera.cs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Chaos.Client.Rendering/CreatureRenderer.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client.Rendering/CreatureRenderer.cs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Chaos.Client.Rendering/DarknessRenderer.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client.Rendering/DarknessRenderer.cs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Chaos.Client.Rendering/EffectRenderer.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client.Rendering/EffectRenderer.cs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Chaos.Client.Rendering/ItemRenderer.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client.Rendering/ItemRenderer.cs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Chaos.Client.Rendering/MapRenderer.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client.Rendering/MapRenderer.cs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Chaos.Client.Rendering/Models/SpriteAnimation.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client.Rendering/Models/SpriteAnimation.cs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Chaos.Client.Rendering/PaletteCyclingManager.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client.Rendering/PaletteCyclingManager.cs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Chaos.Client.Rendering/RenderHelper.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client.Rendering/RenderHelper.cs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Chaos.Client.Rendering/SilhouetteRenderer.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client.Rendering/SilhouetteRenderer.cs" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/Chaos.Client.Rendering/TabMapRenderer.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client.Rendering/TabMapRenderer.cs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Chaos.Client.Rendering/TextRenderer.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client.Rendering/TextRenderer.cs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Chaos.Client.Rendering/TextureAtlas.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client.Rendering/TextureAtlas.cs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Chaos.Client.Rendering/TextureConverter.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client.Rendering/TextureConverter.cs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Chaos.Client.Rendering/UiRenderer.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client.Rendering/UiRenderer.cs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Chaos.Client.slnx" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client.slnx" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Chaos.Client/ChaosGame.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client/ChaosGame.cs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Chaos.Client/Collections/WorldState.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client/Collections/WorldState.cs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Chaos.Client/Controls/Components/ExpandablePanel.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client/Controls/Components/ExpandablePanel.cs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Chaos.Client/Controls/Components/PrefabPanel.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client/Controls/Components/PrefabPanel.cs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Chaos.Client/Controls/Components/UIButton.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client/Controls/Components/UIButton.cs" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/Chaos.Client/Controls/Components/UIElement.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client/Controls/Components/UIElement.cs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Chaos.Client/Controls/Components/UILabel.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client/Controls/Components/UILabel.cs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Chaos.Client/Controls/Components/UIPanel.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client/Controls/Components/UIPanel.cs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Chaos.Client/Controls/Components/UIProgressBar.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client/Controls/Components/UIProgressBar.cs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Chaos.Client/Controls/Components/UITextBox.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client/Controls/Components/UITextBox.cs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Chaos.Client/Controls/Generic/DebugOverlay.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client/Controls/Generic/DebugOverlay.cs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Chaos.Client/Controls/Generic/OkPopupMessageControl.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client/Controls/Generic/OkPopupMessageControl.cs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Chaos.Client/Controls/Generic/ScrollBarControl.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client/Controls/Generic/ScrollBarControl.cs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Chaos.Client/Controls/Generic/TextPopupControl.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client/Controls/Generic/TextPopupControl.cs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Chaos.Client/Controls/LobbyLogin/CharacterCreationControl.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client/Controls/LobbyLogin/CharacterCreationControl.cs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Chaos.Client/Controls/LobbyLogin/LobbyLoginControl.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client/Controls/LobbyLogin/LobbyLoginControl.cs" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/Chaos.Client/Controls/LobbyLogin/LoginControl.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client/Controls/LobbyLogin/LoginControl.cs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Chaos.Client/Controls/LobbyLogin/LoginNoticeControl.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client/Controls/LobbyLogin/LoginNoticeControl.cs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Chaos.Client/Controls/LobbyLogin/PasswordChangeControl.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client/Controls/LobbyLogin/PasswordChangeControl.cs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Chaos.Client/Controls/LobbyLogin/ServerSelectControl.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client/Controls/LobbyLogin/ServerSelectControl.cs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Chaos.Client/Controls/World/Hud/EffectBarControl.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client/Controls/World/Hud/EffectBarControl.cs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Chaos.Client/Controls/World/Hud/IWorldHud.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client/Controls/World/Hud/IWorldHud.cs" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/Chaos.Client/Controls/World/Hud/LargeWorldHudControl.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client/Controls/World/Hud/LargeWorldHudControl.cs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Chaos.Client/Controls/World/Hud/OrangeBarControl.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client/Controls/World/Hud/OrangeBarControl.cs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Chaos.Client/Controls/World/Hud/Panel/ChatPanel.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client/Controls/World/Hud/Panel/ChatPanel.cs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Chaos.Client/Controls/World/Hud/Panel/ExtendedStatsPanel.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client/Controls/World/Hud/Panel/ExtendedStatsPanel.cs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Chaos.Client/Controls/World/Hud/Panel/InventoryPanel.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client/Controls/World/Hud/Panel/InventoryPanel.cs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Chaos.Client/Controls/World/Hud/Panel/PanelBase.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client/Controls/World/Hud/Panel/PanelBase.cs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Chaos.Client/Controls/World/Hud/Panel/SkillBookPanel.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client/Controls/World/Hud/Panel/SkillBookPanel.cs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Chaos.Client/Controls/World/Hud/Panel/Slots/PanelSlot.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client/Controls/World/Hud/Panel/Slots/PanelSlot.cs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Chaos.Client/Controls/World/Hud/Panel/SpellBookPanel.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client/Controls/World/Hud/Panel/SpellBookPanel.cs" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/Chaos.Client/Controls/World/Hud/Panel/StatsPanel.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client/Controls/World/Hud/Panel/StatsPanel.cs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Chaos.Client/Controls/World/Hud/Panel/SystemMessagePanel.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client/Controls/World/Hud/Panel/SystemMessagePanel.cs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Chaos.Client/Controls/World/Hud/Panel/ToolsPanel.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client/Controls/World/Hud/Panel/ToolsPanel.cs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Chaos.Client/Controls/World/Hud/WorldHudControl.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client/Controls/World/Hud/WorldHudControl.cs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Chaos.Client/Controls/World/Popups/AislingContextMenu.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client/Controls/World/Popups/AislingContextMenu.cs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Chaos.Client/Controls/World/Popups/AmountControl.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client/Controls/World/Popups/AmountControl.cs" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/Chaos.Client/Controls/World/Popups/Boards/ArticleListControl.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client/Controls/World/Popups/Boards/ArticleListControl.cs" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/Chaos.Client/Controls/World/Popups/Boards/ArticleReadControl.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client/Controls/World/Popups/Boards/ArticleReadControl.cs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Chaos.Client/Controls/World/Popups/Boards/ArticleSendControl.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client/Controls/World/Popups/Boards/ArticleSendControl.cs" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/Chaos.Client/Controls/World/Popups/Boards/BoardListControl.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client/Controls/World/Popups/Boards/BoardListControl.cs" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/Chaos.Client/Controls/World/Popups/Boards/MailListControl.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client/Controls/World/Popups/Boards/MailListControl.cs" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/Chaos.Client/Controls/World/Popups/Boards/MailReadControl.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client/Controls/World/Popups/Boards/MailReadControl.cs" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/Chaos.Client/Controls/World/Popups/Boards/MailSendControl.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client/Controls/World/Popups/Boards/MailSendControl.cs" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/Chaos.Client/Controls/World/Popups/ChantEditControl.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client/Controls/World/Popups/ChantEditControl.cs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Chaos.Client/Controls/World/Popups/Dialog/DialogAlphaGradient.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client/Controls/World/Popups/Dialog/DialogAlphaGradient.cs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Chaos.Client/Controls/World/Popups/Dialog/DialogOptionPanel.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client/Controls/World/Popups/Dialog/DialogOptionPanel.cs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Chaos.Client/Controls/World/Popups/Dialog/DialogProtectedTextEntryPanel.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client/Controls/World/Popups/Dialog/DialogProtectedTextEntryPanel.cs" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/Chaos.Client/Controls/World/Popups/Dialog/DialogTextEntryPanel.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client/Controls/World/Popups/Dialog/DialogTextEntryPanel.cs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Chaos.Client/Controls/World/Popups/Dialog/FramedDialogPanelBase.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client/Controls/World/Popups/Dialog/FramedDialogPanelBase.cs" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/Chaos.Client/Controls/World/Popups/Dialog/MenuListPanel.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client/Controls/World/Popups/Dialog/MenuListPanel.cs" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/Chaos.Client/Controls/World/Popups/Dialog/MenuShopPanel.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client/Controls/World/Popups/Dialog/MenuShopPanel.cs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Chaos.Client/Controls/World/Popups/Dialog/MenuTextEntryPanel.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client/Controls/World/Popups/Dialog/MenuTextEntryPanel.cs" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/Chaos.Client/Controls/World/Popups/Dialog/NpcSessionControl.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client/Controls/World/Popups/Dialog/NpcSessionControl.cs" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/Chaos.Client/Controls/World/Popups/Exchange/ExchangeControl.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client/Controls/World/Popups/Exchange/ExchangeControl.cs" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/Chaos.Client/Controls/World/Popups/GroupRecruitPanel.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client/Controls/World/Popups/GroupRecruitPanel.cs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Chaos.Client/Controls/World/Popups/GroupTab.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client/Controls/World/Popups/GroupTab.cs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Chaos.Client/Controls/World/Popups/GroupTabControl.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client/Controls/World/Popups/GroupTabControl.cs" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/Chaos.Client/Controls/World/Popups/HotkeyHelpControl.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client/Controls/World/Popups/HotkeyHelpControl.cs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Chaos.Client/Controls/World/Popups/NotepadControl.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client/Controls/World/Popups/NotepadControl.cs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Chaos.Client/Controls/World/Popups/Options/FriendsListControl.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client/Controls/World/Popups/Options/FriendsListControl.cs" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/Chaos.Client/Controls/World/Popups/Options/MainOptionsControl.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client/Controls/World/Popups/Options/MainOptionsControl.cs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Chaos.Client/Controls/World/Popups/Options/SettingsControl.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client/Controls/World/Popups/Options/SettingsControl.cs" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/Chaos.Client/Controls/World/Popups/Profile/AbilityMetadataDetailsControl.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client/Controls/World/Popups/Profile/AbilityMetadataDetailsControl.cs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Chaos.Client/Controls/World/Popups/Profile/AbilityMetadataEntryControl.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client/Controls/World/Popups/Profile/AbilityMetadataEntryControl.cs" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/Chaos.Client/Controls/World/Popups/Profile/EventEntryControl.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client/Controls/World/Popups/Profile/EventEntryControl.cs" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/Chaos.Client/Controls/World/Popups/Profile/EventMetadataDetailsControl.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client/Controls/World/Popups/Profile/EventMetadataDetailsControl.cs" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/Chaos.Client/Controls/World/Popups/Profile/OtherProfileEquipmentTab.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client/Controls/World/Popups/Profile/OtherProfileEquipmentTab.cs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Chaos.Client/Controls/World/Popups/Profile/OtherProfileTabControl.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client/Controls/World/Popups/Profile/OtherProfileTabControl.cs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Chaos.Client/Controls/World/Popups/Profile/SelfProfileAbilityMetadataTab.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client/Controls/World/Popups/Profile/SelfProfileAbilityMetadataTab.cs" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/Chaos.Client/Controls/World/Popups/Profile/SelfProfileEquipmentTab.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client/Controls/World/Popups/Profile/SelfProfileEquipmentTab.cs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Chaos.Client/Controls/World/Popups/Profile/SelfProfileEventMetadataTab.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client/Controls/World/Popups/Profile/SelfProfileEventMetadataTab.cs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Chaos.Client/Controls/World/Popups/Profile/SelfProfileLegendTab.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client/Controls/World/Popups/Profile/SelfProfileLegendTab.cs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Chaos.Client/Controls/World/Popups/Profile/SelfProfileTabControl.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client/Controls/World/Popups/Profile/SelfProfileTabControl.cs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Chaos.Client/Controls/World/Popups/Profile/SelfProfileTextEditorControl.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client/Controls/World/Popups/Profile/SelfProfileTextEditorControl.cs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Chaos.Client/Controls/World/Popups/SocialStatusControl.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client/Controls/World/Popups/SocialStatusControl.cs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Chaos.Client/Controls/World/Popups/TownMapControl.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client/Controls/World/Popups/TownMapControl.cs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Chaos.Client/Controls/World/Popups/WorldList/WorldListControl.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client/Controls/World/Popups/WorldList/WorldListControl.cs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Chaos.Client/Controls/World/ViewPort/ChantText.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client/Controls/World/ViewPort/ChantText.cs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Chaos.Client/Controls/World/ViewPort/ChatBubble.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client/Controls/World/ViewPort/ChatBubble.cs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Chaos.Client/Controls/World/ViewPort/GroupBox.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client/Controls/World/ViewPort/GroupBox.cs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Chaos.Client/Controls/World/ViewPort/HealthBar.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client/Controls/World/ViewPort/HealthBar.cs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Chaos.Client/Controls/World/Popups/Profile/SelfProfileFamilyTab.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client/Controls/World/Popups/Profile/SelfProfileFamilyTab.cs" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/Chaos.Client/Controls/World/ViewPort/LoadingBar.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client/Controls/World/ViewPort/LoadingBar.cs" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/Chaos.Client/Controls/World/ViewPort/MapLoadingBar.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client/Controls/World/ViewPort/MapLoadingBar.cs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Chaos.Client/Controls/World/ViewPort/WorldMap.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client/Controls/World/ViewPort/WorldMap.cs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Chaos.Client/Controls/World/ViewPort/WorldMapNode.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client/Controls/World/ViewPort/WorldMapNode.cs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Chaos.Client/Definitions/Delegates.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client/Definitions/Delegates.cs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Chaos.Client/Definitions/DoorTable.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client/Definitions/DoorTable.cs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Chaos.Client/Definitions/InputEvents.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client/Definitions/InputEvents.cs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Chaos.Client/Extensions/RectangleExtensions.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client/Extensions/RectangleExtensions.cs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Chaos.Client/GlobalSettings.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client/GlobalSettings.cs" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/Chaos.Client/InputBuffer.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client/InputBuffer.cs" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/Chaos.Client/InputDispatcher.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client/InputDispatcher.cs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Chaos.Client/Models/EntityHighlight.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client/Models/EntityHighlight.cs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Chaos.Client/Models/EntityRemovalAnimation.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client/Models/EntityRemovalAnimation.cs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Chaos.Client/Models/TileClickTracker.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client/Models/TileClickTracker.cs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Chaos.Client/Models/WorldEntity.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client/Models/WorldEntity.cs" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/Chaos.Client/Rendering/EntityOverlayManager.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client/Rendering/EntityOverlayManager.cs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Chaos.Client/Rendering/WorldDebugRenderer.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client/Rendering/WorldDebugRenderer.cs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Chaos.Client/Screens/LobbyLoginScreen.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client/Screens/LobbyLoginScreen.cs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Chaos.Client/Screens/WorldScreen.Draw.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client/Screens/WorldScreen.Draw.cs" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/Chaos.Client/Screens/WorldScreen.InputHandlers.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client/Screens/WorldScreen.InputHandlers.cs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Chaos.Client/Screens/WorldScreen.Map.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client/Screens/WorldScreen.Map.cs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Chaos.Client/Screens/WorldScreen.ServerHandlers.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client/Screens/WorldScreen.ServerHandlers.cs" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/Chaos.Client/Screens/WorldScreen.Update.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client/Screens/WorldScreen.Update.cs" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/Chaos.Client/Screens/WorldScreen.Wiring.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client/Screens/WorldScreen.Wiring.cs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Chaos.Client/Screens/WorldScreen.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client/Screens/WorldScreen.cs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Chaos.Client/Systems/AnimationSystem.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client/Systems/AnimationSystem.cs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Chaos.Client/Systems/CastingSystem.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client/Systems/CastingSystem.cs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Chaos.Client/Systems/ChatSystem.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client/Systems/ChatSystem.cs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Chaos.Client/Systems/ClientSettings.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client/Systems/ClientSettings.cs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Chaos.Client/Systems/MachineIdentity.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client/Systems/MachineIdentity.cs" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/Chaos.Client/Systems/SoundSystem.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client/Systems/SoundSystem.cs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Chaos.Client/Utilities/Clipboard.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client/Utilities/Clipboard.cs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Chaos.Client/Utilities/DialogFrame.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client/Utilities/DialogFrame.cs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Chaos.Client/ViewModel/Exchange.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client/ViewModel/Exchange.cs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Chaos.Client/ViewModel/Inventory.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client/ViewModel/Inventory.cs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Chaos.Client/ViewModel/SkillBook.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client/ViewModel/SkillBook.cs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Chaos.Client/ViewModel/SpellBook.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client/ViewModel/SpellBook.cs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Chaos.Client/ViewModel/UserOptions.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client/ViewModel/UserOptions.cs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Directory.Build.props" beforeDir="false" afterPath="$PROJECT_DIR$/Directory.Build.props" afterDir="false" />
     </list>
     <list id="7231daaa-f0af-42dd-822b-aeab5364bc8b" name="AiStuff" comment="" />
     <option name="SHOW_DIALOG" value="false" />
@@ -281,7 +150,7 @@
       <workItem from="1775431206952" duration="69000" />
       <workItem from="1775431289754" duration="5525000" />
       <workItem from="1775439696041" duration="16603000" />
-      <workItem from="1775506872956" duration="55465000" />
+      <workItem from="1775506872956" duration="66406000" />
     </task>
     <task id="LOCAL-00001" summary="safety">
       <option name="closed" value="true" />
@@ -315,7 +184,15 @@
       <option name="project" value="LOCAL" />
       <updated>1775616488851</updated>
     </task>
-    <option name="localTasksCounter" value="5" />
+    <task id="LOCAL-00005" summary="style and minor features">
+      <option name="closed" value="true" />
+      <created>1775688748696</created>
+      <option name="number" value="00005" />
+      <option name="presentableId" value="LOCAL-00005" />
+      <option name="project" value="LOCAL" />
+      <updated>1775688748696</updated>
+    </task>
+    <option name="localTasksCounter" value="6" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -327,7 +204,8 @@
     <MESSAGE value="safety" />
     <MESSAGE value="input system full rewrite" />
     <MESSAGE value="bugfixes and renaming" />
-    <option name="LAST_COMMIT_MESSAGE" value="bugfixes and renaming" />
+    <MESSAGE value="style and minor features" />
+    <option name="LAST_COMMIT_MESSAGE" value="style and minor features" />
   </component>
   <component name="XDebuggerManager">
     <pin-to-top-manager>

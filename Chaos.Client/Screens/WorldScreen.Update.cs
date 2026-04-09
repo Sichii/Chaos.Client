@@ -200,7 +200,8 @@ public sealed partial class WorldScreen
         if (MapFile is not null)
             Overlays.Update(
                 Camera,
-                MapFile.Height);
+                MapFile.Height,
+                gameTime);
 
         if (DarknessRenderer.IsActive)
         {

@@ -57,8 +57,7 @@ public sealed class DialogTextEntryPanel : FramedDialogPanelBase
 
     public override void Hide()
     {
-        if (TextInput is not null)
-            TextInput.IsFocused = false;
+        TextInput?.IsFocused = false;
 
         base.Hide();
     }
@@ -69,11 +68,9 @@ public sealed class DialogTextEntryPanel : FramedDialogPanelBase
 
     public void ShowTextEntry(string prolog, byte maxLength, string epilog)
     {
-        if (PrologLabel is not null)
-            PrologLabel.Text = prolog;
+        PrologLabel?.Text = prolog;
 
-        if (EpilogLabel is not null)
-            EpilogLabel.Text = epilog;
+        EpilogLabel?.Text = epilog;
 
         if (TextInput is not null)
         {

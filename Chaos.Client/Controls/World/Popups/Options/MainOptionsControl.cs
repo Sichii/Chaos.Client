@@ -189,6 +189,10 @@ public sealed class MainOptionsControl : PrefabPanel
             InputDispatcher.Instance?.RemoveControl(this);
             Slide.SlideOut();
             e.Handled = true;
+        } else if (e.Key == Keys.X)
+        {
+            OnExit?.Invoke();
+            e.Handled = true;
         }
     }
 

@@ -153,8 +153,7 @@ public sealed class MailReadControl : PrefabPanel
         TitleLabel?.Text = subject;
         DateLabel?.Text = $"{month}/{day}";
 
-        if (PrevButton is not null)
-            PrevButton.Enabled = enablePrev;
+        PrevButton?.Enabled = enablePrev;
 
         BodyLabel.ScrollOffset = 0;
         BodyLabel.Text = message;

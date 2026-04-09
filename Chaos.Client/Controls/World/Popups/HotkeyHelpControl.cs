@@ -205,8 +205,7 @@ public sealed class HotkeyHelpControl : PrefabPanel
         {
             SetKeyGroupVisible(HoveredIndex, false);
 
-            if (DetailDisplay is not null)
-                DetailDisplay.Visible = false;
+            DetailDisplay?.Visible = false;
         }
 
         HoveredIndex = newIndex;
@@ -230,8 +229,7 @@ public sealed class HotkeyHelpControl : PrefabPanel
         {
             SetKeyGroupVisible(HoveredIndex, false);
 
-            if (DetailDisplay is not null)
-                DetailDisplay.Visible = false;
+            DetailDisplay?.Visible = false;
         }
 
         HoveredIndex = -1;

@@ -18,6 +18,7 @@ public sealed class InputBuffer : IDisposable
     private readonly List<Keys> PendingPresses = [];
     private readonly List<Keys> PendingReleases = [];
     private readonly List<char> PendingText = [];
+    private readonly List<OrderedKeyEvent> PendingOrdered = [];
     private readonly GameWindow Window;
     private MouseState CurrentMouse;
 
@@ -27,6 +28,8 @@ public sealed class InputBuffer : IDisposable
     private MouseState PreviousMouse;
     private char[] TextBuffer = [];
     private int TextCount;
+    private OrderedKeyEvent[] OrderedBuffer = [];
+    private int OrderedCount;
 
     //virtual resolution transform — raw window coords → virtual 640×480 coords
     private float VirtualScale = 1f;
@@ -53,6 +56,7 @@ public sealed class InputBuffer : IDisposable
     {
         HeldKeys.Add(e.Key);
         PendingPresses.Add(e.Key);
+        PendingOrdered.Add(new OrderedKeyEvent(OrderedKeyEventKind.KeyDown, e.Key, default));
     }
 
     private void OnKeyUp(object? sender, InputKeyEventArgs e)
@@ -61,7 +65,11 @@ public sealed class InputBuffer : IDisposable
         PendingReleases.Add(e.Key);
     }
 
-    private void OnTextInput(object? sender, TextInputEventArgs e) => PendingText.Add(e.Character);
+    private void OnTextInput(object? sender, TextInputEventArgs e)
+    {
+        PendingText.Add(e.Character);
+        PendingOrdered.Add(new OrderedKeyEvent(OrderedKeyEventKind.TextInput, default, e.Character));
+    }
 
     /// <summary>
     ///     Sets the scale factor for translating raw window mouse coordinates to virtual coordinates.
@@ -79,10 +87,12 @@ public sealed class InputBuffer : IDisposable
             PendingPresses.Clear();
             PendingReleases.Clear();
             PendingText.Clear();
+            PendingOrdered.Clear();
             HeldKeys.Clear();
             FrameKeyPresses.Clear();
             FrameKeyReleases.Clear();
             TextCount = 0;
+            OrderedCount = 0;
             PreviousMouse = CurrentMouse;
             CurrentMouse = Mouse.GetState();
 
@@ -110,9 +120,21 @@ public sealed class InputBuffer : IDisposable
                 TextBuffer[i] = PendingText[i];
         }
 
+        OrderedCount = PendingOrdered.Count;
+
+        if (OrderedCount > 0)
+        {
+            if (OrderedBuffer.Length < OrderedCount)
+                OrderedBuffer = new OrderedKeyEvent[Math.Max(OrderedCount, 16)];
+
+            for (var i = 0; i < OrderedCount; i++)
+                OrderedBuffer[i] = PendingOrdered[i];
+        }
+
         PendingPresses.Clear();
         PendingReleases.Clear();
         PendingText.Clear();
+        PendingOrdered.Clear();
 
         PreviousMouse = CurrentMouse;
         CurrentMouse = Mouse.GetState();
@@ -208,5 +230,20 @@ public sealed class InputBuffer : IDisposable
     #region Internal Accessors (used by InputDispatcher)
     internal IReadOnlySet<Keys> FramePresses => FrameKeyPresses;
     internal IReadOnlySet<Keys> FrameReleases => FrameKeyReleases;
+
+    /// <summary>
+    ///     Chronologically ordered KeyDown and TextInput events for this frame. Preserves the OS
+    ///     WM_KEYDOWN → WM_CHAR ordering so the dispatcher can suppress TextInput when its
+    ///     preceding KeyDown was consumed as a hotkey.
+    /// </summary>
+    internal ReadOnlySpan<OrderedKeyEvent> OrderedKeyboardEvents => OrderedBuffer.AsSpan(0, OrderedCount);
     #endregion
 }
+
+public enum OrderedKeyEventKind : byte
+{
+    KeyDown,
+    TextInput
+}
+
+public readonly record struct OrderedKeyEvent(OrderedKeyEventKind Kind, Keys Key, char Character);

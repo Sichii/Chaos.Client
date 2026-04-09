@@ -35,8 +35,7 @@ public sealed class EventMetadataDetailsControl : PrefabPanel
         RewardLabel = CreateLabel("REWARD");
         DescLabel = CreateLabel("DESC");
 
-        if (DescLabel is not null)
-            DescLabel.WordWrap = true;
+        DescLabel?.WordWrap = true;
     }
 
     private static string FormatPrerequisites(EventMetadataEntry entry)
@@ -49,20 +48,15 @@ public sealed class EventMetadataDetailsControl : PrefabPanel
     {
         this.CenterIn(viewport);
 
-        if (NameLabel is not null)
-            NameLabel.Text = entry.Title;
+        NameLabel?.Text = entry.Title;
 
-        if (LevelLabel is not null)
-            LevelLabel.Text = entry.Page >= 6 ? "master" : $"{entry.Page} level range";
+        LevelLabel?.Text = entry.Page >= 6 ? "master" : $"{entry.Page} level range";
 
-        if (MustLabel is not null)
-            MustLabel.Text = FormatPrerequisites(entry);
+        MustLabel?.Text = FormatPrerequisites(entry);
 
-        if (RewardLabel is not null)
-            RewardLabel.Text = entry.Reward;
+        RewardLabel?.Text = entry.Reward;
 
-        if (DescLabel is not null)
-            DescLabel.Text = state == EventState.Completed ? entry.Result : entry.Summary;
+        DescLabel?.Text = state == EventState.Completed ? entry.Result : entry.Summary;
 
         if (IconImage is not null)
         {

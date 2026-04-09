@@ -253,8 +253,7 @@ public sealed partial class WorldScreen
         {
             SocialStatusPicker.Hide();
 
-            if (WorldHud.EmoteButton is not null)
-                WorldHud.EmoteButton.IsSelected = false;
+            WorldHud.EmoteButton?.IsSelected = false;
 
             return;
         }
@@ -279,8 +278,7 @@ public sealed partial class WorldScreen
         if ((SocialStatusPicker.X + SocialStatusPicker.Width) > (viewport.X + viewport.Width))
             SocialStatusPicker.X = viewport.X + viewport.Width - SocialStatusPicker.Width;
 
-        if (emoteBtn is not null)
-            emoteBtn.IsSelected = true;
+        emoteBtn?.IsSelected = true;
 
         SocialStatusPicker.Show();
     }
@@ -295,8 +293,9 @@ public sealed partial class WorldScreen
         || MailSend.Visible;
 
     /// <summary>
-    ///     Force-closes all Q/W/E/R toggle panels except the one identified by <paramref name="except" />.
-    ///     Uses instant hide (no slide animation) and fires the appropriate side effects (button deselect, session close).
+    ///     Closes all Q/W/E/R toggle panels except the one identified by <paramref name="except" />.
+    ///     Slide panels animate out concurrently with the new panel sliding in. Button deselection
+    ///     is handled by the OnClose/SessionClosed events that fire when slide-out completes.
     /// </summary>
     private void ForceCloseOtherTogglePanels(Keys except)
     {
@@ -305,29 +304,25 @@ public sealed partial class WorldScreen
             SettingsDialog.Hide();
             MacrosList.Hide();
             FriendsList.Hide();
-            MainOptions.Hide();
-
-            if (WorldHud.OptionButton is not null)
-                WorldHud.OptionButton.IsSelected = false;
+            MainOptions.SlideClose();
         }
 
         if (except != Keys.W && IsAnyBoardPanelVisible())
-            WorldState.Board.CloseSession();
+        {
+            if (BoardList.Visible)
+                BoardList.SlideClose();
+            else
+                WorldState.Board.CloseSession();
+        }
 
         if (except != Keys.E && WorldList.Visible)
-        {
-            WorldList.Hide();
-
-            if (WorldHud.UsersButton is not null)
-                WorldHud.UsersButton.IsSelected = false;
-        }
+            WorldList.SlideClose();
 
         if (except != Keys.R && SocialStatusPicker.Visible)
         {
             SocialStatusPicker.Hide();
 
-            if (WorldHud.EmoteButton is not null)
-                WorldHud.EmoteButton.IsSelected = false;
+            WorldHud.EmoteButton?.IsSelected = false;
         }
     }
 
@@ -775,6 +770,8 @@ public sealed partial class WorldScreen
         WireAbilityRightClicks(hud.SkillBookAlt);
         WireAbilityRightClicks(hud.SpellBook);
         WireAbilityRightClicks(hud.SpellBookAlt);
+
+        hud.StatsPanel.OnRaiseStat += stat => Game.Connection.RaiseStat(stat);
 
         hud.Inventory.OnSlotHoverEnter += HandleInventoryHoverEnter;
         hud.Inventory.OnSlotHoverExit += HandleInventoryHoverExit;

@@ -31,11 +31,9 @@ public sealed class LoginControl : PrefabPanel
         PasswordField?.ForegroundColor = LegendColors.White;
         PasswordField?.IsMasked = true;
 
-        if (UsernameField is not null)
-            UsernameField.IsTabStop = true;
+        UsernameField?.IsTabStop = true;
 
-        if (PasswordField is not null)
-            PasswordField.IsTabStop = true;
+        PasswordField?.IsTabStop = true;
 
         if (UsernameField is not null)
             UsernameField.OnFocused += OnTextBoxFocused;

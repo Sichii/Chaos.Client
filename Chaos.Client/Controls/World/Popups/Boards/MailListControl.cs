@@ -352,14 +352,11 @@ public sealed class MailListControl : PrefabPanel
     {
         var hasSelection = (SelectedIndex >= 0) && (SelectedIndex < Entries.Count);
 
-        if (ViewButton is not null)
-            ViewButton.Enabled = hasSelection;
+        ViewButton?.Enabled = hasSelection;
 
-        if (DeleteButton is not null)
-            DeleteButton.Enabled = hasSelection;
+        DeleteButton?.Enabled = hasSelection;
 
-        if (ReplyButton is not null)
-            ReplyButton.Enabled = hasSelection;
+        ReplyButton?.Enabled = hasSelection;
     }
 
     private void UpdateScrollBar()

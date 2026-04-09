@@ -214,8 +214,7 @@ public sealed class SoundSystem : IDisposable
     {
         MusicVolume = Math.Clamp(volume, 0, VOLUME_STEPS) / (float)VOLUME_STEPS;
 
-        if (MusicInstance is not null)
-            MusicInstance.Volume = MusicVolume;
+        MusicInstance?.Volume = MusicVolume;
     }
 
     /// <summary>

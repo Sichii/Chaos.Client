@@ -31,14 +31,11 @@ public sealed class EventEntryControl : PrefabPanel
     {
         Entry = null;
 
-        if (TileImage is not null)
-            TileImage.Texture = null;
+        TileImage?.Texture = null;
 
-        if (NameLabel is not null)
-            NameLabel.Text = string.Empty;
+        NameLabel?.Text = string.Empty;
 
-        if (LevelLabel is not null)
-            LevelLabel.Text = string.Empty;
+        LevelLabel?.Text = string.Empty;
 
         Visible = false;
     }
@@ -64,8 +61,7 @@ public sealed class EventEntryControl : PrefabPanel
         Entry = entry;
         State = state;
 
-        if (NameLabel is not null)
-            NameLabel.Text = entry.Title;
+        NameLabel?.Text = entry.Title;
 
         if (LevelLabel is not null)
         {
@@ -81,8 +77,7 @@ public sealed class EventEntryControl : PrefabPanel
             _                    => 2
         };
 
-        if (TileImage is not null)
-            TileImage.Texture = UiRenderer.Instance!.GetEpfTexture("leicon.epf", iconFrame);
+        TileImage?.Texture = UiRenderer.Instance!.GetEpfTexture("leicon.epf", iconFrame);
 
         Visible = true;
     }

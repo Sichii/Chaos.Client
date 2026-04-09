@@ -599,11 +599,8 @@ public sealed partial class WorldScreen
             return;
         }
 
-        //stack guard: suppress all game hotkeys when a popup is active
-        if (Game.Dispatcher.ControlStackCount > 0)
-            return;
-
-        //q/w/e/r/t toggle group
+        //q/w/e/r toggle group — must be above the stack guard because these panels
+        //use the control stack themselves and need to toggle while open
         if (e.Key == Keys.Q)
         {
             ForceCloseOtherTogglePanels(Keys.Q);
@@ -615,7 +612,11 @@ public sealed partial class WorldScreen
                 FriendsList.Hide();
                 MainOptions.SlideClose();
             } else
+            {
+                WorldHud.OptionButton?.IsSelected = true;
+
                 MainOptions.Show();
+            }
 
             e.Handled = true;
 
@@ -633,7 +634,11 @@ public sealed partial class WorldScreen
                 else
                     WorldState.Board.CloseSession();
             } else
+            {
+                WorldHud.BulletinButton?.IsSelected = true;
+
                 Game.Connection.SendBoardInteraction(BoardRequestType.BoardList);
+            }
 
             e.Handled = true;
 
@@ -647,7 +652,11 @@ public sealed partial class WorldScreen
             if (WorldList.Visible)
                 WorldList.SlideClose();
             else
+            {
+                WorldHud.UsersButton?.IsSelected = true;
+
                 Game.Connection.RequestWorldList();
+            }
 
             e.Handled = true;
 
@@ -657,20 +666,16 @@ public sealed partial class WorldScreen
         if (e.Key == Keys.R)
         {
             ForceCloseOtherTogglePanels(Keys.R);
-
-            if (SocialStatusPicker.Visible)
-            {
-                SocialStatusPicker.Hide();
-
-                if (WorldHud.EmoteButton is not null)
-                    WorldHud.EmoteButton.IsSelected = false;
-            } else
-                ToggleSocialStatusPicker();
+            ToggleSocialStatusPicker();
 
             e.Handled = true;
 
             return;
         }
+
+        //stack guard: suppress all game hotkeys when a popup is active
+        if (Game.Dispatcher.ControlStackCount > 0)
+            return;
 
         if (e.Key == Keys.T && TownMapControl.Visible)
         {

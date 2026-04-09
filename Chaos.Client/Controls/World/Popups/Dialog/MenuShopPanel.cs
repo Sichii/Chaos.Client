@@ -179,8 +179,7 @@ public sealed class MenuShopPanel : PrefabPanel
         DescWeightLabel = CreateLabel("DescWeight");
         DescTextLabel = CreateLabel("DescText");
 
-        if (DescTextLabel is not null)
-            DescTextLabel.WordWrap = true;
+        DescTextLabel?.WordWrap = true;
         MoneyLabel = CreateLabel("Money", TextAlignment.Right);
         PageLabel = CreateLabel("Page", TextAlignment.Center);
     }
@@ -307,8 +306,7 @@ public sealed class MenuShopPanel : PrefabPanel
             ShowDetails(absoluteIndex);
             UpdateListingStates();
 
-            if (CloseButton is not null)
-                CloseButton.Enabled = true;
+            CloseButton?.Enabled = true;
         }
     }
 
@@ -337,8 +335,7 @@ public sealed class MenuShopPanel : PrefabPanel
         UpdatePageDisplay();
         ClearDetails();
 
-        if (CloseButton is not null)
-            CloseButton.Enabled = false;
+        CloseButton?.Enabled = false;
     }
 
     public override void Hide()
@@ -564,17 +561,13 @@ public sealed class MenuShopPanel : PrefabPanel
         var entry = Entries[absoluteIndex];
         var hasDetails = entry.Class is not null || entry.Level is not null || entry.Weight is not null;
 
-        if (DescClassLabel is not null)
-            DescClassLabel.Text = entry.Class is { } cls ? ((BaseClass)cls).ToString() : string.Empty;
+        DescClassLabel?.Text = entry.Class is { } cls ? ((BaseClass)cls).ToString() : string.Empty;
 
-        if (DescLevelLabel is not null)
-            DescLevelLabel.Text = entry.Level?.ToString() ?? string.Empty;
+        DescLevelLabel?.Text = entry.Level?.ToString() ?? string.Empty;
 
-        if (DescWeightLabel is not null)
-            DescWeightLabel.Text = entry.Weight?.ToString() ?? string.Empty;
+        DescWeightLabel?.Text = entry.Weight?.ToString() ?? string.Empty;
 
-        if (DescTextLabel is not null)
-            DescTextLabel.Text = hasDetails ? entry.Description : string.Empty;
+        DescTextLabel?.Text = hasDetails ? entry.Description : string.Empty;
     }
 
     /// <summary>
@@ -632,11 +625,9 @@ public sealed class MenuShopPanel : PrefabPanel
         UpdatePageDisplay();
         ClearDetails();
 
-        if (MoneyLabel is not null)
-            MoneyLabel.Text = WorldState.Inventory.Gold.ToString("N0");
+        MoneyLabel?.Text = WorldState.Inventory.Gold.ToString("N0");
 
-        if (CloseButton is not null)
-            CloseButton.Enabled = false;
+        CloseButton?.Enabled = false;
 
         Show();
     }
@@ -670,11 +661,9 @@ public sealed class MenuShopPanel : PrefabPanel
     {
         PageLabel?.Text = $"{CurrentPage + 1} / {TotalPages}";
 
-        if (PagePrevButton is not null)
-            PagePrevButton.Enabled = CurrentPage > 0;
+        PagePrevButton?.Enabled = CurrentPage > 0;
 
-        if (PageNextButton is not null)
-            PageNextButton.Enabled = CurrentPage < (TotalPages - 1);
+        PageNextButton?.Enabled = CurrentPage < (TotalPages - 1);
 
         UpdateListingStates();
     }
@@ -707,11 +696,9 @@ public sealed class MenuShopPanel : PrefabPanel
                 tab.Visible = false;
         }
 
-        if (TabPrevButton is not null)
-            TabPrevButton.Enabled = TabWindowStart > 0;
+        TabPrevButton?.Enabled = TabWindowStart > 0;
 
-        if (TabNextButton is not null)
-            TabNextButton.Enabled = (TabWindowStart + MAX_VISIBLE_TABS) < Categories.Count;
+        TabNextButton?.Enabled = (TabWindowStart + MAX_VISIBLE_TABS) < Categories.Count;
     }
 
     private sealed record MerchantEntry(

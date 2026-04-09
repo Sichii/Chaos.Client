@@ -280,7 +280,6 @@ public sealed class BoardListControl : PrefabPanel
     {
         var hasSelection = SelectedIndex >= 0;
 
-        if (ViewButton is not null)
-            ViewButton.Enabled = hasSelection;
+        ViewButton?.Enabled = hasSelection;
     }
 }

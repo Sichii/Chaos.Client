@@ -1,6 +1,7 @@
 #region
 using Chaos.Client.Controls.Components;
 using Chaos.Client.Data.Models;
+using Chaos.DarkAges.Definitions;
 using Chaos.Networking.Entities.Server;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
@@ -32,6 +33,23 @@ public sealed class StatsPanel : ExpandablePanel
     private const int IDX_AB = 15;
     private const int IDX_NEXT_AB = 16;
     private const int LABEL_COUNT = 17;
+    private const int STAT_BUTTON_COUNT = 5;
+    private const int STAT_BUTTON_X = 71;
+    private const int STAT_BUTTON_Y = 6;
+    private const int STAT_BUTTON_W = 16;
+    private const int STAT_BUTTON_H = 18;
+    private const int STAT_BUTTON_SPACING = 19;
+    private const float BLINK_INTERVAL_MS = 500f;
+    private const string LEVELUP_EPF = "levelup.epf";
+
+    private static readonly Stat[] STAT_BUTTON_STATS =
+    [
+        Stat.STR,
+        Stat.INT,
+        Stat.WIS,
+        Stat.CON,
+        Stat.DEX
+    ];
 
     private static readonly string[] LABEL_NAMES =
     [
@@ -55,6 +73,13 @@ public sealed class StatsPanel : ExpandablePanel
     ];
 
     private readonly UILabel?[] Labels = new UILabel?[LABEL_COUNT];
+    private readonly UIButton?[] StatButtons = new UIButton?[STAT_BUTTON_COUNT];
+    private Texture2D? BlinkFrameA;
+    private Texture2D? BlinkFrameB;
+    private Texture2D? HoverFrame;
+    private float BlinkTimer;
+    private bool BlinkPhase;
+    private bool HasUnspentPoints;
 
     //expand repositioning — compact and expanded label layouts
     private LabelLayout[]? CompactLayouts;
@@ -79,7 +104,51 @@ public sealed class StatsPanel : ExpandablePanel
 
         for (var i = 0; i < LABEL_COUNT; i++)
             Labels[i] = CreatePrefabLabel(prefabSet, LABEL_NAMES[i]);
+
+        //widen exp and gold labels to accommodate large numbers
+        foreach (var idx in new[] { IDX_EXP, IDX_GOLD })
+            if (Labels[idx] is { } label)
+            {
+                label.X -= 10;
+                label.Width += 10;
+            }
+
+        //levelup stat raise buttons — load levelup.epf frames and create clickable arrows
+        var cache = UiRenderer.Instance!;
+        var frameCount = cache.GetEpfFrameCount(LEVELUP_EPF);
+
+        if (frameCount >= 3)
+        {
+            BlinkFrameA = cache.GetEpfTexture(LEVELUP_EPF, 0);
+            BlinkFrameB = cache.GetEpfTexture(LEVELUP_EPF, 1);
+            HoverFrame = cache.GetEpfTexture(LEVELUP_EPF, 2);
+
+            for (var i = 0; i < STAT_BUTTON_COUNT; i++)
+            {
+                var stat = STAT_BUTTON_STATS[i];
+
+                var btn = new UIButton
+                {
+                    Name = $"LevelUp_{stat}",
+                    X = STAT_BUTTON_X,
+                    Y = STAT_BUTTON_Y + i * STAT_BUTTON_SPACING,
+                    Width = STAT_BUTTON_W,
+                    Height = STAT_BUTTON_H,
+                    NormalTexture = BlinkFrameA,
+                    PressedTexture = HoverFrame,
+                    Visible = false
+                };
+
+                var capturedStat = stat;
+                btn.Clicked += () => OnRaiseStat?.Invoke(capturedStat);
+
+                AddChild(btn);
+                StatButtons[i] = btn;
+            }
+        }
     }
+
+    public event Action<Stat>? OnRaiseStat;
 
     /// <summary>
     ///     Configures expand support. The expanded prefab set provides the full-size Status background and label positions.
@@ -133,11 +202,16 @@ public sealed class StatsPanel : ExpandablePanel
 
             var expandedRect = PrefabPanel.GetRect(expandedPrefabSet, LABEL_NAMES[i]);
 
-            ExpandedLayouts[i] = new LabelLayout(
-                expandedRect.X,
-                expandedRect.Y,
-                expandedRect.Width,
-                expandedRect.Height);
+            var exX = expandedRect.X;
+            var exW = expandedRect.Width;
+
+            if (i is IDX_EXP or IDX_GOLD)
+            {
+                exX -= 10;
+                exW += 10;
+            }
+
+            ExpandedLayouts[i] = new LabelLayout(exX, expandedRect.Y, exW, expandedRect.Height);
         }
     }
 
@@ -194,12 +268,41 @@ public sealed class StatsPanel : ExpandablePanel
             Labels[i]!.Width = layouts[i].Width;
             Labels[i]!.Height = layouts[i].Height;
         }
+
+        //levelup buttons only show in expanded mode (positions are from the full _nstatus layout)
+        for (var i = 0; i < STAT_BUTTON_COUNT; i++)
+            if (StatButtons[i] is not null)
+                StatButtons[i]!.Visible = expanded && HasUnspentPoints;
     }
 
     private void SetLabel(int index, string text)
     {
         if (Labels[index] is not null)
             Labels[index]!.Text = text;
+    }
+
+    public override void Update(GameTime gameTime)
+    {
+        if (!Visible)
+            return;
+
+        base.Update(gameTime);
+
+        if (!HasUnspentPoints || BlinkFrameA is null || BlinkFrameB is null)
+            return;
+
+        BlinkTimer += (float)gameTime.ElapsedGameTime.TotalMilliseconds;
+
+        if (BlinkTimer < BLINK_INTERVAL_MS)
+            return;
+
+        BlinkTimer -= BLINK_INTERVAL_MS;
+        BlinkPhase = !BlinkPhase;
+        var frame = BlinkPhase ? BlinkFrameB : BlinkFrameA;
+
+        for (var i = 0; i < STAT_BUTTON_COUNT; i++)
+            if (StatButtons[i] is not null)
+                StatButtons[i]!.NormalTexture = frame;
     }
 
     public void UpdateAttributes(AttributesArgs attrs)
@@ -221,6 +324,25 @@ public sealed class StatsPanel : ExpandablePanel
         SetLabel(IDX_NEXT_LEV, $"{attrs.ToNextLevel}");
         SetLabel(IDX_AB, $"{attrs.Ability}");
         SetLabel(IDX_NEXT_AB, $"{attrs.ToNextAbility}");
+
+        SetUnspentPoints(attrs.UnspentPoints > 0);
+    }
+
+    private void SetUnspentPoints(bool hasPoints)
+    {
+        if (HasUnspentPoints == hasPoints)
+            return;
+
+        HasUnspentPoints = hasPoints;
+        BlinkTimer = 0;
+        BlinkPhase = false;
+
+        for (var i = 0; i < STAT_BUTTON_COUNT; i++)
+            if (StatButtons[i] is not null)
+            {
+                StatButtons[i]!.Visible = hasPoints;
+                StatButtons[i]!.NormalTexture = BlinkFrameA;
+            }
     }
 
     private record struct LabelLayout(

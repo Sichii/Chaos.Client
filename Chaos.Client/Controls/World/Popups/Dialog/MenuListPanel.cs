@@ -427,8 +427,7 @@ public sealed class MenuListPanel : FramedDialogPanelBase
         SelectedIndex = entryIndex;
         LayoutEntries();
 
-        if (OkButton is not null)
-            OkButton.Enabled = true;
+        OkButton?.Enabled = true;
 
         e.Handled = true;
     }

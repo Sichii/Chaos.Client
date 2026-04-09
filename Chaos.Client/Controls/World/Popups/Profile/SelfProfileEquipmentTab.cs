@@ -161,8 +161,7 @@ public sealed class SelfProfileEquipmentTab : PrefabPanel
         NationImage = CreateImage("Nation");
         NationTextLabel = CreateLabel("NationText");
 
-        if (NationTextLabel is not null)
-            NationTextLabel.TopAligned = true;
+        NationTextLabel?.TopAligned = true;
 
         //paperdoll area
         PaperdollImage = CreateImage("HumanImage");
@@ -315,10 +314,7 @@ public sealed class SelfProfileEquipmentTab : PrefabPanel
     /// </summary>
     public void SetGroupOpen(bool groupOpen)
     {
-        if (GroupBtn is null)
-            return;
-
-        GroupBtn.NormalTexture = groupOpen ? GroupOpenTexture : GroupClosedTexture;
+        GroupBtn?.NormalTexture = groupOpen ? GroupOpenTexture : GroupClosedTexture;
     }
 
     /// <summary>
@@ -332,8 +328,7 @@ public sealed class SelfProfileEquipmentTab : PrefabPanel
         if (nationId > 0)
             NationIconTexture = UiRenderer.Instance!.GetSpfTexture("_nui_nat.spf", nationId - 1);
 
-        if (NationImage is not null)
-            NationImage.Texture = NationIconTexture;
+        NationImage?.Texture = NationIconTexture;
 
         if (NationTextLabel is not null)
         {
@@ -353,8 +348,7 @@ public sealed class SelfProfileEquipmentTab : PrefabPanel
         //south-facing (direction=2) = right idle frame (5) + horizontal flip
         PaperdollTexture = renderer.Render(in appearance, PAPERDOLL_IDLE_FRAME, flipHorizontal: true);
 
-        if (PaperdollImage is not null)
-            PaperdollImage.Texture = PaperdollTexture;
+        PaperdollImage?.Texture = PaperdollTexture;
     }
 
     /// <summary>
@@ -384,8 +378,7 @@ public sealed class SelfProfileEquipmentTab : PrefabPanel
     /// </summary>
     public void SetProfileText(string text)
     {
-        if (PortraitTextLabel is not null)
-            PortraitTextLabel.Text = text;
+        PortraitTextLabel?.Text = text;
     }
 
     /// <summary>

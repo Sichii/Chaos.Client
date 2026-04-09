@@ -75,8 +75,7 @@ public abstract class UIElement : IDisposable
 
             field = value;
 
-            if (Parent is not null)
-                Parent.ChildOrderDirty = true;
+            Parent?.ChildOrderDirty = true;
         }
     }
 

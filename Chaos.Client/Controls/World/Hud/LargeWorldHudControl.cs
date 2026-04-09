@@ -269,8 +269,7 @@ public sealed class LargeWorldHudControl : PrefabPanel, IWorldHud
             oldExpandable.SetExpanded(false);
             ShiftCompanionElements(offset);
 
-            if (ExtendedTabFrame is not null)
-                ExtendedTabFrame.Visible = false;
+            ExtendedTabFrame?.Visible = false;
 
             Expanded = false;
         }
@@ -537,19 +536,18 @@ public sealed class LargeWorldHudControl : PrefabPanel, IWorldHud
         {
             ShiftCompanionElements(expandable.IsExpanded ? -expandable.ExpandYOffset : expandable.ExpandYOffset);
 
-            if (ExtendedTabFrame is not null)
-                ExtendedTabFrame.Visible = expandable.IsExpanded;
+            ExtendedTabFrame?.Visible = expandable.IsExpanded;
         }
     }
 
     private void ShiftCompanionElements(int yShift)
     {
         foreach (var btn in InventoryTabButtons)
-            if (btn is not null)
-                btn.Y += yShift;
+        {
+            btn?.Y += yShift;
+        }
 
-        if (ExtendedTabFrame is not null)
-            ExtendedTabFrame.Y += yShift;
+        ExtendedTabFrame?.Y += yShift;
 
         ChatInput.Y += yShift;
     }

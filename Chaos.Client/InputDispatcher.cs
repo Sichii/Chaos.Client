@@ -21,6 +21,7 @@ public sealed class InputDispatcher
     //keyboard events before the control stack. set via textboxfocusgained.
     private UIElement? ExplicitFocusElement;
 
+
     //hover state
     private UIElement? HoveredElement;
 
@@ -283,13 +284,42 @@ public sealed class InputDispatcher
             PreviousMouseY = mouseY;
         }
 
-        //── keyboard (always processed, never blocked by mouse blocking) ──
-        foreach (var key in Input.FramePresses)
+        //── keyboard + text input (processed in chronological OS order) ──
+        //WM_KEYDOWN always precedes its WM_CHAR, so when a KeyDown handler gains textbox
+        //focus, we suppress the immediately following TextInput to prevent the hotkey
+        //character from leaking into the newly-focused textbox.
+        var suppressNextTextInput = false;
+        var dispatchedKeys = new HashSet<Keys>();
+
+        foreach (var evt in Input.OrderedKeyboardEvents)
         {
-            KeyDown.Reset();
-            KeyDown.Key = key;
-            KeyDown.Modifiers = modifiers;
-            DispatchKeyboardEvent(root, KeyDown);
+            if (evt.Kind == OrderedKeyEventKind.KeyDown)
+            {
+                if (!dispatchedKeys.Add(evt.Key))
+                    continue;
+
+                var focusBefore = ExplicitFocusElement;
+
+                KeyDown.Reset();
+                KeyDown.Key = evt.Key;
+                KeyDown.Modifiers = modifiers;
+                DispatchKeyboardEvent(root, KeyDown);
+
+                if ((focusBefore is null) && (ExplicitFocusElement is not null))
+                    suppressNextTextInput = true;
+            } else
+            {
+                if (suppressNextTextInput)
+                {
+                    suppressNextTextInput = false;
+
+                    continue;
+                }
+
+                TextInput.Reset();
+                TextInput.Character = evt.Character;
+                DispatchKeyboardEvent(root, TextInput);
+            }
         }
 
         foreach (var key in Input.FrameReleases)
@@ -298,14 +328,6 @@ public sealed class InputDispatcher
             KeyUp.Key = key;
             KeyUp.Modifiers = modifiers;
             DispatchKeyboardEvent(root, KeyUp);
-        }
-
-        //── text input ──
-        foreach (var c in Input.TextInput)
-        {
-            TextInput.Reset();
-            TextInput.Character = c;
-            DispatchKeyboardEvent(root, TextInput);
         }
     }
 

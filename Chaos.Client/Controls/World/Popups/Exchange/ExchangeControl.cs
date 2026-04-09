@@ -69,8 +69,7 @@ public sealed class ExchangeControl : PrefabPanel
 
         YourAckImage = CreateImage("YourACK");
 
-        if (YourAckImage is not null)
-            YourAckImage.Visible = false;
+        YourAckImage?.Visible = false;
 
         //create item controls for both sides
         CreateItemControls(MyItems, MyExchangeRect);
@@ -169,8 +168,7 @@ public sealed class ExchangeControl : PrefabPanel
         YourMoneyLabel?.Text = "0";
         YourAckImage?.Visible = false;
 
-        if (OkButton is not null)
-            OkButton.Enabled = true;
+        OkButton?.Enabled = true;
 
         //center vertically in viewport
         Y = ViewportBounds.Y + (ViewportBounds.Height - Height) / 2;

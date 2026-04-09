@@ -34,14 +34,11 @@ public sealed class AbilityMetadataEntryControl : PrefabPanel
         Entry = null;
         IconTexture = null;
 
-        if (TileImage is not null)
-            TileImage.Texture = null;
+        TileImage?.Texture = null;
 
-        if (NameLabel is not null)
-            NameLabel.Text = string.Empty;
+        NameLabel?.Text = string.Empty;
 
-        if (LevelLabel is not null)
-            LevelLabel.Text = string.Empty;
+        LevelLabel?.Text = string.Empty;
 
         Visible = false;
     }
@@ -80,8 +77,7 @@ public sealed class AbilityMetadataEntryControl : PrefabPanel
     {
         Entry = entry;
 
-        if (NameLabel is not null)
-            NameLabel.Text = entry.Name;
+        NameLabel?.Text = entry.Name;
 
         if (LevelLabel is not null)
         {
@@ -97,15 +93,13 @@ public sealed class AbilityMetadataEntryControl : PrefabPanel
             {
                 IconTexture = newIcon;
 
-                if (TileImage is not null)
-                    TileImage.Texture = newIcon;
+                TileImage?.Texture = newIcon;
             }
         } else
         {
             IconTexture = null;
 
-            if (TileImage is not null)
-                TileImage.Texture = null;
+            TileImage?.Texture = null;
         }
 
         Visible = true;

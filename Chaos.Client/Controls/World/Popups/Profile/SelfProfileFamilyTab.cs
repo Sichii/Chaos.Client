@@ -23,8 +23,7 @@ public sealed class SelfProfileFamilyTab : PrefabPanel
 
         SelfLabel = CreateLabel("Self");
 
-        if (SelfLabel is not null)
-            SelfLabel.Text = WorldState.PlayerName;
+        SelfLabel?.Text = WorldState.PlayerName;
 
         FamilyLabel = CreateLabel("Family");
 

@@ -486,8 +486,7 @@ public sealed class NpcSessionControl : PrefabPanel
         OwnsPortraitTexture = ownsTexture;
 
         //show the npctile background only for sprite portraits (not illustrations, not when hidden)
-        if (NpcTileImage is not null)
-            NpcTileImage.Visible = texture is not null && !ownsTexture;
+        NpcTileImage?.Visible = texture is not null && !ownsTexture;
     }
 
     public void SetPortrait(SpriteFrame spriteFrame)
@@ -497,8 +496,7 @@ public sealed class NpcSessionControl : PrefabPanel
         PortraitSpriteFrame = spriteFrame;
         OwnsPortraitTexture = false;
 
-        if (NpcTileImage is not null)
-            NpcTileImage.Visible = true;
+        NpcTileImage?.Visible = true;
     }
 
     /// <summary>
@@ -751,11 +749,9 @@ public sealed class NpcSessionControl : PrefabPanel
 
         if (totalLines <= visibleLines)
         {
-            if (ScrollUpButton is not null)
-                ScrollUpButton.Visible = false;
+            ScrollUpButton?.Visible = false;
 
-            if (ScrollDownButton is not null)
-                ScrollDownButton.Visible = false;
+            ScrollDownButton?.Visible = false;
 
             return;
         }

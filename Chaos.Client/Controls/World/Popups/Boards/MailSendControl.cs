@@ -120,8 +120,7 @@ public sealed class MailSendControl : PrefabPanel
             ReceiverEditBox.IsFocused = recipient is null;
         }
 
-        if (TitleBox is not null)
-            TitleBox.Text = string.Empty;
+        TitleBox?.Text = string.Empty;
 
         BodyBox.Text = string.Empty;
         BodyBox.ScrollOffset = 0;
@@ -131,8 +130,10 @@ public sealed class MailSendControl : PrefabPanel
 
         if (ReceiverEditBox is not null && string.IsNullOrEmpty(recipient))
             ReceiverEditBox.IsFocused = true;
-        else if (TitleBox is not null)
-            TitleBox.IsFocused = true;
+        else
+        {
+            TitleBox?.IsFocused = true;
+        }
     }
 
     public override void OnKeyDown(KeyDownEvent e)

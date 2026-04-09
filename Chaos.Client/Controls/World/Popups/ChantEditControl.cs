@@ -159,8 +159,7 @@ public sealed class ChantEditControl : PrefabPanel
 
     public override void Dispose()
     {
-        if (Icon is not null)
-            Icon.Texture = null;
+        Icon?.Texture = null;
 
         base.Dispose();
     }
@@ -189,8 +188,7 @@ public sealed class ChantEditControl : PrefabPanel
 
     public override void Hide()
     {
-        if (Icon is not null)
-            Icon.Texture = null;
+        Icon?.Texture = null;
 
         base.Hide();
     }
@@ -216,8 +214,7 @@ public sealed class ChantEditControl : PrefabPanel
         NameLabel?.Text = name;
         LevelLabel?.Text = level;
 
-        if (Icon is not null)
-            Icon.Texture = icon;
+        Icon?.Texture = icon;
 
         //show/hide text inputs based on line count
         for (var i = 0; i < MAX_LINES; i++)
@@ -237,14 +234,11 @@ public sealed class ChantEditControl : PrefabPanel
         var totalMidHeight = LineCount * MID_HEIGHT;
         var botY = TOP_HEIGHT + totalMidHeight;
 
-        if (BotImage is not null)
-            BotImage.Y = botY;
+        BotImage?.Y = botY;
 
-        if (OkButton is not null)
-            OkButton.Y = botY + 2;
+        OkButton?.Y = botY + 2;
 
-        if (CancelButton is not null)
-            CancelButton.Y = botY + 2;
+        CancelButton?.Y = botY + 2;
 
         Height = TOP_HEIGHT + totalMidHeight + BOT_HEIGHT;
         this.CenterOnScreen();

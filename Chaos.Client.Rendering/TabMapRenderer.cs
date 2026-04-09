@@ -302,6 +302,10 @@ public sealed class TabMapRenderer : IDisposable
             0,
             1);
 
+        //deduplicate entities sharing a tile — keep highest priority per tile so the stencil
+        //overlap system (which rejects pixels with stencil > 1) doesn't blank out same-tile entities
+        var deduplicatedCount = DeduplicateEntitiesByTile(entities, entityCount, playerEntityId);
+
         //pass 2: stamp entity diamonds into stencil buffer (no color output)
         //only opaque diamond pixels increment stencil — transparent rectangle areas are discarded
         device.Clear(
@@ -321,7 +325,7 @@ public sealed class TabMapRenderer : IDisposable
         DrawEntityDiamonds(
             spriteBatch,
             entities,
-            entityCount,
+            deduplicatedCount,
             playerEntityId,
             offsetX,
             offsetY,
@@ -341,7 +345,7 @@ public sealed class TabMapRenderer : IDisposable
         DrawEntityDiamonds(
             spriteBatch,
             entities,
-            entityCount,
+            deduplicatedCount,
             playerEntityId,
             offsetX,
             offsetY,
@@ -471,6 +475,58 @@ public sealed class TabMapRenderer : IDisposable
             return false;
 
         return ((TileFlags)SotpData[sotpIndex]).HasFlag(TileFlags.Wall);
+    }
+
+    /// <summary>
+    ///     Removes duplicate entities sharing a tile, keeping the highest priority one. Compacts in-place.
+    ///     Priority: player > creature > aisling > merchant.
+    /// </summary>
+    private static int DeduplicateEntitiesByTile(TabMapEntity[] entities, int count, uint playerEntityId)
+    {
+        var occupied = new Dictionary<(int, int), int>(count);
+        var writeIndex = 0;
+
+        for (var i = 0; i < count; i++)
+        {
+            var entity = entities[i];
+
+            if (entity.Type == ClientEntityType.GroundItem)
+                continue;
+
+            var key = (entity.TileX, entity.TileY);
+            var priority = GetEntityPriority(entity, playerEntityId);
+
+            if (occupied.TryGetValue(key, out var existingWriteIndex))
+            {
+                var existingPriority = GetEntityPriority(entities[existingWriteIndex], playerEntityId);
+
+                if (priority <= existingPriority)
+                    continue;
+
+                entities[existingWriteIndex] = entity;
+            } else
+            {
+                occupied[key] = writeIndex;
+                entities[writeIndex] = entity;
+                writeIndex++;
+            }
+        }
+
+        return writeIndex;
+    }
+
+    private static int GetEntityPriority(TabMapEntity entity, uint playerEntityId)
+    {
+        if (entity.Id == playerEntityId)
+            return 3;
+
+        if (entity.Type == ClientEntityType.Creature && entity.CreatureType != CreatureType.Merchant)
+            return 2;
+
+        if (entity.Type == ClientEntityType.Aisling)
+            return 1;
+
+        return 0;
     }
 
     public void ZoomIn() => Zoom = MathF.Min(Zoom + ZOOM_STEP, ZOOM_MAX);

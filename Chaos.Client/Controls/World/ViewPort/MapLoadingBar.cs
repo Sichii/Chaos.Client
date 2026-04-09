@@ -61,11 +61,9 @@ public class MapLoadingBar : PrefabPanel
     {
         progress = Math.Clamp(progress, 0f, 1f);
 
-        if (FillBar is not null)
-            FillBar.Percent = progress;
+        FillBar?.Percent = progress;
 
-        if (EndCap is not null)
-            EndCap.Visible = progress >= 1f;
+        EndCap?.Visible = progress >= 1f;
     }
 
     public void Show(float initialProgress = 0f)

@@ -239,8 +239,7 @@ public sealed class ArticleListControl : PrefabPanel
     /// </summary>
     public void SetHighlightEnabled(bool enabled)
     {
-        if (HighlightButton is not null)
-            HighlightButton.Visible = enabled;
+        HighlightButton?.Visible = enabled;
     }
 
     public void SetViewportBounds(Rectangle viewport)
@@ -369,11 +368,9 @@ public sealed class ArticleListControl : PrefabPanel
     {
         var hasSelection = (SelectedIndex >= 0) && (SelectedIndex < Entries.Count);
 
-        if (ViewButton is not null)
-            ViewButton.Enabled = hasSelection;
+        ViewButton?.Enabled = hasSelection;
 
-        if (DeleteButton is not null)
-            DeleteButton.Enabled = hasSelection;
+        DeleteButton?.Enabled = hasSelection;
 
         if (HighlightButton is { Visible: true })
             HighlightButton.Enabled = hasSelection;

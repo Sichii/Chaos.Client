@@ -59,8 +59,7 @@ public sealed class GroupRecruitPanel : PrefabPanel
         MinLevelField = CreateTextBox("N_LEVEL_MIN", 3);
         MaxLevelField = CreateTextBox("N_LEVEL_MAX", 3);
 
-        if (TitleField is not null)
-            TitleField.ForegroundColor = LegendColors.White;
+        TitleField?.ForegroundColor = LegendColors.White;
 
         if (ExtraField is not null)
         {
@@ -69,11 +68,9 @@ public sealed class GroupRecruitPanel : PrefabPanel
             ExtraField.ClampToVisibleArea = true;
         }
 
-        if (MinLevelField is not null)
-            MinLevelField.ForegroundColor = LegendColors.White;
+        MinLevelField?.ForegroundColor = LegendColors.White;
 
-        if (MaxLevelField is not null)
-            MaxLevelField.ForegroundColor = LegendColors.White;
+        MaxLevelField?.ForegroundColor = LegendColors.White;
 
         //summary labels (viewer mode)
         TotalOnlineLabel = CreateLabel("N_TOTAL_O");
@@ -147,14 +144,11 @@ public sealed class GroupRecruitPanel : PrefabPanel
         QueryJoinButton = CreateButton("BTN_QUERY_JOIN");
 
         //default to owner-new state: only begin + cancel visible
-        if (ModifyButton is not null)
-            ModifyButton.Visible = false;
+        ModifyButton?.Visible = false;
 
-        if (ResetButton is not null)
-            ResetButton.Visible = false;
+        ResetButton?.Visible = false;
 
-        if (QueryJoinButton is not null)
-            QueryJoinButton.Visible = false;
+        QueryJoinButton?.Visible = false;
 
         //button events
         if (BeginButton is not null)
@@ -247,17 +241,13 @@ public sealed class GroupRecruitPanel : PrefabPanel
 
     private void PopulateFromGroupBoxInfo(DisplayGroupBoxInfo info)
     {
-        if (TitleField is not null)
-            TitleField.Text = info.Name;
+        TitleField?.Text = info.Name;
 
-        if (ExtraField is not null)
-            ExtraField.Text = info.Note;
+        ExtraField?.Text = info.Note;
 
-        if (MinLevelField is not null)
-            MinLevelField.Text = info.MinLevel.ToString();
+        MinLevelField?.Text = info.MinLevel.ToString();
 
-        if (MaxLevelField is not null)
-            MaxLevelField.Text = info.MaxLevel.ToString();
+        MaxLevelField?.Text = info.MaxLevel.ToString();
 
         byte[] currentCounts =
         [
@@ -294,26 +284,20 @@ public sealed class GroupRecruitPanel : PrefabPanel
             totalMax += maxCounts[i];
         }
 
-        if (TotalOnlineLabel is not null)
-            TotalOnlineLabel.Text = totalCurrent.ToString();
+        TotalOnlineLabel?.Text = totalCurrent.ToString();
 
-        if (TotalWantedLabel is not null)
-            TotalWantedLabel.Text = totalMax.ToString();
+        TotalWantedLabel?.Text = totalMax.ToString();
     }
 
     private void ResetFields()
     {
-        if (TitleField is not null)
-            TitleField.Text = string.Empty;
+        TitleField?.Text = string.Empty;
 
-        if (ExtraField is not null)
-            ExtraField.Text = string.Empty;
+        ExtraField?.Text = string.Empty;
 
-        if (MinLevelField is not null)
-            MinLevelField.Text = "1";
+        MinLevelField?.Text = "1";
 
-        if (MaxLevelField is not null)
-            MaxLevelField.Text = "99";
+        MaxLevelField?.Text = "99";
 
         for (var i = 0; i < NUM_CLASSES; i++)
         {
@@ -329,35 +313,26 @@ public sealed class GroupRecruitPanel : PrefabPanel
     {
         SetOwnerFields(true);
 
-        if (BeginButton is not null)
-            BeginButton.Visible = false;
+        BeginButton?.Visible = false;
 
-        if (ModifyButton is not null)
-            ModifyButton.Visible = true;
+        ModifyButton?.Visible = true;
 
-        if (ResetButton is not null)
-            ResetButton.Visible = true;
+        ResetButton?.Visible = true;
 
-        if (CancelButton is not null)
-            CancelButton.Visible = true;
+        CancelButton?.Visible = true;
 
-        if (QueryJoinButton is not null)
-            QueryJoinButton.Visible = false;
+        QueryJoinButton?.Visible = false;
     }
 
     private void SetOwnerFields(bool enabled)
     {
-        if (TitleField is not null)
-            TitleField.Enabled = enabled;
+        TitleField?.Enabled = enabled;
 
-        if (ExtraField is not null)
-            ExtraField.Enabled = enabled;
+        ExtraField?.Enabled = enabled;
 
-        if (MinLevelField is not null)
-            MinLevelField.Enabled = enabled;
+        MinLevelField?.Enabled = enabled;
 
-        if (MaxLevelField is not null)
-            MaxLevelField.Enabled = enabled;
+        MaxLevelField?.Enabled = enabled;
 
         for (var i = 0; i < NUM_CLASSES; i++)
         {
@@ -374,11 +349,9 @@ public sealed class GroupRecruitPanel : PrefabPanel
                 ClassMaxLabels[i]!.Visible = !enabled;
         }
 
-        if (TotalOnlineLabel is not null)
-            TotalOnlineLabel.Visible = !enabled;
+        TotalOnlineLabel?.Visible = !enabled;
 
-        if (TotalWantedLabel is not null)
-            TotalWantedLabel.Visible = !enabled;
+        TotalWantedLabel?.Visible = !enabled;
     }
 
     /// <summary>
@@ -388,20 +361,15 @@ public sealed class GroupRecruitPanel : PrefabPanel
     {
         SetOwnerFields(true);
 
-        if (BeginButton is not null)
-            BeginButton.Visible = true;
+        BeginButton?.Visible = true;
 
-        if (ModifyButton is not null)
-            ModifyButton.Visible = false;
+        ModifyButton?.Visible = false;
 
-        if (ResetButton is not null)
-            ResetButton.Visible = false;
+        ResetButton?.Visible = false;
 
-        if (CancelButton is not null)
-            CancelButton.Visible = true;
+        CancelButton?.Visible = true;
 
-        if (QueryJoinButton is not null)
-            QueryJoinButton.Visible = false;
+        QueryJoinButton?.Visible = false;
     }
 
     /// <summary>
@@ -411,20 +379,15 @@ public sealed class GroupRecruitPanel : PrefabPanel
     {
         SetOwnerFields(false);
 
-        if (BeginButton is not null)
-            BeginButton.Visible = false;
+        BeginButton?.Visible = false;
 
-        if (ModifyButton is not null)
-            ModifyButton.Visible = false;
+        ModifyButton?.Visible = false;
 
-        if (ResetButton is not null)
-            ResetButton.Visible = false;
+        ResetButton?.Visible = false;
 
-        if (CancelButton is not null)
-            CancelButton.Visible = true;
+        CancelButton?.Visible = true;
 
-        if (QueryJoinButton is not null)
-            QueryJoinButton.Visible = true;
+        QueryJoinButton?.Visible = true;
     }
 
     /// <summary>
