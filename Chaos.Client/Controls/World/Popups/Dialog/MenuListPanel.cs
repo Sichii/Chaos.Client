@@ -188,6 +188,7 @@ public sealed class MenuListPanel : FramedDialogPanelBase
     {
         var firstEntry = ScrollOffset * COLUMN_COUNT;
         var controlIndex = 0;
+        var contentBottom = CONTENT_Y + CONTENT_HEIGHT;
 
         for (var row = 0; row < DISPLAY_ROWS; row++)
         {
@@ -208,6 +209,10 @@ public sealed class MenuListPanel : FramedDialogPanelBase
                     control.Y = CONTENT_Y + row * ROW_HEIGHT;
                     control.SetEntry(entry.Icon, entry.DisplayName, isSelected);
                     control.Visible = true;
+
+                    //clip the peek row's hit-test area to the content bounds
+                    var maxHeight = contentBottom - control.Y;
+                    control.Height = Math.Min(ROW_HEIGHT, maxHeight);
                 } else
                 {
                     control.ClearEntry();

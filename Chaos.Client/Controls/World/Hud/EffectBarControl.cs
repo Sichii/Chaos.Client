@@ -26,6 +26,7 @@ public sealed class EffectBarControl : UIPanel
         Width = SLOT_WIDTH;
         Height = MAX_EFFECTS * SLOT_SIZE;
         Visible = false;
+        IsHitTestVisible = false;
 
         //load background strip from spelled.epf (22x212)
         Background = UiRenderer.Instance!.GetEpfTexture("spelled.epf", 0);

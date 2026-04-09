@@ -14,7 +14,7 @@ public sealed class TextElement
 {
     private bool IsShadowed;
     private Color RenderedShadowColor;
-    public TextAlignment Alignment { get; set; } = TextAlignment.Left;
+    public HorizontalAlignment HorizontalAlignment { get; set; } = HorizontalAlignment.Left;
     public Color Color { get; private set; } = LegendColors.Silver;
     public bool ColorCodesEnabled { get; set; } = true;
     public int Height { get; private set; }
@@ -56,17 +56,17 @@ public sealed class TextElement
     }
 
     /// <summary>
-    ///     Draws the text within the specified bounds using the Alignment property.
+    ///     Draws the text within the specified bounds using the HorizontalAlignment property.
     /// </summary>
     public void Draw(SpriteBatch spriteBatch, Rectangle bounds)
     {
         if (!HasContent)
             return;
 
-        var x = Alignment switch
+        var x = HorizontalAlignment switch
         {
-            TextAlignment.Center => bounds.CenterX(Width),
-            TextAlignment.Right  => bounds.AlignRight(Width),
+            HorizontalAlignment.Center => bounds.CenterX(Width),
+            HorizontalAlignment.Right  => bounds.AlignRight(Width),
             _                    => bounds.X
         };
 

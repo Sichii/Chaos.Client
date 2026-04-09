@@ -32,7 +32,7 @@ public sealed class WorldListEntryControl : UIPanel
             Y = 0,
             Width = TITLE_WIDTH,
             Height = 12,
-            Alignment = TextAlignment.Right,
+            HorizontalAlignment = HorizontalAlignment.Right,
             PaddingLeft = 0
         };
 
@@ -45,7 +45,7 @@ public sealed class WorldListEntryControl : UIPanel
             Y = 0,
             Width = NAME_WIDTH,
             Height = 12,
-            Alignment = TextAlignment.Right,
+            HorizontalAlignment = HorizontalAlignment.Right,
             PaddingLeft = 0
         };
 

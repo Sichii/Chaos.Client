@@ -127,14 +127,14 @@ public abstract class PrefabPanel : UIPanel
         };
     }
 
-    protected UILabel? CreateLabel(string name, TextAlignment alignment = TextAlignment.Left)
+    protected UILabel? CreateLabel(string name, HorizontalAlignment alignment = HorizontalAlignment.Left)
     {
         if (!PrefabSet.Contains(name))
             return null;
 
         if (ReuseOrRemoveExistingChild<UILabel>(name) is { } existing)
         {
-            existing.Alignment = alignment;
+            existing.HorizontalAlignment = alignment;
 
             return existing;
         }
@@ -153,7 +153,7 @@ public abstract class PrefabPanel : UIPanel
             Y = (int)r.Top,
             Width = (int)r.Width,
             Height = (int)r.Height,
-            Alignment = alignment
+            HorizontalAlignment = alignment
         };
 
         AddChild(label);

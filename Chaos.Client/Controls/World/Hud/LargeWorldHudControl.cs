@@ -108,30 +108,29 @@ public sealed class LargeWorldHudControl : PrefabPanel, IWorldHud
         MpOrb = CreateProgressBar("ORB_MP")!;
 
         //hp/mp numeric text — centered for horizontal orbs, zindex=1 to render above orbs after re-sorts
-        HpNumLabel = CreateLabel("NUM_HP", TextAlignment.Center)!;
+        HpNumLabel = CreateLabel("NUM_HP", HorizontalAlignment.Center)!;
         HpNumLabel.ZIndex = 1;
         HpNumLabel.ForegroundColor = Color.White;
         HpNumLabel.Shadowed = true;
-        MpNumLabel = CreateLabel("NUM_MP", TextAlignment.Center)!;
+        MpNumLabel = CreateLabel("NUM_MP", HorizontalAlignment.Center)!;
         MpNumLabel.ZIndex = 1;
         MpNumLabel.ForegroundColor = Color.White;
         MpNumLabel.Shadowed = true;
 
         //info text areas
-        PlayerNameLabel = CreateLabel("SZ_ID", TextAlignment.Center)!;
-        ZoneNameLabel = CreateLabel("SZ_ZONE", TextAlignment.Center)!;
+        PlayerNameLabel = CreateLabel("SZ_ID", HorizontalAlignment.Center)!;
+        ZoneNameLabel = CreateLabel("SZ_ZONE", HorizontalAlignment.Center)!;
         ZoneNameLabel.ForegroundColor = LegendColors.White;
-        WeightLabel = CreateLabel("SZ_WEIGHT", TextAlignment.Center)!;
-        CoordsLabel = CreateLabel("SZ_XY", TextAlignment.Center)!;
-        ServerNameLabel = CreateLabel("SZ_SERVER", TextAlignment.Center);
+        WeightLabel = CreateLabel("SZ_WEIGHT", HorizontalAlignment.Center)!;
+        CoordsLabel = CreateLabel("SZ_XY", HorizontalAlignment.Center)!;
+        ServerNameLabel = CreateLabel("SZ_SERVER", HorizontalAlignment.Center);
         DescriptionLabel = CreateLabel("SZ_DESCRIPTION");
 
         //effect bar
         EffectBar = new EffectBarControl
         {
             X = 618,
-            Y = 2,
-            ZIndex = 1
+            Y = 2
         };
         AddChild(EffectBar);
 
@@ -199,7 +198,7 @@ public sealed class LargeWorldHudControl : PrefabPanel, IWorldHud
                     Y = descRect.Y,
                     Width = descRect.Width,
                     Height = descRect.Height,
-                    Alignment = TextAlignment.Center
+                    HorizontalAlignment = HorizontalAlignment.Center
                 };
 
                 PersistentMessagePanel.AddChild(PersistentMessageLabel);

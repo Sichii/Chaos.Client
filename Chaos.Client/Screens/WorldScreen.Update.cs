@@ -307,6 +307,23 @@ public sealed partial class WorldScreen
             }
         }
 
+        //── light-dismiss detail popups ──
+        if (!skipDispatch && Game.Input.WasLeftButtonPressed)
+        {
+            var mx = Game.Input.MouseX;
+            var my = Game.Input.MouseY;
+
+            if (AbilityMetadataDetails.Visible && !AbilityMetadataDetails.ContainsPoint(mx, my))
+            {
+                AbilityMetadataDetails.Hide();
+                skipDispatch = true;
+            } else if (EventMetadataDetails.Visible && !EventMetadataDetails.ContainsPoint(mx, my))
+            {
+                EventMetadataDetails.Hide();
+                skipDispatch = true;
+            }
+        }
+
         //── event dispatch + state update ──
         if (!skipDispatch)
             Game.Dispatcher.ProcessInput(Root!, gameTime);

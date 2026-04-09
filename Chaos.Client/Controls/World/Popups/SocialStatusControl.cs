@@ -33,7 +33,7 @@ public sealed class SocialStatusControl : PrefabPanel
         LoadStatusNames();
 
         //description label from prefab
-        DescriptionLabel = CreateLabel("Description", TextAlignment.Center);
+        DescriptionLabel = CreateLabel("Description", HorizontalAlignment.Center);
 
         //wire emot buttons from the prefab — set hover and selected textures from prefab images
         var cache = UiRenderer.Instance!;

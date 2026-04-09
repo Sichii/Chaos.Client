@@ -90,7 +90,7 @@ public sealed class SettingsControl : PrefabPanel
                 Height = 12,
                 PaddingLeft = 0,
                 PaddingTop = 0,
-                Alignment = TextAlignment.Left
+                HorizontalAlignment = HorizontalAlignment.Left
             };
 
             SettingLabels[i] = label;

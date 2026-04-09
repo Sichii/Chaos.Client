@@ -38,16 +38,25 @@ public sealed class AbilityMetadataDetailsControl : PrefabPanel
 
         IconImage = CreateImage("ICON");
         LevelLabel = CreateLabel("LEV");
+        LevelLabel?.ForegroundColor = LegendColors.White;
         StrLabel = CreateLabel("STR");
+        StrLabel?.ForegroundColor = LegendColors.White;
         IntLabel = CreateLabel("INT");
+        IntLabel?.ForegroundColor = LegendColors.White;
         WisLabel = CreateLabel("WIS");
+        WisLabel?.ForegroundColor = LegendColors.White;
         ConLabel = CreateLabel("CON");
+        ConLabel?.ForegroundColor = LegendColors.White;
         DexLabel = CreateLabel("DEX");
+        DexLabel?.ForegroundColor = LegendColors.White;
         NameLabel = CreateLabel("NAME");
+        NameLabel?.ForegroundColor = LegendColors.White;
         Sub1Label = CreateLabel("SUB1");
+        Sub1Label?.ForegroundColor = LegendColors.White;
         Sub2Label = CreateLabel("SUB2");
+        Sub2Label?.ForegroundColor = LegendColors.White;
         DescLabel = CreateLabel("DESC");
-
+        DescLabel?.ForegroundColor = LegendColors.White;
         DescLabel?.WordWrap = true;
     }
 

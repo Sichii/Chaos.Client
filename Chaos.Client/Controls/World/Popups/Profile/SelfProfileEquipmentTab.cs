@@ -124,12 +124,12 @@ public sealed class SelfProfileEquipmentTab : PrefabPanel
         }
 
         //stat labels — right-aligned numeric values
-        StrLabel = CreateLabel("N_STR", TextAlignment.Right);
-        IntLabel = CreateLabel("N_INT", TextAlignment.Right);
-        WisLabel = CreateLabel("N_WIS", TextAlignment.Right);
-        ConLabel = CreateLabel("N_CON", TextAlignment.Right);
-        DexLabel = CreateLabel("N_DEX", TextAlignment.Right);
-        AcLabel = CreateLabel("N_AC", TextAlignment.Right);
+        StrLabel = CreateLabel("N_STR", HorizontalAlignment.Right);
+        IntLabel = CreateLabel("N_INT", HorizontalAlignment.Right);
+        WisLabel = CreateLabel("N_WIS", HorizontalAlignment.Right);
+        ConLabel = CreateLabel("N_CON", HorizontalAlignment.Right);
+        DexLabel = CreateLabel("N_DEX", HorizontalAlignment.Right);
+        AcLabel = CreateLabel("N_AC", HorizontalAlignment.Right);
 
         //player info labels — left-aligned text
         NameLabel = CreateLabel("NAME");
@@ -161,7 +161,7 @@ public sealed class SelfProfileEquipmentTab : PrefabPanel
         NationImage = CreateImage("Nation");
         NationTextLabel = CreateLabel("NationText");
 
-        NationTextLabel?.TopAligned = true;
+        NationTextLabel?.VerticalAlignment = VerticalAlignment.Top;
 
         //paperdoll area
         PaperdollImage = CreateImage("HumanImage");
@@ -186,7 +186,7 @@ public sealed class SelfProfileEquipmentTab : PrefabPanel
             EmoticonIcons[i] = UiRenderer.Instance!.GetSpfTexture("_nemots.spf", i);
 
         //emoticon status text label — centered in humanstate rect
-        EmoticonLabel = CreateLabel("HumanState", TextAlignment.Center);
+        EmoticonLabel = CreateLabel("HumanState", HorizontalAlignment.Center);
 
         //tooltip label — hidden by default, follows cursor when an equipment slot is hovered
         TooltipLabel = new UILabel

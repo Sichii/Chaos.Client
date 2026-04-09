@@ -103,7 +103,7 @@ public sealed class WorldListControl : PrefabPanel
             Y = totalNumRect.Y,
             Width = totalNumRect.Width,
             Height = totalNumRect.Height,
-            Alignment = TextAlignment.Right,
+            HorizontalAlignment = HorizontalAlignment.Right,
             PaddingLeft = 0,
             PaddingTop = 0
         };
@@ -176,7 +176,7 @@ public sealed class WorldListControl : PrefabPanel
                 Y = countryNumRect.Y + i * labelStride,
                 Width = countryNumRect.Width,
                 Height = countryNumRect.Height,
-                Alignment = TextAlignment.Right,
+                HorizontalAlignment = HorizontalAlignment.Right,
                 PaddingLeft = 0,
                 PaddingTop = 0
             };
@@ -191,7 +191,7 @@ public sealed class WorldListControl : PrefabPanel
         var closeButton = CreateButton("Close");
 
         if (closeButton is not null)
-            closeButton.Clicked += () => Slide.SlideOut();
+            closeButton.Clicked += SlideClose;
 
         WorldState.WorldList.Changed += OnWorldListChanged;
     }

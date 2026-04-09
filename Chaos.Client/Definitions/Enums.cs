@@ -1,10 +1,17 @@
 namespace Chaos.Client.Definitions;
 
-public enum TextAlignment
+public enum HorizontalAlignment
 {
     Left,
     Center,
     Right
+}
+
+public enum VerticalAlignment
+{
+    Center,
+    Top,
+    Bottom
 }
 
 public enum PopupStyle

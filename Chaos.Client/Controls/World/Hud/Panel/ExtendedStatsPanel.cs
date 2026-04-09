@@ -117,7 +117,7 @@ public sealed class ExtendedStatsPanel : ExpandablePanel
                         Y = exRect.Y - exTop,
                         Width = exRect.Width,
                         Height = exRect.Height,
-                        Alignment = TextAlignment.Right,
+                        HorizontalAlignment = HorizontalAlignment.Right,
                         Visible = false
                     };
 
@@ -165,7 +165,7 @@ public sealed class ExtendedStatsPanel : ExpandablePanel
             Y = (int)r.Top - yOffset,
             Width = (int)r.Width,
             Height = (int)r.Height,
-            Alignment = TextAlignment.Right
+            HorizontalAlignment = HorizontalAlignment.Right
         };
 
         AddChild(label);

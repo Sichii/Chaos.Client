@@ -113,6 +113,7 @@ public sealed class SelfProfileAbilityMetadataTab : PrefabPanel
     private AbilityMetadataEntryControl[] CreateColumn(Rectangle columnRect)
     {
         var rows = new AbilityMetadataEntryControl[DISPLAY_ROWS];
+        var columnBottom = columnRect.Y + columnRect.Height;
 
         for (var i = 0; i < DISPLAY_ROWS; i++)
         {
@@ -122,6 +123,12 @@ public sealed class SelfProfileAbilityMetadataTab : PrefabPanel
                 Y = columnRect.Y + i * ROW_HEIGHT,
                 Visible = false
             };
+
+            //clip the peek row's hit-test area to the column bounds
+            var maxHeight = columnBottom - row.Y;
+
+            if (maxHeight < row.Height)
+                row.Height = maxHeight;
 
             row.OnClicked += entry => OnEntryClicked?.Invoke(entry);
             AddChild(row);

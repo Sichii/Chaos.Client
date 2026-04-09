@@ -88,7 +88,7 @@ public sealed class MainOptionsControl : PrefabPanel
             ExitButton.Clicked += () => OnExit?.Invoke();
 
         if (CloseButton is not null)
-            CloseButton.Clicked += () => Slide.SlideOut();
+            CloseButton.Clicked += SlideClose;
     }
 
     public override void Draw(SpriteBatch spriteBatch)

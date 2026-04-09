@@ -121,7 +121,7 @@ public sealed class OtherProfileEquipmentTab : PrefabPanel
         NationImage = CreateImage("Nation");
         NationTextLabel = CreateLabel("NationText");
 
-        NationTextLabel?.TopAligned = true;
+        NationTextLabel?.VerticalAlignment = VerticalAlignment.Top;
 
         //paperdoll area
         PaperdollImage = CreateImage("HumanImage");
@@ -133,9 +133,9 @@ public sealed class OtherProfileEquipmentTab : PrefabPanel
         if (PortraitTextLabel is not null)
         {
             PortraitTextLabel.WordWrap = true;
-            PortraitTextLabel.Alignment = TextAlignment.Left;
+            PortraitTextLabel.HorizontalAlignment = HorizontalAlignment.Left;
             PortraitTextLabel.ForegroundColor = Color.White;
-            PortraitTextLabel.TopAligned = true;
+            PortraitTextLabel.VerticalAlignment = VerticalAlignment.Top;
         }
 
         //emoticon status
@@ -146,7 +146,7 @@ public sealed class OtherProfileEquipmentTab : PrefabPanel
         for (var i = 0; i < EMOTICON_FRAME_COUNT; i++)
             EmoticonIcons[i] = UiRenderer.Instance!.GetSpfTexture("_nemots.spf", i);
 
-        EmoticonLabel = CreateLabel("HumanState", TextAlignment.Center);
+        EmoticonLabel = CreateLabel("HumanState", HorizontalAlignment.Center);
 
         //tooltip label for equipment slot hover
         TooltipLabel = new UILabel

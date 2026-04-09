@@ -127,26 +127,25 @@ public sealed class WorldHudControl : PrefabPanel, IWorldHud
         MpOrb = CreateProgressBar("ORB_MP")!;
 
         //hp/mp numeric text — zindex=1 so labels always render above overlapping orbs after re-sorts
-        HpNumLabel = CreateLabel("NUM_HP", TextAlignment.Right)!;
+        HpNumLabel = CreateLabel("NUM_HP", HorizontalAlignment.Right)!;
         HpNumLabel.ZIndex = 1;
-        MpNumLabel = CreateLabel("NUM_MP", TextAlignment.Right)!;
+        MpNumLabel = CreateLabel("NUM_MP", HorizontalAlignment.Right)!;
         MpNumLabel.ZIndex = 1;
 
         //info text areas
-        PlayerNameLabel = CreateLabel("SZ_ID", TextAlignment.Center)!;
-        ZoneNameLabel = CreateLabel("SZ_ZONE", TextAlignment.Center)!;
+        PlayerNameLabel = CreateLabel("SZ_ID", HorizontalAlignment.Center)!;
+        ZoneNameLabel = CreateLabel("SZ_ZONE", HorizontalAlignment.Center)!;
         ZoneNameLabel.ForegroundColor = LegendColors.White;
-        WeightLabel = CreateLabel("SZ_WEIGHT", TextAlignment.Center)!;
-        CoordsLabel = CreateLabel("SZ_XY", TextAlignment.Center)!;
-        ServerNameLabel = CreateLabel("SZ_SERVER", TextAlignment.Center);
+        WeightLabel = CreateLabel("SZ_WEIGHT", HorizontalAlignment.Center)!;
+        CoordsLabel = CreateLabel("SZ_XY", HorizontalAlignment.Center)!;
+        ServerNameLabel = CreateLabel("SZ_SERVER", HorizontalAlignment.Center);
         DescriptionLabel = CreateLabel("SZ_DESCRIPTION");
 
         //effect bar — right side, above the option button
         EffectBar = new EffectBarControl
         {
             X = 618,
-            Y = 2,
-            ZIndex = 1
+            Y = 2
         };
         AddChild(EffectBar);
 
@@ -212,7 +211,7 @@ public sealed class WorldHudControl : PrefabPanel, IWorldHud
                     Y = descRect.Y,
                     Width = descRect.Width,
                     Height = descRect.Height,
-                    Alignment = TextAlignment.Center
+                    HorizontalAlignment = HorizontalAlignment.Center
                 };
 
                 PersistentMessagePanel.AddChild(PersistentMessageLabel);

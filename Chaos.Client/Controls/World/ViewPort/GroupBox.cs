@@ -57,7 +57,7 @@ public sealed class GroupBox : UIPanel
             Height = TITLE_HEIGHT,
             PaddingLeft = 1,
             PaddingTop = 1,
-            Alignment = TextAlignment.Center,
+            HorizontalAlignment = HorizontalAlignment.Center,
             ForegroundColor = new Color(187, 187, 187)
         };
 

@@ -180,8 +180,8 @@ public sealed class MenuShopPanel : PrefabPanel
         DescTextLabel = CreateLabel("DescText");
 
         DescTextLabel?.WordWrap = true;
-        MoneyLabel = CreateLabel("Money", TextAlignment.Right);
-        PageLabel = CreateLabel("Page", TextAlignment.Center);
+        MoneyLabel = CreateLabel("Money", HorizontalAlignment.Right);
+        PageLabel = CreateLabel("Page", HorizontalAlignment.Center);
     }
 
     private void BuildCategories()
@@ -752,7 +752,7 @@ public sealed class MenuShopPanel : PrefabPanel
                 Y = (ROW_HEIGHT - TextRenderer.CHAR_HEIGHT) / 2,
                 Width = contentWidth - 4,
                 Height = TextRenderer.CHAR_HEIGHT,
-                Alignment = TextAlignment.Right,
+                HorizontalAlignment = HorizontalAlignment.Right,
                 ForegroundColor = Color.White
             };
 
@@ -835,7 +835,7 @@ public sealed class MenuShopPanel : PrefabPanel
                 Y = (TAB_HEIGHT - TextRenderer.CHAR_HEIGHT) / 2 + 2,
                 Width = TAB_WIDTH,
                 Height = TextRenderer.CHAR_HEIGHT,
-                Alignment = TextAlignment.Center,
+                HorizontalAlignment = HorizontalAlignment.Center,
                 ForegroundColor = Color.White
             };
 

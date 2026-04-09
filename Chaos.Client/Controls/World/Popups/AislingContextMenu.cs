@@ -48,7 +48,7 @@ public sealed class AislingContextMenu : UIPanel
             Y = BOX_START_Y,
             Width = BOX_WIDTH,
             Height = BOX_HEIGHT,
-            Alignment = TextAlignment.Center,
+            HorizontalAlignment = HorizontalAlignment.Center,
             PaddingLeft = 0,
             TruncateWithEllipsis = false
         };

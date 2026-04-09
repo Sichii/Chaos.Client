@@ -140,7 +140,7 @@ public sealed class LobbyLoginScreen : IScreen
             Y = ChaosGame.VIRTUAL_HEIGHT - 20,
             Width = ChaosGame.VIRTUAL_WIDTH,
             Height = 12,
-            Alignment = TextAlignment.Center,
+            HorizontalAlignment = HorizontalAlignment.Center,
             ZIndex = 2
         };
 

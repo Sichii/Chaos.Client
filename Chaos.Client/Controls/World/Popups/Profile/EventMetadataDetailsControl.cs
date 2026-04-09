@@ -30,11 +30,15 @@ public sealed class EventMetadataDetailsControl : PrefabPanel
 
         IconImage = CreateImage("ICON");
         NameLabel = CreateLabel("NAME");
+        NameLabel?.ForegroundColor = LegendColors.White;
         LevelLabel = CreateLabel("LEV");
+        LevelLabel?.ForegroundColor = LegendColors.White;
         MustLabel = CreateLabel("MUST");
+        MustLabel?.ForegroundColor = LegendColors.White;
         RewardLabel = CreateLabel("REWARD");
+        RewardLabel?.ForegroundColor = LegendColors.White;
         DescLabel = CreateLabel("DESC");
-
+        DescLabel?.ForegroundColor = LegendColors.White;
         DescLabel?.WordWrap = true;
     }
 

@@ -30,7 +30,7 @@ public class UITextBox : UIElement
     private Color? SavedFocusedBackgroundColor;
     private int SavedMaxLength;
     private int SelectionAnchor;
-    public TextAlignment Alignment { get; set; } = TextAlignment.Left;
+    public HorizontalAlignment HorizontalAlignment { get; set; } = HorizontalAlignment.Left;
 
     /// <summary>
     ///     When true, prevents text input that would cause the content to exceed the visible area. Only applies to multiline
@@ -426,9 +426,9 @@ public class UITextBox : UIElement
         {
             TextElement.Update(displayText, ForegroundColor);
 
-            if ((Alignment != TextAlignment.Left) && !IsFocused)
+            if ((HorizontalAlignment != HorizontalAlignment.Left) && !IsFocused)
             {
-                TextElement.Alignment = Alignment;
+                TextElement.HorizontalAlignment = HorizontalAlignment;
 
                 TextElement.Draw(
                     spriteBatch,
@@ -439,7 +439,7 @@ public class UITextBox : UIElement
                         textHeight));
             } else
             {
-                TextElement.Alignment = TextAlignment.Left;
+                TextElement.HorizontalAlignment = HorizontalAlignment.Left;
                 TextElement.Draw(spriteBatch, new Vector2(textStartX, textY));
             }
         }

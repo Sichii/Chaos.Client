@@ -26,7 +26,9 @@ public sealed class AbilityMetadataEntryControl : PrefabPanel
         Height += 2;
         TileImage = CreateImage("TILE");
         NameLabel = CreateLabel("NAME");
+        NameLabel?.ForegroundColor = LegendColors.White;
         LevelLabel = CreateLabel("LEVEL");
+        LevelLabel?.ForegroundColor = LegendColors.White;
     }
 
     public void Clear()
@@ -82,7 +84,7 @@ public sealed class AbilityMetadataEntryControl : PrefabPanel
         if (LevelLabel is not null)
         {
             LevelLabel.Text = $"level {entry.Level}";
-            LevelLabel.ForegroundColor = new Color(200, 200, 200);
+            LevelLabel.ForegroundColor = LegendColors.White;
         }
 
         if (entry.IconSprite > 0)

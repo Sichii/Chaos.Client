@@ -34,12 +34,12 @@ public sealed class SelfProfileEventMetadataTab : PrefabPanel
     private readonly List<EventMetadataEntry>[] DisplaySlots = new List<EventMetadataEntry>[MAX_DISPLAY_SLOTS];
     private readonly Rectangle LeftRect;
 
-    private readonly EventEntryControl[] LeftRows;
+    private readonly EventMetadataEntryControl[] LeftRows;
     private readonly ScrollBarControl LeftScrollBar;
     private readonly UIButton? NextButton;
     private readonly UIButton? PrevButton;
     private readonly Rectangle RightRect;
-    private readonly EventEntryControl[] RightRows;
+    private readonly EventMetadataEntryControl[] RightRows;
     private readonly ScrollBarControl RightScrollBar;
 
     private BaseClass BaseClass;
@@ -150,18 +150,25 @@ public sealed class SelfProfileEventMetadataTab : PrefabPanel
         Dirty = true;
     }
 
-    private EventEntryControl[] CreateColumn(Rectangle columnRect)
+    private EventMetadataEntryControl[] CreateColumn(Rectangle columnRect)
     {
-        var rows = new EventEntryControl[DISPLAY_ROWS];
+        var rows = new EventMetadataEntryControl[DISPLAY_ROWS];
+        var columnBottom = columnRect.Y + columnRect.Height;
 
         for (var i = 0; i < DISPLAY_ROWS; i++)
         {
-            var row = new EventEntryControl
+            var row = new EventMetadataEntryControl
             {
                 X = columnRect.X,
                 Y = columnRect.Y + i * ROW_HEIGHT,
                 Visible = false
             };
+
+            //clip the peek row's hit-test area to the column bounds
+            var maxHeight = columnBottom - row.Y;
+
+            if (maxHeight < row.Height)
+                row.Height = maxHeight;
 
             row.OnClicked += (entry, state) => OnEntryClicked?.Invoke(entry, state);
             AddChild(row);
@@ -226,7 +233,7 @@ public sealed class SelfProfileEventMetadataTab : PrefabPanel
     private static void DrawClippedColumn(
         SpriteBatch spriteBatch,
         GraphicsDevice device,
-        EventEntryControl[] rows,
+        EventMetadataEntryControl[] rows,
         Rectangle clipRect)
     {
         spriteBatch.End();
@@ -251,7 +258,7 @@ public sealed class SelfProfileEventMetadataTab : PrefabPanel
     /// </summary>
     public event Action<EventMetadataEntry, EventState>? OnEntryClicked;
 
-    private void RefreshColumn(EventEntryControl[] rows, IReadOnlyList<EventMetadataEntry> entries, int scrollOffset)
+    private void RefreshColumn(EventMetadataEntryControl[] rows, IReadOnlyList<EventMetadataEntry> entries, int scrollOffset)
     {
         for (var i = 0; i < rows.Length; i++)
         {

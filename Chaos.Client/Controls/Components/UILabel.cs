@@ -24,7 +24,7 @@ public class UILabel : UIElement
     private int LastClickPosition = -1;
     private int ClickCount;
 
-    public TextAlignment Alignment { get; set; } = TextAlignment.Left;
+    public HorizontalAlignment HorizontalAlignment { get; set; } = HorizontalAlignment.Left;
 
     public bool IsSelectable { get; set; }
     public bool HasSelection => IsSelectable && (SelectionAnchor != CursorPosition);
@@ -56,7 +56,7 @@ public class UILabel : UIElement
         set => Invalidate(value, TextElement.Color);
     }
 
-    public bool TopAligned { get; set; }
+    public VerticalAlignment VerticalAlignment { get; set; }
     public bool TruncateWithEllipsis { get; set; } = true;
     public bool WordWrap { get; set; }
 
@@ -116,10 +116,10 @@ public class UILabel : UIElement
                 truncLen--;
 
             var truncated = truncLen > 0 ? text[..truncLen] + "..." : "...";
-            TextRenderer.DrawText(spriteBatch, new Vector2(innerX, innerY + (int)(((TopAligned ? TextElement.Height : innerH) - TextRenderer.CHAR_HEIGHT) / 2f)), truncated, TextElement.Color, ColorCodesEnabled);
+            TextRenderer.DrawText(spriteBatch, new Vector2(innerX, innerY + (int)(((VerticalAlignment == VerticalAlignment.Top ? TextElement.Height : innerH) - TextRenderer.CHAR_HEIGHT) / 2f)), truncated, TextElement.Color, ColorCodesEnabled);
         } else
         {
-            TextElement.Alignment = Alignment;
+            TextElement.HorizontalAlignment = HorizontalAlignment;
 
             TextElement.Draw(
                 spriteBatch,
@@ -127,7 +127,7 @@ public class UILabel : UIElement
                     innerX,
                     innerY,
                     innerW,
-                    TopAligned ? TextElement.Height : innerH));
+                    VerticalAlignment == VerticalAlignment.Top ? TextElement.Height : innerH));
         }
     }
 
@@ -137,14 +137,14 @@ public class UILabel : UIElement
         var selStart = SnapSelectionBoundary(Math.Min(SelectionStart, text.Length));
         var selEnd = Math.Min(SelectionEnd, text.Length);
 
-        var drawX = Alignment switch
+        var drawX = HorizontalAlignment switch
         {
-            TextAlignment.Center => innerX + (innerW - TextElement.Width) / 2,
-            TextAlignment.Right  => innerX + innerW - TextElement.Width,
+            HorizontalAlignment.Center => innerX + (innerW - TextElement.Width) / 2,
+            HorizontalAlignment.Right  => innerX + innerW - TextElement.Width,
             _                    => innerX
         };
 
-        var drawY = innerY + (((TopAligned ? TextElement.Height : innerH) - TextElement.Height) / 2);
+        var drawY = innerY + (((VerticalAlignment == VerticalAlignment.Top ? TextElement.Height : innerH) - TextElement.Height) / 2);
 
         //pre-selection segment
         if (selStart > 0)
@@ -390,10 +390,10 @@ public class UILabel : UIElement
         var innerX = ScreenX + PaddingLeft;
         var innerW = Width - PaddingLeft - PaddingRight;
 
-        var drawX = Alignment switch
+        var drawX = HorizontalAlignment switch
         {
-            TextAlignment.Center => innerX + (innerW - TextElement.Width) / 2,
-            TextAlignment.Right  => innerX + innerW - TextElement.Width,
+            HorizontalAlignment.Center => innerX + (innerW - TextElement.Width) / 2,
+            HorizontalAlignment.Right  => innerX + innerW - TextElement.Width,
             _                    => innerX
         };
 

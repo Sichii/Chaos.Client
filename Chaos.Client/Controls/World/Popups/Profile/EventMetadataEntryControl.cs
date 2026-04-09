@@ -9,7 +9,7 @@ namespace Chaos.Client.Controls.World.Popups.Profile;
 ///     A single event row in the events tab. Uses the _nui_ski prefab template (211x43): 32x32 icon from leicon.epf, event
 ///     name, and circle text. The entire row is clickable to show details.
 /// </summary>
-public sealed class EventEntryControl : PrefabPanel
+public sealed class EventMetadataEntryControl : PrefabPanel
 {
     private readonly UILabel? LevelLabel;
     private readonly UILabel? NameLabel;
@@ -18,13 +18,16 @@ public sealed class EventEntryControl : PrefabPanel
     public EventMetadataEntry? Entry { get; private set; }
     public EventState State { get; private set; }
 
-    public EventEntryControl()
+    public EventMetadataEntryControl()
         : base("_nui_ski", false)
     {
         Height += 2;
         TileImage = CreateImage("TILE");
         NameLabel = CreateLabel("NAME");
+        NameLabel?.ForegroundColor = LegendColors.White;
         LevelLabel = CreateLabel("LEVEL");
+        LevelLabel?.ForegroundColor = LegendColors.White;
+        LevelLabel?.TruncateWithEllipsis = false;
     }
 
     public void Clear()

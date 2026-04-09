@@ -70,7 +70,7 @@ public sealed class NotepadControl : UIPanel
         {
             Name = "NotepadReadonly",
             WordWrap = true,
-            TopAligned = true,
+            VerticalAlignment = VerticalAlignment.Top,
             ForegroundColor = Color.Black,
             PaddingLeft = 2,
             PaddingTop = 2,
