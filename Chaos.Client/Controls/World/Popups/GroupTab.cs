@@ -1,7 +1,6 @@
 #region
 using Chaos.Client.Collections;
 using Chaos.Client.Controls.Components;
-using Chaos.Client.Definitions;
 using Chaos.Client.ViewModel;
 using Chaos.Extensions.Common;
 using Microsoft.Xna.Framework;

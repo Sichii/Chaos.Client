@@ -6,9 +6,9 @@ using Microsoft.Xna.Framework.Graphics;
 namespace Chaos.Client.Models;
 
 /// <summary>
-///     Procedural scanline dissolve effect for creature/merchant death. Captures the entity's last sprite, then over 9
-///     frames (540ms) alternating scanlines shift downward while the whole image fades out. Matches the original DA client
-///     behavior.
+///     Procedural horizontal dissolve effect for creature/merchant death. Captures the entity's last sprite, then over 9
+///     frames (540ms) odd scanlines shift rightward while the whole image fades out. Matches the original DA client
+///     behavior (WorldObject_Dying).
 /// </summary>
 public sealed class EntityRemovalAnimation : IDisposable
 {
@@ -18,18 +18,19 @@ public sealed class EntityRemovalAnimation : IDisposable
     private const float ALPHA_DECAY_PER_FRAME = 3f / 32f;
 
     private readonly Color[] Pixels;
+    private readonly int MaxWidth;
     private readonly int Step;
-    private readonly int TextureHeight;
     private readonly int TextureWidth;
     public float Alpha { get; private set; } = INITIAL_ALPHA;
-    public int CenterYOffset { get; private set; }
+    public int CenterXOffset { get; private set; }
     public int CurrentFrame { get; private set; }
     public float ElapsedMs { get; set; }
     public short CenterX { get; }
     public short CenterY { get; }
     public bool Flip { get; }
     public short Left { get; }
-
+    public int SourceWidth { get; private set; }
+    public int TextureHeight { get; }
     public Texture2D Texture { get; }
     public int TileX { get; }
     public int TileY { get; }
@@ -58,15 +59,7 @@ public sealed class EntityRemovalAnimation : IDisposable
         TextureWidth = sourceTexture.Width;
         TextureHeight = sourceTexture.Height;
 
-        //copy source pixels
-        Pixels = new Color[TextureWidth * TextureHeight];
-        sourceTexture.GetData(Pixels);
-
-        //create our own texture for modification
-        Texture = new Texture2D(device, TextureWidth, TextureHeight);
-        Texture.SetData(Pixels);
-
-        //compute vertical step size based on texture height
+        //compute step size based on texture height
         int adjusted;
 
         if (TextureHeight < 121)
@@ -76,35 +69,48 @@ public sealed class EntityRemovalAnimation : IDisposable
         else
             adjusted = TextureHeight / 5;
 
-        Step = Math.Max(2, adjusted / FRAME_COUNT / 2 * 2);
+        var rawStep = adjusted / FRAME_COUNT;
+        Step = rawStep < 3 ? 2 : (rawStep / 2) * 2;
+
+        //allocate wider buffer to accommodate rightward shift of odd rows
+        MaxWidth = TextureWidth + FRAME_COUNT * Step;
+        SourceWidth = TextureWidth;
+
+        //copy source pixels into wider buffer (left-aligned, MaxWidth stride)
+        var srcPixels = new Color[TextureWidth * TextureHeight];
+        sourceTexture.GetData(srcPixels);
+
+        Pixels = new Color[MaxWidth * TextureHeight];
+
+        for (var row = 0; row < TextureHeight; row++)
+            Array.Copy(srcPixels, row * TextureWidth, Pixels, row * MaxWidth, TextureWidth);
+
+        Texture = new Texture2D(device, MaxWidth, TextureHeight);
+        Texture.SetData(Pixels);
     }
 
     public void Dispose() => Texture.Dispose();
 
     /// <summary>
-    ///     Shifts every odd column down by Step pixels and clears the top Step rows. Operates on the Pixels array
-    ///     in-place, then uploads to the Texture. Creates interlaced vertical band dissolve.
+    ///     Shifts every odd row right by Step pixels and clears the leftmost Step pixels. Operates on the Pixels array
+    ///     in-place, then uploads to the Texture. Creates horizontal comb dissolve matching the original DA client.
     /// </summary>
-    private void ApplyScanlineDissolve()
+    private void ApplyRowDissolve()
     {
-        for (var col = 0; col < TextureWidth; col++)
+        for (var row = 1; row < TextureHeight; row += 2)
         {
-            if ((col % 2) == 0)
-                continue;
+            var rowStart = row * MaxWidth;
 
-            //copy column content down by step pixels (bottom to top to avoid overwrite)
-            for (var row = TextureHeight - 1 - Step; row >= 0; row--)
-            {
-                var srcIndex = row * TextureWidth + col;
-                var dstIndex = (row + Step) * TextureWidth + col;
-                Pixels[dstIndex] = Pixels[srcIndex];
-            }
+            //shift row content right by Step pixels (right to left to avoid overwrite)
+            for (var col = SourceWidth - 1; col >= 0; col--)
+                Pixels[rowStart + col + Step] = Pixels[rowStart + col];
 
-            //clear top step pixels to transparent
-            for (var row = 0; (row < Step) && (row < TextureHeight); row++)
-                Pixels[row * TextureWidth + col] = Color.Transparent;
+            //clear leftmost Step pixels to transparent
+            for (var col = 0; col < Step; col++)
+                Pixels[rowStart + col] = Color.Transparent;
         }
 
+        SourceWidth += Step;
         Texture.SetData(Pixels);
     }
 
@@ -124,8 +130,8 @@ public sealed class EntityRemovalAnimation : IDisposable
             ElapsedMs -= FRAME_INTERVAL_MS;
             CurrentFrame++;
             Alpha = Math.Max(0, Alpha - ALPHA_DECAY_PER_FRAME);
-            CenterYOffset += Step / 2;
-            ApplyScanlineDissolve();
+            CenterXOffset += Step / 2;
+            ApplyRowDissolve();
             advanced = true;
         }
 

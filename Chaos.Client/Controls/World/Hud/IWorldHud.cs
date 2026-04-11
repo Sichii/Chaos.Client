@@ -1,7 +1,6 @@
 #region
 using Chaos.Client.Controls.Components;
 using Chaos.Client.Controls.World.Hud.Panel;
-using Chaos.Client.Definitions;
 using Microsoft.Xna.Framework;
 #endregion
 

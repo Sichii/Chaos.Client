@@ -1,5 +1,4 @@
 #region
-using Chaos.Client.Definitions;
 using Chaos.Client.Utilities;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;

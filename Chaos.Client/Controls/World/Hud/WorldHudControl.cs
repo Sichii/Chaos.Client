@@ -4,7 +4,6 @@ using Chaos.Client.Controls.Components;
 using Chaos.Client.Controls.World.Hud.Panel;
 using Chaos.Client.Controls.World.ViewPort;
 using Chaos.Client.Data;
-using Chaos.Client.Definitions;
 using Chaos.Client.ViewModel;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;

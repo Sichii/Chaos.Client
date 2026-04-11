@@ -1,6 +1,5 @@
 #region
 using Chaos.Client.Controls.Components;
-using Chaos.Client.Definitions;
 using Chaos.Networking.Entities.Server;
 using Microsoft.Xna.Framework.Graphics;
 using Microsoft.Xna.Framework.Input;

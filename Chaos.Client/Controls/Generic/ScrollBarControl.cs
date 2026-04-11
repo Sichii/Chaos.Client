@@ -8,8 +8,9 @@ using Microsoft.Xna.Framework.Graphics;
 namespace Chaos.Client.Controls.Generic;
 
 /// <summary>
-///     Vertical scrollbar using scroll.epf assets from setoa.dat. Up/down arrows (16x16), tiled track, fixed 16x16 thumb.
-///     5 hit zones: up arrow, page up, thumb (draggable), page down, down arrow.
+///     Scrollbar using scroll.epf assets from setoa.dat. Supports vertical (up/down) and horizontal (left/right)
+///     orientations. Arrow buttons (16x16), tiled track, fixed 16x16 thumb.
+///     5 hit zones: decrement arrow, page decrement, thumb (draggable), page increment, increment arrow.
 /// </summary>
 public sealed class ScrollBarControl : UIElement
 {
@@ -18,6 +19,10 @@ public sealed class ScrollBarControl : UIElement
 
     //scroll.epf frame order: left(0,1), right(2,3), up(4,5), down(6,7), thumb(8), track(9)
     //each pair: [normal, active]
+    private const int FRAME_LEFT_NORMAL = 0;
+    private const int FRAME_LEFT_ACTIVE = 1;
+    private const int FRAME_RIGHT_NORMAL = 2;
+    private const int FRAME_RIGHT_ACTIVE = 3;
     private const int FRAME_UP_NORMAL = 4;
     private const int FRAME_UP_ACTIVE = 5;
     private const int FRAME_DOWN_NORMAL = 6;
@@ -31,10 +36,12 @@ public sealed class ScrollBarControl : UIElement
     private int ActiveZone = -1;
 
     private bool Dragging;
+    private int DragOffsetX;
     private int DragOffsetY;
     private float RepeatTimer;
 
     public int MaxValue { get; set; }
+    public ScrollOrientation Orientation { get; set; } = ScrollOrientation.Vertical;
     public int TotalItems { get; set; }
     public int Value { get; set; }
     public int VisibleItems { get; set; }
@@ -45,6 +52,13 @@ public sealed class ScrollBarControl : UIElement
     {
         if (!Visible)
             return;
+
+        if (Orientation == ScrollOrientation.Horizontal)
+        {
+            DrawHorizontal(spriteBatch);
+
+            return;
+        }
 
         var sx = ScreenX;
         var sy = ScreenY;
@@ -92,7 +106,7 @@ public sealed class ScrollBarControl : UIElement
         //thumb (only when scrollable)
         if (scrollable)
         {
-            var thumbY = GetThumbY(trackStart, trackEnd);
+            var thumbY = GetThumbPosition(trackStart, trackEnd);
 
             AtlasHelper.Draw(
                 spriteBatch,
@@ -102,9 +116,67 @@ public sealed class ScrollBarControl : UIElement
         }
     }
 
+    private void DrawHorizontal(SpriteBatch spriteBatch)
+    {
+        var sx = ScreenX;
+        var sy = ScreenY;
+        var trackStart = sx + BUTTON_SIZE;
+        var trackEnd = sx + Width - BUTTON_SIZE;
+        var scrollable = TotalItems > VisibleItems;
+
+        //tiled track background
+        var trackTex = GetFrame(FRAME_TRACK);
+
+        for (var tileX = trackStart; tileX < trackEnd; tileX += BUTTON_SIZE)
+        {
+            var tileW = Math.Min(BUTTON_SIZE, trackEnd - tileX);
+
+            AtlasHelper.Draw(
+                spriteBatch,
+                trackTex,
+                new Vector2(tileX, sy),
+                new Rectangle(
+                    0,
+                    0,
+                    tileW,
+                    BUTTON_SIZE),
+                Color.White);
+        }
+
+        //left arrow — normal when idle, active when pressed or disabled
+        var leftFrame = !scrollable || (ActiveZone == 0) ? FRAME_LEFT_ACTIVE : FRAME_LEFT_NORMAL;
+
+        AtlasHelper.Draw(
+            spriteBatch,
+            GetFrame(leftFrame),
+            new Vector2(sx, sy),
+            Color.White);
+
+        //right arrow — normal when idle, active when pressed or disabled
+        var rightFrame = !scrollable || (ActiveZone == 4) ? FRAME_RIGHT_ACTIVE : FRAME_RIGHT_NORMAL;
+
+        AtlasHelper.Draw(
+            spriteBatch,
+            GetFrame(rightFrame),
+            new Vector2(trackEnd, sy),
+            Color.White);
+
+        //thumb (only when scrollable)
+        if (scrollable)
+        {
+            var thumbX = GetThumbPosition(trackStart, trackEnd);
+
+            AtlasHelper.Draw(
+                spriteBatch,
+                GetFrame(FRAME_THUMB),
+                new Vector2(thumbX, sy),
+                Color.White);
+        }
+    }
+
     private static Texture2D GetFrame(int index) => UiRenderer.Instance!.GetEpfTexture(SCROLL_EPF, index);
 
-    private int GetThumbY(int trackStart, int trackEnd)
+    private int GetThumbPosition(int trackStart, int trackEnd)
     {
         if (MaxValue <= 0)
             return trackStart;
@@ -147,10 +219,17 @@ public sealed class ScrollBarControl : UIElement
         if (e.Button != MouseButton.Left || (TotalItems <= VisibleItems))
             return;
 
+        if (Orientation == ScrollOrientation.Horizontal)
+        {
+            HandleHorizontalMouseDown(e);
+
+            return;
+        }
+
         var sy = ScreenY;
         var trackStart = sy + BUTTON_SIZE;
         var trackEnd = sy + Height - BUTTON_SIZE;
-        var thumbY = GetThumbY(trackStart, trackEnd);
+        var thumbY = GetThumbPosition(trackStart, trackEnd);
         var my = e.ScreenY;
 
         if (my < trackStart)
@@ -183,20 +262,81 @@ public sealed class ScrollBarControl : UIElement
         e.Handled = true;
     }
 
+    private void HandleHorizontalMouseDown(MouseDownEvent e)
+    {
+        var sx = ScreenX;
+        var trackStart = sx + BUTTON_SIZE;
+        var trackEnd = sx + Width - BUTTON_SIZE;
+        var thumbX = GetThumbPosition(trackStart, trackEnd);
+        var mx = e.ScreenX;
+
+        if (mx < trackStart)
+        {
+            ActiveZone = 0;
+            Value = Math.Max(0, Value - 1);
+            OnValueChanged?.Invoke(Value);
+        } else if (mx >= trackEnd)
+        {
+            ActiveZone = 4;
+            Value = Math.Min(MaxValue, Value + 1);
+            OnValueChanged?.Invoke(Value);
+        } else if ((mx >= thumbX) && (mx < (thumbX + BUTTON_SIZE)))
+        {
+            ActiveZone = 2;
+            Dragging = true;
+            DragOffsetX = mx - thumbX;
+        } else if (mx < thumbX)
+        {
+            ActiveZone = 1;
+            Value = Math.Max(0, Value - 1);
+            OnValueChanged?.Invoke(Value);
+        } else
+        {
+            ActiveZone = 3;
+            Value = Math.Min(MaxValue, Value + 1);
+            OnValueChanged?.Invoke(Value);
+        }
+
+        e.Handled = true;
+    }
+
     public override void OnMouseMove(MouseMoveEvent e)
     {
         if (!Dragging)
             return;
 
-        var sy = ScreenY;
-        var trackStart = sy + BUTTON_SIZE;
-        var trackEnd = sy + Height - BUTTON_SIZE;
-        var usableTrack = trackEnd - trackStart - BUTTON_SIZE;
+        if (Orientation == ScrollOrientation.Horizontal)
+        {
+            var sx = ScreenX;
+            var trackStart = sx + BUTTON_SIZE;
+            var trackEnd = sx + Width - BUTTON_SIZE;
+            var usableTrack = trackEnd - trackStart - BUTTON_SIZE;
 
-        if (usableTrack > 0)
+            if (usableTrack > 0)
+            {
+                var mouseX = e.ScreenX - DragOffsetX;
+                var ratio = Math.Clamp((float)(mouseX - trackStart) / usableTrack, 0f, 1f);
+                var newValue = (int)(ratio * MaxValue);
+
+                if (newValue != Value)
+                {
+                    Value = newValue;
+                    OnValueChanged?.Invoke(Value);
+                }
+            }
+
+            return;
+        }
+
+        var sy = ScreenY;
+        var trackStartV = sy + BUTTON_SIZE;
+        var trackEndV = sy + Height - BUTTON_SIZE;
+        var usableTrackV = trackEndV - trackStartV - BUTTON_SIZE;
+
+        if (usableTrackV > 0)
         {
             var mouseY = e.ScreenY - DragOffsetY;
-            var ratio = Math.Clamp((float)(mouseY - trackStart) / usableTrack, 0f, 1f);
+            var ratio = Math.Clamp((float)(mouseY - trackStartV) / usableTrackV, 0f, 1f);
             var newValue = (int)(ratio * MaxValue);
 
             if (newValue != Value)

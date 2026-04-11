@@ -1,5 +1,4 @@
 #region
-using Chaos.Client.Definitions;
 #endregion
 
 namespace Chaos.Client.Controls.World.Hud.Panel.Slots;

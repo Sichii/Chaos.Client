@@ -1,5 +1,4 @@
 #region
-using Chaos.Client.Definitions;
 using Chaos.Client.Models;
 using Chaos.Networking.Entities.Server;
 #endregion

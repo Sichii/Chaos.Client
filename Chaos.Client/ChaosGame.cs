@@ -2,7 +2,6 @@
 using System.IO.Compression;
 using Chaos.Client.Collections;
 using Chaos.Client.Controls.Generic;
-using Chaos.Client.Definitions;
 using Chaos.Client.Networking;
 using Chaos.Client.Screens;
 using Chaos.Client.Systems;

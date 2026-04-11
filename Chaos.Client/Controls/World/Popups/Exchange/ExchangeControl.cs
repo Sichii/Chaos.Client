@@ -1,8 +1,9 @@
 #region
 using Chaos.Client.Collections;
 using Chaos.Client.Controls.Components;
-using Chaos.Client.Definitions;
+using Chaos.Client.Controls.Generic;
 using Microsoft.Xna.Framework;
+using Microsoft.Xna.Framework.Graphics;
 using Microsoft.Xna.Framework.Input;
 #endregion
 
@@ -14,20 +15,35 @@ namespace Chaos.Client.Controls.World.Popups.Exchange;
 /// </summary>
 public sealed class ExchangeControl : PrefabPanel
 {
-    private const int MAX_ITEMS_PER_SIDE = 4;
-    private const int ITEM_ROW_HEIGHT = 36;
+    private const int MAX_VISIBLE_ITEMS = 4;
+    private const int ITEM_ROW_HEIGHT = 32;
+
+    private static readonly RasterizerState ScissorRasterizer = new()
+    {
+        ScissorTestEnable = true
+    };
+
+    private readonly ScrollBarControl MyHorizontalScroll;
+    private readonly ScrollBarControl MyVerticalScroll;
     private readonly Rectangle MyExchangeRect;
     private readonly UILabel? MyIdLabel;
 
-    private readonly ExchangeItemControl[] MyItems = new ExchangeItemControl[MAX_ITEMS_PER_SIDE];
+    private readonly ExchangeItemControl[] MyItems = new ExchangeItemControl[MAX_VISIBLE_ITEMS];
     private readonly UILabel? MyMoneyLabel;
     private readonly Rectangle ViewportBounds;
 
     private readonly UIImage? YourAckImage;
+    private readonly ScrollBarControl YourHorizontalScroll;
+    private readonly ScrollBarControl YourVerticalScroll;
     private readonly Rectangle YourExchangeRect;
     private readonly UILabel? YourIdLabel;
-    private readonly ExchangeItemControl[] YourItems = new ExchangeItemControl[MAX_ITEMS_PER_SIDE];
+    private readonly ExchangeItemControl[] YourItems = new ExchangeItemControl[MAX_VISIBLE_ITEMS];
     private readonly UILabel? YourMoneyLabel;
+
+    private int MyHorizontalOffset;
+    private int MyVerticalOffset;
+    private int YourHorizontalOffset;
+    private int YourVerticalOffset;
 
     public UIButton? CancelButton { get; }
     public UIButton? OkButton { get; }
@@ -76,6 +92,76 @@ public sealed class ExchangeControl : PrefabPanel
         CreateItemControls(MyItems, MyExchangeRect);
         CreateItemControls(YourItems, YourExchangeRect);
 
+        //vertical scrollbars — right edge of each exchange rect
+        MyVerticalScroll = new ScrollBarControl
+        {
+            Name = "MyVerticalScroll",
+            X = MyExchangeRect.Right - ScrollBarControl.DEFAULT_WIDTH,
+            Y = MyExchangeRect.Y,
+            Height = MyExchangeRect.Height - ScrollBarControl.DEFAULT_WIDTH
+        };
+
+        MyVerticalScroll.OnValueChanged += v =>
+        {
+            MyVerticalOffset = v;
+            RefreshVisibleItems(false);
+        };
+
+        AddChild(MyVerticalScroll);
+
+        YourVerticalScroll = new ScrollBarControl
+        {
+            Name = "YourVerticalScroll",
+            X = YourExchangeRect.Right - ScrollBarControl.DEFAULT_WIDTH,
+            Y = YourExchangeRect.Y,
+            Height = YourExchangeRect.Height - ScrollBarControl.DEFAULT_WIDTH
+        };
+
+        YourVerticalScroll.OnValueChanged += v =>
+        {
+            YourVerticalOffset = v;
+            RefreshVisibleItems(true);
+        };
+
+        AddChild(YourVerticalScroll);
+
+        //horizontal scrollbars — bottom edge of each exchange rect
+        MyHorizontalScroll = new ScrollBarControl
+        {
+            Name = "MyHorizontalScroll",
+            Orientation = ScrollOrientation.Horizontal,
+            X = MyExchangeRect.X,
+            Y = MyExchangeRect.Bottom - ScrollBarControl.DEFAULT_WIDTH,
+            Width = MyExchangeRect.Width - ScrollBarControl.DEFAULT_WIDTH,
+            Height = ScrollBarControl.DEFAULT_WIDTH
+        };
+
+        MyHorizontalScroll.OnValueChanged += v =>
+        {
+            MyHorizontalOffset = v;
+            ApplyHorizontalOffset(MyItems, v);
+        };
+
+        AddChild(MyHorizontalScroll);
+
+        YourHorizontalScroll = new ScrollBarControl
+        {
+            Name = "YourHorizontalScroll",
+            Orientation = ScrollOrientation.Horizontal,
+            X = YourExchangeRect.X,
+            Y = YourExchangeRect.Bottom - ScrollBarControl.DEFAULT_WIDTH,
+            Width = YourExchangeRect.Width - ScrollBarControl.DEFAULT_WIDTH,
+            Height = ScrollBarControl.DEFAULT_WIDTH
+        };
+
+        YourHorizontalScroll.OnValueChanged += v =>
+        {
+            YourHorizontalOffset = v;
+            ApplyHorizontalOffset(YourItems, v);
+        };
+
+        AddChild(YourHorizontalScroll);
+
         //subscribe to state events
         WorldState.Exchange.Started += OnExchangeStarted;
         WorldState.Exchange.ItemAdded += OnExchangeItemAdded;
@@ -95,16 +181,18 @@ public sealed class ExchangeControl : PrefabPanel
 
     private void CreateItemControls(ExchangeItemControl[] items, Rectangle rect)
     {
-        for (var i = 0; i < MAX_ITEMS_PER_SIDE; i++)
+        var itemWidth = rect.Width - ScrollBarControl.DEFAULT_WIDTH;
+
+        for (var i = 0; i < MAX_VISIBLE_ITEMS; i++)
         {
             var control = new ExchangeItemControl
             {
                 Name = $"ExchangeItem{i}",
-                X = rect.X,
                 Y = rect.Y + i * ITEM_ROW_HEIGHT,
-                Width = rect.Width
+                Width = itemWidth
             };
 
+            control.SetBaseX(rect.X);
             items[i] = control;
             AddChild(control);
         }
@@ -131,6 +219,7 @@ public sealed class ExchangeControl : PrefabPanel
     private void OnExchangeClosed()
     {
         ClearAllItems();
+        ResetAllScrollbars();
         Hide();
     }
 
@@ -143,18 +232,9 @@ public sealed class ExchangeControl : PrefabPanel
 
     private void OnExchangeItemAdded(bool rightSide, byte index)
     {
-        if (index >= MAX_ITEMS_PER_SIDE)
-            return;
-
-        var data = WorldState.Exchange.GetItem(rightSide, index);
-
-        if (data.HasValue)
-        {
-            var items = rightSide ? YourItems : MyItems;
-
-            items[index]
-                .SetItem(data.Value.Sprite, data.Value.Color, data.Value.Name ?? string.Empty);
-        }
+        UpdateVerticalScrollbar(rightSide);
+        UpdateHorizontalScrollbar(rightSide);
+        RefreshVisibleItems(rightSide);
     }
 
     private void OnExchangeOtherAccepted() => YourAckImage?.Visible = true;
@@ -162,6 +242,7 @@ public sealed class ExchangeControl : PrefabPanel
     private void OnExchangeStarted()
     {
         ClearAllItems();
+        ResetAllScrollbars();
 
         MyIdLabel?.Text = PlayerName;
         YourIdLabel?.Text = WorldState.Exchange.OtherUserName;
@@ -186,5 +267,242 @@ public sealed class ExchangeControl : PrefabPanel
             OnCancel?.Invoke();
             e.Handled = true;
         }
+    }
+
+    public override void OnMouseScroll(MouseScrollEvent e)
+    {
+        var mouseX = e.ScreenX;
+        var mouseY = e.ScreenY;
+
+        //determine which exchange rect the mouse is over
+        var myScreenRect = GetScreenRect(MyExchangeRect);
+        var yourScreenRect = GetScreenRect(YourExchangeRect);
+
+        if (myScreenRect.Contains(mouseX, mouseY))
+        {
+            if (MyVerticalScroll.TotalItems <= MyVerticalScroll.VisibleItems)
+            {
+                e.Handled = true;
+
+                return;
+            }
+
+            var newValue = Math.Clamp(MyVerticalScroll.Value - e.Delta, 0, MyVerticalScroll.MaxValue);
+
+            if (newValue != MyVerticalScroll.Value)
+            {
+                MyVerticalScroll.Value = newValue;
+                MyVerticalOffset = newValue;
+                RefreshVisibleItems(false);
+            }
+
+            e.Handled = true;
+        } else if (yourScreenRect.Contains(mouseX, mouseY))
+        {
+            if (YourVerticalScroll.TotalItems <= YourVerticalScroll.VisibleItems)
+            {
+                e.Handled = true;
+
+                return;
+            }
+
+            var newValue = Math.Clamp(YourVerticalScroll.Value - e.Delta, 0, YourVerticalScroll.MaxValue);
+
+            if (newValue != YourVerticalScroll.Value)
+            {
+                YourVerticalScroll.Value = newValue;
+                YourVerticalOffset = newValue;
+                RefreshVisibleItems(true);
+            }
+
+            e.Handled = true;
+        }
+    }
+
+    public override void Draw(SpriteBatch spriteBatch)
+    {
+        if (!Visible)
+            return;
+
+        EnsureChildOrder();
+
+        //draw background
+        if (Background is not null)
+            AtlasHelper.Draw(
+                spriteBatch,
+                Background,
+                new Vector2(ScreenX, ScreenY),
+                Color.White);
+
+        //draw non-item children normally (labels, buttons, scrollbars, ack image)
+        foreach (var child in Children)
+            if (child.Visible && !IsItemControl(child))
+            {
+                child.Draw(spriteBatch);
+                DebugOverlay.DrawElement(spriteBatch, child);
+            }
+
+        //draw item controls with scissor rect clipping
+        var device = spriteBatch.GraphicsDevice;
+
+        spriteBatch.End();
+
+        var prevScissor = device.ScissorRectangle;
+
+        //clip my items (narrowed to exclude vertical scrollbar area)
+        device.ScissorRectangle = GetItemClipRect(MyExchangeRect);
+
+        spriteBatch.Begin(samplerState: GlobalSettings.Sampler, rasterizerState: ScissorRasterizer);
+        DrawItemControls(spriteBatch, MyItems);
+        spriteBatch.End();
+
+        //clip your items
+        device.ScissorRectangle = GetItemClipRect(YourExchangeRect);
+
+        spriteBatch.Begin(samplerState: GlobalSettings.Sampler, rasterizerState: ScissorRasterizer);
+        DrawItemControls(spriteBatch, YourItems);
+        spriteBatch.End();
+
+        //restore previous state
+        device.ScissorRectangle = prevScissor;
+        spriteBatch.Begin(samplerState: GlobalSettings.Sampler);
+    }
+
+    private static void ApplyHorizontalOffset(ExchangeItemControl[] items, int offset)
+    {
+        foreach (var item in items)
+            item.HorizontalOffset = offset;
+    }
+
+    private static void DrawItemControls(SpriteBatch spriteBatch, ExchangeItemControl[] items)
+    {
+        foreach (var item in items)
+            if (item.Visible)
+                item.Draw(spriteBatch);
+    }
+
+    /// <summary>
+    ///     Converts a panel-relative exchange rect to a screen-space scissor rect that excludes the vertical scrollbar area.
+    /// </summary>
+    private Rectangle GetItemClipRect(Rectangle localRect) =>
+        new(ScreenX + localRect.X, ScreenY + localRect.Y, localRect.Width - ScrollBarControl.DEFAULT_WIDTH - 4, localRect.Height);
+
+    private Rectangle GetScreenRect(Rectangle localRect) =>
+        new(ScreenX + localRect.X, ScreenY + localRect.Y, localRect.Width, localRect.Height);
+
+    private static bool IsItemControl(UIElement child) => child is ExchangeItemControl;
+
+    private void RefreshVisibleItems(bool rightSide)
+    {
+        var items = rightSide ? YourItems : MyItems;
+        var offset = rightSide ? YourVerticalOffset : MyVerticalOffset;
+        var horizontalOffset = rightSide ? YourHorizontalOffset : MyHorizontalOffset;
+        var totalCount = WorldState.Exchange.GetItemCount(rightSide);
+
+        for (var i = 0; i < MAX_VISIBLE_ITEMS; i++)
+        {
+            var dataIndex = (byte)(offset + i);
+
+            if (dataIndex < totalCount)
+            {
+                var data = WorldState.Exchange.GetItem(rightSide, dataIndex);
+
+                if (data.HasValue)
+                {
+                    items[i]
+                        .SetItem(data.Value.Sprite, data.Value.Color, data.Value.Name ?? string.Empty);
+
+                    items[i].HorizontalOffset = horizontalOffset;
+
+                    continue;
+                }
+            }
+
+            items[i]
+                .ClearItem();
+        }
+
+        UpdateHorizontalScrollbar(rightSide);
+    }
+
+    private void ResetAllScrollbars()
+    {
+        MyVerticalOffset = 0;
+        YourVerticalOffset = 0;
+        MyHorizontalOffset = 0;
+        YourHorizontalOffset = 0;
+
+        MyVerticalScroll.Value = 0;
+        MyVerticalScroll.TotalItems = 0;
+        MyVerticalScroll.VisibleItems = MAX_VISIBLE_ITEMS;
+        MyVerticalScroll.MaxValue = 0;
+
+        YourVerticalScroll.Value = 0;
+        YourVerticalScroll.TotalItems = 0;
+        YourVerticalScroll.VisibleItems = MAX_VISIBLE_ITEMS;
+        YourVerticalScroll.MaxValue = 0;
+
+        MyHorizontalScroll.Value = 0;
+        MyHorizontalScroll.TotalItems = 0;
+        MyHorizontalScroll.VisibleItems = 0;
+        MyHorizontalScroll.MaxValue = 0;
+
+        YourHorizontalScroll.Value = 0;
+        YourHorizontalScroll.TotalItems = 0;
+        YourHorizontalScroll.VisibleItems = 0;
+        YourHorizontalScroll.MaxValue = 0;
+
+        ApplyHorizontalOffset(MyItems, 0);
+        ApplyHorizontalOffset(YourItems, 0);
+    }
+
+    private void UpdateHorizontalScrollbar(bool rightSide)
+    {
+        var items = rightSide ? YourItems : MyItems;
+        var scrollbar = rightSide ? YourHorizontalScroll : MyHorizontalScroll;
+        var rect = rightSide ? YourExchangeRect : MyExchangeRect;
+        var visibleWidth = rect.Width - ScrollBarControl.DEFAULT_WIDTH - 10;
+
+        var maxEntryWidth = 0;
+
+        foreach (var item in items)
+            if (item.Visible && (item.EntryWidth > maxEntryWidth))
+                maxEntryWidth = item.EntryWidth;
+
+        var overflow = maxEntryWidth - visibleWidth;
+
+        if (overflow > 0)
+        {
+            scrollbar.TotalItems = maxEntryWidth;
+            scrollbar.VisibleItems = visibleWidth;
+            scrollbar.MaxValue = overflow;
+        } else
+        {
+            scrollbar.TotalItems = 0;
+            scrollbar.VisibleItems = 0;
+            scrollbar.MaxValue = 0;
+            scrollbar.Value = 0;
+
+            //reset offset when no overflow
+            if (rightSide)
+            {
+                YourHorizontalOffset = 0;
+                ApplyHorizontalOffset(YourItems, 0);
+            } else
+            {
+                MyHorizontalOffset = 0;
+                ApplyHorizontalOffset(MyItems, 0);
+            }
+        }
+    }
+
+    private void UpdateVerticalScrollbar(bool rightSide)
+    {
+        var totalCount = WorldState.Exchange.GetItemCount(rightSide);
+        var scrollbar = rightSide ? YourVerticalScroll : MyVerticalScroll;
+
+        scrollbar.TotalItems = totalCount;
+        scrollbar.VisibleItems = MAX_VISIBLE_ITEMS;
+        scrollbar.MaxValue = Math.Max(0, totalCount - MAX_VISIBLE_ITEMS);
     }
 }

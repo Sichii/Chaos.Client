@@ -8,10 +8,8 @@ namespace Chaos.Client.ViewModel;
 /// </summary>
 public sealed class Exchange
 {
-    private const int MAX_ITEMS = 4;
-
-    private readonly ExchangeItemData?[] MyItems = new ExchangeItemData?[MAX_ITEMS];
-    private readonly ExchangeItemData?[] OtherItems = new ExchangeItemData?[MAX_ITEMS];
+    private readonly List<ExchangeItemData?> MyItems = [];
+    private readonly List<ExchangeItemData?> OtherItems = [];
 
     /// <summary>
     ///     Whether an exchange is currently active.
@@ -53,15 +51,15 @@ public sealed class Exchange
         //server sends 1-based indices
         var index = exchangeIndex - 1;
 
-        if (index is < 0 or >= MAX_ITEMS)
+        if (index < 0)
             return;
 
-        var item = new ExchangeItemData(sprite, color, name);
+        var items = rightSide ? OtherItems : MyItems;
 
-        if (rightSide)
-            OtherItems[index] = item;
-        else
-            MyItems[index] = item;
+        while (items.Count <= index)
+            items.Add(null);
+
+        items[index] = new ExchangeItemData(sprite, color, name);
 
         ItemAdded?.Invoke(rightSide, (byte)index);
     }
@@ -79,8 +77,8 @@ public sealed class Exchange
         MyGold = 0;
         OtherGold = 0;
         IsOtherAccepted = false;
-        Array.Clear(MyItems);
-        Array.Clear(OtherItems);
+        MyItems.Clear();
+        OtherItems.Clear();
         Closed?.Invoke();
     }
 
@@ -94,11 +92,15 @@ public sealed class Exchange
     /// </summary>
     public ExchangeItemData? GetItem(bool rightSide, byte index)
     {
-        if (index >= MAX_ITEMS)
-            return null;
+        var items = rightSide ? OtherItems : MyItems;
 
-        return rightSide ? OtherItems[index] : MyItems[index];
+        return index < items.Count ? items[index] : null;
     }
+
+    /// <summary>
+    ///     Returns the number of item slots on the specified side.
+    /// </summary>
+    public int GetItemCount(bool rightSide) => rightSide ? OtherItems.Count : MyItems.Count;
 
     /// <summary>
     ///     Fired when gold is set on either side. Argument is true for the other player's side.
@@ -141,8 +143,8 @@ public sealed class Exchange
         MyGold = 0;
         OtherGold = 0;
         IsOtherAccepted = false;
-        Array.Clear(MyItems);
-        Array.Clear(OtherItems);
+        MyItems.Clear();
+        OtherItems.Clear();
         Started?.Invoke();
     }
 

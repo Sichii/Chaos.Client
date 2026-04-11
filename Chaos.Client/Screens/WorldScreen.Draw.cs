@@ -386,18 +386,21 @@ public sealed partial class WorldScreen
             var texCenterX = dying.CenterX - Math.Min(0, (int)dying.Left);
             var texCenterY = dying.CenterY - Math.Min(0, (int)dying.Top);
 
-            var anchorX = dying.Flip ? dying.Texture.Width - texCenterX : texCenterX;
+            var anchorX = dying.Flip
+                ? dying.SourceWidth - texCenterX - dying.CenterXOffset
+                : texCenterX + dying.CenterXOffset;
 
             var drawX = tileCenterX - anchorX;
-            var drawY = tileCenterY - texCenterY + dying.CenterYOffset;
+            var drawY = tileCenterY - texCenterY;
             var screenPos = Camera.WorldToScreen(new Vector2(drawX, drawY));
 
             var effects = dying.Flip ? SpriteEffects.FlipHorizontally : SpriteEffects.None;
+            var sourceRect = new Rectangle(0, 0, dying.SourceWidth, dying.TextureHeight);
 
             spriteBatch.Draw(
                 dying.Texture,
                 screenPos,
-                null,
+                sourceRect,
                 Color.White * dying.Alpha,
                 0f,
                 Vector2.Zero,

@@ -125,3 +125,12 @@ public enum EventState
     /// </summary>
     Completed
 }
+
+/// <summary>
+///     Scrollbar orientation.
+/// </summary>
+public enum ScrollOrientation
+{
+    Vertical,
+    Horizontal
+}

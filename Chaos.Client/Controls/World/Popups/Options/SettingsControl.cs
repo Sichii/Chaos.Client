@@ -1,6 +1,5 @@
 #region
 using Chaos.Client.Controls.Components;
-using Chaos.Client.Definitions;
 using Chaos.Client.Extensions;
 using Chaos.Client.Utilities;
 using Chaos.Client.ViewModel;

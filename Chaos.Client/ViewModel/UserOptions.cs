@@ -1,5 +1,3 @@
-using Chaos.Client.Definitions;
-
 namespace Chaos.Client.ViewModel;
 
 /// <summary>

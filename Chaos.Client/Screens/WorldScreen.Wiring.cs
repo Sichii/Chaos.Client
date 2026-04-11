@@ -892,6 +892,7 @@ public sealed partial class WorldScreen
         if (panel.Visible)
             panel.Hide();
         else if (sibling1.Visible || sibling2.Visible)
+            // ReSharper disable once RedundantJumpStatement
             return;
         else if (panel is MacrosListControl macro)
             macro.SlideIn();

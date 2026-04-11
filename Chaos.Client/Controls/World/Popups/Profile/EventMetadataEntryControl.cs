@@ -1,7 +1,6 @@
 #region
 using Chaos.Client.Controls.Components;
 using Chaos.Client.Data.Models;
-using Chaos.Client.Definitions;
 #endregion
 
 namespace Chaos.Client.Controls.World.Popups.Profile;
