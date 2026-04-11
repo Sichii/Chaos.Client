@@ -22,6 +22,11 @@ public abstract class ExpandablePanel : UIPanel
     public int ExpandYOffset { get; private set; }
 
     /// <summary>
+    ///     Whether expand support has been configured via <see cref="ConfigureExpand" />.
+    /// </summary>
+    public bool CanExpand => ExpandedBackground is not null;
+
+    /// <summary>
     ///     Whether the panel is in expanded mode.
     /// </summary>
     public bool IsExpanded { get; private set; }

@@ -1,6 +1,7 @@
 #region
 using Chaos.Client.Controls.Components;
 using Chaos.Client.Data;
+using Chaos.Client.Definitions;
 using Chaos.DarkAges.Definitions;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
@@ -198,6 +199,7 @@ public sealed class SelfProfileEquipmentTab : PrefabPanel
 
         //emoticon status text label — centered in humanstate rect
         EmoticonLabel = CreateLabel("HumanState", HorizontalAlignment.Center);
+        EmoticonLabel?.ForegroundColor = LegendColors.White;
 
         //tooltip label — hidden by default, follows cursor when an equipment slot is hovered
         TooltipLabel = new UILabel
@@ -302,9 +304,9 @@ public sealed class SelfProfileEquipmentTab : PrefabPanel
                 Color.White);
     }
 
-    public event Action? OnGroupToggled;
-    public event Action? OnProfileTextClicked;
-    public event Action<EquipmentSlot>? OnUnequip;
+    public event GroupToggledHandler? OnGroupToggled;
+    public event ProfileTextClickedHandler? OnProfileTextClicked;
+    public event UnequipHandler? OnUnequip;
 
     /// <summary>
     ///     Renders an item icon from the panel item sprite sheet using the same pipeline as inventory icons.

@@ -1,6 +1,7 @@
 #region
 using Chaos.Client.Controls.Components;
 using Chaos.Client.Controls.Generic;
+using Chaos.Client.Definitions;
 using Chaos.Client.Extensions;
 using Chaos.Client.Utilities;
 using Microsoft.Xna.Framework;
@@ -112,8 +113,8 @@ public sealed class BoardListControl : PrefabPanel
         Slide.Hide(this);
     }
 
-    public event Action? OnClose;
-    public event Action<ushort>? OnViewBoard;
+    public event CloseHandler? OnClose;
+    public event ViewBoardHandler? OnViewBoard;
 
     private void RefreshLabels()
     {

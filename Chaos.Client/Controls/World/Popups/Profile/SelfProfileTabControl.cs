@@ -3,6 +3,7 @@ using Chaos.Client.Collections;
 using Chaos.Client.Controls.Components;
 using Chaos.Client.Data;
 using Chaos.Client.Data.Models;
+using Chaos.Client.Definitions;
 using Chaos.Client.Models;
 using Chaos.DarkAges.Definitions;
 using Microsoft.Xna.Framework;
@@ -194,12 +195,12 @@ public sealed class SelfProfileTabControl : PrefabPanel
         return page as T;
     }
 
-    public event Action<AbilityMetadataEntry>? OnAbilityDetailRequested;
-    public event Action? OnClose;
-    public event Action<EventMetadataEntry, EventState>? OnEventDetailRequested;
-    public event Action? OnGroupToggled;
-    public event Action? OnProfileTextClicked;
-    public event Action<EquipmentSlot>? OnUnequip;
+    public event AbilityMetadataClickedHandler? OnAbilityDetailRequested;
+    public event CloseHandler? OnClose;
+    public event EventMetadataClickedHandler? OnEventDetailRequested;
+    public event GroupToggledHandler? OnGroupToggled;
+    public event ProfileTextClickedHandler? OnProfileTextClicked;
+    public event UnequipHandler? OnUnequip;
 
     #region Legend API
     /// <summary>

@@ -543,6 +543,10 @@ public sealed partial class WorldScreen
         var board = WorldState.Board;
         var posts = board.Posts.ToList();
 
+        //ensure session is open — server can send board data directly (e.g. tile click) without going through BoardList
+        if (!board.IsSessionOpen)
+            board.OpenSession();
+
         if (board.IsPublicBoard)
         {
             if (LoadingMoreBoardPosts && ArticleList.Visible && (ArticleList.BoardId == board.BoardId))
@@ -575,6 +579,10 @@ public sealed partial class WorldScreen
             return;
 
         var board = WorldState.Board;
+
+        //ensure session is open — server can send a post directly without going through BoardList
+        if (!board.IsSessionOpen)
+            board.OpenSession();
 
         HideAllBoardControls();
 

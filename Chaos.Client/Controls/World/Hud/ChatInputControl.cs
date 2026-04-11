@@ -1,6 +1,7 @@
 #region
 using Chaos.Client.Controls.Components;
 using Chaos.Client.Data.Models;
+using Chaos.Client.Definitions;
 using Chaos.Extensions.Common;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Input;
@@ -88,13 +89,13 @@ public sealed class ChatInputControl : UIPanel
 
     //--- events ---
 
-    public event Action<string>? MessageSent;
-    public event Action<string>? ShoutSent;
-    public event Action<string, string>? WhisperSent;
-    public event Action<string>? IgnoreAdded;
-    public event Action<string>? IgnoreRemoved;
-    public event Action? IgnoreListRequested;
-    public event Action<bool>? FocusChanged;
+    public event MessageSentHandler? MessageSent;
+    public event ShoutSentHandler? ShoutSent;
+    public event WhisperSentHandler? WhisperSent;
+    public event IgnoreAddedHandler? IgnoreAdded;
+    public event IgnoreRemovedHandler? IgnoreRemoved;
+    public event IgnoreListRequestedHandler? IgnoreListRequested;
+    public event FocusChangedHandler? FocusChanged;
 
     //--- layout ---
 

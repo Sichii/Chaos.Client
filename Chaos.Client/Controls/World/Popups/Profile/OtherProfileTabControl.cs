@@ -2,6 +2,7 @@
 using Chaos.Client.Collections;
 using Chaos.Client.Controls.Components;
 using Chaos.Client.Data;
+using Chaos.Client.Definitions;
 using Chaos.Client.Models;
 using Chaos.Networking.Entities.Server;
 using Microsoft.Xna.Framework;
@@ -151,7 +152,7 @@ public sealed class OtherProfileTabControl : PrefabPanel
         InputDispatcher.Instance?.RemoveControl(this);
         Visible = false;
     }
-    public event Action<string>? OnGroupInviteRequested;
+    public event GroupInviteRequestedHandler? OnGroupInviteRequested;
 
     /// <summary>
     ///     Populates and shows the other player's profile.

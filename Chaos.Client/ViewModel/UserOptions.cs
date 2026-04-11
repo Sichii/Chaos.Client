@@ -1,3 +1,5 @@
+using Chaos.Client.Definitions;
+
 namespace Chaos.Client.ViewModel;
 
 /// <summary>
@@ -35,12 +37,12 @@ public sealed class UserOptions
     /// <summary>
     ///     Fires on any value change (server response or client toggle). Used by UI to refresh labels.
     /// </summary>
-    public event Action<int, bool>? SettingChanged;
+    public event UserOptionChangedHandler? SettingChanged;
 
     /// <summary>
     ///     Fires only on user-initiated toggles. Used by WorldScreen to route to server or persist locally.
     /// </summary>
-    public event Action<int, bool>? SettingToggled;
+    public event UserOptionChangedHandler? SettingToggled;
 
     /// <summary>
     ///     Sets a value and fires <see cref="SettingChanged" />. Used for server responses and initialization.

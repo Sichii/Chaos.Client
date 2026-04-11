@@ -1,5 +1,6 @@
 #region
 using Chaos.Client.Controls.Components;
+using Chaos.Client.Definitions;
 using Chaos.Client.Extensions;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
@@ -196,7 +197,7 @@ public sealed class ChantEditControl : PrefabPanel
     /// <summary>
     ///     Fired when OK is pressed. Parameters: slot (1-based), chant lines array, isSpell.
     /// </summary>
-    public event Action<byte, string[], bool>? OnChantSet;
+    public event ChantSetHandler? OnChantSet;
 
     public void Show(
         byte slot,

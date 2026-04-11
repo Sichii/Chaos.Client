@@ -1,5 +1,6 @@
 #region
 using Chaos.Client.Controls.Components;
+using Chaos.Client.Definitions;
 using Chaos.Client.Networking;
 using Microsoft.Xna.Framework;
 #endregion
@@ -23,7 +24,7 @@ public sealed class ServerSelectControl : PrefabPanel
         Visible = false;
     }
 
-    public event Action<byte>? OnServerSelected;
+    public event ServerSelectedHandler? OnServerSelected;
 
     public void SetServers(List<ServerTableEntry> entries)
     {

@@ -1,5 +1,6 @@
 #region
 using Chaos.Client.Controls.Components;
+using Chaos.Client.Definitions;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using Microsoft.Xna.Framework.Input;
@@ -116,9 +117,9 @@ public sealed class DialogProtectedTextEntryPanel : FramedDialogPanelBase
         base.Hide();
     }
 
-    public event Action? OnClose;
+    public event CloseHandler? OnClose;
 
-    public event Action<string, string>? OnProtectedSubmit;
+    public event ProtectedSubmitHandler? OnProtectedSubmit;
 
     public void ShowProtected(string promptText)
     {

@@ -1,5 +1,6 @@
 #region
 using Chaos.Client.Controls.Components;
+using Chaos.Client.Definitions;
 using Chaos.Networking.Entities.Server;
 using Microsoft.Xna.Framework.Graphics;
 using Microsoft.Xna.Framework.Input;
@@ -94,7 +95,7 @@ public sealed class GroupTabControl : PrefabPanel
         base.Draw(spriteBatch);
     }
 
-    public event Action? OnClose;
+    public event CloseHandler? OnClose;
 
     /// <summary>
     ///     Shows the window on the members tab.

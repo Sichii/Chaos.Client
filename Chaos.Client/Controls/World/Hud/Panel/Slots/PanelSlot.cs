@@ -1,5 +1,6 @@
 #region
 using Chaos.Client.Controls.Components;
+using Chaos.Client.Definitions;
 using Chaos.Client.Models;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
@@ -169,12 +170,12 @@ public class PanelSlot : UIButton
     /// <summary>
     ///     Fired on double-click. Parameter is the 1-based slot number.
     /// </summary>
-    public event Action<byte>? DoubleClicked;
+    public event PanelSlotDoubleClickedHandler? DoubleClicked;
 
     /// <summary>
     ///     Fired when a drag begins on this slot. Parameter is the 1-based slot number.
     /// </summary>
-    public event Action<PanelSlot>? DragStarted;
+    public event PanelSlotDragStartedHandler? DragStarted;
 
     public override void OnMouseDown(MouseDownEvent e)
     {

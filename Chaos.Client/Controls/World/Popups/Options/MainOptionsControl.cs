@@ -1,5 +1,6 @@
 #region
 using Chaos.Client.Controls.Components;
+using Chaos.Client.Definitions;
 using Chaos.Client.Utilities;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
@@ -132,13 +133,13 @@ public sealed class MainOptionsControl : PrefabPanel
         Slide.Hide(this);
     }
 
-    public event Action? OnClose;
-    public event Action? OnExit;
-    public event Action? OnFriends;
-    public event Action? OnMacro;
-    public event Action<int>? OnMusicVolumeChanged;
-    public event Action? OnSettings;
-    public event Action<int>? OnSoundVolumeChanged;
+    public event CloseHandler? OnClose;
+    public event ExitHandler? OnExit;
+    public event FriendsHandler? OnFriends;
+    public event MacroHandler? OnMacro;
+    public event MusicVolumeChangedHandler? OnMusicVolumeChanged;
+    public event SettingsHandler? OnSettings;
+    public event SoundVolumeChangedHandler? OnSoundVolumeChanged;
     public void SetMusicVolume(int volume) => MusicVolume = Math.Clamp(volume, VOLUME_MIN, VOLUME_MAX);
 
     public void SetSoundVolume(int volume) => SoundVolume = Math.Clamp(volume, VOLUME_MIN, VOLUME_MAX);

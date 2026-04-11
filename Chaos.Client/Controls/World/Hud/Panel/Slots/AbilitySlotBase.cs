@@ -1,4 +1,5 @@
 #region
+using Chaos.Client.Definitions;
 #endregion
 
 namespace Chaos.Client.Controls.World.Hud.Panel.Slots;
@@ -22,7 +23,7 @@ public abstract class AbilitySlotControl : PanelSlot
     /// <summary>
     ///     Fired on right-click. Parameter is the 1-based slot number.
     /// </summary>
-    public event Action<byte>? OnRightClick;
+    public event AbilitySlotRightClickHandler? OnRightClick;
 
     /// <summary>
     ///     Sets the slot name and parses out ability name and level from the "Name (Lev:X/Y)" format.

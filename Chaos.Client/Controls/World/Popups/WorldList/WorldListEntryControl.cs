@@ -1,5 +1,6 @@
 #region
 using Chaos.Client.Controls.Components;
+using Chaos.Client.Definitions;
 using Chaos.Client.Models;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
@@ -73,7 +74,7 @@ public sealed class WorldListEntryControl : UIPanel
 
     public string? PlayerName { get; private set; }
 
-    public event Action<string>? OnWhisper;
+    public event WhisperRequestedHandler? OnWhisper;
 
     public override void OnDoubleClick(DoubleClickEvent e)
     {

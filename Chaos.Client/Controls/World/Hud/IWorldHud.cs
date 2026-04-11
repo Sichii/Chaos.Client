@@ -1,6 +1,7 @@
 #region
 using Chaos.Client.Controls.Components;
 using Chaos.Client.Controls.World.Hud.Panel;
+using Chaos.Client.Definitions;
 using Microsoft.Xna.Framework;
 #endregion
 
@@ -57,4 +58,9 @@ public interface IWorldHud
     void ShowSystemMessage(string text, Color? color = null);
     void ShowTab(HudTab tab);
     void ToggleExpand();
+
+    /// <summary>
+    ///     Fired when the inventory tab button is clicked while already on the inventory tab.
+    /// </summary>
+    event ClickedHandler? InventoryReactivated;
 }

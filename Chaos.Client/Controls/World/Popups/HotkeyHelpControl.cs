@@ -2,6 +2,7 @@
 using Chaos.Client.Controls.Components;
 using Chaos.Client.Data;
 using Chaos.Client.Data.Models;
+using Chaos.Client.Definitions;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using Microsoft.Xna.Framework.Input;
@@ -162,7 +163,7 @@ public sealed class HotkeyHelpControl : PrefabPanel
         return -1;
     }
 
-    public event Action? OnClose;
+    public event CloseHandler? OnClose;
 
     private void SetKeyGroupVisible(int index, bool visible)
     {

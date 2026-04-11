@@ -1,6 +1,7 @@
 #region
 using Chaos.Client.Controls.Components;
 using Chaos.Client.Data;
+using Chaos.Client.Definitions;
 using Chaos.Client.Extensions;
 using DALib.Drawing;
 using DALib.Drawing.Virtualized;
@@ -288,7 +289,7 @@ public sealed class NotepadControl : UIPanel
     /// <summary>
     ///     Fired when the editable notepad is closed. Parameters: slot, message text.
     /// </summary>
-    public event Action<byte, string>? OnSave;
+    public event NotepadSavedHandler? OnSave;
 
     /// <summary>
     ///     Shows the notepad in editable mode with the given message text and sizing hints.

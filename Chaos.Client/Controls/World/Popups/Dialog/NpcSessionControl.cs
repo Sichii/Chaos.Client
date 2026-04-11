@@ -1,6 +1,7 @@
 #region
 using Chaos.Client.Controls.Components;
 using Chaos.Client.Controls.Generic;
+using Chaos.Client.Definitions;
 using Chaos.Client.Rendering.Models;
 using Chaos.DarkAges.Definitions;
 using Chaos.Networking.Entities.Server;
@@ -414,17 +415,17 @@ public sealed class NpcSessionControl : PrefabPanel
            || (child == DialogProtectedTextEntry);
 
     //events — worldscreen.wiring subscribes to these
-    public event Action? OnClose;
-    public event Action<string>? OnItemHoverEnter;
-    public event Action? OnItemHoverExit;
-    public event Action<int>? OnListItemSelected;
-    public event Action<int>? OnMerchantItemSelected;
-    public event Action? OnNext;
-    public event Action<int>? OnOptionSelected;
-    public event Action? OnPrevious;
-    public event Action<string, string>? OnProtectedSubmit;
-    public event Action<string>? OnTextSubmit;
-    public event Action? OnTop;
+    public event CloseHandler? OnClose;
+    public event ItemHoverEnterHandler? OnItemHoverEnter;
+    public event ItemHoverExitHandler? OnItemHoverExit;
+    public event ItemSelectedHandler? OnListItemSelected;
+    public event ItemSelectedHandler? OnMerchantItemSelected;
+    public event NextHandler? OnNext;
+    public event OptionSelectedHandler? OnOptionSelected;
+    public event PreviousHandler? OnPrevious;
+    public event ProtectedSubmitHandler? OnProtectedSubmit;
+    public event TextSubmitHandler? OnTextSubmit;
+    public event TopHandler? OnTop;
 
     private void ScrollText(int direction)
     {

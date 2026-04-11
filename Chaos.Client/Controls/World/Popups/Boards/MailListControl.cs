@@ -1,6 +1,7 @@
 #region
 using Chaos.Client.Controls.Components;
 using Chaos.Client.Controls.Generic;
+using Chaos.Client.Definitions;
 using Chaos.Client.Models;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
@@ -164,19 +165,19 @@ public sealed class MailListControl : PrefabPanel
         Visible = false;
     }
 
-    public event Action? OnClose;
-    public event Action<short>? OnDeletePost;
+    public event CloseHandler? OnClose;
+    public event DeletePostHandler? OnDeletePost;
 
     /// <summary>
     ///     Fired when the user clicks the "Load More" row at the bottom of a full page. The short is the last visible PostId
     ///     to use as the startPostId for the next page request.
     /// </summary>
-    public event Action<short>? OnLoadMorePosts;
+    public event LoadMorePostsHandler? OnLoadMorePosts;
 
-    public event Action? OnNewMail;
-    public event Action<short>? OnReplyPost;
-    public event Action? OnUp;
-    public event Action<short>? OnViewPost;
+    public event NewMailHandler? OnNewMail;
+    public event ReplyPostHandler? OnReplyPost;
+    public event UpHandler? OnUp;
+    public event ViewPostHandler? OnViewPost;
 
     private void RefreshLabels()
     {

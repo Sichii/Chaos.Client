@@ -1,6 +1,7 @@
 #region
 using Chaos.Client.Controls.Components;
 using Chaos.Client.Data;
+using Chaos.Client.Definitions;
 using Chaos.Client.Extensions;
 using Chaos.Client.Utilities;
 using Microsoft.Xna.Framework;
@@ -143,9 +144,9 @@ public sealed class OkPopupMessageControl : UIPanel
         MessageLabel.Text = string.Empty;
     }
 
-    public event Action? OnCancel;
+    public event CancelHandler? OnCancel;
 
-    public event Action? OnOk;
+    public event OkHandler? OnOk;
 
     public void Show(string message)
     {

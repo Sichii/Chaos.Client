@@ -1,6 +1,7 @@
 #region
 using Chaos.Client.Controls.Components;
 using Chaos.Client.Data.Models;
+using Chaos.Client.Definitions;
 #endregion
 
 namespace Chaos.Client.Controls.World.Popups.Profile;
@@ -48,7 +49,7 @@ public sealed class EventMetadataEntryControl : PrefabPanel
     /// <summary>
     ///     Fired when the row is clicked. Passes the bound entry and its state.
     /// </summary>
-    public event Action<EventMetadataEntry, EventState>? OnClicked;
+    public event EventMetadataClickedHandler? OnClicked;
 
     public override void OnClick(ClickEvent e)
     {

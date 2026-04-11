@@ -1,6 +1,7 @@
 #region
 using Chaos.Client.Controls.Components;
 using Chaos.Client.Data;
+using Chaos.Client.Definitions;
 using Chaos.Client.Utilities;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
@@ -122,7 +123,7 @@ public sealed class TextPopupControl : UIPanel
             WoodBackground = TextureConverter.ToTexture2D(woodImage);
     }
 
-    public event Action? OnClose;
+    public event CloseHandler? OnClose;
 
     /// <summary>
     ///     Shows a popup with the given text. ScrollWindow and NonScrollWindow are identical (dialog

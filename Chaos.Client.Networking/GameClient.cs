@@ -225,13 +225,13 @@ public sealed class GameClient : IDisposable
     /// <summary>
     ///     Fired when the client is disconnected from the server.
     /// </summary>
-    public event Action? OnDisconnected;
+    public event DisconnectedHandler? OnDisconnected;
 
     /// <summary>
     ///     Fired when a packet is received that is not handled internally (heartbeat/sync). The subscriber receives the raw
     ///     <see cref="ServerPacket" /> for deferred deserialization.
     /// </summary>
-    public event Action<ServerPacket>? OnPacketReceived;
+    public event PacketReceivedHandler? OnPacketReceived;
 
     /// <summary>
     ///     Sends a serializable packet to the server. Thread-safe.

@@ -1,4 +1,5 @@
 #region
+using Chaos.Client.Definitions;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 #endregion
@@ -92,7 +93,7 @@ public class UIButton : UIElement
             Color.White);
     }
 
-    public event Action? Clicked;
+    public event ClickedHandler? Clicked;
 
     public void PerformClick() => Clicked?.Invoke();
 

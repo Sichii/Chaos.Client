@@ -1,6 +1,7 @@
 #region
 using Chaos.Client.Controls.Components;
 using Chaos.Client.Data;
+using Chaos.Client.Definitions;
 using Chaos.DarkAges.Definitions;
 using Microsoft.Xna.Framework.Input;
 #endregion
@@ -109,8 +110,8 @@ public sealed class SocialStatusControl : PrefabPanel
         }
     }
 
-    public event Action? OnClosed;
-    public event Action<SocialStatus>? OnStatusSelected;
+    public event ClosedHandler? OnClosed;
+    public event SocialStatusSelectedHandler? OnStatusSelected;
 
     public new void Show()
     {

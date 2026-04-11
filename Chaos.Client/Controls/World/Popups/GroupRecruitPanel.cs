@@ -1,5 +1,6 @@
 #region
 using Chaos.Client.Controls.Components;
+using Chaos.Client.Definitions;
 using Chaos.Networking.Entities.Server;
 using Microsoft.Xna.Framework.Graphics;
 using Microsoft.Xna.Framework.Input;
@@ -226,10 +227,10 @@ public sealed class GroupRecruitPanel : PrefabPanel
         OnClose?.Invoke();
     }
 
-    public event Action? OnClose;
-    public event Action<string, string, byte, byte, byte, byte, byte, byte, byte>? OnCreateGroupBox;
-    public event Action? OnRemoveGroupBox;
-    public event Action<string>? OnRequestJoin;
+    public event CloseHandler? OnClose;
+    public event CreateGroupBoxHandler? OnCreateGroupBox;
+    public event RemoveGroupBoxHandler? OnRemoveGroupBox;
+    public event RequestJoinHandler? OnRequestJoin;
 
     private static byte ParseByte(UITextBox? field, byte defaultValue = 0)
     {

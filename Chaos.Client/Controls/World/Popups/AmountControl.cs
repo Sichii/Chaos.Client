@@ -1,5 +1,6 @@
 #region
 using Chaos.Client.Controls.Components;
+using Chaos.Client.Definitions;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Input;
 #endregion
@@ -64,7 +65,7 @@ public sealed class AmountControl : PrefabPanel
     /// <summary>
     ///     Fired when the user confirms a gold amount. Parameter is the parsed amount.
     /// </summary>
-    public event Action<uint>? OnConfirm;
+    public event AmountConfirmedHandler? OnConfirm;
 
     public override void Show()
     {

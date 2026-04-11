@@ -1,4 +1,5 @@
 #region
+using Chaos.Client.Definitions;
 using Chaos.Client.Models;
 using Chaos.Networking.Entities.Server;
 #endregion
@@ -121,7 +122,7 @@ public sealed class Board
     /// <summary>
     ///     Fired when the board session is closed (all panels should hide).
     /// </summary>
-    public event Action? SessionClosed;
+    public event SessionClosedHandler? SessionClosed;
 
     public void ShowBoardList(ICollection<BoardInfo> boards)
     {

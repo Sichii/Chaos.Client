@@ -1,5 +1,6 @@
 #region
 using Chaos.Client.Controls.Components;
+using Chaos.Client.Definitions;
 using Chaos.DarkAges.Definitions;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
@@ -301,7 +302,7 @@ public sealed class CharacterCreationControl : PrefabPanel
         PreviewDirty = true;
     }
 
-    public event Action? OnCancel;
+    public event CancelHandler? OnCancel;
 
     private void OnHairLeftClicked()
     {
@@ -317,7 +318,7 @@ public sealed class CharacterCreationControl : PrefabPanel
         PreviewDirty = true;
     }
 
-    public event Action? OnOk;
+    public event OkHandler? OnOk;
 
     private void OnTextBoxFocused(UITextBox focused)
     {

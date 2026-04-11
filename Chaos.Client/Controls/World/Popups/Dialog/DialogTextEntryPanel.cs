@@ -1,5 +1,6 @@
 #region
 using Chaos.Client.Controls.Components;
+using Chaos.Client.Definitions;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Input;
 #endregion
@@ -62,9 +63,9 @@ public sealed class DialogTextEntryPanel : FramedDialogPanelBase
         base.Hide();
     }
 
-    public event Action? OnClose;
+    public event CloseHandler? OnClose;
 
-    public event Action<string>? OnTextSubmit;
+    public event TextSubmitHandler? OnTextSubmit;
 
     public void ShowTextEntry(string prolog, byte maxLength, string epilog)
     {

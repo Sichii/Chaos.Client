@@ -2,6 +2,7 @@
 using Chaos.Client.Controls.Components;
 using Chaos.Client.Controls.World.Hud.Panel.Slots;
 using Chaos.Client.Data.Models;
+using Chaos.Client.Definitions;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 #endregion
@@ -303,25 +304,25 @@ public abstract class PanelBase : ExpandablePanel
     /// <summary>
     ///     Fired when the user double-clicks an occupied slot. Parameter is the 1-based slot number.
     /// </summary>
-    public event Action<byte>? OnSlotClicked;
+    public event PanelSlotClickedHandler? OnSlotClicked;
 
     /// <summary>
     ///     Fired when the user drags a slot icon and releases outside the panel.
     ///     Parameters: (slot, mouseX, mouseY).
     /// </summary>
-    public event Action<byte, int, int>? OnSlotDroppedOutside;
+    public event PanelSlotDroppedOutsideHandler? OnSlotDroppedOutside;
 
     /// <summary>
     ///     Fired when the hovered slot changes. Parameter is the slot name (or null when unhovered).
     /// </summary>
-    public event Action<PanelSlot>? OnSlotHoverEnter;
+    public event PanelSlotHoverEnterHandler? OnSlotHoverEnter;
 
-    public event Action? OnSlotHoverExit;
+    public event PanelSlotHoverExitHandler? OnSlotHoverExit;
 
     /// <summary>
     ///     Fired when the user drags a slot icon onto another slot. Parameters are 1-based slot numbers (source, target).
     /// </summary>
-    public event Action<byte, byte>? OnSlotSwapped;
+    public event PanelSlotSwappedHandler? OnSlotSwapped;
 
     protected abstract Texture2D RenderIcon(ushort spriteId);
 

@@ -1,5 +1,6 @@
 #region
 using Chaos.Client.Controls.Components;
+using Chaos.Client.Definitions;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Input;
 #endregion
@@ -63,9 +64,9 @@ public sealed class LoginNoticeControl : PrefabPanel
         base.Hide();
     }
 
-    public event Action? OnCancel;
+    public event CancelHandler? OnCancel;
 
-    public event Action? OnOk;
+    public event OkHandler? OnOk;
 
     public void Show(string agreementText)
     {

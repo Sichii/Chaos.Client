@@ -397,285 +397,285 @@ public sealed class ConnectionManager : IDisposable
     /// <summary>
     ///     Fired when an item is added to the inventory pane.
     /// </summary>
-    public event Action<AddItemToPaneArgs>? OnAddItemToPane;
+    public event AddItemToPaneHandler? OnAddItemToPane;
 
     //--- skills / spells ---
 
     /// <summary>
     ///     Fired when a skill is added to the skill pane.
     /// </summary>
-    public event Action<AddSkillToPaneArgs>? OnAddSkillToPane;
+    public event AddSkillToPaneHandler? OnAddSkillToPane;
 
     /// <summary>
     ///     Fired when a spell is added to the spell pane.
     /// </summary>
-    public event Action<AddSpellToPaneArgs>? OnAddSpellToPane;
+    public event AddSpellToPaneHandler? OnAddSpellToPane;
 
     /// <summary>
     ///     Fired when a spell/effect animation should play.
     /// </summary>
-    public event Action<AnimationArgs>? OnAnimation;
+    public event AnimationHandler? OnAnimation;
 
     /// <summary>
     ///     Fired when player attributes are updated.
     /// </summary>
-    public event Action<AttributesArgs>? OnAttributes;
+    public event AttributesHandler? OnAttributes;
 
     /// <summary>
     ///     Fired when a body animation is triggered on an entity.
     /// </summary>
-    public event Action<BodyAnimationArgs>? OnBodyAnimation;
+    public event BodyAnimationHandler? OnBodyAnimation;
 
     /// <summary>
     ///     Fired when a casting animation should be cancelled.
     /// </summary>
-    public event Action? OnCancelCasting;
+    public event CancelCastingHandler? OnCancelCasting;
 
     /// <summary>
     ///     Fired when the server confirms the player's own walk. Args: (direction, oldX, oldY).
     /// </summary>
-    public event Action<Direction, int, int>? OnClientWalkResponse;
+    public event ClientWalkResponseHandler? OnClientWalkResponse;
 
     /// <summary>
     ///     Fired when a skill or spell cooldown starts.
     /// </summary>
-    public event Action<CooldownArgs>? OnCooldown;
+    public event CooldownHandler? OnCooldown;
 
     /// <summary>
     ///     Fired when another entity changes facing direction. Args: (sourceId, direction).
     /// </summary>
-    public event Action<uint, Direction>? OnCreatureTurn;
+    public event CreatureTurnHandler? OnCreatureTurn;
 
     /// <summary>
     ///     Fired when another entity walks. Args: (sourceId, oldX, oldY, direction).
     /// </summary>
-    public event Action<uint, int, int, Direction>? OnCreatureWalk;
+    public event CreatureWalkHandler? OnCreatureWalk;
 
     /// <summary>
     ///     Fired when an aisling display is received.
     /// </summary>
-    public event Action<DisplayAislingArgs>? OnDisplayAisling;
+    public event DisplayAislingHandler? OnDisplayAisling;
 
     /// <summary>
     ///     Fired when a bulletin board should be displayed.
     /// </summary>
-    public event Action<DisplayBoardArgs>? OnDisplayBoard;
+    public event DisplayBoardHandler? OnDisplayBoard;
 
     /// <summary>
     ///     Fired when an NPC dialog should be displayed.
     /// </summary>
-    public event Action<DisplayDialogArgs>? OnDisplayDialog;
+    public event DisplayDialogHandler? OnDisplayDialog;
 
     /// <summary>
     ///     Fired when an editable notepad should be displayed.
     /// </summary>
-    public event Action<DisplayEditableNotepadArgs>? OnDisplayEditableNotepad;
+    public event DisplayEditableNotepadHandler? OnDisplayEditableNotepad;
 
     /// <summary>
     ///     Fired when an exchange/trade window should be displayed.
     /// </summary>
-    public event Action<DisplayExchangeArgs>? OnDisplayExchange;
+    public event DisplayExchangeHandler? OnDisplayExchange;
 
     /// <summary>
     ///     Fired when a group invite is received.
     /// </summary>
-    public event Action<DisplayGroupInviteArgs>? OnDisplayGroupInvite;
+    public event DisplayGroupInviteHandler? OnDisplayGroupInvite;
 
     //--- npc interaction ---
 
     /// <summary>
     ///     Fired when an NPC menu should be displayed.
     /// </summary>
-    public event Action<DisplayMenuArgs>? OnDisplayMenu;
+    public event DisplayMenuHandler? OnDisplayMenu;
 
     /// <summary>
     ///     Fired when a public chat message is displayed.
     /// </summary>
-    public event Action<DisplayPublicMessageArgs>? OnDisplayPublicMessage;
+    public event DisplayPublicMessageHandler? OnDisplayPublicMessage;
 
     /// <summary>
     ///     Fired when a read-only notepad should be displayed.
     /// </summary>
-    public event Action<DisplayReadonlyNotepadArgs>? OnDisplayReadonlyNotepad;
+    public event DisplayReadonlyNotepadHandler? OnDisplayReadonlyNotepad;
 
     /// <summary>
     ///     Fired when an equipment slot is cleared.
     /// </summary>
-    public event Action<DisplayUnequipArgs>? OnDisplayUnequip;
+    public event DisplayUnequipHandler? OnDisplayUnequip;
 
     /// <summary>
     ///     Fired when a visible entity (non-aisling) is received.
     /// </summary>
-    public event Action<DisplayVisibleEntitiesArgs>? OnDisplayVisibleEntities;
+    public event DisplayVisibleEntitiesHandler? OnDisplayVisibleEntities;
 
     /// <summary>
     ///     Fired when door states are updated.
     /// </summary>
-    public event Action<DoorArgs>? OnDoor;
+    public event DoorHandler? OnDoor;
 
     /// <summary>
     ///     Fired when a status effect is applied or removed.
     /// </summary>
-    public event Action<EffectArgs>? OnEffect;
+    public event EffectHandler? OnEffect;
 
     //--- equipment ---
 
     /// <summary>
     ///     Fired when an equipment slot is updated.
     /// </summary>
-    public event Action<EquipmentArgs>? OnEquipment;
+    public event EquipmentHandler? OnEquipment;
 
     /// <summary>
     ///     Fired when an error occurs during connection or handshake.
     /// </summary>
-    public event Action<string>? OnError;
+    public event ConnectionErrorHandler? OnError;
 
     /// <summary>
     ///     Fired when a logout response is received.
     /// </summary>
-    public event Action<ExitResponseArgs>? OnExitResponse;
+    public event ExitResponseHandler? OnExitResponse;
 
     /// <summary>
     ///     Fired after the server forced the client to echo a packet. The packet has already been sent; this event is
     ///     informational.
     /// </summary>
-    public event Action<ForceClientPacketArgs>? OnForceClientPacket;
+    public event ForceClientPacketHandler? OnForceClientPacket;
 
     //--- visual / audio ---
 
     /// <summary>
     ///     Fired when an entity's health bar should be displayed.
     /// </summary>
-    public event Action<HealthBarArgs>? OnHealthBar;
+    public event HealthBarHandler? OnHealthBar;
 
     //--- world state ---
 
     /// <summary>
     ///     Fired when the ambient light level changes (time of day).
     /// </summary>
-    public event Action<LightLevelArgs>? OnLightLevel;
+    public event LightLevelHandler? OnLightLevel;
 
     /// <summary>
     ///     Fired when the player's location changes.
     /// </summary>
-    public event Action<int, int>? OnLocationChanged;
+    public event LocationChangedHandler? OnLocationChanged;
 
     /// <summary>
     ///     Fired when a login control is received (e.g. homepage URL).
     /// </summary>
-    public event Action<LoginControlArgs>? OnLoginControl;
+    public event LoginControlHandler? OnLoginControl;
 
     /// <summary>
     ///     Fired when a login message is received (success, failure, or informational).
     /// </summary>
-    public event Action<LoginMessageArgs>? OnLoginMessage;
+    public event LoginMessageHandler? OnLoginMessage;
 
     /// <summary>
     ///     Fired when a login notice (EULA) is received.
     /// </summary>
-    public event Action<LoginNoticeArgs>? OnLoginNotice;
+    public event LoginNoticeHandler? OnLoginNotice;
 
     /// <summary>
     ///     Fired when a map change is about to begin.
     /// </summary>
-    public event Action? OnMapChangePending;
+    public event MapChangePendingHandler? OnMapChangePending;
 
     /// <summary>
     ///     Fired for each row of map data received.
     /// </summary>
-    public event Action<MapDataArgs>? OnMapData;
+    public event MapDataHandler? OnMapData;
 
     /// <summary>
     ///     Fired when map info is received, before map data arrives.
     /// </summary>
-    public event Action<MapInfoArgs>? OnMapInfo;
+    public event MapInfoHandler? OnMapInfo;
 
     /// <summary>
     ///     Fired when the server signals that map loading is complete.
     /// </summary>
-    public event Action? OnMapLoadComplete;
+    public event MapLoadCompleteHandler? OnMapLoadComplete;
 
     /// <summary>
     ///     Fired when metadata is received.
     /// </summary>
-    public event Action<MetaDataArgs>? OnMetaData;
+    public event MetaDataHandler? OnMetaData;
 
     /// <summary>
     ///     Fired when another player's profile is received.
     /// </summary>
-    public event Action<OtherProfileArgs>? OnOtherProfile;
+    public event OtherProfileHandler? OnOtherProfile;
 
     /// <summary>
     ///     Fired when a redirect is received and the client needs to connect to a new server.
     /// </summary>
-    public event Action<RedirectInfo>? OnRedirectReceived;
+    public event RedirectReceivedHandler? OnRedirectReceived;
 
     /// <summary>
     ///     Fired when a viewport refresh response is received.
     /// </summary>
-    public event Action? OnRefreshResponse;
+    public event RefreshResponseHandler? OnRefreshResponse;
 
     /// <summary>
     ///     Fired when an entity is removed from the viewport.
     /// </summary>
-    public event Action<uint>? OnRemoveEntity;
+    public event RemoveEntityHandler? OnRemoveEntity;
 
     /// <summary>
     ///     Fired when an item is removed from the inventory pane.
     /// </summary>
-    public event Action<RemoveItemFromPaneArgs>? OnRemoveItemFromPane;
+    public event RemoveItemFromPaneHandler? OnRemoveItemFromPane;
 
     /// <summary>
     ///     Fired when a skill is removed from the skill pane.
     /// </summary>
-    public event Action<RemoveSkillFromPaneArgs>? OnRemoveSkillFromPane;
+    public event RemoveSkillFromPaneHandler? OnRemoveSkillFromPane;
 
     /// <summary>
     ///     Fired when a spell is removed from the spell pane.
     /// </summary>
-    public event Action<RemoveSpellFromPaneArgs>? OnRemoveSpellFromPane;
+    public event RemoveSpellFromPaneHandler? OnRemoveSpellFromPane;
 
     /// <summary>
     ///     Fired when the player's own profile is received.
     /// </summary>
-    public event Action<SelfProfileArgs>? OnSelfProfile;
+    public event SelfProfileHandler? OnSelfProfile;
 
     //--- chat / messages ---
 
     /// <summary>
     ///     Fired when a system message is received (yellow text, overhead, etc.).
     /// </summary>
-    public event Action<ServerMessageArgs>? OnServerMessage;
+    public event ServerMessageHandler? OnServerMessage;
 
     /// <summary>
     ///     Fired when the lobby handshake completes and the server table is received.
     /// </summary>
-    public event Action<ServerTableData>? OnServerTableReceived;
+    public event ServerTableReceivedHandler? OnServerTableReceived;
 
     /// <summary>
     ///     Fired when a sound or music track should play.
     /// </summary>
-    public event Action<SoundArgs>? OnSound;
+    public event SoundHandler? OnSound;
 
     /// <summary>
     ///     Fired when the server assigns the local player's entity ID during world entry.
     /// </summary>
-    public event Action<uint>? OnUserId;
+    public event UserIdHandler? OnUserId;
 
     /// <summary>
     ///     Fired when world entry is complete and all essential data (user ID, map, location, attributes) has been received.
     /// </summary>
-    public event Action? OnWorldEntryComplete;
+    public event WorldEntryCompleteHandler? OnWorldEntryComplete;
 
     /// <summary>
     ///     Fired when a world list (online players) is received.
     /// </summary>
-    public event Action<WorldListArgs>? OnWorldList;
+    public event WorldListHandler? OnWorldList;
 
     /// <summary>
     ///     Fired when the world map should be displayed.
     /// </summary>
-    public event Action<WorldMapArgs>? OnWorldMap;
+    public event WorldMapHandler? OnWorldMap;
 
     /// <summary>
     ///     Sends a pickup request from a tile.
@@ -1292,7 +1292,7 @@ public sealed class ConnectionManager : IDisposable
     /// <summary>
     ///     Fired when the connection state changes. Args: (oldState, newState).
     /// </summary>
-    public event Action<ConnectionState, ConnectionState>? StateChanged;
+    public event ConnectionStateChangedHandler? StateChanged;
 
     /// <summary>
     ///     Sends a swap slot request between two panel positions.
@@ -1984,7 +1984,7 @@ public sealed class ConnectionManager : IDisposable
     /// <summary>
     ///     Fired when the server requests the player's portrait and profile text.
     /// </summary>
-    public event Action? OnEditableProfileRequest;
+    public event EditableProfileRequestHandler? OnEditableProfileRequest;
 
     private void HandleSelfProfile(ServerPacket pkt)
     {

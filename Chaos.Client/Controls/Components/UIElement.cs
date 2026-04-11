@@ -1,4 +1,5 @@
 #region
+using Chaos.Client.Definitions;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 #endregion
@@ -279,5 +280,5 @@ public abstract class UIElement : IDisposable
     public virtual void OnDragMove(DragMoveEvent e) { }
     public virtual void OnDragDrop(DragDropEvent e) { }
 
-    public event Action<bool>? VisibilityChanged;
+    public event VisibilityChangedHandler? VisibilityChanged;
 }

@@ -1,6 +1,7 @@
 #region
 using Chaos.Client.Controls.Components;
 using Chaos.Client.Controls.Generic;
+using Chaos.Client.Definitions;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Input;
 #endregion
@@ -113,12 +114,12 @@ public sealed class ArticleReadControl : PrefabPanel
         Visible = false;
     }
 
-    public event Action? OnClose;
-    public event Action<short>? OnDeletePost;
-    public event Action? OnNewPost;
-    public event Action? OnNext;
-    public event Action? OnPrev;
-    public event Action? OnUp;
+    public event CloseHandler? OnClose;
+    public event DeletePostHandler? OnDeletePost;
+    public event NewPostHandler? OnNewPost;
+    public event NextHandler? OnNext;
+    public event PrevHandler? OnPrev;
+    public event UpHandler? OnUp;
 
     public void SetViewportBounds(Rectangle viewport)
     {

@@ -1,5 +1,6 @@
 #region
 using Chaos.Client.Controls.Components;
+using Chaos.Client.Definitions;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using Microsoft.Xna.Framework.Input;
@@ -120,9 +121,9 @@ public sealed class DialogOptionPanel : FramedDialogPanelBase
         base.Hide();
     }
 
-    public event Action? OnClose;
+    public event CloseHandler? OnClose;
 
-    public event Action<int>? OnOptionSelected;
+    public event OptionSelectedHandler? OnOptionSelected;
 
     public void ShowOptions(IReadOnlyList<(string Text, ushort Pursuit)> options)
     {
@@ -293,7 +294,7 @@ public sealed class DialogOptionPanel : FramedDialogPanelBase
             TextCache.Draw(spriteBatch, new Vector2(textX, textY));
         }
 
-        public event Action? Clicked;
+        public event ClickedHandler? Clicked;
 
         public override void OnMouseEnter()
         {

@@ -3,6 +3,7 @@ using Chaos.Client.Collections;
 using Chaos.Client.Controls.Components;
 using Chaos.Client.Controls.Generic;
 using Chaos.Client.Data.Models;
+using Chaos.Client.Definitions;
 using Chaos.Client.ViewModel;
 using Chaos.Extensions.Common;
 using Microsoft.Xna.Framework;
@@ -138,7 +139,7 @@ public sealed class SelfProfileAbilityMetadataTab : PrefabPanel
         return rows;
     }
 
-    private ScrollBarControl CreateScrollBar(Rectangle columnRect, Action<int> onValueChanged)
+    private ScrollBarControl CreateScrollBar(Rectangle columnRect, ScrollValueChangedHandler onValueChanged)
     {
         var scrollBar = new ScrollBarControl
         {
@@ -242,7 +243,7 @@ public sealed class SelfProfileAbilityMetadataTab : PrefabPanel
     /// <summary>
     ///     Fired when any entry row is clicked.
     /// </summary>
-    public event Action<AbilityMetadataEntry>? OnEntryClicked;
+    public event AbilityMetadataClickedHandler? OnEntryClicked;
 
     private static void RefreshColumn(AbilityMetadataEntryControl[] rows, IReadOnlyList<AbilityMetadataEntry> entries, int scrollOffset)
     {

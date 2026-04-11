@@ -1,6 +1,7 @@
 #region
 using Chaos.Client.Controls.Components;
 using Chaos.Client.Data.Models;
+using Chaos.Client.Definitions;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 #endregion
@@ -48,7 +49,7 @@ public sealed class AbilityMetadataEntryControl : PrefabPanel
     /// <summary>
     ///     Fired when the row is clicked. Passes the bound entry.
     /// </summary>
-    public event Action<AbilityMetadataEntry>? OnClicked;
+    public event AbilityMetadataClickedHandler? OnClicked;
 
     public override void OnClick(ClickEvent e)
     {
@@ -87,21 +88,13 @@ public sealed class AbilityMetadataEntryControl : PrefabPanel
             LevelLabel.ForegroundColor = LegendColors.White;
         }
 
-        if (entry.IconSprite > 0)
+        var newIcon = ResolveIcon(entry, iconState);
+
+        if (newIcon != IconTexture)
         {
-            var newIcon = ResolveIcon(entry, iconState);
+            IconTexture = newIcon;
 
-            if (newIcon != IconTexture)
-            {
-                IconTexture = newIcon;
-
-                TileImage?.Texture = newIcon;
-            }
-        } else
-        {
-            IconTexture = null;
-
-            TileImage?.Texture = null;
+            TileImage?.Texture = newIcon;
         }
 
         Visible = true;

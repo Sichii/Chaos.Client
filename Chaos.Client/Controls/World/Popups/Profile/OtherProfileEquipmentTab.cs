@@ -1,6 +1,7 @@
 #region
 using Chaos.Client.Controls.Components;
 using Chaos.Client.Data;
+using Chaos.Client.Definitions;
 using Chaos.DarkAges.Definitions;
 using Chaos.Networking.Entities.Server;
 using Microsoft.Xna.Framework;
@@ -222,7 +223,7 @@ public sealed class OtherProfileEquipmentTab : PrefabPanel
                 Color.White);
     }
 
-    public event Action<string>? OnGroupInviteRequested;
+    public event GroupInviteRequestedHandler? OnGroupInviteRequested;
 
     /// <summary>
     ///     Sets the emoticon/social status icon and text.

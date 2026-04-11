@@ -4,6 +4,7 @@ using Chaos.Client.Controls.Components;
 using Chaos.Client.Controls.World.Hud.Panel;
 using Chaos.Client.Controls.World.ViewPort;
 using Chaos.Client.Data;
+using Chaos.Client.Definitions;
 using Chaos.Client.ViewModel;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
@@ -48,6 +49,7 @@ public sealed class WorldHudControl : PrefabPanel, IWorldHud
     private readonly UILabel ZoneNameLabel;
     public HudTab ActiveTab { get; private set; } = HudTab.Inventory;
     public ChatPanel ChatDisplay { get; private set; } = null!;
+    public event ClickedHandler? InventoryReactivated;
     public SystemMessagePanel MessageHistory { get; private set; } = null!;
     public ExtendedStatsPanel ExtendedStatsPanel { get; private set; } = null!;
     public InventoryPanel Inventory { get; private set; } = null!;
@@ -351,6 +353,8 @@ public sealed class WorldHudControl : PrefabPanel, IWorldHud
                         ShowTab(ActiveTab == HudTab.Skills ? HudTab.SkillsAlt : HudTab.Skills);
                     else if (tab == HudTab.Spells && (ActiveTab is HudTab.Spells or HudTab.SpellsAlt))
                         ShowTab(ActiveTab == HudTab.Spells ? HudTab.SpellsAlt : HudTab.Spells);
+                    else if (tab == HudTab.Inventory && ActiveTab == HudTab.Inventory)
+                        InventoryReactivated?.Invoke();
                     else
                         ShowTab(tab);
                 };

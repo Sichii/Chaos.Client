@@ -1,6 +1,7 @@
 #region
 using Chaos.Client.Controls.Components;
 using Chaos.Client.Data;
+using Chaos.Client.Definitions;
 using Chaos.Client.Extensions;
 using Chaos.Client.Utilities;
 using Microsoft.Xna.Framework;
@@ -138,7 +139,7 @@ public sealed class SelfProfileTextEditorControl : UIPanel
         Visible = false;
     }
 
-    public event Action<string>? OnSave;
+    public event ProfileTextSavedHandler? OnSave;
 
     public void Show(string text)
     {

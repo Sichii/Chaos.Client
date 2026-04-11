@@ -2,6 +2,7 @@
 using Chaos.Client.Collections;
 using Chaos.Client.Controls.Components;
 using Chaos.Client.Controls.Generic;
+using Chaos.Client.Definitions;
 using Chaos.Client.ViewModel;
 using Chaos.DarkAges.Definitions;
 using Chaos.Networking.Entities.Server;
@@ -232,8 +233,8 @@ public sealed class MenuListPanel : FramedDialogPanelBase
         }
     }
 
-    public event Action? OnClose;
-    public event Action<int>? OnItemSelected;
+    public event CloseHandler? OnClose;
+    public event ItemSelectedHandler? OnItemSelected;
 
     private void PopulatePlayerItems(DisplayMenuArgs args)
     {

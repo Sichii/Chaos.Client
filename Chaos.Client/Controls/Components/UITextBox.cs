@@ -1,4 +1,5 @@
 #region
+using Chaos.Client.Definitions;
 using Chaos.Client.Utilities;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
@@ -82,7 +83,7 @@ public class UITextBox : UIElement
     ///     Fired when any UITextBox gains focus via IsFocused becoming true.
     ///     The InputDispatcher subscribes to this to keep keyboard routing in sync.
     /// </summary>
-    public static event Action<UITextBox>? TextBoxFocusGained;
+    public static event TextBoxFocusHandler? TextBoxFocusGained;
 
     public bool IsMasked { get; set; }
     public bool IsMultiLine { get; set; }
@@ -747,7 +748,7 @@ public class UITextBox : UIElement
         ResetCursor();
     }
 
-    public event Action<UITextBox>? OnFocused;
+    public event TextBoxFocusHandler? OnFocused;
 
     private void HandlePaste()
     {

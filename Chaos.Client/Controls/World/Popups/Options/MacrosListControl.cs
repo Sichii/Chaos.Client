@@ -1,6 +1,7 @@
 #region
 using Chaos.Client.Controls.Components;
 using Chaos.Client.Data;
+using Chaos.Client.Definitions;
 using Chaos.Client.Extensions;
 using Chaos.Client.Utilities;
 using Microsoft.Xna.Framework;
@@ -109,7 +110,7 @@ public sealed class MacrosListControl : PrefabPanel
             Visible = false;
     }
 
-    public event Action? OnClose;
+    public event CloseHandler? OnClose;
 
     private void Save()
     {

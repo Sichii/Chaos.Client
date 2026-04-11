@@ -1,5 +1,6 @@
 #region
 using Chaos.Client.Controls.Components;
+using Chaos.Client.Definitions;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Input;
 #endregion
@@ -80,8 +81,8 @@ public sealed class ArticleSendControl : PrefabPanel
         Visible = false;
     }
 
-    public event Action? OnCancel;
-    public event Action<string, string>? OnSend; //subject, body
+    public event CancelHandler? OnCancel;
+    public event ArticleSendHandler? OnSend; //subject, body
 
     public void SetViewportBounds(Rectangle viewport)
     {

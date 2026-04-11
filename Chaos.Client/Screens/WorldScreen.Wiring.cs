@@ -721,6 +721,13 @@ public sealed partial class WorldScreen
             WorldState.Board.SessionClosed += ResetBulletinButtonSelection;
         }
 
+        hud.InventoryReactivated += () =>
+        {
+            SelfProfileRequested = true;
+            SelfProfileRequestedTab = StatusBookTab.Equipment;
+            Game.Connection.RequestSelfProfile();
+        };
+
         if (hud.LegendButton is not null)
             hud.LegendButton.Clicked += () =>
             {

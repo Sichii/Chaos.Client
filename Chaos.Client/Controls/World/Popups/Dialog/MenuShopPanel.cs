@@ -2,6 +2,7 @@
 using Chaos.Client.Collections;
 using Chaos.Client.Controls.Components;
 using Chaos.Client.Data;
+using Chaos.Client.Definitions;
 using Chaos.Client.ViewModel;
 using Chaos.DarkAges.Definitions;
 using Chaos.Extensions.Common;
@@ -182,6 +183,10 @@ public sealed class MenuShopPanel : PrefabPanel
         DescTextLabel?.WordWrap = true;
         MoneyLabel = CreateLabel("Money", HorizontalAlignment.Right);
         PageLabel = CreateLabel("Page", HorizontalAlignment.Center);
+        PageLabel?.PaddingLeft = 0;
+        PageLabel?.PaddingRight = 0;
+        PageLabel?.HorizontalAlignment = HorizontalAlignment.Center;
+        PageLabel?.TruncateWithEllipsis = false;
     }
 
     private void BuildCategories()
@@ -393,10 +398,10 @@ public sealed class MenuShopPanel : PrefabPanel
         }
     }
 
-    public event Action? OnClose;
-    public event Action<string>? OnItemHoverEnter;
-    public event Action? OnItemHoverExit;
-    public event Action<int>? OnItemSelected;
+    public event CloseHandler? OnClose;
+    public event ItemHoverEnterHandler? OnItemHoverEnter;
+    public event ItemHoverExitHandler? OnItemHoverExit;
+    public event ItemSelectedHandler? OnItemSelected;
 
     private void PopulateItems(DisplayMenuArgs args)
     {
@@ -781,7 +786,7 @@ public sealed class MenuShopPanel : PrefabPanel
             base.Draw(spriteBatch);
         }
 
-        public event Action? Clicked;
+        public event ClickedHandler? Clicked;
 
         public void SetEntry(Texture2D? icon, string name, int cost)
         {
@@ -859,7 +864,7 @@ public sealed class MenuShopPanel : PrefabPanel
             base.Draw(spriteBatch);
         }
 
-        public event Action? Clicked;
+        public event ClickedHandler? Clicked;
 
         public void SetCategory(string category) => NameLabel.Text = category;
 

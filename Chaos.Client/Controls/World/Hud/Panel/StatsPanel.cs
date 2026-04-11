@@ -1,6 +1,7 @@
 #region
 using Chaos.Client.Controls.Components;
 using Chaos.Client.Data.Models;
+using Chaos.Client.Definitions;
 using Chaos.DarkAges.Definitions;
 using Chaos.Networking.Entities.Server;
 using Microsoft.Xna.Framework;
@@ -39,7 +40,6 @@ public sealed class StatsPanel : ExpandablePanel
     private const int STAT_BUTTON_W = 16;
     private const int STAT_BUTTON_H = 18;
     private const int STAT_BUTTON_SPACING = 19;
-    private const float BLINK_INTERVAL_MS = 500f;
     private const string LEVELUP_EPF = "levelup.epf";
 
     private static readonly Stat[] STAT_BUTTON_STATS =
@@ -73,12 +73,7 @@ public sealed class StatsPanel : ExpandablePanel
     ];
 
     private readonly UILabel?[] Labels = new UILabel?[LABEL_COUNT];
-    private readonly UIButton?[] StatButtons = new UIButton?[STAT_BUTTON_COUNT];
-    private Texture2D? BlinkFrameA;
-    private Texture2D? BlinkFrameB;
-    private Texture2D? HoverFrame;
-    private float BlinkTimer;
-    private bool BlinkPhase;
+    private readonly BlinkButton?[] StatButtons = new BlinkButton?[STAT_BUTTON_COUNT];
     private bool HasUnspentPoints;
 
     //expand repositioning — compact and expanded label layouts
@@ -119,25 +114,26 @@ public sealed class StatsPanel : ExpandablePanel
 
         if (frameCount >= 3)
         {
-            BlinkFrameA = cache.GetEpfTexture(LEVELUP_EPF, 0);
-            BlinkFrameB = cache.GetEpfTexture(LEVELUP_EPF, 1);
-            HoverFrame = cache.GetEpfTexture(LEVELUP_EPF, 2);
+            var blinkFrameA = cache.GetEpfTexture(LEVELUP_EPF, 0);
+            var blinkFrameB = cache.GetEpfTexture(LEVELUP_EPF, 1);
+            var hoverFrame = cache.GetEpfTexture(LEVELUP_EPF, 2);
 
             for (var i = 0; i < STAT_BUTTON_COUNT; i++)
             {
                 var stat = STAT_BUTTON_STATS[i];
 
-                var btn = new UIButton
+                var btn = new BlinkButton
                 {
                     Name = $"LevelUp_{stat}",
                     X = STAT_BUTTON_X,
                     Y = STAT_BUTTON_Y + i * STAT_BUTTON_SPACING,
                     Width = STAT_BUTTON_W,
                     Height = STAT_BUTTON_H,
-                    NormalTexture = BlinkFrameA,
-                    PressedTexture = HoverFrame,
+                    PressedTexture = hoverFrame,
                     Visible = false
                 };
+
+                btn.SetBlinkFrames(blinkFrameA, blinkFrameB);
 
                 var capturedStat = stat;
                 btn.Clicked += () => OnRaiseStat?.Invoke(capturedStat);
@@ -148,7 +144,7 @@ public sealed class StatsPanel : ExpandablePanel
         }
     }
 
-    public event Action<Stat>? OnRaiseStat;
+    public event RaiseStatHandler? OnRaiseStat;
 
     /// <summary>
     ///     Configures expand support. The expanded prefab set provides the full-size Status background and label positions.
@@ -287,22 +283,6 @@ public sealed class StatsPanel : ExpandablePanel
             return;
 
         base.Update(gameTime);
-
-        if (!HasUnspentPoints || BlinkFrameA is null || BlinkFrameB is null)
-            return;
-
-        BlinkTimer += (float)gameTime.ElapsedGameTime.TotalMilliseconds;
-
-        if (BlinkTimer < BLINK_INTERVAL_MS)
-            return;
-
-        BlinkTimer -= BLINK_INTERVAL_MS;
-        BlinkPhase = !BlinkPhase;
-        var frame = BlinkPhase ? BlinkFrameB : BlinkFrameA;
-
-        for (var i = 0; i < STAT_BUTTON_COUNT; i++)
-            if (StatButtons[i] is not null)
-                StatButtons[i]!.NormalTexture = frame;
     }
 
     public void UpdateAttributes(AttributesArgs attrs)
@@ -334,14 +314,12 @@ public sealed class StatsPanel : ExpandablePanel
             return;
 
         HasUnspentPoints = hasPoints;
-        BlinkTimer = 0;
-        BlinkPhase = false;
 
         for (var i = 0; i < STAT_BUTTON_COUNT; i++)
             if (StatButtons[i] is not null)
             {
-                StatButtons[i]!.Visible = hasPoints;
-                StatButtons[i]!.NormalTexture = BlinkFrameA;
+                StatButtons[i]!.Visible = hasPoints && (!CanExpand || IsExpanded);
+                StatButtons[i]!.SetBlinking(hasPoints);
             }
     }
 

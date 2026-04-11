@@ -1,5 +1,6 @@
 #region
 using Chaos.Client.Controls.Components;
+using Chaos.Client.Definitions;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 #endregion
@@ -114,7 +115,7 @@ public sealed class ScrollBarControl : UIElement
         return trackStart + (int)(ratio * usableTrack);
     }
 
-    public event Action<int>? OnValueChanged;
+    public event ScrollValueChangedHandler? OnValueChanged;
 
     public override void Update(GameTime gameTime)
     {

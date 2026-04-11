@@ -1,5 +1,6 @@
 #region
 using Chaos.Client.Controls.Components;
+using Chaos.Client.Definitions;
 using Chaos.Client.Extensions;
 using Chaos.Client.Models;
 using Chaos.Client.Utilities;
@@ -161,8 +162,8 @@ public sealed class FriendsListControl : PrefabPanel
             Visible = false;
     }
 
-    public event Action? OnClose;
-    public event Action? OnOk;
+    public event CloseHandler? OnClose;
+    public event OkHandler? OnOk;
 
     private void RefreshCaches()
     {

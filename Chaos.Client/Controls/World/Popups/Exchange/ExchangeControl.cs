@@ -1,6 +1,7 @@
 #region
 using Chaos.Client.Collections;
 using Chaos.Client.Controls.Components;
+using Chaos.Client.Definitions;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Input;
 #endregion
@@ -125,7 +126,7 @@ public sealed class ExchangeControl : PrefabPanel
     /// </summary>
     public bool IsMyMoneyClicked(int mouseX, int mouseY) => MyMoneyLabel?.ContainsPoint(mouseX, mouseY) ?? false;
 
-    public event Action? OnCancel;
+    public event CancelHandler? OnCancel;
 
     private void OnExchangeClosed()
     {
@@ -176,7 +177,7 @@ public sealed class ExchangeControl : PrefabPanel
         Show();
     }
 
-    public event Action? OnOk;
+    public event OkHandler? OnOk;
 
     public override void OnKeyDown(KeyDownEvent e)
     {
