@@ -108,14 +108,20 @@ public sealed class ChatPanel : ExpandablePanel
         if (ChatLog.Count > MAX_CHAT_LINES)
             ChatLog.RemoveRange(0, ChatLog.Count - MAX_CHAT_LINES);
 
-        //auto-scroll to bottom on new message
-        ScrollOffset = 0;
-        LogVersion++;
+        var wasAtBottom = ScrollOffset == 0;
 
         ScrollBar.TotalItems = ChatLog.Count;
         ScrollBar.VisibleItems = MaxVisibleLines;
         ScrollBar.MaxValue = Math.Max(0, ChatLog.Count - MaxVisibleLines);
-        ScrollBar.Value = ScrollBar.MaxValue;
+
+        if (wasAtBottom)
+        {
+            ScrollOffset = 0;
+            ScrollBar.Value = ScrollBar.MaxValue;
+        } else
+            ScrollBar.Value = ScrollBar.MaxValue - ScrollOffset;
+
+        LogVersion++;
     }
 
     /// <summary>

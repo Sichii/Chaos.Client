@@ -86,6 +86,7 @@ public sealed class CharacterCreationControl : PrefabPanel
         : base("_ncreate", false)
     {
         Renderer = renderer;
+        BackgroundColor = Color.Black;
         Name = "CharacterCreation";
         Visible = false;
         UsesControlStack = true;
@@ -124,9 +125,12 @@ public sealed class CharacterCreationControl : PrefabPanel
         PasswordConfirmField = CreateTextBox("PASSWD2", 8);
 
         NameField?.ForegroundColor = LegendColors.White;
+        NameField?.IsTabStop = true;
         PasswordField?.ForegroundColor = LegendColors.White;
-        PasswordConfirmField?.ForegroundColor = LegendColors.White;
+        PasswordField?.IsTabStop = true;
         PasswordField?.IsMasked = true;
+        PasswordConfirmField?.ForegroundColor = LegendColors.White;
+        PasswordConfirmField?.IsTabStop = true;
         PasswordConfirmField?.IsMasked = true;
 
         if (NameField is not null)

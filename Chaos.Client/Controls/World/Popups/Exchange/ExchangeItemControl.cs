@@ -1,5 +1,6 @@
 #region
 using Chaos.Client.Controls.Components;
+using Chaos.DarkAges.Definitions;
 using Microsoft.Xna.Framework;
 #endregion
 
@@ -53,9 +54,9 @@ public sealed class ExchangeItemControl : UIPanel
         Visible = false;
     }
 
-    public void SetItem(ushort sprite, string name)
+    public void SetItem(ushort sprite, DisplayColor color, string name)
     {
-        Icon.Texture = UiRenderer.Instance!.GetItemIcon(sprite);
+        Icon.Texture = UiRenderer.Instance!.GetItemIcon(sprite, color);
         NameLabel.Text = name;
         NameLabel.ForegroundColor = Color.White;
         Visible = true;

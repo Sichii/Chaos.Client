@@ -264,51 +264,9 @@ public sealed partial class WorldScreen
                 SpacebarTimer = 0;
         }
 
-        //── pre-dispatch chat phase intercepts ──
-        //whisper target cycling and ignore mode selection run before the dispatcher
-        //because they need to intercept keys before the focused textbox consumes them.
         var skipDispatch = false;
 
-        if (WorldHud.ChatInput.IsFocused && Chat.IsWhisperNamePhase)
-        {
-            if (Game.Input.WasKeyPressed(Keys.Up))
-                Chat.CycleWhisperTarget(1);
-            else if (Game.Input.WasKeyPressed(Keys.Down))
-                Chat.CycleWhisperTarget(-1);
-        }
-
-        if (WorldHud.ChatInput.IsFocused && (Chat.IgnorePhase == IgnorePhase.ModeSelect))
-        {
-            var rawTextInput = Game.Input.TextInput;
-
-            if (rawTextInput.Length > 0)
-            {
-                var c = rawTextInput[0];
-
-                switch (c)
-                {
-                    case 'a' or 'A':
-                        Chat.TransitionIgnoreAdd();
-
-                        break;
-                    case 'd' or 'D':
-                        Chat.TransitionIgnoreRemove();
-
-                        break;
-                    case '?':
-                        Game.Connection.SendIgnoreRequest();
-                        Chat.Unfocus();
-                        Game.Dispatcher.ClearExplicitFocus();
-
-                        break;
-                }
-
-                skipDispatch = true;
-            }
-        }
-
-        //── light-dismiss detail popups ──
-        if (!skipDispatch && Game.Input.WasLeftButtonPressed)
+        if (Game.Input.WasLeftButtonPressed)
         {
             var mx = Game.Input.MouseX;
             var my = Game.Input.MouseY;
@@ -324,7 +282,6 @@ public sealed partial class WorldScreen
             }
         }
 
-        //── event dispatch + state update ──
         if (!skipDispatch)
             Game.Dispatcher.ProcessInput(Root!, gameTime);
 

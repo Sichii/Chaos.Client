@@ -327,7 +327,7 @@ public sealed class SelfProfileTabControl : PrefabPanel
 
         var equipPage = GetOrCreateEquipmentPage();
 
-        equipPage?.SetSlot(slot, data.Value.Sprite, data.Value.Name);
+        equipPage?.SetSlot(slot, data.Value.Sprite, data.Value.Color, data.Value.Name);
     }
 
     private void OnEquipmentSlotCleared(EquipmentSlot slot)
@@ -351,7 +351,7 @@ public sealed class SelfProfileTabControl : PrefabPanel
         equipPage.ClearAllSlots();
 
         foreach ((var slot, var info) in WorldState.Equipment.GetAll())
-            equipPage.SetSlot(slot, info.Sprite, info.Name);
+            equipPage.SetSlot(slot, info.Sprite, info.Color, info.Name);
     }
 
     /// <summary>

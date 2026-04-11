@@ -205,16 +205,21 @@ public sealed class SystemMessagePanel : ExpandablePanel
 
         base.Update(gameTime);
 
-        //auto-scroll to bottom when new messages arrive
         if (History.Count != LastHistoryCount)
         {
-            ScrollOffset = 0;
+            var wasAtBottom = ScrollOffset == 0;
             LastHistoryCount = History.Count;
 
             ScrollBar.TotalItems = History.Count;
             ScrollBar.VisibleItems = MaxVisibleLines;
             ScrollBar.MaxValue = Math.Max(0, History.Count - MaxVisibleLines);
-            ScrollBar.Value = ScrollBar.MaxValue;
+
+            if (wasAtBottom)
+            {
+                ScrollOffset = 0;
+                ScrollBar.Value = ScrollBar.MaxValue;
+            } else
+                ScrollBar.Value = ScrollBar.MaxValue - ScrollOffset;
         }
 
         RefreshDisplay();

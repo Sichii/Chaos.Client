@@ -344,7 +344,16 @@ public static class WorldState
         {
             var depthCmp = a.SortDepth.CompareTo(b.SortDepth);
 
-            return depthCmp != 0 ? depthCmp : a.TileX.CompareTo(b.TileX);
+            if (depthCmp != 0)
+                return depthCmp;
+
+            var tileCmp = a.TileX.CompareTo(b.TileX);
+
+            if (tileCmp != 0)
+                return tileCmp;
+
+            //newer entities (higher id) sort later so they render on top
+            return a.Id.CompareTo(b.Id);
         });
 
         return SortBuffer;
@@ -495,7 +504,7 @@ public static class WorldState
 
             if (spell.IsOccupied)
             {
-                var chants = LookupSpellChants(spell.Name);
+                var chants = LookupSpellChants(spell.AbilityName);
 
                 SpellBook.SetSlot(
                     i,
@@ -514,7 +523,7 @@ public static class WorldState
 
             if (skill.IsOccupied)
             {
-                var chant = LookupSkillChant(skill.Name);
+                var chant = LookupSkillChant(skill.AbilityName);
 
                 SkillBook.SetSlot(
                     i,
@@ -630,6 +639,7 @@ public static class WorldState
                             args.RightSide.Value,
                             args.ExchangeIndex.Value,
                             args.ItemSprite.Value,
+                            args.ItemColor ?? DisplayColor.Default,
                             args.ItemName);
 
                     break;
@@ -709,7 +719,7 @@ public static class WorldState
                     {
                         if (args.Post.PostId == 0)
                         {
-                            Board.HandleResponse("No such post.");
+                            Board.HandleResponse("No such post.", false);
 
                             break;
                         }
@@ -730,7 +740,7 @@ public static class WorldState
                      or BoardOrResponseType.DeletePostResponse
                      or BoardOrResponseType.HighlightPostResponse:
                     if (args.ResponseMessage is not null)
-                        Board.HandleResponse(args.ResponseMessage);
+                        Board.HandleResponse(args.ResponseMessage, args.Success is true);
 
                     break;
             }

@@ -152,7 +152,7 @@ public sealed class ExchangeControl : PrefabPanel
             var items = rightSide ? YourItems : MyItems;
 
             items[index]
-                .SetItem(data.Value.Sprite, data.Value.Name ?? string.Empty);
+                .SetItem(data.Value.Sprite, data.Value.Color, data.Value.Name ?? string.Empty);
         }
     }
 

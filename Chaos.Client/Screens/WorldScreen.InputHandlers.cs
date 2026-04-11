@@ -1,5 +1,6 @@
 #region
 using Chaos.Client.Collections;
+using Chaos.Client.Controls.World.Hud;
 using Chaos.Client.Controls.World.Hud.Panel;
 using Chaos.Client.Controls.World.Hud.Panel.Slots;
 using Chaos.Client.Data;
@@ -104,22 +105,18 @@ public sealed partial class WorldScreen
 
         if (invSlot.Stackable)
         {
-            WorldHud.ChatInput.ShowPrompt($"Number of items to drop [ 0 - {(int)invSlot.Count} ]: ");
-            Game.Dispatcher.SetExplicitFocus(WorldHud.ChatInput);
-
             var capturedSlot = slot;
             var capturedX = tileX;
             var capturedY = tileY;
 
-            WorldHud.ChatInput.OnPromptConfirm = text =>
-            {
-                if (int.TryParse(text, out var count) && (count > 0))
-                    Game.Connection.DropItem(
-                        capturedSlot,
-                        capturedX,
-                        capturedY,
-                        count);
-            };
+            WorldHud.ChatInput.ShowPrompt(
+                $"Number of items to drop [ 0 - {(int)invSlot.Count} ]: ",
+                12,
+                text =>
+                {
+                    if (int.TryParse(text, out var count) && (count > 0))
+                        Game.Connection.DropItem(capturedSlot, capturedX, capturedY, count);
+                });
 
             return;
         }
@@ -322,11 +319,8 @@ public sealed partial class WorldScreen
 
                 if (macroText.Length > 0)
                 {
-                    Chat.Focus($"{WorldHud.PlayerName}: ", Color.White);
-                    Game.Dispatcher.SetExplicitFocus(WorldHud.ChatInput);
-                    WorldHud.ChatInput.Text = macroText;
-                    WorldHud.ChatInput.CursorPosition = macroText.Length;
-                    WorldHud.ChatInput.ClearSelection();
+                    WorldHud.ChatInput.Focus($"{WorldHud.PlayerName}: ", Color.White);
+                    WorldHud.ChatInput.SetText(macroText, macroText.Length);
                 }
 
                 break;
@@ -414,6 +408,20 @@ public sealed partial class WorldScreen
             WorldState.ReloadChants();
         } else
         {
+            foreach (var panel in new[]
+                     {
+                         WorldHud.SkillBook,
+                         WorldHud.SkillBookAlt
+                     })
+            {
+                var skillSlot = panel.GetSkillSlot(slot);
+
+                if (skillSlot is null)
+                    continue;
+
+                skillSlot.Chant = chantLines.Length > 0 ? chantLines[0] : string.Empty;
+            }
+
             SaveSkillChants();
             WorldState.ReloadChants();
         }
@@ -524,75 +532,11 @@ public sealed partial class WorldScreen
             return;
         }
 
-        //prompt mode: enter confirms, escape cancels (takes priority over normal chat handling)
-        if (WorldHud.ChatInput.IsPromptMode)
-        {
-            if (e.Key == Keys.Enter)
-            {
-                var text = WorldHud.ChatInput.Text;
-                var callback = WorldHud.ChatInput.OnPromptConfirm;
-                WorldHud.ChatInput.CancelPrompt();
-                Game.Dispatcher.ClearExplicitFocus();
-                callback?.Invoke(text);
-                e.Handled = true;
-
-                return;
-            }
-
-            if (e.Key == Keys.Escape)
-            {
-                WorldHud.ChatInput.CancelPrompt();
-                Game.Dispatcher.ClearExplicitFocus();
-                e.Handled = true;
-            }
-
-            return;
-        }
-
-        //enter — toggle chat focus / send message
+        //enter — toggle chat focus
         if (e.Key == Keys.Enter)
         {
-            if (WorldHud.ChatInput.IsFocused)
-            {
-                var message = WorldHud.ChatInput.Text.Trim();
-
-                //ignore phase 2: submit the typed name for add/remove
-                if (Chat.IgnorePhase is IgnorePhase.AddName or IgnorePhase.RemoveName)
-                {
-                    if (message.Length > 0)
-                    {
-                        if (Chat.IgnorePhase == IgnorePhase.AddName)
-                            Game.Connection.SendAddIgnore(message);
-                        else
-                            Game.Connection.SendRemoveIgnore(message);
-                    }
-
-                    Chat.Unfocus();
-                    Game.Dispatcher.ClearExplicitFocus();
-                }
-
-                //whisper phase 1: resolve target name, transition to phase 2
-                else if (Chat.IsWhisperNamePhase)
-                {
-                    var targetName = message.Length > 0 ? message : Chat.GetBracketedWhisperTarget();
-
-                    if (targetName.Length > 0)
-                    {
-                        WorldHud.ChatInput.Prefix = $"-> {targetName}: ";
-                        WorldHud.ChatInput.Text = string.Empty;
-                    }
-                } else
-                {
-                    Chat.Dispatch(message);
-                    WorldHud.ChatInput.Text = string.Empty;
-                    Chat.Unfocus();
-                    Game.Dispatcher.ClearExplicitFocus();
-                }
-            } else
-            {
-                Chat.Focus($"{WorldHud.PlayerName}: ", Color.White);
-                Game.Dispatcher.SetExplicitFocus(WorldHud.ChatInput);
-            }
+            if (!WorldHud.ChatInput.IsFocused)
+                WorldHud.ChatInput.Focus($"{WorldHud.PlayerName}: ", Color.White);
 
             e.Handled = true;
 
@@ -688,8 +632,7 @@ public sealed partial class WorldScreen
         //shout hotkey (shift+1)
         if (e.Key == Keys.D1 && e.Shift)
         {
-            Chat.Focus($"{WorldHud.PlayerName}! ", Color.Yellow);
-            Game.Dispatcher.SetExplicitFocus(WorldHud.ChatInput);
+            WorldHud.ChatInput.Focus($"{WorldHud.PlayerName}! ", Color.Yellow);
             e.Handled = true;
 
             return;
@@ -698,8 +641,7 @@ public sealed partial class WorldScreen
         //whisper hotkey (shift+")
         if (e.Key == Keys.OemQuotes && e.Shift)
         {
-            Chat.FocusWhisper();
-            Game.Dispatcher.SetExplicitFocus(WorldHud.ChatInput);
+            WorldHud.ChatInput.FocusWhisper();
             e.Handled = true;
 
             return;
@@ -731,8 +673,7 @@ public sealed partial class WorldScreen
 
             if (e.Key == Keys.S)
             {
-                var useShift = ClientSettings.UseShiftKeyForAltPanels;
-                var alt = useShift ? e.Shift : WorldHud.ActiveTab == HudTab.Skills;
+                var alt = e.Shift || (!ClientSettings.UseShiftKeyForAltPanels && WorldHud.ActiveTab == HudTab.Skills);
                 WorldHud.ShowTab(alt ? HudTab.SkillsAlt : HudTab.Skills);
                 e.Handled = true;
 
@@ -741,8 +682,7 @@ public sealed partial class WorldScreen
 
             if (e.Key == Keys.D)
             {
-                var useShift = ClientSettings.UseShiftKeyForAltPanels;
-                var alt = useShift ? e.Shift : WorldHud.ActiveTab == HudTab.Spells;
+                var alt = e.Shift || (!ClientSettings.UseShiftKeyForAltPanels && WorldHud.ActiveTab == HudTab.Spells);
                 WorldHud.ShowTab(alt ? HudTab.SpellsAlt : HudTab.Spells);
                 e.Handled = true;
 
@@ -859,11 +799,14 @@ public sealed partial class WorldScreen
 
         //f8 — unused (group panel moved to y key)
 
-        //f9 — ignore list management
+        //f9 — ignore list management (toggle)
         if (e.Key == Keys.F9)
         {
-            Chat.FocusIgnore();
-            Game.Dispatcher.SetExplicitFocus(WorldHud.ChatInput);
+            if (WorldHud.ChatInput.Mode != ChatMode.None)
+                WorldHud.ChatInput.Unfocus();
+            else
+                WorldHud.ChatInput.FocusIgnore();
+
             e.Handled = true;
 
             return;
@@ -1110,16 +1053,29 @@ public sealed partial class WorldScreen
             if (!sameTile)
                 return;
 
-            var entity = GetEntityAtScreen(e.ScreenX, e.ScreenY);
-
-            if (entity is not null)
+            //shift+doubleclick bypasses hitboxes and only picks up ground items
+            if (e.Shift)
             {
-                if (entity.Type == ClientEntityType.GroundItem)
+                var groundItem = WorldState.GetGroundItemAt(tileX, tileY);
+
+                if (groundItem is not null)
                 {
                     var firstEmptySlot = WorldState.Inventory.GetFirstEmptySlot();
-                    Game.Connection.PickupItem(entity.TileX, entity.TileY, firstEmptySlot);
-                } else if ((entity.Type != ClientEntityType.Aisling) || ClientSettings.EnableProfileClick)
-                    Game.Connection.ClickEntity(entity.Id);
+                    Game.Connection.PickupItem(groundItem.TileX, groundItem.TileY, firstEmptySlot);
+                }
+            } else
+            {
+                var entity = GetEntityAtScreen(e.ScreenX, e.ScreenY);
+
+                if (entity is not null)
+                {
+                    if (entity.Type == ClientEntityType.GroundItem)
+                    {
+                        var firstEmptySlot = WorldState.Inventory.GetFirstEmptySlot();
+                        Game.Connection.PickupItem(entity.TileX, entity.TileY, firstEmptySlot);
+                    } else if ((entity.Type != ClientEntityType.Aisling) || ClientSettings.EnableProfileClick)
+                        Game.Connection.ClickEntity(entity.Id);
+                }
             }
 
             e.Handled = true;
@@ -1314,7 +1270,7 @@ public sealed partial class WorldScreen
                 name,
                 () => Game.Connection.ClickEntity(id),
                 () => Game.Connection.SendGroupInvite(ClientGroupSwitch.TryInvite, name),
-                () => Chat.Focus($"-> {name}: ", TextColors.Whisper));
+                () => WorldHud.ChatInput.Focus($"-> {name}: ", TextColors.Whisper));
         }
     }
 

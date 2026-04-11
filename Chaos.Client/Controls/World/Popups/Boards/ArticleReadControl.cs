@@ -65,8 +65,13 @@ public sealed class ArticleReadControl : PrefabPanel
 
         //labels
         AuthorLabel = CreateLabel("Author");
+        AuthorLabel?.ForegroundColor = LegendColors.White;
+        
         TitleLabel = CreateLabel("Title");
+        TitleLabel?.ForegroundColor = LegendColors.White;
+        
         DateLabel = CreateLabel("Mmdd");
+        DateLabel?.ForegroundColor = LegendColors.White;
 
         //body content area
         var contentRect = GetRect("Content");

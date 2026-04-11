@@ -52,7 +52,7 @@ Chaos.Client.slnx (.NET 10.0, C# 14)
 
 ## Build Configuration
 
-Centralized in `Directory.Build.props`: C# 14, net10.0, nullable enabled, implicit usings, TieredPGO + TieredCompilation enabled. Package versions managed centrally in `Directory.Packages.props`. Versioning via Nerdbank.GitVersioning.
+Centralized in `Directory.Build.props`: C# 14, net10.0, nullable enabled, implicit usings, TieredPGO + TieredCompilation (+ QuickJit) enabled, WarningLevel 4, EnforceCodeStyleInBuild. Package versions managed centrally in `Directory.Packages.props`. Versioning via Nerdbank.GitVersioning.
 
 ## Architecture
 
@@ -60,7 +60,7 @@ Centralized in `Directory.Build.props`: C# 14, net10.0, nullable enabled, implic
 - **`DataContext`** -- Static singleton exposing all repositories via `Initialize()`.
 - **`DatArchives`** -- Static holder for 21 game data archives loaded at startup via memory-mapped files.
 - **`RepositoryBase`** -- Abstract base with MemoryCache (15-min sliding expiration). Uses `GetOrCreate<T>(key, factory)`.
-- **10 repositories:** AislingDrawData, CreatureSprite, Effects, Font, LocalPlayerSettings, MapFile, MetaFile, PanelSprite, Tile, UiComponent.
+- **11 repositories:** AislingDrawData, CreatureSprite, Effects, Font, LightMask, LocalPlayerSettings, MapFile, MetaFile, PanelSprite, Tile, UiComponent.
 - **`ControlPrefab`/`ControlPrefabSet`** -- Wraps DALib Control definitions + pre-rendered SKImage arrays. First control (Anchor) defines panel bounds.
 - Control file catalog in `controlFileList.txt` at solution root.
 
@@ -76,6 +76,9 @@ Centralized in `Directory.Build.props`: C# 14, net10.0, nullable enabled, implic
 - **`PaletteCyclingManager`** -- Animated palette shimmer effects.
 - **`FontAtlas`** -- Font glyph atlas management.
 - **`CreatureRenderer`/`AislingRenderer`/`EffectRenderer`/`ItemRenderer`** -- Per-frame texture caches. `Clear()` on map change.
+- **`LegendColors`** -- Named color constants for UI text. Initialized at startup.
+- **`LightSource`** -- Light source model for darkness system.
+- **`RenderHelper`** -- Shared rendering utility methods.
 - **`TextureAtlas`/`AtlasHelper`/`CachedTexture2D`** -- Grid/Shelf packing for performance optimization.
 - **`SpriteAnimation`/`SpriteFrame`** -- Frame array with `GetFrame(index)`, timing, additive blending.
 - **`EntityHitBox`** -- Hit testing geometry for clickable entities.
@@ -94,16 +97,16 @@ Chaos.Client/
 ├── ChaosGame.cs              — MonoGame Game class, entry point
 ├── GlobalSettings.cs         — Static config (ClientVersion, DataPath, LobbyHost/Port)
 ├── InputBuffer.cs            — Event-driven input capture and buffering
-├── Collections/              — WorldState (entity tracking, active effects)
-├── Models/                   — WorldEntity, ActiveEffect, DyingEffect, PathfindingState, etc.
+├── Collections/              — WorldState, CircularBuffer
+├── Models/                   — WorldEntity, Animation, EntityRemovalAnimation, EntityHighlight, SlotDragPayload, PathfindingState, etc.
 ├── ViewModel/                — Authoritative state classes owned by WorldState
-├── Systems/                  — AnimationSystem, CastingSystem, ChatSystem, SoundSystem, Pathfinder, ClientSettings
+├── Systems/                  — AnimationSystem, CastingSystem, ChatSystem, SoundSystem, Pathfinder, ClientSettings, MachineIdentity
 ├── Screens/                  — IScreen, ScreenManager, LobbyLoginScreen, WorldScreen (7 partial files)
 ├── Rendering/                — EntityOverlayManager, WorldDebugRenderer
 ├── Controls/                 — Full UI control hierarchy (see UI Control System below)
-├── Definitions/              — Delegates, Enums, DoorTileTable, TextColors
+├── Definitions/              — Delegates, Enums, DoorTable, InputEvents, TextColors
 ├── Extensions/               — DirectionExtensions, RectangleExtensions, UIElementExtensions
-└── Utilities/                — DialogFrame, SlideAnimator
+└── Utilities/                — Clipboard, DialogFrame, SlideAnimator
 ```
 
 ### Screen System
@@ -128,13 +131,13 @@ Chaos.Client/
 
 **World HUD (`Controls/World/Hud/`):** IWorldHud interface, WorldHudControl (classic compact HUD), LargeWorldHudControl (expanded HUD), OrangeBarControl, EffectBarControl/EffectSlotControl.
 
-**HUD Panels (`Hud/Panel/`):** PanelBase, InventoryPanel, SkillBookPanel, SpellBookPanel, ToolsPanel, ChatPanel, StatsPanel, ExtendedStatsPanel, MessageHistoryPanel. Slots: PanelSlot, AbilitySlotBase, SkillSlot, SpellSlot.
+**HUD Panels (`Hud/Panel/`):** PanelBase, InventoryPanel, SkillBookPanel, SpellBookPanel, ToolsPanel, ChatPanel, StatsPanel, ExtendedStatsPanel, SystemMessagePanel. Slots: PanelSlot, AbilitySlotBase, SkillSlot, SpellSlot.
 
-**Self Profile (`Popups/Profile/`):** SelfProfileTabControl with Equipment/Legend/AbilityMetadata/Events/Family tabs, LegendMarkControl, StatusBookTabPage. **Other Profile:** OtherProfileTabControl (Equipment via _nui_eqa + Legend tabs), OtherProfileEquipmentTab.
+**Self Profile (`Popups/Profile/`):** SelfProfileTabControl with Equipment/Legend/AbilityMetadata/Events/Family/Blank tabs, SelfProfileTextEditorControl, AbilityMetadataDetailsControl/AbilityMetadataEntryControl, EventMetadataDetailsControl/EventMetadataEntryControl, LegendMarkControl. **Other Profile:** OtherProfileTabControl (Equipment via _nui_eqa + Legend tabs), OtherProfileEquipmentTab.
 
-**Options (`Popups/Options/`):** MainOptionsControl, MacroMenuControl, SettingsControl, FriendsListControl.
+**Options (`Popups/Options/`):** MainOptionsControl, MacrosListControl, SettingsControl, FriendsListControl.
 
-**Popups (`Popups/`):** AislingPopupMenu, ChantEditControl, ContextMenu, GoldExchangeControl, GroupControl, HotkeyHelpControl, ItemTooltipControl, NotepadControl, SocialStatusControl. Subdirectories: `Boards/` (BoardListControl, ArticleListControl/ArticleReadControl/ArticleSendControl, MailListControl/MailReadControl/MailSendControl), `Dialog/` (NpcSessionControl, MerchantBrowserPanel, DialogTextEntryPanel, MenuTextEntryPanel, OptionMenuPanel, ProtectedEntryPanel), `Exchange/` (ExchangeControl/ExchangeItemControl), `WorldList/` (WorldListControl/WorldListEntryControl).
+**Popups (`Popups/`):** AislingContextMenu, AmountControl, ChantEditControl, GroupRecruitPanel, GroupTab/GroupTabControl, HotkeyHelpControl, ItemTooltipControl, NotepadControl, SocialStatusControl, TownMapControl. Subdirectories: `Boards/` (BoardListControl, ArticleListControl/ArticleReadControl/ArticleSendControl, MailListControl/MailReadControl/MailSendControl), `Dialog/` (NpcSessionControl, MerchantBrowserPanel, DialogTextEntryPanel, MenuTextEntryPanel, OptionMenuPanel, ProtectedEntryPanel), `Exchange/` (ExchangeControl/ExchangeItemControl), `WorldList/` (WorldListControl/WorldListEntryControl).
 
 **Viewport Overlays (`ViewPort/`):** ChatBubble, HealthBar, LoadingBar/MapLoadingBar, WorldMap/WorldMapNode, ChantOverlay.
 
@@ -144,13 +147,14 @@ Chaos.Client/
 - **`ChatSystem`** -- Chat message handling and routing.
 - **`SoundSystem`** -- NAudio MP3->PCM, cached playback, music looping.
 - **`Pathfinder`** -- A* pathfinding algorithm.
+- **`MachineIdentity`** -- Machine-specific identification for the client.
 - **`ClientSettings`** -- Static class. Persistent user settings. Access via `ClientSettings.SoundVolume`, etc.
 - **`GlobalSettings`** -- Static config: ClientVersion (741), DataPath, LobbyHost/Port.
 
 ### World State & Models
 - **`WorldState`** (`Collections/`) -- Static class. Entity tracking, sorted rendering, active effects, all ViewModel state. Access via `WorldState.Inventory`, `WorldState.Attributes`, etc.
 - **`WorldEntity`** (`Models/`) -- Full entity data bag: position, direction, appearance, animation state, emotes.
-- **Other models:** `ActiveEffect`, `DyingEffect`, `EntityHighlightState`, `PathfindingState`, `TileClickTracker`, `MailEntry`, `FriendEntry`, `LegendMarkEntry`, `WorldListEntry`.
+- **Other models:** `Animation`, `EntityRemovalAnimation`, `EntityHighlight`, `SlotDragPayload`, `PathfindingState`, `TileClickTracker`, `MailEntry`, `FriendEntry`, `LegendMarkEntry`, `WorldListEntry`.
 
 ### ViewModel (`Chaos.Client/ViewModel/`)
 Authoritative state objects exposed as static properties on WorldState, updated by server packets:

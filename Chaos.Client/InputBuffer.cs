@@ -54,16 +54,35 @@ public sealed class InputBuffer : IDisposable
 
     private void OnKeyDown(object? sender, InputKeyEventArgs e)
     {
-        HeldKeys.Add(e.Key);
-        PendingPresses.Add(e.Key);
-        PendingOrdered.Add(new OrderedKeyEvent(OrderedKeyEventKind.KeyDown, e.Key, default));
+        var key = NormalizeNumpadKey(e.Key);
+
+        HeldKeys.Add(key);
+        PendingPresses.Add(key);
+        PendingOrdered.Add(new OrderedKeyEvent(OrderedKeyEventKind.KeyDown, key, default));
     }
 
     private void OnKeyUp(object? sender, InputKeyEventArgs e)
     {
-        HeldKeys.Remove(e.Key);
-        PendingReleases.Add(e.Key);
+        var key = NormalizeNumpadKey(e.Key);
+
+        HeldKeys.Remove(key);
+        PendingReleases.Add(key);
     }
+
+    private static Keys NormalizeNumpadKey(Keys key) => key switch
+    {
+        Keys.NumPad0 => Keys.D0,
+        Keys.NumPad1 => Keys.D1,
+        Keys.NumPad2 => Keys.D2,
+        Keys.NumPad3 => Keys.D3,
+        Keys.NumPad4 => Keys.D4,
+        Keys.NumPad5 => Keys.D5,
+        Keys.NumPad6 => Keys.D6,
+        Keys.NumPad7 => Keys.D7,
+        Keys.NumPad8 => Keys.D8,
+        Keys.NumPad9 => Keys.D9,
+        _            => key
+    };
 
     private void OnTextInput(object? sender, TextInputEventArgs e)
     {

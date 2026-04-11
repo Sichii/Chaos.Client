@@ -116,7 +116,7 @@ public delegate void BoardListReceivedHandler();
 /// <summary>
 ///     A server response message was received (submit/delete/highlight result).
 /// </summary>
-public delegate void BoardResponseReceivedHandler(string message);
+public delegate void BoardResponseReceivedHandler(string message, bool success);
 #endregion
 
 #region Group Delegates

@@ -208,7 +208,7 @@ public abstract class PanelBase : ExpandablePanel
     {
         var index = slot - 1;
 
-        if ((index < SlotOffset) || (index >= (SlotOffset + VisibleSlotCount)))
+        if ((index < SlotOffset) || (index >= (SlotOffset + Slots.Length)))
             return null;
 
         var gridIndex = index - SlotOffset;

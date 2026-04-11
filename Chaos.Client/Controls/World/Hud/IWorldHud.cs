@@ -19,7 +19,7 @@ public interface IWorldHud
     UIButton? ChangeLayoutButton { get; }
     ChatPanel ChatDisplay { get; }
     SystemMessagePanel MessageHistory { get; }
-    UITextBox ChatInput { get; }
+    ChatInputControl ChatInput { get; }
     EffectBarControl EffectBar { get; }
     UIButton? EmoteButton { get; }
     UIButton? ExpandButton { get; }
@@ -54,6 +54,7 @@ public interface IWorldHud
     void SetWeight(int current, int max);
     void SetZoneName(string zone);
     void ShowPersistentMessage(string text);
+    void ShowSystemMessage(string text, Color? color = null);
     void ShowTab(HudTab tab);
     void ToggleExpand();
 }

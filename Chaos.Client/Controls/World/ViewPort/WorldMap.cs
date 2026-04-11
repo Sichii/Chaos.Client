@@ -78,6 +78,7 @@ public sealed class WorldMap : UIPanel
     public void HideMap()
     {
         Visible = false;
+        HoveredNodeIndex = -1;
         ClearNodes();
         ClearBackground();
     }

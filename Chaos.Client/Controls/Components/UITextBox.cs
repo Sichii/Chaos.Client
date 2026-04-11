@@ -27,8 +27,6 @@ public class UITextBox : UIElement
     private int LastClickPosition = -1;
     private List<int> LineStarts = [0];
     private TextElement? PrefixTextElement;
-    private Color? SavedFocusedBackgroundColor;
-    private int SavedMaxLength;
     private int SelectionAnchor;
     public HorizontalAlignment HorizontalAlignment { get; set; } = HorizontalAlignment.Left;
 
@@ -89,13 +87,6 @@ public class UITextBox : UIElement
     public bool IsMasked { get; set; }
     public bool IsMultiLine { get; set; }
 
-    /// <summary>
-    ///     When true, this textbox is in prompt mode -- it shows a prefix and accepts short input (e.g. item drop count,
-    ///     spell targeting). The styling changes to white background with black text, and MaxLength is temporarily reduced.
-    ///     Enter confirms, Escape cancels.
-    /// </summary>
-    public bool IsPromptMode { get; private set; }
-
     public bool IsReadOnly { get; set; }
 
     /// <summary>
@@ -106,11 +97,6 @@ public class UITextBox : UIElement
     public bool IsSelectable { get; set; } = true;
 
     public int MaxLength { get; set; } = 12;
-
-    /// <summary>
-    ///     Fired when the user presses Enter while in prompt mode. Parameter is the typed text.
-    /// </summary>
-    public Action<string>? OnPromptConfirm { get; set; }
 
     /// <summary>
     ///     Non-editable prefix rendered before the editable text (e.g. "Name: " for chat). Not included in <see cref="Text" />
@@ -161,44 +147,6 @@ public class UITextBox : UIElement
         PaddingRight = 2;
         PaddingTop = 2;
         PaddingBottom = 2;
-    }
-
-    /// <summary>
-    ///     Cancels prompt mode, restoring the textbox to its normal state. Clears the callback, prefix, text, and focus.
-    /// </summary>
-    public void CancelPrompt()
-    {
-        if (!IsPromptMode)
-            return;
-
-        IsPromptMode = false;
-        OnPromptConfirm = null;
-        MaxLength = SavedMaxLength;
-        FocusedBackgroundColor = SavedFocusedBackgroundColor;
-        BackgroundColor = null;
-        ForegroundColor = LegendColors.Silver;
-        Prefix = string.Empty;
-        Text = string.Empty;
-        IsFocused = false;
-    }
-
-    /// <summary>
-    ///     Enters prompt mode: shows a prefix, clears text, focuses the textbox, and applies prompt styling (white background,
-    ///     black text, max 12 chars). Callers should set <see cref="OnPromptConfirm" /> after calling this.
-    /// </summary>
-    public void ShowPrompt(string prefix)
-    {
-        IsPromptMode = true;
-        OnPromptConfirm = null;
-        SavedMaxLength = MaxLength;
-        SavedFocusedBackgroundColor = FocusedBackgroundColor;
-        MaxLength = 12;
-        FocusedBackgroundColor = Color.White;
-        BackgroundColor = Color.White;
-        ForegroundColor = Color.Black;
-        Prefix = prefix;
-        Text = string.Empty;
-        IsFocused = true;
     }
 
     /// <summary>

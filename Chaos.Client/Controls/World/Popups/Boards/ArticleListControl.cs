@@ -1,6 +1,7 @@
 #region
 using Chaos.Client.Controls.Components;
 using Chaos.Client.Controls.Generic;
+using Chaos.Client.Data.Definitions;
 using Chaos.Client.Models;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
@@ -18,11 +19,12 @@ public sealed class ArticleListControl : PrefabPanel
     //server caps board responses at sbyte.maxvalue posts per page
     private const int MAX_POSTS_PER_PAGE = 127;
     private const int ROW_HEIGHT = 18;
-    private const int TEXT_INDENT = 24;
-    private const int POSTID_CHARS = 6;
-    private const int AUTHOR_CHARS = 17;
-    private const int DATE_CHARS = 7;
+    private const int POSTID_CHARS = 5;
+    private const int AUTHOR_CHARS = 12;
+    private const int DATE_CHARS = 5;
     private const int PREFIX_CHARS = POSTID_CHARS + AUTHOR_CHARS + DATE_CHARS;
+    private const string SPACER5 = "     ";
+    private const string SPACER3 = "   ";
 
     private readonly Rectangle ArticleListRect;
     private readonly int MaxSubjectChars;
@@ -117,7 +119,7 @@ public sealed class ArticleListControl : PrefabPanel
 
         //row labels — one per visible row, columns via fixed-width string formatting
         var usableWidth = ArticleListRect.Width - ScrollBarControl.DEFAULT_WIDTH;
-        MaxSubjectChars = Math.Max(0, (usableWidth - TEXT_INDENT) / TextRenderer.CHAR_WIDTH - PREFIX_CHARS);
+        MaxSubjectChars = Math.Max(0, usableWidth / TextRenderer.CHAR_WIDTH - PREFIX_CHARS);
 
         RowLabels = new UILabel[MaxVisibleRows];
 
@@ -125,9 +127,9 @@ public sealed class ArticleListControl : PrefabPanel
         {
             RowLabels[i] = new UILabel
             {
-                X = ArticleListRect.X + TEXT_INDENT,
+                X = ArticleListRect.X,
                 Y = ArticleListRect.Y + i * ROW_HEIGHT,
-                Width = usableWidth - TEXT_INDENT,
+                Width = usableWidth,
                 Height = ROW_HEIGHT,
                 PaddingLeft = 0,
                 PaddingTop = 0
@@ -159,7 +161,9 @@ public sealed class ArticleListControl : PrefabPanel
     {
         var subject = entry.Subject.Length > MaxSubjectChars ? entry.Subject[..MaxSubjectChars] : entry.Subject;
 
-        return $"{entry.PostId,-POSTID_CHARS}{entry.Author,-AUTHOR_CHARS}{entry.Month + "/" + entry.Day,-DATE_CHARS}{subject}";
+        var date = $"{entry.Month,2}/{entry.Day,2}";
+
+        return $"{entry.PostId,POSTID_CHARS}{SPACER5}{entry.Author,-AUTHOR_CHARS}{SPACER5}{date,DATE_CHARS}{SPACER3}{subject}";
     }
 
     public override void Hide()
@@ -193,11 +197,7 @@ public sealed class ArticleListControl : PrefabPanel
         {
             var entryIndex = ScrollOffset + i;
 
-            if (HasMorePosts && (entryIndex == Entries.Count))
-            {
-                RowLabels[i].ForegroundColor = Color.LightGray;
-                RowLabels[i].Text = "-- Load More --";
-            } else if (entryIndex < Entries.Count)
+            if (entryIndex < Entries.Count)
             {
                 var entry = Entries[entryIndex];
                 var isSelected = entryIndex == SelectedIndex;
@@ -232,6 +232,18 @@ public sealed class ArticleListControl : PrefabPanel
 
         DataVersion++;
         UpdateScrollBar();
+    }
+
+    public void ToggleHighlight(short postId)
+    {
+        var index = Entries.FindIndex(e => e.PostId == postId);
+
+        if (index < 0)
+            return;
+
+        var entry = Entries[index];
+        Entries[index] = entry with { IsHighlighted = !entry.IsHighlighted };
+        DataVersion++;
     }
 
     /// <summary>

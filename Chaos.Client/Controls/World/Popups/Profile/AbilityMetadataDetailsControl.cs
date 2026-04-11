@@ -35,6 +35,7 @@ public sealed class AbilityMetadataDetailsControl : PrefabPanel
     {
         Visible = false;
         IsModal = true;
+        UsesControlStack = true;
 
         IconImage = CreateImage("ICON");
         LevelLabel = CreateLabel("LEV");
@@ -171,7 +172,7 @@ public sealed class AbilityMetadataDetailsControl : PrefabPanel
 
     public override void OnKeyDown(KeyDownEvent e)
     {
-        if (e.Key == Keys.Escape)
+        if (e.Key is Keys.Escape or Keys.Enter)
         {
             Hide();
             e.Handled = true;

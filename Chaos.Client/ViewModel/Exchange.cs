@@ -1,3 +1,5 @@
+using Chaos.DarkAges.Definitions;
+
 namespace Chaos.Client.ViewModel;
 
 /// <summary>
@@ -45,6 +47,7 @@ public sealed class Exchange
         bool rightSide,
         byte exchangeIndex,
         ushort sprite,
+        DisplayColor color,
         string? name)
     {
         //server sends 1-based indices
@@ -53,7 +56,7 @@ public sealed class Exchange
         if (index is < 0 or >= MAX_ITEMS)
             return;
 
-        var item = new ExchangeItemData(sprite, name);
+        var item = new ExchangeItemData(sprite, color, name);
 
         if (rightSide)
             OtherItems[index] = item;
@@ -148,5 +151,5 @@ public sealed class Exchange
     /// </summary>
     public event ExchangeStartedHandler? Started;
 
-    public readonly record struct ExchangeItemData(ushort Sprite, string? Name);
+    public readonly record struct ExchangeItemData(ushort Sprite, DisplayColor Color, string? Name);
 }

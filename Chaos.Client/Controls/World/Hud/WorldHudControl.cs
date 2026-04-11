@@ -2,11 +2,11 @@
 using Chaos.Client.Collections;
 using Chaos.Client.Controls.Components;
 using Chaos.Client.Controls.World.Hud.Panel;
+using Chaos.Client.Controls.World.ViewPort;
 using Chaos.Client.Data;
 using Chaos.Client.ViewModel;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
-using Microsoft.Xna.Framework.Input;
 #endregion
 
 namespace Chaos.Client.Controls.World.Hud;
@@ -32,10 +32,8 @@ public sealed class WorldHudControl : PrefabPanel, IWorldHud
 
     //orange bar
     private readonly OrangeBarControl OrangeBar;
-    private readonly UILabel? PersistentMessageLabel;
-
-    //persistent message — emoticondialog panel, white text, no auto-expire, cleared by server
-    private readonly UIPanel? PersistentMessagePanel;
+    private readonly PersistentMessageControl PersistentMessage;
+    private readonly SystemMessagePaneControl SystemMessagePane;
 
     //info text
     private readonly UILabel PlayerNameLabel;
@@ -62,7 +60,7 @@ public sealed class WorldHudControl : PrefabPanel, IWorldHud
     public UIButton? ChangeLayoutButton { get; }
 
     //chat
-    public UITextBox ChatInput { get; }
+    public ChatInputControl ChatInput { get; }
 
     public EffectBarControl EffectBar { get; }
     public UIButton? EmoteButton { get; }
@@ -94,7 +92,7 @@ public sealed class WorldHudControl : PrefabPanel, IWorldHud
     //viewport — the area where the game world renders
     public Rectangle ViewportBounds { get; }
 
-    public WorldHudControl(string prefabName = "_nbk_s")
+    public WorldHudControl(InputBuffer input, string prefabName = "_nbk_s")
         : base(prefabName, false)
     {
         Name = "GameHud";
@@ -106,18 +104,15 @@ public sealed class WorldHudControl : PrefabPanel, IWorldHud
         if (ViewportBounds == Rectangle.Empty)
             ViewportBounds = GetRect("EMPTY");
 
-        //chat input textbox (say) — reduce padding so prefix aligns flush
-        ChatInput = CreateTextBox("SAY", 255)!;
-        ChatInput.PaddingLeft = 1;
-        ChatInput.PaddingRight = 1;
-        ChatInput.PaddingTop = 1;
-        ChatInput.PaddingBottom = 1;
+        //chat input control (say)
+        ChatInput = new ChatInputControl(PrefabSet, input);
+        AddChild(ChatInput);
 
-        ChatInput.FocusedBackgroundColor = new Color(
-            0,
-            0,
-            0,
-            160);
+        ChatInput.FocusChanged += focused =>
+        {
+            if (focused)
+                DescriptionLabel?.Text = string.Empty;
+        };
 
         //inventory area
         InventoryBounds = GetRect("InventoryRect");
@@ -178,47 +173,13 @@ public sealed class WorldHudControl : PrefabPanel, IWorldHud
         for (var i = 0; i < 6; i++)
             InventoryTabButtons[i] = CreateButton($"BTN_INV{i}");
 
-        //persistent message panel — uses emoticondialog from lback.txt + description from lemot.txt
-        var lbackPrefab = DataContext.UserControls.Get("lback");
-        var lemotPrefab = DataContext.UserControls.Get("lemot");
+        //persistent message — floating text, top-right of viewport
+        PersistentMessage = new PersistentMessageControl(ViewportBounds);
+        AddChild(PersistentMessage);
 
-        if ((lbackPrefab?.Contains("EmoticonDialog") == true) && lemotPrefab is not null)
-        {
-            var dialogPrefab = lbackPrefab["EmoticonDialog"];
-            var dialogRect = dialogPrefab.Control.Rect!.Value;
-
-            PersistentMessagePanel = new UIPanel
-            {
-                Name = "PersistentMessage",
-                X = (int)dialogRect.Left,
-                Y = (int)dialogRect.Top,
-                Width = (int)dialogRect.Width,
-                Height = (int)dialogRect.Height,
-                Visible = false
-            };
-
-            if (dialogPrefab.Images.Count > 0)
-                PersistentMessagePanel.Background = UiRenderer.Instance!.GetPrefabTexture("lback", "EmoticonDialog", 0);
-
-            var descRect = GetRect(lemotPrefab, "Description");
-
-            if (descRect != Rectangle.Empty)
-            {
-                PersistentMessageLabel = new UILabel
-                {
-                    Name = "PersistentText",
-                    X = descRect.X,
-                    Y = descRect.Y,
-                    Width = descRect.Width,
-                    Height = descRect.Height,
-                    HorizontalAlignment = HorizontalAlignment.Center
-                };
-
-                PersistentMessagePanel.AddChild(PersistentMessageLabel);
-            }
-
-            AddChild(PersistentMessagePanel);
-        }
+        //system message pane — floating text, top-left of viewport
+        SystemMessagePane = new SystemMessagePaneControl(ViewportBounds);
+        AddChild(SystemMessagePane);
 
         //resolve inventory background textures from prefab for tab panels
         var cache = UiRenderer.Instance!;
@@ -481,19 +442,6 @@ public sealed class WorldHudControl : PrefabPanel, IWorldHud
         DescriptionLabel?.Text = text ?? string.Empty;
     }
 
-    public override void OnKeyDown(KeyDownEvent e)
-    {
-        if (e.Key == Keys.Escape && ChatInput.IsFocused)
-        {
-            ChatInput.IsFocused = false;
-            ChatInput.Text = string.Empty;
-            ChatInput.Prefix = string.Empty;
-            ChatInput.ForegroundColor = Color.White;
-            InputDispatcher.Instance?.ClearExplicitFocus();
-            e.Handled = true;
-        }
-    }
-
     public bool IsOrangeBarDragging => OrangeBar.IsDragging;
 
     /// <summary>
@@ -501,23 +449,8 @@ public sealed class WorldHudControl : PrefabPanel, IWorldHud
     /// </summary>
     public void ToggleExpand() => Inventory.SetExpanded(!Inventory.IsExpanded);
 
-    /// <summary>
-    ///     Displays a persistent message in the EmoticonDialog panel. Remains until the server sends an empty string to clear
-    ///     it.
-    /// </summary>
-    public void ShowPersistentMessage(string text)
-    {
-        if (PersistentMessagePanel is null || PersistentMessageLabel is null)
-            return;
+    public void ShowPersistentMessage(string text) => PersistentMessage.SetMessage(text);
 
-        if (string.IsNullOrEmpty(text))
-            PersistentMessagePanel.Visible = false;
-        else
-        {
-            PersistentMessageLabel.ForegroundColor = Color.White;
-            PersistentMessageLabel.Text = text;
-            PersistentMessagePanel.Visible = true;
-        }
-    }
+    public void ShowSystemMessage(string text, Color? color = null) => SystemMessagePane.AddMessage(text, color);
     #endregion
 }

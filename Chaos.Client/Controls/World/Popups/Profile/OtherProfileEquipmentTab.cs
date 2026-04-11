@@ -248,7 +248,7 @@ public sealed class OtherProfileEquipmentTab : PrefabPanel
             if (!SlotVisuals.TryGetValue(slot, out var visual))
                 continue;
 
-            var texture = UiRenderer.Instance!.GetItemIcon(item.Sprite);
+            var texture = UiRenderer.Instance!.GetItemIcon(item.Sprite, item.Color);
             visual.ItemTexture = texture;
             visual.Image.Texture = texture;
         }

@@ -367,35 +367,15 @@ public static class TextRenderer
                 continue;
             }
 
-            var words = paragraph.Split(' ');
-            var currentLine = string.Empty;
+            var remaining = paragraph;
 
-            foreach (var word in words)
+            while (remaining.Length > 0)
             {
-                var testLine = currentLine.Length == 0 ? word : currentLine + " " + word;
-
-                if (MeasureWidth(testLine) > maxWidth)
-                {
-                    if (currentLine.Length > 0)
-                    {
-                        lines.Add(currentLine);
-                        currentLine = word;
-                    } else
-                    {
-                        lines.Add(word);
-                        currentLine = string.Empty;
-                    }
-                } else
-                    currentLine = testLine;
+                var lineEnd = FindLineBreak(remaining, maxWidth);
+                lines.Add(remaining[..lineEnd].TrimEnd());
+                remaining = remaining[lineEnd..];
             }
-
-            if (currentLine.Length > 0)
-                lines.Add(currentLine);
         }
-
-        for (var i = 0; i < lines.Count; i++)
-            lines[i] = lines[i]
-                .Trim();
 
         return lines;
     }

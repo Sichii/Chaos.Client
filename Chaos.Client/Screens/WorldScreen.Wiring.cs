@@ -388,8 +388,8 @@ public sealed partial class WorldScreen
         {
             PendingDeleteAction = () =>
             {
+                PendingBoardSuccessAction = () => ArticleList.RemoveEntry(postId);
                 Game.Connection.SendBoardInteraction(BoardRequestType.Delete, ArticleList.BoardId, postId);
-                ArticleList.RemoveEntry(postId);
             };
 
             DeleteConfirm.Show("Delete this post?");
@@ -397,6 +397,7 @@ public sealed partial class WorldScreen
 
         ArticleList.OnHighlight += postId =>
         {
+            PendingBoardSuccessAction = () => ArticleList.ToggleHighlight(postId);
             Game.Connection.SendBoardInteraction(BoardRequestType.Highlight, ArticleList.BoardId, postId);
         };
 
@@ -446,8 +447,8 @@ public sealed partial class WorldScreen
         {
             PendingDeleteAction = () =>
             {
+                PendingBoardSuccessAction = () => MailList.RemoveEntry(postId);
                 Game.Connection.SendBoardInteraction(BoardRequestType.Delete, MailList.BoardId, postId);
-                MailList.RemoveEntry(postId);
             };
 
             DeleteConfirm.Show("Delete this post?");
@@ -522,9 +523,13 @@ public sealed partial class WorldScreen
         {
             PendingDeleteAction = () =>
             {
+                PendingBoardSuccessAction = () =>
+                {
+                    ArticleList.RemoveEntry(postId);
+                    ArticleRead.Hide();
+                    ArticleList.Show();
+                };
                 Game.Connection.SendBoardInteraction(BoardRequestType.Delete, ArticleRead.BoardId, postId);
-                ArticleRead.Hide();
-                ArticleList.Show();
             };
 
             DeleteConfirm.Show("Delete this post?");
@@ -581,9 +586,13 @@ public sealed partial class WorldScreen
         {
             PendingDeleteAction = () =>
             {
+                PendingBoardSuccessAction = () =>
+                {
+                    MailList.RemoveEntry(postId);
+                    MailRead.Hide();
+                    MailList.Show();
+                };
                 Game.Connection.SendBoardInteraction(BoardRequestType.Delete, MailRead.BoardId, postId);
-                MailRead.Hide();
-                MailList.Show();
             };
 
             DeleteConfirm.Show("Delete this post?");
@@ -699,7 +708,7 @@ public sealed partial class WorldScreen
             WorldList.OnClose += () => hud.UsersButton.IsSelected = false;
         }
 
-        WorldList.OnWhisperRequested += name => Chat.Focus($"-> {name}: ", TextColors.Whisper);
+        WorldList.OnWhisperRequested += name => WorldHud.ChatInput.Focus($"-> {name}: ", TextColors.Whisper);
 
         if (hud.BulletinButton is not null)
         {
@@ -750,6 +759,14 @@ public sealed partial class WorldScreen
 
             WorldState.Board.SessionClosed += () => hud.MailButton.IsSelected = false;
         }
+
+        //chat input events
+        hud.ChatInput.MessageSent += msg => Game.Connection.SendPublicMessage(msg);
+        hud.ChatInput.ShoutSent += msg => Game.Connection.SendShout(msg);
+        hud.ChatInput.WhisperSent += (target, msg) => Game.Connection.SendWhisper(target, msg);
+        hud.ChatInput.IgnoreAdded += name => Game.Connection.SendAddIgnore(name);
+        hud.ChatInput.IgnoreRemoved += name => Game.Connection.SendRemoveIgnore(name);
+        hud.ChatInput.IgnoreListRequested += () => Game.Connection.SendIgnoreRequest();
 
         //slot events
         hud.Inventory.OnSlotClicked += HandleInventorySlotClicked;

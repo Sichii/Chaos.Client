@@ -32,9 +32,7 @@ public sealed class OkPopupMessageControl : UIPanel
     private readonly int ContentX;
     private readonly int ContentY;
 
-    private List<string>? MessageLines;
-    private int MessageTextX;
-    private int MessageTextY;
+    private readonly UILabel MessageLabel;
 
     public UIButton? CancelButton { get; }
     public UIButton OkButton { get; }
@@ -124,28 +122,25 @@ public sealed class OkPopupMessageControl : UIPanel
         };
         OkButton.Clicked += () => OnOk?.Invoke();
         AddChild(OkButton);
-    }
 
-    public override void Draw(SpriteBatch spriteBatch)
-    {
-        if (!Visible)
-            return;
-
-        base.Draw(spriteBatch);
-
-        if (MessageLines is not null)
-            TextRenderer.DrawLines(
-                spriteBatch,
-                new Vector2(ScreenX + MessageTextX, ScreenY + MessageTextY),
-                MessageLines,
-                Color.White);
+        MessageLabel = new UILabel
+        {
+            X = ContentX - 9,
+            Y = ContentY - 10,
+            Width = ContentWidth,
+            Height = ContentHeight,
+            WordWrap = true,
+            ForegroundColor = Color.White,
+            VerticalAlignment = VerticalAlignment.Top
+        };
+        AddChild(MessageLabel);
     }
 
     public void Hide()
     {
         InputDispatcher.Instance!.RemoveControl(this);
         Visible = false;
-        MessageLines = null;
+        MessageLabel.Text = string.Empty;
     }
 
     public event Action? OnCancel;
@@ -154,19 +149,14 @@ public sealed class OkPopupMessageControl : UIPanel
 
     public void Show(string message)
     {
-        var lines = TextRenderer.WrapText(message, ContentWidth);
-        var textHeight = Math.Max(TextRenderer.CHAR_HEIGHT, lines.Count * TextRenderer.CHAR_HEIGHT);
-
-        MessageLines = lines;
-        MessageTextX = ContentX - 9;
-        MessageTextY = ContentY + (ContentHeight - textHeight) / 2 - 10;
+        MessageLabel.Text = message;
         InputDispatcher.Instance!.PushControl(this);
         Visible = true;
     }
 
     public override void OnKeyDown(KeyDownEvent e)
     {
-        if (e.Key == Keys.Enter)
+        if (e.Key is Keys.Enter or Keys.Space)
         {
             OkButton.PerformClick();
             e.Handled = true;

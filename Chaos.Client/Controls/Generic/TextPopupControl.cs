@@ -171,7 +171,7 @@ public sealed class TextPopupControl : UIPanel
 
     public override void OnKeyDown(KeyDownEvent e)
     {
-        if (e.Key == Keys.Escape)
+        if (e.Key is Keys.Escape or Keys.Space or Keys.Enter)
         {
             Hide();
             e.Handled = true;

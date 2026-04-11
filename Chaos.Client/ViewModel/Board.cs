@@ -91,7 +91,7 @@ public sealed class Board
         SessionClosed?.Invoke();
     }
 
-    public void HandleResponse(string message) => ResponseReceived?.Invoke(message);
+    public void HandleResponse(string message, bool success) => ResponseReceived?.Invoke(message, success);
 
     /// <summary>
     ///     Opens a new board session.

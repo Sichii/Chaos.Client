@@ -27,6 +27,7 @@ public sealed class EventMetadataDetailsControl : PrefabPanel
     {
         Visible = false;
         IsModal = true;
+        UsesControlStack = true;
 
         IconImage = CreateImage("ICON");
         NameLabel = CreateLabel("NAME");
@@ -79,7 +80,7 @@ public sealed class EventMetadataDetailsControl : PrefabPanel
 
     public override void OnKeyDown(KeyDownEvent e)
     {
-        if (e.Key == Keys.Escape)
+        if (e.Key is Keys.Escape or Keys.Enter)
         {
             Hide();
             e.Handled = true;

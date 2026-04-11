@@ -77,6 +77,7 @@ public sealed class ChantText : UIPanel
                 Text = line,
                 ForegroundColor = ChantColor,
                 PaddingLeft = 0,
+                PaddingRight = 0,
                 PaddingTop = 0
             };
 

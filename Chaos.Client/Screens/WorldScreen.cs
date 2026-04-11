@@ -71,9 +71,9 @@ public sealed partial class WorldScreen : IScreen
     //board/mail controls — 7 instances for 7 prefabs
     private bool AwaitingMapData;
     private BoardListControl BoardList = null!;
+    private OkPopupMessageControl BoardResponsePopup = null!;
     private Camera Camera = null!;
     private ChantEditControl ChantEdit = null!;
-    private ChatSystem Chat = null!;
     private MapFlags CurrentMapFlags;
     private short CurrentMapId;
 
@@ -122,6 +122,7 @@ public sealed partial class WorldScreen : IScreen
     private NotepadControl Notepad = null!;
     private NpcSessionControl NpcSession = null!;
     private OtherProfileTabControl OtherProfile = null!;
+    private Action? PendingBoardSuccessAction;
     private Action? PendingDeleteAction;
     private bool PendingLoginSwitch;
     private byte[] PlayerPortrait = [];
@@ -163,7 +164,6 @@ public sealed partial class WorldScreen : IScreen
     public void Initialize(ChaosGame game)
     {
         Game = game;
-        Chat = new ChatSystem(game.Connection, () => WorldHud);
 
         //player identity
         Game.Connection.OnUserId += HandleUserId;
@@ -202,7 +202,14 @@ public sealed partial class WorldScreen : IScreen
         WorldState.Board.PostListChanged += HandleBoardPostListChanged;
         WorldState.Board.PostViewed += HandleBoardPostViewed;
         WorldState.Board.BoardListReceived += HandleBoardListReceived;
-        WorldState.Board.ResponseReceived += msg => WorldState.Chat.AddOrangeBarMessage(msg);
+        WorldState.Board.ResponseReceived += (msg, success) =>
+        {
+            if (success)
+                PendingBoardSuccessAction?.Invoke();
+
+            PendingBoardSuccessAction = null;
+            BoardResponsePopup.Show(msg);
+        };
 
         //group invite — subscribe to state event
         WorldState.GroupInvite.Received += HandleGroupInviteReceived;
@@ -256,12 +263,12 @@ public sealed partial class WorldScreen : IScreen
 
         //create both hud layouts — '/' key swaps between them
         //zindex=-1 so hud frames render behind all popup panels
-        SmallHud = new WorldHudControl
+        SmallHud = new WorldHudControl(Game.Input)
         {
             ZIndex = -1
         };
 
-        LargeHud = new LargeWorldHudControl
+        LargeHud = new LargeWorldHudControl(Game.Input)
         {
             Visible = false,
             ZIndex = -1
@@ -482,6 +489,9 @@ public sealed partial class WorldScreen : IScreen
             ZIndex = -2
         };
         DeleteConfirm = new OkPopupMessageControl(true);
+        BoardResponsePopup = new OkPopupMessageControl();
+
+        BoardResponsePopup.OnOk += () => BoardResponsePopup.Hide();
 
         DisconnectPopup = new OkPopupMessageControl(true)
         {
@@ -643,6 +653,7 @@ public sealed partial class WorldScreen : IScreen
         Root.AddChild(MailRead);
         Root.AddChild(MailSend);
         Root.AddChild(DeleteConfirm);
+        Root.AddChild(BoardResponsePopup);
         Root.AddChild(StatusBook);
         Root.AddChild(SelfProfileTextEditor);
         Root.AddChild(AbilityMetadataDetails);

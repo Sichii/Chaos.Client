@@ -249,22 +249,33 @@ public sealed partial class WorldScreen
         {
             case ServerMessageType.Whisper:
                 WorldState.Chat.AddMessage(args.Message, TextColors.Whisper);
+                WorldState.Chat.AddOrangeBarMessage(args.Message);
+                UpdateHuds(h => h.ShowSystemMessage(args.Message, TextColors.Whisper));
 
                 break;
 
             case ServerMessageType.GroupChat:
                 WorldState.Chat.AddMessage(args.Message, TextColors.GroupChat);
+                WorldState.Chat.AddOrangeBarMessage(args.Message);
+                UpdateHuds(h => h.ShowSystemMessage(args.Message, TextColors.GroupChat));
 
                 break;
 
             case ServerMessageType.GuildChat:
                 WorldState.Chat.AddMessage(args.Message, TextColors.GuildChat);
+                WorldState.Chat.AddOrangeBarMessage(args.Message);
+                UpdateHuds(h => h.ShowSystemMessage(args.Message, TextColors.GuildChat));
+
+                break;
+
+            case ServerMessageType.ActiveMessage:
+                WorldState.Chat.AddOrangeBarMessage(args.Message);
+                UpdateHuds(h => h.ShowSystemMessage(args.Message));
 
                 break;
 
             case ServerMessageType.OrangeBar1
                  or ServerMessageType.OrangeBar2
-                 or ServerMessageType.ActiveMessage
                  or ServerMessageType.OrangeBar3
                  or ServerMessageType.AdminMessage
                  or ServerMessageType.OrangeBar5:

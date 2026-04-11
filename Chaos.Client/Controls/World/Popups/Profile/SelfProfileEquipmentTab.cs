@@ -125,11 +125,22 @@ public sealed class SelfProfileEquipmentTab : PrefabPanel
 
         //stat labels — right-aligned numeric values
         StrLabel = CreateLabel("N_STR", HorizontalAlignment.Right);
+        StrLabel?.TruncateWithEllipsis = false;
+        
         IntLabel = CreateLabel("N_INT", HorizontalAlignment.Right);
+        IntLabel?.TruncateWithEllipsis = false;
+        
         WisLabel = CreateLabel("N_WIS", HorizontalAlignment.Right);
+        WisLabel?.TruncateWithEllipsis = false;
+        
         ConLabel = CreateLabel("N_CON", HorizontalAlignment.Right);
+        ConLabel?.TruncateWithEllipsis = false;
+        
         DexLabel = CreateLabel("N_DEX", HorizontalAlignment.Right);
+        DexLabel?.TruncateWithEllipsis = false;
+        
         AcLabel = CreateLabel("N_AC", HorizontalAlignment.Right);
+        AcLabel?.TruncateWithEllipsis = false;
 
         //player info labels — left-aligned text
         NameLabel = CreateLabel("NAME");
@@ -160,8 +171,8 @@ public sealed class SelfProfileEquipmentTab : PrefabPanel
         //nation icon and text
         NationImage = CreateImage("Nation");
         NationTextLabel = CreateLabel("NationText");
-
         NationTextLabel?.VerticalAlignment = VerticalAlignment.Top;
+        NationTextLabel?.ForegroundColor = LegendColors.White;
 
         //paperdoll area
         PaperdollImage = CreateImage("HumanImage");
@@ -298,8 +309,6 @@ public sealed class SelfProfileEquipmentTab : PrefabPanel
     /// <summary>
     ///     Renders an item icon from the panel item sprite sheet using the same pipeline as inventory icons.
     /// </summary>
-    private Texture2D RenderItemIcon(ushort spriteId) => UiRenderer.Instance!.GetItemIcon(spriteId);
-
     /// <summary>
     ///     Sets the emoticon/social status icon and text. State 0-7 maps to _nemots.spf frames.
     /// </summary>
@@ -384,7 +393,7 @@ public sealed class SelfProfileEquipmentTab : PrefabPanel
     /// <summary>
     ///     Sets the item icon for a specific equipment slot.
     /// </summary>
-    public void SetSlot(EquipmentSlot slot, ushort sprite, string? itemName = null)
+    public void SetSlot(EquipmentSlot slot, ushort sprite, DisplayColor color, string? itemName = null)
     {
         if (!SlotVisuals.TryGetValue(slot, out var visual))
             return;
@@ -398,7 +407,7 @@ public sealed class SelfProfileEquipmentTab : PrefabPanel
 
         visual.ItemName = itemName ?? string.Empty;
 
-        var texture = RenderItemIcon(sprite);
+        var texture = UiRenderer.Instance!.GetItemIcon(sprite, color);
         visual.ItemTexture = texture;
         visual.Image.Texture = texture;
     }

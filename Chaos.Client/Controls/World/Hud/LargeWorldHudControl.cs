@@ -2,11 +2,11 @@
 using Chaos.Client.Collections;
 using Chaos.Client.Controls.Components;
 using Chaos.Client.Controls.World.Hud.Panel;
+using Chaos.Client.Controls.World.ViewPort;
 using Chaos.Client.Data;
 using Chaos.Client.ViewModel;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
-using Microsoft.Xna.Framework.Input;
 #endregion
 
 namespace Chaos.Client.Controls.World.Hud;
@@ -31,8 +31,8 @@ public sealed class LargeWorldHudControl : PrefabPanel, IWorldHud
     private readonly UILabel MpNumLabel;
     private readonly UIProgressBar MpOrb;
     private readonly OrangeBarControl OrangeBar;
-    private readonly UILabel? PersistentMessageLabel;
-    private readonly UIPanel? PersistentMessagePanel;
+    private readonly PersistentMessageControl PersistentMessage;
+    private readonly SystemMessagePaneControl SystemMessagePane;
     private readonly UILabel PlayerNameLabel;
     private readonly UILabel? ServerNameLabel;
 
@@ -56,7 +56,7 @@ public sealed class LargeWorldHudControl : PrefabPanel, IWorldHud
     public StatsPanel StatsPanel { get; private set; } = null!;
     public UIButton? BulletinButton { get; }
     public UIButton? ChangeLayoutButton { get; }
-    public UITextBox ChatInput { get; }
+    public ChatInputControl ChatInput { get; }
     public EffectBarControl EffectBar { get; }
     public UIButton? EmoteButton { get; }
     public UIButton? ExpandButton { get; }
@@ -74,7 +74,7 @@ public sealed class LargeWorldHudControl : PrefabPanel, IWorldHud
     public UIButton? UsersButton { get; }
     public Rectangle ViewportBounds { get; }
 
-    public LargeWorldHudControl()
+    public LargeWorldHudControl(InputBuffer input)
         : base("_nbk_l", false)
     {
         Name = "GameHudLarge";
@@ -87,18 +87,15 @@ public sealed class LargeWorldHudControl : PrefabPanel, IWorldHud
         if (ViewportBounds == Rectangle.Empty)
             ViewportBounds = GetRect("EMPTY");
 
-        //chat input
-        ChatInput = CreateTextBox("SAY", 255)!;
-        ChatInput.PaddingLeft = 1;
-        ChatInput.PaddingRight = 1;
-        ChatInput.PaddingTop = 1;
-        ChatInput.PaddingBottom = 1;
+        //chat input control (say)
+        ChatInput = new ChatInputControl(PrefabSet, input);
+        AddChild(ChatInput);
 
-        ChatInput.FocusedBackgroundColor = new Color(
-            0,
-            0,
-            0,
-            160);
+        ChatInput.FocusChanged += focused =>
+        {
+            if (focused)
+                DescriptionLabel?.Text = string.Empty;
+        };
 
         //inventory area
         InventoryBounds = GetRect("InventoryRect");
@@ -165,47 +162,13 @@ public sealed class LargeWorldHudControl : PrefabPanel, IWorldHud
             ExtendedTabFrame.Visible = false;
         }
 
-        //persistent message panel
-        var lbackPrefab = DataContext.UserControls.Get("lback");
-        var lemotPrefab = DataContext.UserControls.Get("lemot");
+        //persistent message — floating text, top-right of viewport
+        PersistentMessage = new PersistentMessageControl(ViewportBounds);
+        AddChild(PersistentMessage);
 
-        if ((lbackPrefab?.Contains("EmoticonDialog") == true) && lemotPrefab is not null)
-        {
-            var dialogPrefab = lbackPrefab["EmoticonDialog"];
-            var dialogRect = dialogPrefab.Control.Rect!.Value;
-
-            PersistentMessagePanel = new UIPanel
-            {
-                Name = "PersistentMessage",
-                X = (int)dialogRect.Left,
-                Y = (int)dialogRect.Top,
-                Width = (int)dialogRect.Width,
-                Height = (int)dialogRect.Height,
-                Visible = false
-            };
-
-            if (dialogPrefab.Images.Count > 0)
-                PersistentMessagePanel.Background = UiRenderer.Instance!.GetPrefabTexture("lback", "EmoticonDialog", 0);
-
-            var descRect = GetRect(lemotPrefab, "Description");
-
-            if (descRect != Rectangle.Empty)
-            {
-                PersistentMessageLabel = new UILabel
-                {
-                    Name = "PersistentText",
-                    X = descRect.X,
-                    Y = descRect.Y,
-                    Width = descRect.Width,
-                    Height = descRect.Height,
-                    HorizontalAlignment = HorizontalAlignment.Center
-                };
-
-                PersistentMessagePanel.AddChild(PersistentMessageLabel);
-            }
-
-            AddChild(PersistentMessagePanel);
-        }
+        //system message pane — floating text, top-left of viewport
+        SystemMessagePane = new SystemMessagePaneControl(ViewportBounds);
+        AddChild(SystemMessagePane);
 
         //resolve inventory background textures from prefab for tab panels
         var cache = UiRenderer.Instance!;
@@ -269,8 +232,6 @@ public sealed class LargeWorldHudControl : PrefabPanel, IWorldHud
             ShiftCompanionElements(offset);
 
             ExtendedTabFrame?.Visible = false;
-
-            Expanded = false;
         }
 
         foreach (var panel in TabPanels)
@@ -497,19 +458,6 @@ public sealed class LargeWorldHudControl : PrefabPanel, IWorldHud
         DescriptionLabel?.Text = text ?? string.Empty;
     }
 
-    public override void OnKeyDown(KeyDownEvent e)
-    {
-        if (e.Key == Keys.Escape && ChatInput.IsFocused)
-        {
-            ChatInput.IsFocused = false;
-            ChatInput.Text = string.Empty;
-            ChatInput.Prefix = string.Empty;
-            ChatInput.ForegroundColor = Color.White;
-            InputDispatcher.Instance?.ClearExplicitFocus();
-            e.Handled = true;
-        }
-    }
-
     public bool IsOrangeBarDragging => OrangeBar.IsDragging;
 
     /// <summary>
@@ -551,19 +499,8 @@ public sealed class LargeWorldHudControl : PrefabPanel, IWorldHud
         ChatInput.Y += yShift;
     }
 
-    public void ShowPersistentMessage(string text)
-    {
-        if (PersistentMessagePanel is null || PersistentMessageLabel is null)
-            return;
+    public void ShowPersistentMessage(string text) => PersistentMessage.SetMessage(text);
 
-        if (string.IsNullOrEmpty(text))
-            PersistentMessagePanel.Visible = false;
-        else
-        {
-            PersistentMessageLabel.ForegroundColor = Color.White;
-            PersistentMessageLabel.Text = text;
-            PersistentMessagePanel.Visible = true;
-        }
-    }
+    public void ShowSystemMessage(string text, Color? color = null) => SystemMessagePane.AddMessage(text, color);
     #endregion
 }

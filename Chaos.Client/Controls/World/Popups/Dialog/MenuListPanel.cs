@@ -249,7 +249,7 @@ public sealed class MenuListPanel : FramedDialogPanelBase
             if (!slotData.IsOccupied)
                 continue;
 
-            var icon = renderer.GetItemIcon(slotData.Sprite);
+            var icon = renderer.GetItemIcon(slotData.Sprite, slotData.Color);
             AddEntry(slotData.Name ?? string.Empty, slot, icon);
         }
     }
@@ -288,29 +288,29 @@ public sealed class MenuListPanel : FramedDialogPanelBase
 
     private void PopulateSkills(DisplayMenuArgs args)
     {
-        if (args.Items is null)
+        if (args.Skills is null)
             return;
 
         var renderer = UiRenderer.Instance!;
 
-        foreach (var item in args.Items)
+        foreach (var skill in args.Skills)
         {
-            var icon = renderer.GetSkillIcon(item.Sprite);
-            AddEntry(item.Name, item.Slot, icon);
+            var icon = renderer.GetSkillIcon(skill.Sprite);
+            AddEntry(skill.Name, skill.Slot, icon);
         }
     }
 
     private void PopulateSpells(DisplayMenuArgs args)
     {
-        if (args.Items is null)
+        if (args.Spells is null)
             return;
 
         var renderer = UiRenderer.Instance!;
 
-        foreach (var item in args.Items)
+        foreach (var spell in args.Spells)
         {
-            var icon = renderer.GetSpellIcon(item.Sprite);
-            AddEntry(item.Name, item.Slot, icon);
+            var icon = renderer.GetSpellIcon(spell.Sprite);
+            AddEntry(spell.Name, spell.Slot, icon);
         }
     }
 

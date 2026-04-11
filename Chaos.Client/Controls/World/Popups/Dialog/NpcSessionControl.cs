@@ -726,8 +726,8 @@ public sealed class NpcSessionControl : PrefabPanel
             return;
         }
 
-        //space — advance normal dialogs via next button, or select first option in menus
-        if (e.Key == Keys.Space)
+        //space/enter — advance normal dialogs via next button, or select first option in menus
+        if (e.Key is Keys.Space or Keys.Enter)
         {
             if (DialogOption.Visible && DialogOption.OptionCount > 0)
             {
@@ -736,6 +736,11 @@ public sealed class NpcSessionControl : PrefabPanel
             } else if (NextButton is { Visible: true, Enabled: true })
             {
                 OnNext?.Invoke();
+                e.Handled = true;
+            } else if (!DialogOption.Visible || DialogOption.OptionCount == 0)
+            {
+                HideAll();
+                OnClose?.Invoke();
                 e.Handled = true;
             }
         }

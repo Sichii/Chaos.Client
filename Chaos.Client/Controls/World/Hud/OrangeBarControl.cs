@@ -54,7 +54,8 @@ public sealed class OrangeBarControl : UIPanel
                 ForegroundColor = Color.Orange,
                 PaddingLeft = 0,
                 PaddingTop = 0,
-                Visible = false
+                Visible = false,
+                IsHitTestVisible = false
             };
 
             AddChild(Lines[i]);

@@ -456,7 +456,7 @@ public sealed class MenuShopPanel : PrefabPanel
                 continue;
 
             var name = slotData.Name ?? string.Empty;
-            var icon = UiRenderer.Instance!.GetItemIcon(slotData.Sprite);
+            var icon = UiRenderer.Instance!.GetItemIcon(slotData.Sprite, slotData.Color);
             metadata.TryGetValue(name, out var meta);
 
             Entries.Add(
