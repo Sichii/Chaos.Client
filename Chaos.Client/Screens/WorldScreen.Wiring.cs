@@ -718,7 +718,7 @@ public sealed partial class WorldScreen
                 Game.Connection.SendBoardInteraction(BoardRequestType.BoardList);
             };
 
-            WorldState.Board.SessionClosed += () => hud.BulletinButton.IsSelected = false;
+            WorldState.Board.SessionClosed += ResetBulletinButtonSelection;
         }
 
         if (hud.LegendButton is not null)
@@ -757,7 +757,7 @@ public sealed partial class WorldScreen
                 Game.Connection.SendBoardInteraction(BoardRequestType.BoardList);
             };
 
-            WorldState.Board.SessionClosed += () => hud.MailButton.IsSelected = false;
+            WorldState.Board.SessionClosed += ResetMailButtonSelection;
         }
 
         //chat input events
@@ -806,6 +806,10 @@ public sealed partial class WorldScreen
             panel.OnSlotHoverExit += () => WorldHud.SetDescription(null);
         }
     }
+
+    private void ResetBulletinButtonSelection() => WorldHud.BulletinButton?.IsSelected = false;
+
+    private void ResetMailButtonSelection() => WorldHud.MailButton?.IsSelected = false;
 
     private void SwapHudLayout()
     {

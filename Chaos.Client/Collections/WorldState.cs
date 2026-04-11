@@ -248,6 +248,30 @@ public static class WorldState
     }
 
     /// <summary>
+    ///     Resets all character-specific state. Call on logout / character switch before any new character data arrives.
+    /// </summary>
+    public static void ResetAll()
+    {
+        Clear();
+        InvalidateChantCache();
+        PlayerEntityId = 0;
+        PlayerName = string.Empty;
+        Inventory.Clear();
+        SkillBook.Clear();
+        SpellBook.Clear();
+        Equipment.Clear();
+        Attributes.Clear();
+        Chat.Clear();
+        Board.CloseSession();
+        Group.Clear();
+        GroupInvite.Clear();
+        NpcInteraction.Close();
+        Exchange.Close();
+        WorldList.Clear();
+        UserOptions.ClearServerSettings();
+    }
+
+    /// <summary>
     ///     Returns tile positions of all blocking entities (creatures except WalkThrough, and aislings excluding the player).
     /// </summary>
     public static List<IPoint> GetBlockedPoints()

@@ -202,14 +202,7 @@ public sealed partial class WorldScreen : IScreen
         WorldState.Board.PostListChanged += HandleBoardPostListChanged;
         WorldState.Board.PostViewed += HandleBoardPostViewed;
         WorldState.Board.BoardListReceived += HandleBoardListReceived;
-        WorldState.Board.ResponseReceived += (msg, success) =>
-        {
-            if (success)
-                PendingBoardSuccessAction?.Invoke();
-
-            PendingBoardSuccessAction = null;
-            BoardResponsePopup.Show(msg);
-        };
+        WorldState.Board.ResponseReceived += HandleBoardResponse;
 
         //group invite — subscribe to state event
         WorldState.GroupInvite.Received += HandleGroupInviteReceived;
@@ -231,7 +224,7 @@ public sealed partial class WorldScreen : IScreen
         //logout / disconnect
         Game.Connection.OnExitResponse += HandleExitResponse;
         Game.Connection.StateChanged += HandleStateChanged;
-        Game.Connection.OnRedirectReceived += _ => RedirectInProgress = true;
+        Game.Connection.OnRedirectReceived += HandleRedirectReceived;
 
         //health bars
         Game.Connection.OnHealthBar += HandleHealthBar;
@@ -704,6 +697,9 @@ public sealed partial class WorldScreen : IScreen
         WorldState.Board.PostViewed -= HandleBoardPostViewed;
         WorldState.Board.BoardListReceived -= HandleBoardListReceived;
         WorldState.Board.SessionClosed -= HideAllBoardControls;
+        WorldState.Board.ResponseReceived -= HandleBoardResponse;
+        WorldState.Board.SessionClosed -= ResetBulletinButtonSelection;
+        WorldState.Board.SessionClosed -= ResetMailButtonSelection;
         WorldState.GroupInvite.Received -= HandleGroupInviteReceived;
         Game.Connection.OnEditableProfileRequest -= HandleEditableProfileRequest;
         Game.Connection.OnSelfProfile -= HandleSelfProfile;
@@ -714,6 +710,7 @@ public sealed partial class WorldScreen : IScreen
         Game.Connection.OnCancelCasting -= CastingSystem.Reset;
         Game.Connection.OnMapChangePending -= HandleMapChangePending;
         Game.Connection.OnExitResponse -= HandleExitResponse;
+        Game.Connection.OnRedirectReceived -= HandleRedirectReceived;
         Game.Connection.StateChanged -= HandleStateChanged;
         Game.Connection.OnHealthBar -= HandleHealthBar;
         Game.Connection.OnEffect -= HandleEffect;
@@ -730,6 +727,8 @@ public sealed partial class WorldScreen : IScreen
         WorldHud.SkillBookAlt.OnSlotClicked -= HandleSkillSlotClicked;
         WorldHud.SpellBook.OnSlotClicked -= HandleSpellSlotClicked;
         WorldHud.SpellBookAlt.OnSlotClicked -= HandleSpellSlotClicked;
+
+        WorldState.ResetAll();
 
         MapRenderer.Dispose();
         TabMapRenderer.Dispose();

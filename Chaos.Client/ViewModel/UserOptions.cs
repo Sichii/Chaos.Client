@@ -74,4 +74,14 @@ public sealed class UserOptions
         SettingChanged?.Invoke(index, Settings[index]);
         SettingToggled?.Invoke(index, Settings[index]);
     }
+
+    /// <summary>
+    ///     Clears only server-controlled settings, leaving client-local settings intact.
+    /// </summary>
+    public void ClearServerSettings()
+    {
+        for (var i = 0; i < SETTING_COUNT; i++)
+            if (IsServerSetting(i))
+                Settings[i] = false;
+    }
 }

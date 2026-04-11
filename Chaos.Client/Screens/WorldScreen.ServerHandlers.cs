@@ -5,6 +5,7 @@ using Chaos.Client.Data;
 using Chaos.Client.Data.Utilities;
 using Chaos.Client.Extensions;
 using Chaos.Client.Models;
+using Chaos.Client.Networking;
 using Chaos.Client.Networking.Definitions;
 using Chaos.Client.Rendering.Models;
 using Chaos.Client.Systems;
@@ -511,6 +512,17 @@ public sealed partial class WorldScreen
     }
 
     //--- board / mail ---
+
+    private void HandleBoardResponse(string message, bool success)
+    {
+        if (success)
+            PendingBoardSuccessAction?.Invoke();
+
+        PendingBoardSuccessAction = null;
+        BoardResponsePopup.Show(message);
+    }
+
+    private void HandleRedirectReceived(RedirectInfo _) => RedirectInProgress = true;
 
     private void HandleBoardListReceived()
     {
