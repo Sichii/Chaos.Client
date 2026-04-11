@@ -22,8 +22,8 @@ public sealed class SelfProfileFamilyTab : PrefabPanel
         Visible = false;
 
         SelfLabel = CreateLabel("Self");
-
         SelfLabel?.Text = WorldState.PlayerName;
+        SelfLabel?.HorizontalAlignment = HorizontalAlignment.Center;
 
         FamilyLabel = CreateLabel("Family");
 

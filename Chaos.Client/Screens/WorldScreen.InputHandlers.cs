@@ -1,5 +1,6 @@
 #region
 using Chaos.Client.Collections;
+using Chaos.Client.Controls.Components;
 using Chaos.Client.Controls.World.Hud;
 using Chaos.Client.Controls.World.Hud.Panel;
 using Chaos.Client.Controls.World.Hud.Panel.Slots;
@@ -47,6 +48,29 @@ public sealed partial class WorldScreen
         ItemTooltip.Hide();
     }
 
+    /// <summary>
+    ///     Returns true if the point is over any visible popup window, preventing drops from passing through.
+    /// </summary>
+    private bool IsOverVisiblePopup(int screenX, int screenY)
+    {
+        if (Root is null)
+            return false;
+
+        foreach (var child in Root.Children)
+        {
+            if (child is not UIPanel { Visible: true, IsPassThrough: false } panel)
+                continue;
+
+            if (panel == SmallHud || panel == LargeHud)
+                continue;
+
+            if (panel.ContainsPoint(screenX, screenY))
+                return true;
+        }
+
+        return false;
+    }
+
     private void HandleInventoryDropInViewport(byte slot, int mouseX, int mouseY)
     {
         //dropped onto the exchange window — add item to exchange
@@ -64,6 +88,10 @@ public sealed partial class WorldScreen
 
             return;
         }
+
+        //block drops that land on any visible popup window
+        if (IsOverVisiblePopup(mouseX, mouseY))
+            return;
 
         var viewport = WorldHud.ViewportBounds;
 
@@ -95,7 +123,8 @@ public sealed partial class WorldScreen
 
         if (droppedOnEntity)
         {
-            Game.Connection.DropItemOnCreature(slot, entity!.Id);
+            var itemSlot = WorldState.Inventory.GetSlot(slot);
+            Game.Connection.DropItemOnCreature(slot, entity!.Id, itemSlot.Stackable ? (byte)0 : (byte)1);
 
             return;
         }
@@ -184,6 +213,9 @@ public sealed partial class WorldScreen
 
     private void HandleSpellSlotDropped(byte slot, int mouseX, int mouseY)
     {
+        if (IsOverVisiblePopup(mouseX, mouseY))
+            return;
+
         var entity = GetEntityAtScreen(mouseX, mouseY);
 
         if (entity?.Type is not (ClientEntityType.Aisling or ClientEntityType.Creature))
@@ -234,7 +266,7 @@ public sealed partial class WorldScreen
 
     private bool HandleEmoteHotkey(KeyDownEvent e)
     {
-        if (!e.Ctrl && !e.Alt)
+        if (e is { Ctrl: false, Alt: false })
             return false;
 
         var keyIndex = Array.IndexOf(EmoteKeys, e.Key);
@@ -244,9 +276,9 @@ public sealed partial class WorldScreen
 
         BodyAnimation bodyAnimation;
 
-        if (e.Ctrl && !e.Alt)
+        if (e is { Ctrl: true, Alt: false })
             bodyAnimation = CtrlEmotes[keyIndex];
-        else if (e.Ctrl && e.Alt)
+        else if (e is { Ctrl: true, Alt: true })
             bodyAnimation = (BodyAnimation)(23 + keyIndex);
         else
             bodyAnimation = (BodyAnimation)(34 + keyIndex);
@@ -630,7 +662,7 @@ public sealed partial class WorldScreen
         }
 
         //shout hotkey (shift+1)
-        if (e.Key == Keys.D1 && e.Shift)
+        if (e is { Key: Keys.D1, Shift: true })
         {
             WorldHud.ChatInput.Focus($"{WorldHud.PlayerName}! ", Color.Yellow);
             e.Handled = true;
@@ -639,7 +671,7 @@ public sealed partial class WorldScreen
         }
 
         //whisper hotkey (shift+")
-        if (e.Key == Keys.OemQuotes && e.Shift)
+        if (e is { Key: Keys.OemQuotes, Shift: true })
         {
             WorldHud.ChatInput.FocusWhisper();
             e.Handled = true;
@@ -764,7 +796,9 @@ public sealed partial class WorldScreen
         //f3 — macro menu
         if (e.Key == Keys.F3)
         {
-            MacrosList.Show();
+            if (!SettingsDialog.Visible && !FriendsList.Visible)
+                MacrosList.Show();
+
             e.Handled = true;
 
             return;
@@ -773,7 +807,9 @@ public sealed partial class WorldScreen
         //f4 — settings
         if (e.Key == Keys.F4)
         {
-            SettingsDialog.Show();
+            if (!MacrosList.Visible && !FriendsList.Visible)
+                SettingsDialog.Show();
+
             e.Handled = true;
 
             return;
@@ -815,14 +851,16 @@ public sealed partial class WorldScreen
         //f10 — friends list
         if (e.Key == Keys.F10)
         {
-            FriendsList.Show();
+            if (!MacrosList.Visible && !SettingsDialog.Visible)
+                FriendsList.Show();
+
             e.Handled = true;
 
             return;
         }
 
         // — swap hud layout (small <-> large)
-        if (e.Key == Keys.OemQuestion && !e.Shift)
+        if (e is { Key: Keys.OemQuestion, Shift: false })
         {
             SwapHudLayout();
             e.Handled = true;
@@ -954,7 +992,6 @@ public sealed partial class WorldScreen
         //exchange gold-click coordination — clicking the money label opens the gold amount popup
         if (Exchange.Visible && (e.Button == MouseButton.Left) && Exchange.IsMyMoneyClicked(e.ScreenX, e.ScreenY))
         {
-            ExchangeAmountSlot = null;
             GoldDrop.ShowForTarget(Exchange.OtherUserId, 0, 0);
             e.Handled = true;
 

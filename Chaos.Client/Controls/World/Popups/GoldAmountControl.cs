@@ -11,7 +11,7 @@ namespace Chaos.Client.Controls.World.Popups;
 ///     Gold drop/exchange popup using _nmoney prefab. Stores the pending drop target (entity or tile)
 ///     so the caller only needs to show it and subscribe to OnConfirm.
 /// </summary>
-public sealed class AmountControl : PrefabPanel
+public sealed class GoldAmountControl : PrefabPanel
 {
     /// <summary>
     ///     Entity ID to drop gold on, or null for ground drop.
@@ -24,7 +24,7 @@ public sealed class AmountControl : PrefabPanel
     public UIButton? CancelButton { get; }
     public UIButton? OkButton { get; }
 
-    public AmountControl()
+    public GoldAmountControl()
         : base("_nmoney")
     {
         Name = "GoldExchange";

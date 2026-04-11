@@ -730,7 +730,7 @@ public sealed class NpcSessionControl : PrefabPanel
         //space/enter — advance normal dialogs via next button, or select first option in menus
         if (e.Key is Keys.Space or Keys.Enter)
         {
-            if (DialogOption.Visible && DialogOption.OptionCount > 0)
+            if (DialogOption is { Visible: true, OptionCount: > 0 })
             {
                 OnOptionSelected?.Invoke(0);
                 e.Handled = true;

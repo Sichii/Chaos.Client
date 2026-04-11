@@ -507,8 +507,9 @@ public sealed partial class WorldScreen
 
     private void HandleExchangeAmountRequested(byte fromSlot)
     {
-        ExchangeAmountSlot = fromSlot;
-        GoldDrop.ShowForTarget(Exchange.OtherUserId, 0, 0);
+        ItemAmount.X = Exchange.X + (Exchange.Width - ItemAmount.Width) / 2;
+        ItemAmount.Y = Exchange.Y + (Exchange.Height - ItemAmount.Height) / 2;
+        ItemAmount.ShowForSlot(fromSlot);
     }
 
     //--- board / mail ---

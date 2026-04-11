@@ -28,6 +28,7 @@ public sealed class InputBuffer : IDisposable
     private MouseState PreviousMouse;
     private char[] TextBuffer = [];
     private int TextCount;
+    private bool WasInactive;
     private OrderedKeyEvent[] OrderedBuffer = [];
     private int OrderedCount;
 
@@ -112,10 +113,23 @@ public sealed class InputBuffer : IDisposable
             FrameKeyReleases.Clear();
             TextCount = 0;
             OrderedCount = 0;
-            PreviousMouse = CurrentMouse;
+
+            //update position (so MouseX/MouseY stay current) but set both states
+            //identical so no button edges fire
             CurrentMouse = Mouse.GetState();
+            PreviousMouse = CurrentMouse;
+            WasInactive = true;
 
             return;
+        }
+
+        //suppress focus-click: when regaining focus, sync PreviousMouse to CurrentMouse
+        //so no spurious button edges fire on the activation frame
+        if (WasInactive)
+        {
+            WasInactive = false;
+            CurrentMouse = Mouse.GetState();
+            PreviousMouse = CurrentMouse;
         }
 
         FrameKeyPresses.Clear();

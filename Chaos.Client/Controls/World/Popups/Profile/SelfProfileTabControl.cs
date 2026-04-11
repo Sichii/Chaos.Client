@@ -46,6 +46,7 @@ public sealed class SelfProfileTabControl : PrefabPanel
         Name = "StatusBook";
         Visible = false;
         UsesControlStack = true;
+        IsPassThrough = true;
         WorldState.Equipment.SlotChanged += OnEquipmentSlotChanged;
         WorldState.Equipment.SlotCleared += OnEquipmentSlotCleared;
         X = 0;

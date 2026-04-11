@@ -221,7 +221,7 @@ public sealed partial class WorldScreen
 
         //── tooltip dismissal — clear hovered slot when blocking panels are visible ──
         if (HoveredInventorySlot is not null
-            && (StatusBook.Visible || OtherProfile.Visible || NpcSession.Visible || FindVisibleModal() is not null))
+            && (OtherProfile.Visible || NpcSession.Visible || FindVisibleModal() is not null))
         {
             HoveredInventorySlot = null;
             ItemTooltip.Hide();

@@ -16,22 +16,11 @@ namespace Chaos.Client.Controls.World.Popups.Options;
 /// </summary>
 public sealed class MainOptionsControl : PrefabPanel
 {
-    private const int VOLUME_MIN = 0;
-    private const int VOLUME_MAX = 10;
-    private const int THUMB_WIDTH = 12;
-    private const int THUMB_HEIGHT = 12;
-    private readonly Rectangle MusicTrackRect;
-
-    //slider state
-    private readonly Rectangle SoundTrackRect;
-    private readonly Texture2D? ThumbTexture;
-    private bool DraggingMusic;
-    private bool DraggingSound;
-    private int MusicVolume = 10;
+    private readonly SliderControl MusicSlider;
+    private readonly SliderControl SoundSlider;
 
     //slide animation
     private SlideAnimator Slide;
-    private int SoundVolume = 10;
 
     public UIButton? CloseButton { get; }
     public UIButton? ExitButton { get; }
@@ -56,18 +45,28 @@ public sealed class MainOptionsControl : PrefabPanel
             Width);
         X = Slide.OffScreenX;
 
-        //slider track rects
-        SoundTrackRect = GetRect("SoundRect");
-        MusicTrackRect = GetRect("MusicRect");
+        //slider controls — self-contained track + thumb with proper hit-testing
+        var soundTrackRect = GetRect("SoundRect");
+        var musicTrackRect = GetRect("MusicRect");
 
-        //slider thumb from option04.epf (tick control) — extract texture only, remove the child
+        //extract thumb texture from prefab, remove the dummy image child
+        Texture2D? thumbTexture = null;
         var tickImage = CreateImage("Tick");
 
         if (tickImage is not null)
         {
-            ThumbTexture = tickImage.Texture;
+            thumbTexture = tickImage.Texture;
             Children.Remove(tickImage);
         }
+
+        SoundSlider = new SliderControl(soundTrackRect, thumbTexture);
+        MusicSlider = new SliderControl(musicTrackRect, thumbTexture);
+
+        SoundSlider.ValueChanged += volume => OnSoundVolumeChanged?.Invoke(volume);
+        MusicSlider.ValueChanged += volume => OnMusicVolumeChanged?.Invoke(volume);
+
+        AddChild(SoundSlider);
+        AddChild(MusicSlider);
 
         //buttons
         MacroButton = CreateButton("Macro");
@@ -92,40 +91,9 @@ public sealed class MainOptionsControl : PrefabPanel
             CloseButton.Clicked += SlideClose;
     }
 
-    public override void Draw(SpriteBatch spriteBatch)
-    {
-        if (!Visible)
-            return;
+    public int GetMusicVolume() => MusicSlider.Value;
 
-        base.Draw(spriteBatch);
-
-        //draw slider thumbs
-        if (ThumbTexture is not null)
-        {
-            DrawThumb(spriteBatch, SoundTrackRect, SoundVolume);
-            DrawThumb(spriteBatch, MusicTrackRect, MusicVolume);
-        }
-    }
-
-    private void DrawThumb(SpriteBatch spriteBatch, Rectangle trackRect, int volume)
-    {
-        if ((trackRect == Rectangle.Empty) || ThumbTexture is null)
-            return;
-
-        var sx = ScreenX;
-        var sy = ScreenY;
-        var thumbX = sx + GetThumbX(trackRect, volume);
-        var thumbY = sy + trackRect.Y - (THUMB_HEIGHT - trackRect.Height) / 2;
-
-        spriteBatch.Draw(ThumbTexture, new Vector2(thumbX, thumbY), Color.White);
-    }
-
-    public int GetMusicVolume() => MusicVolume;
-
-    public int GetSoundVolume() => SoundVolume;
-
-    private static int GetThumbX(Rectangle trackRect, int volume)
-        => trackRect.X + (int)((float)volume / VOLUME_MAX * trackRect.Width) - THUMB_WIDTH / 2;
+    public int GetSoundVolume() => SoundSlider.Value;
 
     public override void Hide()
     {
@@ -140,9 +108,9 @@ public sealed class MainOptionsControl : PrefabPanel
     public event MusicVolumeChangedHandler? OnMusicVolumeChanged;
     public event SettingsHandler? OnSettings;
     public event SoundVolumeChangedHandler? OnSoundVolumeChanged;
-    public void SetMusicVolume(int volume) => MusicVolume = Math.Clamp(volume, VOLUME_MIN, VOLUME_MAX);
+    public void SetMusicVolume(int volume) => MusicSlider.SetValue(volume);
 
-    public void SetSoundVolume(int volume) => SoundVolume = Math.Clamp(volume, VOLUME_MIN, VOLUME_MAX);
+    public void SetSoundVolume(int volume) => SoundSlider.SetValue(volume);
 
     public void SetViewportBounds(Rectangle viewport)
     {
@@ -194,92 +162,6 @@ public sealed class MainOptionsControl : PrefabPanel
         {
             OnExit?.Invoke();
             e.Handled = true;
-        }
-    }
-
-    public override void OnMouseDown(MouseDownEvent e)
-    {
-        if (Slide.Sliding || e.Button != MouseButton.Left)
-            return;
-
-        var localX = e.ScreenX - ScreenX;
-        var localY = e.ScreenY - ScreenY;
-
-        if (HitsTrack(SoundTrackRect, localX, localY))
-        {
-            DraggingSound = true;
-            UpdateVolumeFromMouse(SoundTrackRect, localX, true);
-            e.Handled = true;
-        } else if (HitsTrack(MusicTrackRect, localX, localY))
-        {
-            DraggingMusic = true;
-            UpdateVolumeFromMouse(MusicTrackRect, localX, false);
-            e.Handled = true;
-        }
-    }
-
-    public override void OnMouseMove(MouseMoveEvent e)
-    {
-        if (!DraggingSound && !DraggingMusic)
-            return;
-
-        var localX = e.ScreenX - ScreenX;
-
-        if (DraggingSound)
-            UpdateVolumeFromMouse(SoundTrackRect, localX, true);
-        else if (DraggingMusic)
-            UpdateVolumeFromMouse(MusicTrackRect, localX, false);
-
-        e.Handled = true;
-    }
-
-    public override void OnMouseUp(MouseUpEvent e)
-    {
-        if (e.Button != MouseButton.Left)
-            return;
-
-        DraggingSound = false;
-        DraggingMusic = false;
-    }
-
-    private static bool HitsTrack(Rectangle trackRect, int localX, int localY)
-    {
-        if (trackRect == Rectangle.Empty)
-            return false;
-
-        //generous vertical hit area around the track for easier clicking
-        var hitY = trackRect.Y - THUMB_HEIGHT / 2;
-        var hitH = trackRect.Height + THUMB_HEIGHT;
-
-        return (localX >= trackRect.X)
-               && (localX <= (trackRect.X + trackRect.Width))
-               && (localY >= hitY)
-               && (localY <= (hitY + hitH));
-    }
-
-    private void UpdateVolumeFromMouse(Rectangle trackRect, int localX, bool isSound)
-    {
-        if (trackRect == Rectangle.Empty)
-            return;
-
-        var ratio = (float)(localX - trackRect.X) / trackRect.Width;
-        var volume = (int)Math.Round(ratio * VOLUME_MAX);
-        volume = Math.Clamp(volume, VOLUME_MIN, VOLUME_MAX);
-
-        if (isSound)
-        {
-            if (volume == SoundVolume)
-                return;
-
-            SoundVolume = volume;
-            OnSoundVolumeChanged?.Invoke(volume);
-        } else
-        {
-            if (volume == MusicVolume)
-                return;
-
-            MusicVolume = volume;
-            OnMusicVolumeChanged?.Invoke(volume);
         }
     }
 

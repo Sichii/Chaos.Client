@@ -85,12 +85,12 @@ public sealed partial class WorldScreen : IScreen
     //event detail popup (from events tab)
     private EventMetadataDetailsControl EventMetadataDetails = null!;
     private ExchangeControl Exchange = null!;
-    private byte? ExchangeAmountSlot;
+    private ItemAmountControl ItemAmount = null!;
 
     private FriendsListControl FriendsList = null!;
 
     private ChaosGame Game = null!;
-    private AmountControl GoldDrop = null!;
+    private GoldAmountControl GoldDrop = null!;
     private GroupRecruitPanel GroupBoxViewer = null!;
 
     //true when j was pressed — the next selfprofile response triggers group highlighting instead of opening the panel
@@ -420,31 +420,33 @@ public sealed partial class WorldScreen : IScreen
 
         Exchange = new ExchangeControl(WorldHud.ViewportBounds);
 
-        GoldDrop = new AmountControl
+        GoldDrop = new GoldAmountControl
         {
             ZIndex = 2
         };
 
         GoldDrop.OnConfirm += amount =>
         {
-            if (ExchangeAmountSlot.HasValue)
-            {
-                //exchange stackable item amount response
-                Game.Connection.SendExchangeInteraction(
-                    ExchangeRequestType.AddStackableItem,
-                    Exchange.OtherUserId,
-                    ExchangeAmountSlot.Value,
-                    (byte)Math.Min(amount, byte.MaxValue));
-
-                ExchangeAmountSlot = null;
-            } else if (Exchange.Visible && (GoldDrop.TargetEntityId == Exchange.OtherUserId))
-
-                //exchange gold setting
+            if (Exchange.Visible && (GoldDrop.TargetEntityId == Exchange.OtherUserId))
                 Game.Connection.SendExchangeInteraction(ExchangeRequestType.SetGold, Exchange.OtherUserId, goldAmount: (int)amount);
             else if (GoldDrop.TargetEntityId.HasValue)
                 Game.Connection.DropGoldOnCreature((int)amount, GoldDrop.TargetEntityId.Value);
             else
                 Game.Connection.DropGold((int)amount, GoldDrop.TargetTileX, GoldDrop.TargetTileY);
+        };
+
+        ItemAmount = new ItemAmountControl
+        {
+            ZIndex = 2
+        };
+
+        ItemAmount.OnConfirm += amount =>
+        {
+            Game.Connection.SendExchangeInteraction(
+                ExchangeRequestType.AddStackableItem,
+                Exchange.OtherUserId,
+                ItemAmount.ItemSlot,
+                (byte)Math.Min(amount, byte.MaxValue));
         };
 
         BoardList = new BoardListControl
@@ -638,6 +640,7 @@ public sealed partial class WorldScreen : IScreen
         Root.AddChild(FriendsList);
         Root.AddChild(Exchange);
         Root.AddChild(GoldDrop);
+        Root.AddChild(ItemAmount);
         Root.AddChild(BoardList);
         Root.AddChild(ArticleList);
         Root.AddChild(ArticleRead);

@@ -191,7 +191,7 @@ public sealed class AislingContextMenu : UIPanel
         var localY = e.ScreenY - ScreenY;
         var optionsStartY = BOX_START_Y + OPTIONS_OFFSET_Y + BOX_HEIGHT;
 
-        if ((localX >= BOX_X) && (localX < (BOX_X + BOX_WIDTH)) && (localY >= optionsStartY))
+        if (localX is >= BOX_X and < BOX_X + BOX_WIDTH && (localY >= optionsStartY))
         {
             var index = (localY - optionsStartY) / BOX_HEIGHT;
             HoveredIndex = index is >= 0 and < 3 ? index : -1;

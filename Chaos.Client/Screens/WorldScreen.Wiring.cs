@@ -32,7 +32,7 @@ public sealed partial class WorldScreen
     {
         NpcSession.OnClose += () =>
         {
-            if (NpcSession.SourceId is { } sourceId && NpcSession.IsDialogOpcode)
+            if (NpcSession is { SourceId: { } sourceId, IsDialogOpcode: true })
                 Game.Connection.SendDialogResponse(
                     NpcSession.SourceEntityType,
                     sourceId,
@@ -678,7 +678,11 @@ public sealed partial class WorldScreen
             hud.HelpButton.Clicked += () => HotkeyHelp.Show();
 
         if (hud.SettingsButton is not null)
-            hud.SettingsButton.Clicked += () => SettingsDialog.Show();
+            hud.SettingsButton.Clicked += () =>
+            {
+                if (!MacrosList.Visible && !FriendsList.Visible)
+                    SettingsDialog.Show();
+            };
 
         if (hud.GroupButton is not null)
             hud.GroupButton.Clicked += () =>
@@ -856,9 +860,9 @@ public sealed partial class WorldScreen
     #region Options Dialog Wiring
     private void WireOptionsDialog()
     {
-        MainOptions.OnMacro += () => ToggleSubPanel(MacrosList);
-        MainOptions.OnSettings += () => ToggleSubPanel(SettingsDialog);
-        MainOptions.OnFriends += () => ToggleSubPanel(FriendsList);
+        MainOptions.OnMacro += () => ToggleSubPanel(MacrosList, SettingsDialog, FriendsList);
+        MainOptions.OnSettings += () => ToggleSubPanel(SettingsDialog, MacrosList, FriendsList);
+        MainOptions.OnFriends += () => ToggleSubPanel(FriendsList, MacrosList, SettingsDialog);
 
         MainOptions.OnExit += () => Game.Connection.RequestExit();
 
@@ -883,10 +887,12 @@ public sealed partial class WorldScreen
         Game.SoundSystem.SetMusicVolume(ClientSettings.MusicVolume);
     }
 
-    private static void ToggleSubPanel(PrefabPanel panel)
+    private static void ToggleSubPanel(PrefabPanel panel, PrefabPanel sibling1, PrefabPanel sibling2)
     {
         if (panel.Visible)
             panel.Hide();
+        else if (sibling1.Visible || sibling2.Visible)
+            return;
         else if (panel is MacrosListControl macro)
             macro.SlideIn();
         else if (panel is SettingsControl settings)
