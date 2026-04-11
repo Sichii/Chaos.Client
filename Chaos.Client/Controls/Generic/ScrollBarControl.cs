@@ -53,6 +53,11 @@ public sealed class ScrollBarControl : UIElement
         if (!Visible)
             return;
 
+        UpdateClipRect();
+
+        if ((ClipRect.Width <= 0) || (ClipRect.Height <= 0))
+            return;
+
         if (Orientation == ScrollOrientation.Horizontal)
         {
             DrawHorizontal(spriteBatch);
@@ -73,7 +78,7 @@ public sealed class ScrollBarControl : UIElement
         {
             var tileH = Math.Min(BUTTON_SIZE, trackEnd - tileY);
 
-            AtlasHelper.Draw(
+            DrawTexture(
                 spriteBatch,
                 trackTex,
                 new Vector2(sx, tileY),
@@ -88,7 +93,7 @@ public sealed class ScrollBarControl : UIElement
         //up arrow — normal when idle, active when pressed or disabled (active frame doubles as disabled)
         var upFrame = !scrollable || (ActiveZone == 0) ? FRAME_UP_ACTIVE : FRAME_UP_NORMAL;
 
-        AtlasHelper.Draw(
+        DrawTexture(
             spriteBatch,
             GetFrame(upFrame),
             new Vector2(sx, sy),
@@ -97,7 +102,7 @@ public sealed class ScrollBarControl : UIElement
         //down arrow — normal when idle, active when pressed or disabled
         var downFrame = !scrollable || (ActiveZone == 4) ? FRAME_DOWN_ACTIVE : FRAME_DOWN_NORMAL;
 
-        AtlasHelper.Draw(
+        DrawTexture(
             spriteBatch,
             GetFrame(downFrame),
             new Vector2(sx, trackEnd),
@@ -108,7 +113,7 @@ public sealed class ScrollBarControl : UIElement
         {
             var thumbY = GetThumbPosition(trackStart, trackEnd);
 
-            AtlasHelper.Draw(
+            DrawTexture(
                 spriteBatch,
                 GetFrame(FRAME_THUMB),
                 new Vector2(sx, thumbY),
@@ -131,7 +136,7 @@ public sealed class ScrollBarControl : UIElement
         {
             var tileW = Math.Min(BUTTON_SIZE, trackEnd - tileX);
 
-            AtlasHelper.Draw(
+            DrawTexture(
                 spriteBatch,
                 trackTex,
                 new Vector2(tileX, sy),
@@ -146,7 +151,7 @@ public sealed class ScrollBarControl : UIElement
         //left arrow — normal when idle, active when pressed or disabled
         var leftFrame = !scrollable || (ActiveZone == 0) ? FRAME_LEFT_ACTIVE : FRAME_LEFT_NORMAL;
 
-        AtlasHelper.Draw(
+        DrawTexture(
             spriteBatch,
             GetFrame(leftFrame),
             new Vector2(sx, sy),
@@ -155,7 +160,7 @@ public sealed class ScrollBarControl : UIElement
         //right arrow — normal when idle, active when pressed or disabled
         var rightFrame = !scrollable || (ActiveZone == 4) ? FRAME_RIGHT_ACTIVE : FRAME_RIGHT_NORMAL;
 
-        AtlasHelper.Draw(
+        DrawTexture(
             spriteBatch,
             GetFrame(rightFrame),
             new Vector2(trackEnd, sy),
@@ -166,7 +171,7 @@ public sealed class ScrollBarControl : UIElement
         {
             var thumbX = GetThumbPosition(trackStart, trackEnd);
 
-            AtlasHelper.Draw(
+            DrawTexture(
                 spriteBatch,
                 GetFrame(FRAME_THUMB),
                 new Vector2(thumbX, sy),

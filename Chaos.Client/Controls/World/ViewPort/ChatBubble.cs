@@ -125,6 +125,11 @@ public sealed class ChatBubble : UIImage
         if (!Visible || Texture is null)
             return;
 
+        UpdateClipRect();
+
+        if ((ClipRect.Width <= 0) || (ClipRect.Height <= 0))
+            return;
+
         //draw bubble background
         var bgEffect = TailOnTop ? SpriteEffects.FlipVertically : SpriteEffects.None;
 
@@ -145,7 +150,7 @@ public sealed class ChatBubble : UIImage
 
         foreach (var line in Lines)
         {
-            TextRenderer.DrawText(
+            DrawTextClipped(
                 spriteBatch,
                 new Vector2(textX, textY),
                 line,

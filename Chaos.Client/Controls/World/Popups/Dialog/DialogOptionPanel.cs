@@ -249,6 +249,8 @@ public sealed class DialogOptionPanel : FramedDialogPanelBase
             if (!Visible)
                 return;
 
+            base.Draw(spriteBatch);
+
             var sx = ScreenX;
             var sy = ScreenY;
 
@@ -262,7 +264,7 @@ public sealed class DialogOptionPanel : FramedDialogPanelBase
             var midWidth = Width - leftW - rightW;
 
             if (left is not null)
-                AtlasHelper.Draw(
+                DrawTexture(
                     spriteBatch,
                     left,
                     new Vector2(sx, sy),
@@ -278,7 +280,7 @@ public sealed class DialogOptionPanel : FramedDialogPanelBase
                     mid.Height);
 
             if (right is not null)
-                AtlasHelper.Draw(
+                DrawTexture(
                     spriteBatch,
                     right,
                     new Vector2(sx + Width - rightW, sy),

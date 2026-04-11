@@ -25,7 +25,7 @@ public class UIImage : UIElement
 
         base.Draw(spriteBatch);
 
-        AtlasHelper.Draw(
+        DrawTexture(
             spriteBatch,
             Texture,
             new Vector2(ScreenX, ScreenY),

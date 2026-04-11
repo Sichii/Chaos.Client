@@ -85,7 +85,7 @@ public class UIButton : UIElement
             drawY += (Height - texture.Height) / 2;
         }
 
-        AtlasHelper.Draw(
+        DrawTexture(
             spriteBatch,
             texture,
             new Vector2(drawX, drawY),

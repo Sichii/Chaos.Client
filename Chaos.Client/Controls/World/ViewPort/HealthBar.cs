@@ -38,7 +38,11 @@ public sealed class HealthBar : UIElement
         if (!Visible)
             return;
 
-        var pixel = GetPixel();
+        UpdateClipRect();
+
+        if ((ClipRect.Width <= 0) || (ClipRect.Height <= 0))
+            return;
+
         var innerX = ScreenX + 1;
         var innerY = ScreenY + 1;
         var fillWidth = (int)(INNER_WIDTH * (HealthPercent / 100f));
@@ -63,8 +67,8 @@ public sealed class HealthBar : UIElement
                 _    => LowColor
             };
 
-            spriteBatch.Draw(
-                pixel,
+            DrawRectClipped(
+                spriteBatch,
                 new Rectangle(
                     innerX,
                     innerY,

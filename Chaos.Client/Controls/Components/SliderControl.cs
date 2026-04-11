@@ -63,7 +63,7 @@ public sealed class SliderControl : UIPanel
         var thumbX = ScreenX + ThumbWidth / 2 + (int)((float)Value / VOLUME_MAX * TrackRect.Width) - ThumbWidth / 2;
         var thumbY = ScreenY + (Height - ThumbHeight) / 2;
 
-        spriteBatch.Draw(ThumbTexture, new Vector2(thumbX, thumbY), Color.White);
+        DrawTexture(spriteBatch, ThumbTexture, new Vector2(thumbX, thumbY), Color.White);
     }
 
     public override void OnMouseDown(MouseDownEvent e)

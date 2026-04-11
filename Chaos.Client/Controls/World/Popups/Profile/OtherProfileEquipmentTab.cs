@@ -215,7 +215,7 @@ public sealed class OtherProfileEquipmentTab : PrefabPanel
         if ((HumanIconRect != Rectangle.Empty)
             && (EmoticonState < EmoticonIcons.Length)
             && EmoticonIcons[EmoticonState] is { } emoticonIcon)
-            AtlasHelper.Draw(
+            DrawTexture(
                 spriteBatch,
                 emoticonIcon,
                 new Vector2(ScreenX + HumanIconRect.X, ScreenY + HumanIconRect.Y),

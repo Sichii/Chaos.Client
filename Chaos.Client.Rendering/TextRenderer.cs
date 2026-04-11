@@ -168,6 +168,111 @@ public static class TextRenderer
     }
 
     /// <summary>
+    ///     Draws text with per-glyph clipping against a clip rectangle. Only called when text
+    ///     partially intersects the clip bounds — the common fully-inside case bypasses this.
+    /// </summary>
+    public static void DrawTextClipped(
+        SpriteBatch spriteBatch,
+        Vector2 position,
+        string text,
+        Color color,
+        Rectangle clipRect,
+        bool colorCodesEnabled = true)
+    {
+        if (string.IsNullOrEmpty(text))
+            return;
+
+        EnsureInitialized();
+
+        var atlas = FontAtlas.Instance;
+        var cursorX = position.X;
+        var y = position.Y;
+        var activeColor = color;
+
+        for (var i = 0; i < text.Length; i++)
+        {
+            if (colorCodesEnabled && IsColorCode(text, i))
+            {
+                activeColor = GetColorCode(text[i + 2])!.Value;
+                i += 2;
+
+                continue;
+            }
+
+            var c = text[i];
+
+            if (c is >= (char)33 and <= (char)126)
+            {
+                var glyph = atlas.GetEnglishGlyph(c - 33);
+                var glyphPos = new Vector2(cursorX, y);
+                var srcRect = glyph.SourceRect;
+
+                if (ClipGlyph(ref glyphPos, ref srcRect, in clipRect))
+                    spriteBatch.Draw(glyph.Atlas, glyphPos, srcRect, activeColor);
+
+                cursorX += ENGLISH_ADVANCE;
+
+                continue;
+            }
+
+            if (IsKorean(c))
+            {
+                var koreanIndex = GetKoreanGlyphIndex(c);
+
+                if (koreanIndex >= 0)
+                {
+                    var glyph = atlas.GetKoreanGlyph(koreanIndex);
+                    var glyphPos = new Vector2(cursorX, y);
+                    var srcRect = glyph.SourceRect;
+
+                    if (ClipGlyph(ref glyphPos, ref srcRect, in clipRect))
+                        spriteBatch.Draw(glyph.Atlas, glyphPos, srcRect, activeColor);
+                }
+
+                cursorX += KOREAN_ADVANCE;
+
+                continue;
+            }
+
+            cursorX += ENGLISH_ADVANCE;
+        }
+    }
+
+    /// <summary>
+    ///     Clips a single glyph draw against a clip rectangle.
+    /// </summary>
+    private static bool ClipGlyph(ref Vector2 position, ref Rectangle sourceRect, in Rectangle clipRect)
+    {
+        var destX = (int)position.X;
+        var destY = (int)position.Y;
+        var destRight = destX + sourceRect.Width;
+        var destBottom = destY + sourceRect.Height;
+
+        if ((destX >= clipRect.Right) || (destRight <= clipRect.X) ||
+            (destY >= clipRect.Bottom) || (destBottom <= clipRect.Y))
+            return false;
+
+        if ((destX >= clipRect.X) && (destRight <= clipRect.Right) &&
+            (destY >= clipRect.Y) && (destBottom <= clipRect.Bottom))
+            return true;
+
+        var leftClip = Math.Max(0, clipRect.X - destX);
+        var topClip = Math.Max(0, clipRect.Y - destY);
+        var rightClip = Math.Max(0, destRight - clipRect.Right);
+        var bottomClip = Math.Max(0, destBottom - clipRect.Bottom);
+
+        sourceRect = new Rectangle(
+            sourceRect.X + leftClip,
+            sourceRect.Y + topClip,
+            sourceRect.Width - leftClip - rightClip,
+            sourceRect.Height - topClip - bottomClip);
+
+        position = new Vector2(destX + leftClip, destY + topClip);
+
+        return (sourceRect.Width > 0) && (sourceRect.Height > 0);
+    }
+
+    /// <summary>
     ///     Draws a list of text lines top-to-bottom, each on its own row (12px line height).
     /// </summary>
     public static void DrawLines(

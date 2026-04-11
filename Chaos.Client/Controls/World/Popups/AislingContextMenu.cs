@@ -90,7 +90,7 @@ public sealed class AislingContextMenu : UIPanel
         var sy = ScreenY;
 
         //semi-transparent fill + hover, then frame on top
-        DrawRect(
+        DrawRectClipped(
             spriteBatch,
             new Rectangle(
                 sx,
@@ -100,7 +100,7 @@ public sealed class AislingContextMenu : UIPanel
             BOX_FILL);
 
         if (HoveredIndex >= 0)
-            DrawRect(
+            DrawRectClipped(
                 spriteBatch,
                 new Rectangle(
                     sx + BOX_X,
@@ -109,7 +109,7 @@ public sealed class AislingContextMenu : UIPanel
                     BOX_HEIGHT),
                 BOX_HOVER);
 
-        spriteBatch.Draw(bg, new Vector2(sx, sy), Color.White);
+        DrawTexture(spriteBatch, bg, new Vector2(sx, sy), Color.White);
 
         //children (namelabel + optionlabels) drawn by base
         base.Draw(spriteBatch);

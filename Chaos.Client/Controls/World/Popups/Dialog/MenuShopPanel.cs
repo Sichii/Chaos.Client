@@ -854,7 +854,7 @@ public sealed class MenuShopPanel : PrefabPanel
             var texture = IsSelected ? SelectedBg : NormalBg;
 
             if (texture is not null)
-                AtlasHelper.Draw(
+                DrawTexture(
                     spriteBatch,
                     texture,
                     new Vector2(ScreenX, ScreenY),

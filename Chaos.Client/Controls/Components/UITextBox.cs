@@ -26,7 +26,6 @@ public class UITextBox : UIElement
     private long LastClickTime;
     private int LastClickPosition = -1;
     private List<int> LineStarts = [0];
-    private TextElement? PrefixTextElement;
     private int SelectionAnchor;
     public HorizontalAlignment HorizontalAlignment { get; set; } = HorizontalAlignment.Left;
 
@@ -278,24 +277,24 @@ public class UITextBox : UIElement
 
                 //pre-selection segment
                 if (hlStart > 0)
-                    TextRenderer.DrawText(spriteBatch, new Vector2(textX, lineY), lineText[..hlStart], ForegroundColor, ColorCodesEnabled);
+                    DrawTextClipped(spriteBatch, new Vector2(textX, lineY), lineText[..hlStart], ForegroundColor, ColorCodesEnabled);
 
                 //selection segment: white rect + black text
                 var hlX = textX + (hlStart > 0 ? TextRenderer.MeasureWidth(lineText[..hlStart]) : 0);
                 var hlText = lineText[hlStart..hlEnd];
                 var hlWidth = TextRenderer.MeasureWidth(hlText);
 
-                DrawRect(spriteBatch, new Rectangle(hlX, lineY, hlWidth, TextRenderer.CHAR_HEIGHT), Color.White);
-                TextRenderer.DrawText(spriteBatch, new Vector2(hlX, lineY), hlText, Color.Black, ColorCodesEnabled);
+                DrawRectClipped(spriteBatch, new Rectangle(hlX, lineY, hlWidth, TextRenderer.CHAR_HEIGHT), Color.White);
+                DrawTextClipped(spriteBatch, new Vector2(hlX, lineY), hlText, Color.Black, ColorCodesEnabled);
 
                 //post-selection segment
                 if (hlEnd < lineText.Length)
                 {
                     var postX = hlX + hlWidth;
-                    TextRenderer.DrawText(spriteBatch, new Vector2(postX, lineY), lineText[hlEnd..], ForegroundColor, ColorCodesEnabled);
+                    DrawTextClipped(spriteBatch, new Vector2(postX, lineY), lineText[hlEnd..], ForegroundColor, ColorCodesEnabled);
                 }
             } else if (lineText.Length > 0)
-                TextRenderer.DrawText(
+                DrawTextClipped(
                     spriteBatch,
                     new Vector2(textX, lineY),
                     lineText,
@@ -315,7 +314,7 @@ public class UITextBox : UIElement
             var cursorX = textX + (colOffset > 0 ? TextRenderer.MeasureWidth(cLineText[..colOffset]) + 1 : 0);
             var cursorY = textY + (cursorLine - firstLine) * TextRenderer.CHAR_HEIGHT;
 
-            DrawRect(
+            DrawRectClipped(
                 spriteBatch,
                 new Rectangle(
                     cursorX,
@@ -340,9 +339,7 @@ public class UITextBox : UIElement
         if ((Prefix.Length > 0) && IsFocused)
         {
             prefixWidth = TextRenderer.MeasureWidth(Prefix);
-            PrefixTextElement ??= new TextElement();
-            PrefixTextElement.Update(Prefix, ForegroundColor);
-            PrefixTextElement.Draw(spriteBatch, new Vector2(sx + PaddingLeft, textY));
+            DrawTextClipped(spriteBatch, new Vector2(sx + PaddingLeft, textY), Prefix, ForegroundColor);
         }
 
         var textStartX = sx + PaddingLeft + prefixWidth;
@@ -354,21 +351,21 @@ public class UITextBox : UIElement
 
             //pre-selection segment
             if (selStart > 0)
-                TextRenderer.DrawText(spriteBatch, new Vector2(textStartX, textY), displayText[..selStart], ForegroundColor, ColorCodesEnabled);
+                DrawTextClipped(spriteBatch, new Vector2(textStartX, textY), displayText[..selStart], ForegroundColor, ColorCodesEnabled);
 
             //selection segment: white rect + black text
             var selStartX = textStartX + (selStart > 0 ? TextRenderer.MeasureWidth(displayText[..selStart]) : 0);
             var selText = displayText[selStart..selEnd];
             var selWidth = TextRenderer.MeasureWidth(selText);
 
-            DrawRect(spriteBatch, new Rectangle(selStartX, textY, selWidth, TextRenderer.CHAR_HEIGHT), Color.White);
-            TextRenderer.DrawText(spriteBatch, new Vector2(selStartX, textY), selText, Color.Black, ColorCodesEnabled);
+            DrawRectClipped(spriteBatch, new Rectangle(selStartX, textY, selWidth, TextRenderer.CHAR_HEIGHT), Color.White);
+            DrawTextClipped(spriteBatch, new Vector2(selStartX, textY), selText, Color.Black, ColorCodesEnabled);
 
             //post-selection segment
             if (selEnd < displayText.Length)
             {
                 var postX = selStartX + selWidth;
-                TextRenderer.DrawText(spriteBatch, new Vector2(postX, textY), displayText[selEnd..], ForegroundColor, ColorCodesEnabled);
+                DrawTextClipped(spriteBatch, new Vector2(postX, textY), displayText[selEnd..], ForegroundColor, ColorCodesEnabled);
             }
         } else
         {
@@ -376,20 +373,23 @@ public class UITextBox : UIElement
 
             if ((HorizontalAlignment != HorizontalAlignment.Left) && !IsFocused)
             {
-                TextElement.HorizontalAlignment = HorizontalAlignment;
+                var alignBounds = new Rectangle(
+                    sx + PaddingLeft,
+                    textY,
+                    Width - PaddingLeft + PaddingRight,
+                    textHeight);
 
-                TextElement.Draw(
-                    spriteBatch,
-                    new Rectangle(
-                        sx + PaddingLeft,
-                        textY,
-                        Width - PaddingLeft + PaddingRight,
-                        textHeight));
+                var alignX = HorizontalAlignment switch
+                {
+                    HorizontalAlignment.Center => alignBounds.X + (alignBounds.Width - TextElement.Width) / 2,
+                    HorizontalAlignment.Right  => alignBounds.X + alignBounds.Width - TextElement.Width,
+                    _                    => alignBounds.X
+                };
+
+                var alignY = alignBounds.Y + (alignBounds.Height - TextElement.Height) / 2;
+                DrawTextClipped(spriteBatch, new Vector2(alignX, alignY), displayText, ForegroundColor, ColorCodesEnabled);
             } else
-            {
-                TextElement.HorizontalAlignment = HorizontalAlignment.Left;
-                TextElement.Draw(spriteBatch, new Vector2(textStartX, textY));
-            }
+                DrawTextClipped(spriteBatch, new Vector2(textStartX, textY), displayText, ForegroundColor, ColorCodesEnabled);
         }
 
         if (!IsFocused || !CursorVisible || IsReadOnly)
@@ -401,7 +401,7 @@ public class UITextBox : UIElement
         if (clampedPos > 0)
             cursorX += TextRenderer.MeasureWidth(displayText[..clampedPos]) + 1;
 
-        DrawRect(
+        DrawRectClipped(
             spriteBatch,
             new Rectangle(
                 cursorX,

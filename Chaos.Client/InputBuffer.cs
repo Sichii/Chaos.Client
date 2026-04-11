@@ -132,6 +132,21 @@ public sealed class InputBuffer : IDisposable
             PreviousMouse = CurrentMouse;
         }
 
+        //suppress clicks when cursor is outside the client area — Mouse.GetState() reports
+        //global button state, so clicking another window shows as Pressed even though the
+        //click didn't target our window
+        var raw = Mouse.GetState();
+        var clientWidth = (int)(ChaosGame.VIRTUAL_WIDTH * VirtualScale);
+        var clientHeight = (int)(ChaosGame.VIRTUAL_HEIGHT * VirtualScale);
+
+        if ((raw.X < 0) || (raw.X >= clientWidth) || (raw.Y < 0) || (raw.Y >= clientHeight))
+        {
+            CurrentMouse = raw;
+            PreviousMouse = CurrentMouse;
+
+            return;
+        }
+
         FrameKeyPresses.Clear();
 
         foreach (var key in PendingPresses)

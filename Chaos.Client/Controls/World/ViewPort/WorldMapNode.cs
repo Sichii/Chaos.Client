@@ -114,7 +114,7 @@ public sealed class WorldMapNode : UIPanel
             var offsetX = (BOX_SIZE - boxTexture.Width) / 2;
             var offsetY = (BOX_SIZE - boxTexture.Height) / 2;
             var boxY = bottom - BOX_SIZE + offsetY;
-            spriteBatch.Draw(boxTexture, new Vector2(ScreenX + offsetX, boxY), Color.White);
+            DrawTexture(spriteBatch, boxTexture, new Vector2(ScreenX + offsetX, boxY), Color.White);
         }
 
         //children (label) drawn by base

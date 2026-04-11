@@ -3,7 +3,6 @@ using Chaos.Client.Collections;
 using Chaos.Client.Controls.Components;
 using Chaos.Client.Controls.Generic;
 using Microsoft.Xna.Framework;
-using Microsoft.Xna.Framework.Graphics;
 using Microsoft.Xna.Framework.Input;
 #endregion
 
@@ -18,13 +17,9 @@ public sealed class ExchangeControl : PrefabPanel
     private const int MAX_VISIBLE_ITEMS = 4;
     private const int ITEM_ROW_HEIGHT = 32;
 
-    private static readonly RasterizerState ScissorRasterizer = new()
-    {
-        ScissorTestEnable = true
-    };
-
     private readonly ScrollBarControl MyHorizontalScroll;
     private readonly ScrollBarControl MyVerticalScroll;
+    private readonly UIPanel MyItemsContainer;
     private readonly Rectangle MyExchangeRect;
     private readonly UILabel? MyIdLabel;
 
@@ -35,6 +30,7 @@ public sealed class ExchangeControl : PrefabPanel
     private readonly UIImage? YourAckImage;
     private readonly ScrollBarControl YourHorizontalScroll;
     private readonly ScrollBarControl YourVerticalScroll;
+    private readonly UIPanel YourItemsContainer;
     private readonly Rectangle YourExchangeRect;
     private readonly UILabel? YourIdLabel;
     private readonly ExchangeItemControl[] YourItems = new ExchangeItemControl[MAX_VISIBLE_ITEMS];
@@ -88,9 +84,36 @@ public sealed class ExchangeControl : PrefabPanel
 
         YourAckImage?.Visible = false;
 
-        //create item controls for both sides
-        CreateItemControls(MyItems, MyExchangeRect);
-        CreateItemControls(YourItems, YourExchangeRect);
+        //container panels for item clipping — sized to exclude scrollbar area
+        var clipWidth = MyExchangeRect.Width - ScrollBarControl.DEFAULT_WIDTH - 4;
+
+        MyItemsContainer = new UIPanel
+        {
+            Name = "MyItemsContainer",
+            X = MyExchangeRect.X,
+            Y = MyExchangeRect.Y,
+            Width = clipWidth,
+            Height = MyExchangeRect.Height,
+            IsPassThrough = true
+        };
+
+        AddChild(MyItemsContainer);
+
+        YourItemsContainer = new UIPanel
+        {
+            Name = "YourItemsContainer",
+            X = YourExchangeRect.X,
+            Y = YourExchangeRect.Y,
+            Width = clipWidth,
+            Height = YourExchangeRect.Height,
+            IsPassThrough = true
+        };
+
+        AddChild(YourItemsContainer);
+
+        //create item controls as children of the container panels
+        CreateItemControls(MyItems, MyItemsContainer);
+        CreateItemControls(YourItems, YourItemsContainer);
 
         //vertical scrollbars — right edge of each exchange rect
         MyVerticalScroll = new ScrollBarControl
@@ -179,22 +202,22 @@ public sealed class ExchangeControl : PrefabPanel
             item.ClearItem();
     }
 
-    private void CreateItemControls(ExchangeItemControl[] items, Rectangle rect)
+    private static void CreateItemControls(ExchangeItemControl[] items, UIPanel container)
     {
-        var itemWidth = rect.Width - ScrollBarControl.DEFAULT_WIDTH;
+        var itemWidth = container.Width;
 
         for (var i = 0; i < MAX_VISIBLE_ITEMS; i++)
         {
             var control = new ExchangeItemControl
             {
                 Name = $"ExchangeItem{i}",
-                Y = rect.Y + i * ITEM_ROW_HEIGHT,
+                Y = i * ITEM_ROW_HEIGHT,
                 Width = itemWidth
             };
 
-            control.SetBaseX(rect.X);
+            control.SetBaseX(0);
             items[i] = control;
-            AddChild(control);
+            container.AddChild(control);
         }
     }
 
@@ -275,10 +298,7 @@ public sealed class ExchangeControl : PrefabPanel
         var mouseY = e.ScreenY;
 
         //determine which exchange rect the mouse is over
-        var myScreenRect = GetScreenRect(MyExchangeRect);
-        var yourScreenRect = GetScreenRect(YourExchangeRect);
-
-        if (myScreenRect.Contains(mouseX, mouseY))
+        if (MyItemsContainer.ContainsPoint(mouseX, mouseY))
         {
             if (MyVerticalScroll.TotalItems <= MyVerticalScroll.VisibleItems)
             {
@@ -297,7 +317,7 @@ public sealed class ExchangeControl : PrefabPanel
             }
 
             e.Handled = true;
-        } else if (yourScreenRect.Contains(mouseX, mouseY))
+        } else if (YourItemsContainer.ContainsPoint(mouseX, mouseY))
         {
             if (YourVerticalScroll.TotalItems <= YourVerticalScroll.VisibleItems)
             {
@@ -319,78 +339,11 @@ public sealed class ExchangeControl : PrefabPanel
         }
     }
 
-    public override void Draw(SpriteBatch spriteBatch)
-    {
-        if (!Visible)
-            return;
-
-        EnsureChildOrder();
-
-        //draw background
-        if (Background is not null)
-            AtlasHelper.Draw(
-                spriteBatch,
-                Background,
-                new Vector2(ScreenX, ScreenY),
-                Color.White);
-
-        //draw non-item children normally (labels, buttons, scrollbars, ack image)
-        foreach (var child in Children)
-            if (child.Visible && !IsItemControl(child))
-            {
-                child.Draw(spriteBatch);
-                DebugOverlay.DrawElement(spriteBatch, child);
-            }
-
-        //draw item controls with scissor rect clipping
-        var device = spriteBatch.GraphicsDevice;
-
-        spriteBatch.End();
-
-        var prevScissor = device.ScissorRectangle;
-
-        //clip my items (narrowed to exclude vertical scrollbar area)
-        device.ScissorRectangle = GetItemClipRect(MyExchangeRect);
-
-        spriteBatch.Begin(samplerState: GlobalSettings.Sampler, rasterizerState: ScissorRasterizer);
-        DrawItemControls(spriteBatch, MyItems);
-        spriteBatch.End();
-
-        //clip your items
-        device.ScissorRectangle = GetItemClipRect(YourExchangeRect);
-
-        spriteBatch.Begin(samplerState: GlobalSettings.Sampler, rasterizerState: ScissorRasterizer);
-        DrawItemControls(spriteBatch, YourItems);
-        spriteBatch.End();
-
-        //restore previous state
-        device.ScissorRectangle = prevScissor;
-        spriteBatch.Begin(samplerState: GlobalSettings.Sampler);
-    }
-
     private static void ApplyHorizontalOffset(ExchangeItemControl[] items, int offset)
     {
         foreach (var item in items)
             item.HorizontalOffset = offset;
     }
-
-    private static void DrawItemControls(SpriteBatch spriteBatch, ExchangeItemControl[] items)
-    {
-        foreach (var item in items)
-            if (item.Visible)
-                item.Draw(spriteBatch);
-    }
-
-    /// <summary>
-    ///     Converts a panel-relative exchange rect to a screen-space scissor rect that excludes the vertical scrollbar area.
-    /// </summary>
-    private Rectangle GetItemClipRect(Rectangle localRect) =>
-        new(ScreenX + localRect.X, ScreenY + localRect.Y, localRect.Width - ScrollBarControl.DEFAULT_WIDTH - 4, localRect.Height);
-
-    private Rectangle GetScreenRect(Rectangle localRect) =>
-        new(ScreenX + localRect.X, ScreenY + localRect.Y, localRect.Width, localRect.Height);
-
-    private static bool IsItemControl(UIElement child) => child is ExchangeItemControl;
 
     private void RefreshVisibleItems(bool rightSide)
     {

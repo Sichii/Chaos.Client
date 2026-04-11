@@ -60,16 +60,32 @@ public class UIPanel : UIElement
         if (!Visible)
             return;
 
+        UpdateClipRect();
+
+        if ((ClipRect.Width <= 0) || (ClipRect.Height <= 0))
+            return;
+
         EnsureChildOrder();
 
-        base.Draw(spriteBatch);
+        //background fill and border (inlined from base, since we insert Background texture between)
+        if (BackgroundColor.HasValue || BorderColor.HasValue)
+        {
+            var bounds = new Rectangle(ScreenX, ScreenY, Width, Height);
+
+            if (BackgroundColor.HasValue)
+                DrawRectClipped(spriteBatch, bounds, BackgroundColor.Value);
+
+            if (BorderColor.HasValue)
+            {
+                DrawRectClipped(spriteBatch, new Rectangle(bounds.X, bounds.Y, bounds.Width, 1), BorderColor.Value);
+                DrawRectClipped(spriteBatch, new Rectangle(bounds.X, bounds.Y + bounds.Height - 1, bounds.Width, 1), BorderColor.Value);
+                DrawRectClipped(spriteBatch, new Rectangle(bounds.X, bounds.Y, 1, bounds.Height), BorderColor.Value);
+                DrawRectClipped(spriteBatch, new Rectangle(bounds.X + bounds.Width - 1, bounds.Y, 1, bounds.Height), BorderColor.Value);
+            }
+        }
 
         if (Background is not null)
-            AtlasHelper.Draw(
-                spriteBatch,
-                Background,
-                new Vector2(ScreenX, ScreenY),
-                Color.White);
+            DrawTexture(spriteBatch, Background, new Vector2(ScreenX, ScreenY), Color.White);
 
         foreach (var child in Children)
             if (child.Visible)

@@ -111,7 +111,7 @@ public class PanelSlot : UIButton
             switch (CooldownStyle)
             {
                 case CooldownStyle.Swap:
-                    AtlasHelper.Draw(
+                    DrawTexture(
                         spriteBatch,
                         CooldownTexture,
                         pos,
@@ -121,7 +121,7 @@ public class PanelSlot : UIButton
 
                 case CooldownStyle.Progressive:
                     //grey base icon (skill003 variant)
-                    AtlasHelper.Draw(
+                    DrawTexture(
                         spriteBatch,
                         GreyTexture ?? icon,
                         pos,
@@ -139,7 +139,7 @@ public class PanelSlot : UIButton
                             CooldownTexture.Width,
                             revealHeight);
 
-                        AtlasHelper.Draw(
+                        DrawTexture(
                             spriteBatch,
                             CooldownTexture,
                             pos,
@@ -150,7 +150,7 @@ public class PanelSlot : UIButton
                     break;
 
                 default:
-                    AtlasHelper.Draw(
+                    DrawTexture(
                         spriteBatch,
                         icon,
                         pos,
@@ -159,7 +159,7 @@ public class PanelSlot : UIButton
                     break;
             }
         else
-            AtlasHelper.Draw(
+            DrawTexture(
                 spriteBatch,
                 icon,
                 pos,

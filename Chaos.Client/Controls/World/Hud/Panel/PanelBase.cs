@@ -193,7 +193,7 @@ public abstract class PanelBase : ExpandablePanel
         {
             var overlayY = IsExpanded ? ScreenY + 3 : ScreenY + 3 + CompactGridPadding;
 
-            AtlasHelper.Draw(
+            DrawTexture(
                 spriteBatch,
                 SlotNumberOverlay,
                 new Vector2(ScreenX - 17, overlayY),

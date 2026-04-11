@@ -95,15 +95,15 @@ public class UILabel : UIElement
         {
             var firstLine = ScrollOffset / TextRenderer.CHAR_HEIGHT;
             var maxLines = (innerH + TextRenderer.CHAR_HEIGHT - 1) / TextRenderer.CHAR_HEIGHT;
+            var endLine = Math.Min(TextElement.WrappedLines.Count, firstLine + maxLines);
 
-            TextRenderer.DrawLines(
-                spriteBatch,
-                new Vector2(innerX, innerY),
-                TextElement.WrappedLines,
-                firstLine,
-                maxLines,
-                TextElement.Color,
-                ColorCodesEnabled);
+            for (var lineIdx = firstLine; lineIdx < endLine; lineIdx++)
+            {
+                var lineY = innerY + (lineIdx - firstLine) * TextRenderer.CHAR_HEIGHT;
+
+                if (TextElement.WrappedLines[lineIdx].Length > 0)
+                    DrawTextClipped(spriteBatch, new Vector2(innerX, lineY), TextElement.WrappedLines[lineIdx], TextElement.Color, ColorCodesEnabled);
+            }
         } else if (TruncateWithEllipsis && (TextElement.Width > innerW))
         {
             //ellipsis truncation — find longest prefix that fits with "..."
@@ -116,18 +116,29 @@ public class UILabel : UIElement
                 truncLen--;
 
             var truncated = truncLen > 0 ? text[..truncLen] + "..." : "...";
-            TextRenderer.DrawText(spriteBatch, new Vector2(innerX, innerY + (int)(((VerticalAlignment == VerticalAlignment.Top ? TextElement.Height : innerH) - TextRenderer.CHAR_HEIGHT) / 2f)), truncated, TextElement.Color, ColorCodesEnabled);
+            DrawTextClipped(spriteBatch, new Vector2(innerX, innerY + (int)(((VerticalAlignment == VerticalAlignment.Top ? TextElement.Height : innerH) - TextRenderer.CHAR_HEIGHT) / 2f)), truncated, TextElement.Color, ColorCodesEnabled);
         } else
         {
-            TextElement.HorizontalAlignment = HorizontalAlignment;
+            var bounds = new Rectangle(
+                innerX,
+                innerY,
+                innerW,
+                VerticalAlignment == VerticalAlignment.Top ? TextElement.Height : innerH);
 
-            TextElement.Draw(
-                spriteBatch,
-                new Rectangle(
-                    innerX,
-                    innerY,
-                    innerW,
-                    VerticalAlignment == VerticalAlignment.Top ? TextElement.Height : innerH));
+            var textX = HorizontalAlignment switch
+            {
+                HorizontalAlignment.Center => bounds.X + (bounds.Width - TextElement.Width) / 2,
+                HorizontalAlignment.Right  => bounds.X + bounds.Width - TextElement.Width,
+                _                    => bounds.X
+            };
+
+            var textY = bounds.Y + (bounds.Height - TextElement.Height) / 2;
+            var pos = new Vector2(textX, textY);
+
+            if (Shadowed)
+                DrawTextShadowedClipped(spriteBatch, pos, TextElement.Text, TextElement.Color, Color.Black, ColorCodesEnabled);
+            else
+                DrawTextClipped(spriteBatch, pos, TextElement.Text, TextElement.Color, ColorCodesEnabled);
         }
     }
 
@@ -148,21 +159,21 @@ public class UILabel : UIElement
 
         //pre-selection segment
         if (selStart > 0)
-            TextRenderer.DrawText(spriteBatch, new Vector2(drawX, drawY), text[..selStart], TextElement.Color, ColorCodesEnabled);
+            DrawTextClipped(spriteBatch, new Vector2(drawX, drawY), text[..selStart], TextElement.Color, ColorCodesEnabled);
 
         //selection segment: white rect + black text
         var selStartX = drawX + (selStart > 0 ? TextRenderer.MeasureWidth(text[..selStart]) : 0);
         var selText = text[selStart..selEnd];
         var selWidth = TextRenderer.MeasureWidth(selText);
 
-        DrawRect(spriteBatch, new Rectangle(selStartX, drawY, selWidth, TextRenderer.CHAR_HEIGHT), Color.White);
-        TextRenderer.DrawText(spriteBatch, new Vector2(selStartX, drawY), selText, Color.Black, ColorCodesEnabled);
+        DrawRectClipped(spriteBatch, new Rectangle(selStartX, drawY, selWidth, TextRenderer.CHAR_HEIGHT), Color.White);
+        DrawTextClipped(spriteBatch, new Vector2(selStartX, drawY), selText, Color.Black, ColorCodesEnabled);
 
         //post-selection segment
         if (selEnd < text.Length)
         {
             var postX = selStartX + selWidth;
-            TextRenderer.DrawText(spriteBatch, new Vector2(postX, drawY), text[selEnd..], TextElement.Color, ColorCodesEnabled);
+            DrawTextClipped(spriteBatch, new Vector2(postX, drawY), text[selEnd..], TextElement.Color, ColorCodesEnabled);
         }
     }
 
@@ -194,24 +205,24 @@ public class UILabel : UIElement
 
                 //pre-selection segment
                 if (hlStart > 0)
-                    TextRenderer.DrawText(spriteBatch, new Vector2(innerX, lineY), lineText[..hlStart], TextElement.Color, ColorCodesEnabled);
+                    DrawTextClipped(spriteBatch, new Vector2(innerX, lineY), lineText[..hlStart], TextElement.Color, ColorCodesEnabled);
 
                 //selection segment: white rect + black text
                 var hlX = innerX + (hlStart > 0 ? TextRenderer.MeasureWidth(lineText[..hlStart]) : 0);
                 var hlText = lineText[hlStart..hlEnd];
                 var hlWidth = TextRenderer.MeasureWidth(hlText);
 
-                DrawRect(spriteBatch, new Rectangle(hlX, lineY, hlWidth, TextRenderer.CHAR_HEIGHT), Color.White);
-                TextRenderer.DrawText(spriteBatch, new Vector2(hlX, lineY), hlText, Color.Black, ColorCodesEnabled);
+                DrawRectClipped(spriteBatch, new Rectangle(hlX, lineY, hlWidth, TextRenderer.CHAR_HEIGHT), Color.White);
+                DrawTextClipped(spriteBatch, new Vector2(hlX, lineY), hlText, Color.Black, ColorCodesEnabled);
 
                 //post-selection segment
                 if (hlEnd < lineText.Length)
                 {
                     var postX = hlX + hlWidth;
-                    TextRenderer.DrawText(spriteBatch, new Vector2(postX, lineY), lineText[hlEnd..], TextElement.Color, ColorCodesEnabled);
+                    DrawTextClipped(spriteBatch, new Vector2(postX, lineY), lineText[hlEnd..], TextElement.Color, ColorCodesEnabled);
                 }
             } else if (lineText.Length > 0)
-                TextRenderer.DrawText(spriteBatch, new Vector2(innerX, lineY), lineText, TextElement.Color, ColorCodesEnabled);
+                DrawTextClipped(spriteBatch, new Vector2(innerX, lineY), lineText, TextElement.Color, ColorCodesEnabled);
 
             charOffset = lineEndIdx;
         }

@@ -48,9 +48,14 @@ public abstract class ExpandablePanel : UIPanel
         if (!Visible)
             return;
 
+        UpdateClipRect();
+
+        if ((ClipRect.Width <= 0) || (ClipRect.Height <= 0))
+            return;
+
         if (IsExpanded && ExpandedBackground is not null)
         {
-            AtlasHelper.Draw(
+            DrawTexture(
                 spriteBatch,
                 ExpandedBackground,
                 new Vector2(ScreenX, ScreenY),

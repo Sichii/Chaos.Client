@@ -79,6 +79,12 @@ public abstract class UIElement : IDisposable
         }
     }
 
+    /// <summary>
+    ///     Screen-space rectangle this element is allowed to draw within. Intersection of own ScreenBounds with
+    ///     Parent.ClipRect. Recomputed at the start of each Draw call.
+    /// </summary>
+    protected Rectangle ClipRect;
+
     public Rectangle Bounds
         => new(
             X,
@@ -101,13 +107,9 @@ public abstract class UIElement : IDisposable
 
     public virtual void Dispose() => GC.SuppressFinalize(this);
 
-    public bool ContainsPoint(int screenX, int screenY)
-    {
-        var sx = ScreenX;
-        var sy = ScreenY;
-
-        return (screenX >= sx) && (screenX < (sx + Width)) && (screenY >= sy) && (screenY < (sy + Height));
-    }
+    public bool ContainsPoint(int screenX, int screenY) =>
+        (screenX >= ClipRect.X) && (screenX < ClipRect.Right) &&
+        (screenY >= ClipRect.Y) && (screenY < ClipRect.Bottom);
 
     /// <summary>
     ///     Draws the element's background fill and border if set. Subclasses should call base.Draw() before drawing their own
@@ -118,56 +120,25 @@ public abstract class UIElement : IDisposable
         if (!Visible)
             return;
 
+        UpdateClipRect();
+
+        //fully clipped by ancestor — skip all drawing
+        if ((ClipRect.Width <= 0) || (ClipRect.Height <= 0))
+            return;
+
         if (BackgroundColor.HasValue || BorderColor.HasValue)
         {
-            var pixel = GetPixel();
-
-            var bounds = new Rectangle(
-                ScreenX,
-                ScreenY,
-                Width,
-                Height);
+            var bounds = new Rectangle(ScreenX, ScreenY, Width, Height);
 
             if (BackgroundColor.HasValue)
-                spriteBatch.Draw(pixel, bounds, BackgroundColor.Value);
+                DrawRectClipped(spriteBatch, bounds, BackgroundColor.Value);
 
             if (BorderColor.HasValue)
             {
-                spriteBatch.Draw(
-                    pixel,
-                    new Rectangle(
-                        bounds.X,
-                        bounds.Y,
-                        bounds.Width,
-                        1),
-                    BorderColor.Value);
-
-                spriteBatch.Draw(
-                    pixel,
-                    new Rectangle(
-                        bounds.X,
-                        bounds.Y + bounds.Height - 1,
-                        bounds.Width,
-                        1),
-                    BorderColor.Value);
-
-                spriteBatch.Draw(
-                    pixel,
-                    new Rectangle(
-                        bounds.X,
-                        bounds.Y,
-                        1,
-                        bounds.Height),
-                    BorderColor.Value);
-
-                spriteBatch.Draw(
-                    pixel,
-                    new Rectangle(
-                        bounds.X + bounds.Width - 1,
-                        bounds.Y,
-                        1,
-                        bounds.Height),
-                    BorderColor.Value);
+                DrawRectClipped(spriteBatch, new Rectangle(bounds.X, bounds.Y, bounds.Width, 1), BorderColor.Value);
+                DrawRectClipped(spriteBatch, new Rectangle(bounds.X, bounds.Y + bounds.Height - 1, bounds.Width, 1), BorderColor.Value);
+                DrawRectClipped(spriteBatch, new Rectangle(bounds.X, bounds.Y, 1, bounds.Height), BorderColor.Value);
+                DrawRectClipped(spriteBatch, new Rectangle(bounds.X + bounds.Width - 1, bounds.Y, 1, bounds.Height), BorderColor.Value);
             }
         }
     }
@@ -261,6 +232,183 @@ public abstract class UIElement : IDisposable
     ///     Called every frame for all visible elements regardless of input focus.
     /// </summary>
     public virtual void Update(GameTime gameTime) { }
+
+    //── clipping ──
+
+    /// <summary>
+    ///     Recomputes ClipRect from ScreenBounds intersected with parent's ClipRect. Call at the start of Draw.
+    /// </summary>
+    protected void UpdateClipRect()
+    {
+        ClipRect = Parent is not null
+            ? Rectangle.Intersect(ScreenBounds, Parent.ClipRect)
+            : ScreenBounds;
+    }
+
+    /// <summary>
+    ///     Clips a texture draw against a clip rectangle. Returns false if fully clipped (nothing to draw).
+    ///     On return, position and sourceRect are adjusted to the visible portion.
+    /// </summary>
+    private static bool ClipTextureRect(
+        ref Vector2 position,
+        ref Rectangle sourceRect,
+        in Rectangle clipRect)
+    {
+        var destX = (int)position.X;
+        var destY = (int)position.Y;
+        var destRight = destX + sourceRect.Width;
+        var destBottom = destY + sourceRect.Height;
+
+        //fully outside
+        if ((destX >= clipRect.Right) || (destRight <= clipRect.X) ||
+            (destY >= clipRect.Bottom) || (destBottom <= clipRect.Y))
+            return false;
+
+        //fully inside — no adjustment needed
+        if ((destX >= clipRect.X) && (destRight <= clipRect.Right) &&
+            (destY >= clipRect.Y) && (destBottom <= clipRect.Bottom))
+            return true;
+
+        //partially clipped
+        var leftClip = Math.Max(0, clipRect.X - destX);
+        var topClip = Math.Max(0, clipRect.Y - destY);
+        var rightClip = Math.Max(0, destRight - clipRect.Right);
+        var bottomClip = Math.Max(0, destBottom - clipRect.Bottom);
+
+        sourceRect = new Rectangle(
+            sourceRect.X + leftClip,
+            sourceRect.Y + topClip,
+            sourceRect.Width - leftClip - rightClip,
+            sourceRect.Height - topClip - bottomClip);
+
+        position = new Vector2(destX + leftClip, destY + topClip);
+
+        return (sourceRect.Width > 0) && (sourceRect.Height > 0);
+    }
+
+    /// <summary>
+    ///     Draws a texture clipped to this element's ClipRect.
+    /// </summary>
+    protected void DrawTexture(SpriteBatch spriteBatch, Texture2D? texture, Vector2 position, Color color)
+    {
+        if (texture is null)
+            return;
+
+        Texture2D actualTexture;
+        var sourceRect = new Rectangle(0, 0, texture.Width, texture.Height);
+
+        if (texture is CachedTexture2D { AtlasRegion: { } region })
+        {
+            actualTexture = region.Atlas;
+            sourceRect = region.SourceRect;
+        } else
+            actualTexture = texture;
+
+        if (ClipTextureRect(ref position, ref sourceRect, in ClipRect))
+            spriteBatch.Draw(actualTexture, position, sourceRect, color);
+    }
+
+    /// <summary>
+    ///     Draws a texture with a source rectangle, clipped to this element's ClipRect.
+    /// </summary>
+    protected void DrawTexture(
+        SpriteBatch spriteBatch,
+        Texture2D? texture,
+        Vector2 position,
+        Rectangle? sourceRect,
+        Color color)
+    {
+        if (texture is null)
+            return;
+
+        Texture2D actualTexture;
+        Rectangle resolvedSrc;
+
+        if (texture is CachedTexture2D { AtlasRegion: { } region })
+        {
+            actualTexture = region.Atlas;
+
+            resolvedSrc = sourceRect.HasValue
+                ? new Rectangle(
+                    region.SourceRect.X + sourceRect.Value.X,
+                    region.SourceRect.Y + sourceRect.Value.Y,
+                    sourceRect.Value.Width,
+                    sourceRect.Value.Height)
+                : region.SourceRect;
+        } else
+        {
+            actualTexture = texture;
+            resolvedSrc = sourceRect ?? new Rectangle(0, 0, texture.Width, texture.Height);
+        }
+
+        if (ClipTextureRect(ref position, ref resolvedSrc, in ClipRect))
+            spriteBatch.Draw(actualTexture, position, resolvedSrc, color);
+    }
+
+    /// <summary>
+    ///     Draws a filled rectangle clipped to this element's ClipRect.
+    /// </summary>
+    protected void DrawRectClipped(SpriteBatch spriteBatch, Rectangle bounds, Color color)
+    {
+        var clipped = Rectangle.Intersect(bounds, ClipRect);
+
+        if ((clipped.Width > 0) && (clipped.Height > 0))
+            spriteBatch.Draw(GetPixel(), clipped, color);
+    }
+
+    /// <summary>
+    ///     Draws single-line text clipped to this element's ClipRect.
+    /// </summary>
+    protected void DrawTextClipped(
+        SpriteBatch spriteBatch,
+        Vector2 position,
+        string text,
+        Color color,
+        bool colorCodesEnabled = true)
+    {
+        if (string.IsNullOrEmpty(text))
+            return;
+
+        var textWidth = TextRenderer.MeasureWidth(text);
+        var textBounds = new Rectangle((int)position.X, (int)position.Y, textWidth, TextRenderer.CHAR_HEIGHT);
+
+        //fully outside
+        if (!ClipRect.Intersects(textBounds))
+            return;
+
+        //fully inside — fast path
+        if (ClipRect.Contains(textBounds))
+        {
+            TextRenderer.DrawText(spriteBatch, position, text, color, colorCodesEnabled);
+
+            return;
+        }
+
+        //partially clipped — per-glyph clipping
+        TextRenderer.DrawTextClipped(spriteBatch, position, text, color, ClipRect, colorCodesEnabled);
+    }
+
+    /// <summary>
+    ///     Draws shadowed text clipped to this element's ClipRect.
+    /// </summary>
+    protected void DrawTextShadowedClipped(
+        SpriteBatch spriteBatch,
+        Vector2 position,
+        string text,
+        Color textColor,
+        Color shadowColor,
+        bool colorCodesEnabled = true)
+    {
+        if (string.IsNullOrEmpty(text))
+            return;
+
+        //shadow at down-right (+1,+1) and down-left (-1,+1)
+        DrawTextClipped(spriteBatch, position + new Vector2(2, 1), text, shadowColor, colorCodesEnabled);
+        DrawTextClipped(spriteBatch, position + new Vector2(0, 1), text, shadowColor, colorCodesEnabled);
+
+        //main text
+        DrawTextClipped(spriteBatch, position + new Vector2(1, 0), text, textColor, colorCodesEnabled);
+    }
 
     //── event handlers (dispatched by inputdispatcher) ──
 

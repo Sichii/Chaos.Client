@@ -264,9 +264,14 @@ public sealed class NpcSessionControl : PrefabPanel
         if (!Visible)
             return;
 
+        UpdateClipRect();
+
+        if ((ClipRect.Width <= 0) || (ClipRect.Height <= 0))
+            return;
+
         //1. background
         if (Background is not null)
-            AtlasHelper.Draw(
+            DrawTexture(
                 spriteBatch,
                 Background,
                 new Vector2(ScreenX, ScreenY),
@@ -301,7 +306,7 @@ public sealed class NpcSessionControl : PrefabPanel
         {
             //npcillustration: left-aligned, bottom edge sits on top of the bottom bar (y=372)
             var illustY = 372 - PortraitTexture.Height;
-            spriteBatch.Draw(PortraitTexture, new Vector2(0, illustY), Color.White);
+            DrawTexture(spriteBatch, PortraitTexture, new Vector2(0, illustY), Color.White);
         } else if (PortraitRect != Rectangle.Empty)
         {
             //creature/item sprite: center the sprite's visual anchor in the npctile rect
@@ -315,9 +320,10 @@ public sealed class NpcSessionControl : PrefabPanel
                 var drawX = rectCenterX - (PortraitTexture.Width + frame.Left) / 2;
                 var drawY = rectCenterY - (PortraitTexture.Height + frame.Top) / 2;
 
-                spriteBatch.Draw(PortraitTexture, new Vector2(drawX, drawY), Color.White);
+                DrawTexture(spriteBatch, PortraitTexture, new Vector2(drawX, drawY), Color.White);
             } else
-                spriteBatch.Draw(
+                DrawTexture(
+                    spriteBatch,
                     PortraitTexture,
                     new Vector2((int)(rectCenterX - PortraitTexture.Width / 2f), (int)(rectCenterY - PortraitTexture.Height / 2f)),
                     Color.White);
@@ -638,18 +644,6 @@ public sealed class NpcSessionControl : PrefabPanel
             case MenuType.ShowItems:
                 MenuShop.ShowMerchant(args);
 
-                if (CloseButton is not null)
-                {
-                    CloseButton.Visible = true;
-                    CloseButton.Enabled = true;
-                }
-
-                if (TopButton is not null)
-                {
-                    TopButton.Visible = true;
-                    TopButton.Enabled = true;
-                }
-
                 break;
 
             case MenuType.ShowPlayerItems:
@@ -659,28 +653,28 @@ public sealed class NpcSessionControl : PrefabPanel
             case MenuType.ShowPlayerSpells:
                 MenuList.ShowList(args);
 
-                if (CloseButton is not null)
-                {
-                    CloseButton.Visible = true;
-                    CloseButton.Enabled = true;
-                }
-
-                if (TopButton is not null)
-                {
-                    TopButton.Visible = true;
-                    TopButton.Enabled = true;
-                }
-
                 break;
 
             default:
                 return;
         }
 
+        if (CloseButton is not null)
+        {
+            CloseButton.Visible = true;
+            CloseButton.Enabled = true;
+        }
+
+        if (TopButton is not null)
+        {
+            TopButton.Visible = true;
+            TopButton.Enabled = true;
+        }
+
         if (NpcNameLabel is not null)
         {
             NpcNameLabel.Text = args.Name;
-            NpcNameLabel.ForegroundColor = new Color(0, 255, 0);
+            NpcNameLabel.ForegroundColor = LegendColors.Lime;
         }
 
         Show();

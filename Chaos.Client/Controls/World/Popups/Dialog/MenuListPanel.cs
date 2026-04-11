@@ -37,11 +37,6 @@ public sealed class MenuListPanel : FramedDialogPanelBase
     //one extra row for the partially-visible peek effect at the bottom
     private const int DISPLAY_ROWS = MAX_VISIBLE_ROWS + 1;
 
-    private static readonly RasterizerState ScissorRasterizer = new()
-    {
-        ScissorTestEnable = true
-    };
-
     //border metrics (from frameddialogpanel)
     private const int BORDER_BOTTOM = 30;
     private const int BTN_WIDTH = 61;
@@ -54,6 +49,7 @@ public sealed class MenuListPanel : FramedDialogPanelBase
     private readonly List<ListEntryData> Entries = [];
 
     private readonly List<ListEntryControl> EntryControls = [];
+    private readonly UIPanel ContentContainer;
     private readonly ScrollBarControl ScrollBar;
 
     private int ColumnWidth;
@@ -82,6 +78,18 @@ public sealed class MenuListPanel : FramedDialogPanelBase
                     OnItemSelected?.Invoke(SelectedIndex);
             };
         }
+
+        ContentContainer = new UIPanel
+        {
+            Name = "ContentContainer",
+            X = CONTENT_X,
+            Y = CONTENT_Y,
+            Width = CONTENT_WIDTH,
+            Height = CONTENT_HEIGHT,
+            IsPassThrough = true
+        };
+
+        AddChild(ContentContainer);
 
         ScrollBar = new ScrollBarControl
         {
@@ -114,45 +122,6 @@ public sealed class MenuListPanel : FramedDialogPanelBase
                 icon));
     }
 
-    public override void Draw(SpriteBatch spriteBatch)
-    {
-        if (!Visible)
-            return;
-
-        //hide entry rows so base.draw() only renders frame + scrollbar + ok button
-        SetEntryVisibility(false);
-        base.Draw(spriteBatch);
-        SetEntryVisibility(true);
-
-        if (EntryControls.Count == 0)
-            return;
-
-        //draw entry controls with scissor clipping so the peek row is partially visible
-        var device = spriteBatch.GraphicsDevice;
-
-        var clipRect = new Rectangle(
-            ScreenX + CONTENT_X,
-            ScreenY + CONTENT_Y,
-            CONTENT_WIDTH,
-            CONTENT_HEIGHT);
-
-        spriteBatch.End();
-
-        var prevScissor = device.ScissorRectangle;
-        device.ScissorRectangle = clipRect;
-
-        spriteBatch.Begin(samplerState: GlobalSettings.Sampler, rasterizerState: ScissorRasterizer);
-
-        foreach (var entry in EntryControls)
-            if (entry.Visible)
-                entry.Draw(spriteBatch);
-
-        spriteBatch.End();
-
-        device.ScissorRectangle = prevScissor;
-        spriteBatch.Begin(samplerState: GlobalSettings.Sampler);
-    }
-
     public string? GetEntryName(int index)
     {
         if ((index < 0) || (index >= Entries.Count))
@@ -173,7 +142,7 @@ public sealed class MenuListPanel : FramedDialogPanelBase
     {
         foreach (var control in EntryControls)
         {
-            Children.Remove(control);
+            ContentContainer.Children.Remove(control);
             control.Dispose();
         }
 
@@ -188,7 +157,6 @@ public sealed class MenuListPanel : FramedDialogPanelBase
     {
         var firstEntry = ScrollOffset * COLUMN_COUNT;
         var controlIndex = 0;
-        var contentBottom = CONTENT_Y + CONTENT_HEIGHT;
 
         for (var row = 0; row < DISPLAY_ROWS; row++)
         {
@@ -205,13 +173,13 @@ public sealed class MenuListPanel : FramedDialogPanelBase
                     var entry = Entries[entryIndex];
                     var isSelected = entryIndex == SelectedIndex;
 
-                    control.X = CONTENT_X + col * ColumnWidth;
-                    control.Y = CONTENT_Y + row * ROW_HEIGHT;
+                    control.X = col * ColumnWidth;
+                    control.Y = row * ROW_HEIGHT;
                     control.SetEntry(entry.Icon, entry.DisplayName, isSelected);
                     control.Visible = true;
 
                     //clip the peek row's hit-test area to the content bounds
-                    var maxHeight = contentBottom - control.Y;
+                    var maxHeight = CONTENT_HEIGHT - control.Y;
                     control.Height = Math.Min(ROW_HEIGHT, maxHeight);
                 } else
                 {
@@ -314,13 +282,6 @@ public sealed class MenuListPanel : FramedDialogPanelBase
         }
     }
 
-    private void SetEntryVisibility(bool visible)
-    {
-        foreach (var entry in EntryControls)
-            if (entry.HasData)
-                entry.Visible = visible;
-    }
-
     public void ShowList(DisplayMenuArgs args)
     {
         Hide();
@@ -389,6 +350,9 @@ public sealed class MenuListPanel : FramedDialogPanelBase
             ScrollBar.Value = 0;
         }
 
+        //resize container to match available content width
+        ContentContainer.Width = availableWidth;
+
         //create entry controls for visible slots (including peek row)
         var visibleCount = Math.Min(DISPLAY_ROWS * COLUMN_COUNT, Entries.Count);
 
@@ -400,7 +364,7 @@ public sealed class MenuListPanel : FramedDialogPanelBase
             };
 
             EntryControls.Add(control);
-            AddChild(control);
+            ContentContainer.AddChild(control);
         }
 
         LayoutEntries();

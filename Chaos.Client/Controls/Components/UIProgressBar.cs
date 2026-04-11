@@ -61,7 +61,7 @@ public sealed class UIProgressBar : UIElement
         //frame-based rendering
         if ((Frames.Length > 0) && (CurrentFrame < Frames.Length))
         {
-            AtlasHelper.Draw(
+            DrawTexture(
                 spriteBatch,
                 Frames[CurrentFrame],
                 new Vector2(ScreenX, ScreenY),
@@ -76,7 +76,7 @@ public sealed class UIProgressBar : UIElement
             var clipWidth = (int)(FillTexture.Width * Math.Clamp(Percent, 0f, 1f));
 
             if (clipWidth > 0)
-                AtlasHelper.Draw(
+                DrawTexture(
                     spriteBatch,
                     FillTexture,
                     new Vector2(ScreenX, ScreenY),
@@ -94,7 +94,7 @@ public sealed class UIProgressBar : UIElement
         var fillWidth = (int)(Width * Math.Clamp(Percent, 0f, 1f));
 
         if ((fillWidth > 0) && FillColor.HasValue)
-            DrawRect(
+            DrawRectClipped(
                 spriteBatch,
                 new Rectangle(
                     ScreenX,

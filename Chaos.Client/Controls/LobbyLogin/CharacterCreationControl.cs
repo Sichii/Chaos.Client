@@ -215,17 +215,17 @@ public sealed class CharacterCreationControl : PrefabPanel
         var femaleTexture = FemaleHovered ? FemaleSelected : FemaleUnselected;
 
         if (maleTexture is not null && MaleToggleArea is not null)
-            spriteBatch.Draw(maleTexture, new Vector2(sx + MaleToggleArea.X, sy + MaleToggleArea.Y), Color.White);
+            DrawTexture(spriteBatch, maleTexture, new Vector2(sx + MaleToggleArea.X, sy + MaleToggleArea.Y), Color.White);
 
         if (femaleTexture is not null && FemaleToggleArea is not null)
-            spriteBatch.Draw(femaleTexture, new Vector2(sx + FemaleToggleArea.X, sy + FemaleToggleArea.Y), Color.White);
+            DrawTexture(spriteBatch, femaleTexture, new Vector2(sx + FemaleToggleArea.X, sy + FemaleToggleArea.Y), Color.White);
 
         //character preview
         if (AnimFrameTextures[WalkFrame] is { } currentFrame)
         {
             var centerX = sx + PreviewX + PreviewWidth / 2 - BODY_CENTER_X;
             var centerY = sy + PreviewY + PreviewHeight / 2 - BODY_CENTER_Y;
-            spriteBatch.Draw(currentFrame, new Vector2(centerX, centerY), Color.White);
+            DrawTexture(spriteBatch, currentFrame, new Vector2(centerX, centerY), Color.White);
         }
     }
 

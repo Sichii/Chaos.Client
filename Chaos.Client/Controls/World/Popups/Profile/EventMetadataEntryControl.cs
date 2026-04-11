@@ -25,7 +25,12 @@ public sealed class EventMetadataEntryControl : PrefabPanel
         TileImage = CreateImage("TILE");
         NameLabel = CreateLabel("NAME");
         NameLabel?.ForegroundColor = LegendColors.White;
+        NameLabel?.PaddingLeft = 0;
+        NameLabel?.PaddingRight = 0;
+        NameLabel?.TruncateWithEllipsis = false;
+        
         LevelLabel = CreateLabel("LEVEL");
+        LevelLabel?.Width = 150;
         LevelLabel?.ForegroundColor = LegendColors.White;
         LevelLabel?.TruncateWithEllipsis = false;
     }

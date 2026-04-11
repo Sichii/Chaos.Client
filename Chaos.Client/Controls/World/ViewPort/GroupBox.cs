@@ -104,7 +104,7 @@ public sealed class GroupBox : UIPanel
         var panel = IsHovered ? HoverPanelTexture : NormalPanelTexture;
 
         if (panel is not null && !panel.IsDisposed)
-            spriteBatch.Draw(panel, new Vector2(ScreenX, ScreenY), Color.White);
+            DrawTexture(spriteBatch, panel, new Vector2(ScreenX, ScreenY), Color.White);
 
         //draw children (label)
         base.Draw(spriteBatch);

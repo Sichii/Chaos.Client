@@ -49,6 +49,11 @@ public abstract class FramedDialogPanelBase : PrefabPanel
         if (!Visible)
             return;
 
+        UpdateClipRect();
+
+        if ((ClipRect.Width <= 0) || (ClipRect.Height <= 0))
+            return;
+
         EnsureFrameTextures();
 
         var sx = ScreenX;
@@ -119,28 +124,28 @@ public abstract class FramedDialogPanelBase : PrefabPanel
 
         //3. corners (drawn last to cover edge overlap)
         if (CornerTl is not null)
-            AtlasHelper.Draw(
+            DrawTexture(
                 spriteBatch,
                 CornerTl,
                 new Vector2(sx, sy),
                 Color.White);
 
         if (CornerTr is not null)
-            AtlasHelper.Draw(
+            DrawTexture(
                 spriteBatch,
                 CornerTr,
                 new Vector2(sx + w - CORNER_TR_W, sy),
                 Color.White);
 
         if (CornerBl is not null)
-            AtlasHelper.Draw(
+            DrawTexture(
                 spriteBatch,
                 CornerBl,
                 new Vector2(sx, sy + h - CORNER_BL_H),
                 Color.White);
 
         if (CornerBr is not null)
-            AtlasHelper.Draw(
+            DrawTexture(
                 spriteBatch,
                 CornerBr,
                 new Vector2(sx + w - CORNER_BR_W, sy + h - CORNER_BR_H),

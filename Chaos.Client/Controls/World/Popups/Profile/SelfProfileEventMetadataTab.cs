@@ -5,7 +5,6 @@ using Chaos.Client.Controls.Generic;
 using Chaos.Client.Data.Models;
 using Chaos.DarkAges.Definitions;
 using Microsoft.Xna.Framework;
-using Microsoft.Xna.Framework.Graphics;
 #endregion
 
 namespace Chaos.Client.Controls.World.Popups.Profile;
@@ -25,19 +24,16 @@ public sealed class SelfProfileEventMetadataTab : PrefabPanel
     private const int COLUMNS_PER_PAGE = 2;
     private const int MAX_DISPLAY_SLOTS = MAX_DISPLAY_PAGES * COLUMNS_PER_PAGE;
 
-    private static readonly RasterizerState ScissorRasterizer = new()
-    {
-        ScissorTestEnable = true
-    };
-
     //6 display slots (3 pages x 2 columns), each holding events for that slot
     private readonly List<EventMetadataEntry>[] DisplaySlots = new List<EventMetadataEntry>[MAX_DISPLAY_SLOTS];
+    private readonly UIPanel LeftContainer;
     private readonly Rectangle LeftRect;
 
     private readonly EventMetadataEntryControl[] LeftRows;
     private readonly ScrollBarControl LeftScrollBar;
     private readonly UIButton? NextButton;
     private readonly UIButton? PrevButton;
+    private readonly UIPanel RightContainer;
     private readonly Rectangle RightRect;
     private readonly EventMetadataEntryControl[] RightRows;
     private readonly ScrollBarControl RightScrollBar;
@@ -82,8 +78,32 @@ public sealed class SelfProfileEventMetadataTab : PrefabPanel
                 233,
                 239);
 
-        LeftRows = CreateColumn(LeftRect);
-        RightRows = CreateColumn(RightRect);
+        LeftContainer = new UIPanel
+        {
+            Name = "LeftContainer",
+            X = LeftRect.X,
+            Y = LeftRect.Y,
+            Width = LeftRect.Width,
+            Height = LeftRect.Height,
+            IsPassThrough = true
+        };
+
+        AddChild(LeftContainer);
+
+        RightContainer = new UIPanel
+        {
+            Name = "RightContainer",
+            X = RightRect.X,
+            Y = RightRect.Y,
+            Width = RightRect.Width,
+            Height = RightRect.Height,
+            IsPassThrough = true
+        };
+
+        AddChild(RightContainer);
+
+        LeftRows = CreateColumn(LeftContainer, LeftRect.Height);
+        RightRows = CreateColumn(RightContainer, RightRect.Height);
 
         LeftScrollBar = CreateScrollBar(
             LeftRect,
@@ -150,28 +170,27 @@ public sealed class SelfProfileEventMetadataTab : PrefabPanel
         Dirty = true;
     }
 
-    private EventMetadataEntryControl[] CreateColumn(Rectangle columnRect)
+    private EventMetadataEntryControl[] CreateColumn(UIPanel container, int columnHeight)
     {
         var rows = new EventMetadataEntryControl[DISPLAY_ROWS];
-        var columnBottom = columnRect.Y + columnRect.Height;
 
         for (var i = 0; i < DISPLAY_ROWS; i++)
         {
             var row = new EventMetadataEntryControl
             {
-                X = columnRect.X,
-                Y = columnRect.Y + i * ROW_HEIGHT,
+                X = 0,
+                Y = i * ROW_HEIGHT,
                 Visible = false
             };
 
             //clip the peek row's hit-test area to the column bounds
-            var maxHeight = columnBottom - row.Y;
+            var maxHeight = columnHeight - row.Y;
 
             if (maxHeight < row.Height)
                 row.Height = maxHeight;
 
             row.OnClicked += (entry, state) => OnEntryClicked?.Invoke(entry, state);
-            AddChild(row);
+            container.AddChild(row);
             rows[i] = row;
         }
 
@@ -192,65 +211,6 @@ public sealed class SelfProfileEventMetadataTab : PrefabPanel
         AddChild(scrollBar);
 
         return scrollBar;
-    }
-
-    public override void Draw(SpriteBatch spriteBatch)
-    {
-        if (!Visible)
-            return;
-
-        //hide entry rows so base.draw() only renders background + scrollbars + buttons
-        SetRowVisibilityForBaseDraw(false);
-        base.Draw(spriteBatch);
-        SetRowVisibilityForBaseDraw(true);
-
-        //draw each column's rows clipped to the column rect
-        var device = spriteBatch.GraphicsDevice;
-        var sx = ScreenX;
-        var sy = ScreenY;
-
-        DrawClippedColumn(
-            spriteBatch,
-            device,
-            LeftRows,
-            new Rectangle(
-                sx + LeftRect.X,
-                sy + LeftRect.Y,
-                LeftRect.Width,
-                LeftRect.Height));
-
-        DrawClippedColumn(
-            spriteBatch,
-            device,
-            RightRows,
-            new Rectangle(
-                sx + RightRect.X,
-                sy + RightRect.Y,
-                RightRect.Width,
-                RightRect.Height));
-    }
-
-    private static void DrawClippedColumn(
-        SpriteBatch spriteBatch,
-        GraphicsDevice device,
-        EventMetadataEntryControl[] rows,
-        Rectangle clipRect)
-    {
-        spriteBatch.End();
-
-        var prevScissor = device.ScissorRectangle;
-        device.ScissorRectangle = clipRect;
-
-        spriteBatch.Begin(samplerState: GlobalSettings.Sampler, rasterizerState: ScissorRasterizer);
-
-        foreach (var row in rows)
-            if (row.Visible)
-                row.Draw(spriteBatch);
-
-        spriteBatch.End();
-
-        device.ScissorRectangle = prevScissor;
-        spriteBatch.Begin(samplerState: GlobalSettings.Sampler);
     }
 
     /// <summary>
@@ -378,36 +338,20 @@ public sealed class SelfProfileEventMetadataTab : PrefabPanel
         Dirty = true;
     }
 
-    private void SetRowVisibilityForBaseDraw(bool visible)
-    {
-        foreach (var row in LeftRows)
-            if (row.Entry is not null)
-                row.Visible = visible;
-
-        foreach (var row in RightRows)
-            if (row.Entry is not null)
-                row.Visible = visible;
-    }
-
     public override void OnMouseScroll(MouseScrollEvent e)
     {
-        var sx = ScreenX;
-        var sy = ScreenY;
-        var leftScreenRect = new Rectangle(sx + LeftRect.X, sy + LeftRect.Y, LeftRect.Width, LeftRect.Height);
-        var rightScreenRect = new Rectangle(sx + RightRect.X, sy + RightRect.Y, RightRect.Width, RightRect.Height);
-
         var leftSlot = CurrentPage * COLUMNS_PER_PAGE;
         var rightSlot = leftSlot + 1;
         var leftCount = leftSlot < MAX_DISPLAY_SLOTS ? DisplaySlots[leftSlot].Count : 0;
         var rightCount = rightSlot < MAX_DISPLAY_SLOTS ? DisplaySlots[rightSlot].Count : 0;
 
-        if (leftScreenRect.Contains(e.ScreenX, e.ScreenY) && (leftCount > MAX_VISIBLE_ROWS))
+        if (LeftContainer.ContainsPoint(e.ScreenX, e.ScreenY) && (leftCount > MAX_VISIBLE_ROWS))
         {
             LeftScrollOffset = Math.Clamp(LeftScrollOffset - e.Delta, 0, leftCount - MAX_VISIBLE_ROWS);
             LeftScrollBar.Value = LeftScrollOffset;
             Dirty = true;
             e.Handled = true;
-        } else if (rightScreenRect.Contains(e.ScreenX, e.ScreenY) && (rightCount > MAX_VISIBLE_ROWS))
+        } else if (RightContainer.ContainsPoint(e.ScreenX, e.ScreenY) && (rightCount > MAX_VISIBLE_ROWS))
         {
             RightScrollOffset = Math.Clamp(RightScrollOffset - e.Delta, 0, rightCount - MAX_VISIBLE_ROWS);
             RightScrollBar.Value = RightScrollOffset;

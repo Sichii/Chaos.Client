@@ -85,7 +85,7 @@ public sealed class OrangeBarControl : UIPanel
         var totalHeight = expandY - topY + contentHeight;
 
         //solid opaque fill
-        DrawRect(
+        DrawRectClipped(
             spriteBatch,
             new Rectangle(
                 paneX,
@@ -97,7 +97,7 @@ public sealed class OrangeBarControl : UIPanel
         //reveal expand texture (1:1, no stretching)
         var revealHeight = Math.Min(totalHeight, PaneBg.Height - 4);
 
-        AtlasHelper.Draw(
+        DrawTexture(
             spriteBatch,
             PaneBg,
             new Vector2(paneX, topY),
@@ -111,7 +111,7 @@ public sealed class OrangeBarControl : UIPanel
         //bottom 4px edge
         var srcY = PaneBg.Height - 4;
 
-        AtlasHelper.Draw(
+        DrawTexture(
             spriteBatch,
             PaneBg,
             new Vector2(paneX, topY + totalHeight),

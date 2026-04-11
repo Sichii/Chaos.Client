@@ -34,6 +34,8 @@ public sealed class EventMetadataDetailsControl : PrefabPanel
         NameLabel?.ForegroundColor = LegendColors.White;
         LevelLabel = CreateLabel("LEV");
         LevelLabel?.ForegroundColor = LegendColors.White;
+        LevelLabel?.Width = 150;
+        
         MustLabel = CreateLabel("MUST");
         MustLabel?.ForegroundColor = LegendColors.White;
         RewardLabel = CreateLabel("REWARD");

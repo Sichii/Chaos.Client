@@ -175,7 +175,7 @@ public sealed class ChantEditControl : PrefabPanel
             var midStartY = ScreenY + TOP_HEIGHT;
 
             for (var i = 0; i < LineCount; i++)
-                AtlasHelper.Draw(
+                DrawTexture(
                     spriteBatch,
                     MidTexture,
                     new Vector2(ScreenX, midStartY + i * MID_HEIGHT),

@@ -33,7 +33,7 @@ public class UIAnimatedImage : UIElement
 
         var frame = Frames[CurrentFrame];
 
-        AtlasHelper.Draw(
+        DrawTexture(
             spriteBatch,
             frame,
             new Vector2(ScreenX, ScreenY),

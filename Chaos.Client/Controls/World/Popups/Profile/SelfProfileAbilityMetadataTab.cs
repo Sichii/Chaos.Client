@@ -6,7 +6,6 @@ using Chaos.Client.Data.Models;
 using Chaos.Client.ViewModel;
 using Chaos.Extensions.Common;
 using Microsoft.Xna.Framework;
-using Microsoft.Xna.Framework.Graphics;
 #endregion
 
 namespace Chaos.Client.Controls.World.Popups.Profile;
@@ -24,15 +23,12 @@ public sealed class SelfProfileAbilityMetadataTab : PrefabPanel
     //one extra row for the peek effect at the bottom of each column
     private const int DISPLAY_ROWS = MAX_VISIBLE_ROWS + 1;
 
-    private static readonly RasterizerState ScissorRasterizer = new()
-    {
-        ScissorTestEnable = true
-    };
-
+    private readonly UIPanel SkillContainer;
     private readonly Rectangle SkillRect;
 
     private readonly AbilityMetadataEntryControl[] SkillRows;
     private readonly ScrollBarControl SkillScrollBar;
+    private readonly UIPanel SpellContainer;
     private readonly Rectangle SpellRect;
     private readonly AbilityMetadataEntryControl[] SpellRows;
     private readonly ScrollBarControl SpellScrollBar;
@@ -72,8 +68,32 @@ public sealed class SelfProfileAbilityMetadataTab : PrefabPanel
                 233,
                 239);
 
-        SpellRows = CreateColumn(SpellRect);
-        SkillRows = CreateColumn(SkillRect);
+        SpellContainer = new UIPanel
+        {
+            Name = "SpellContainer",
+            X = SpellRect.X,
+            Y = SpellRect.Y,
+            Width = SpellRect.Width,
+            Height = SpellRect.Height,
+            IsPassThrough = true
+        };
+
+        AddChild(SpellContainer);
+
+        SkillContainer = new UIPanel
+        {
+            Name = "SkillContainer",
+            X = SkillRect.X,
+            Y = SkillRect.Y,
+            Width = SkillRect.Width,
+            Height = SkillRect.Height,
+            IsPassThrough = true
+        };
+
+        AddChild(SkillContainer);
+
+        SpellRows = CreateColumn(SpellContainer, SpellRect.Height);
+        SkillRows = CreateColumn(SkillContainer, SkillRect.Height);
 
         SpellScrollBar = CreateScrollBar(
             SpellRect,
@@ -110,28 +130,27 @@ public sealed class SelfProfileAbilityMetadataTab : PrefabPanel
         Dirty = true;
     }
 
-    private AbilityMetadataEntryControl[] CreateColumn(Rectangle columnRect)
+    private AbilityMetadataEntryControl[] CreateColumn(UIPanel container, int columnHeight)
     {
         var rows = new AbilityMetadataEntryControl[DISPLAY_ROWS];
-        var columnBottom = columnRect.Y + columnRect.Height;
 
         for (var i = 0; i < DISPLAY_ROWS; i++)
         {
             var row = new AbilityMetadataEntryControl
             {
-                X = columnRect.X,
-                Y = columnRect.Y + i * ROW_HEIGHT,
+                X = 0,
+                Y = i * ROW_HEIGHT,
                 Visible = false
             };
 
             //clip the peek row's hit-test area to the column bounds
-            var maxHeight = columnBottom - row.Y;
+            var maxHeight = columnHeight - row.Y;
 
             if (maxHeight < row.Height)
                 row.Height = maxHeight;
 
             row.OnClicked += entry => OnEntryClicked?.Invoke(entry);
-            AddChild(row);
+            container.AddChild(row);
             rows[i] = row;
         }
 
@@ -152,65 +171,6 @@ public sealed class SelfProfileAbilityMetadataTab : PrefabPanel
         AddChild(scrollBar);
 
         return scrollBar;
-    }
-
-    public override void Draw(SpriteBatch spriteBatch)
-    {
-        if (!Visible)
-            return;
-
-        //hide entry rows so base.draw() only renders background + scrollbars
-        SetRowVisibilityForBaseDraw(false);
-        base.Draw(spriteBatch);
-        SetRowVisibilityForBaseDraw(true);
-
-        //draw each column's rows clipped to the column rect
-        var device = spriteBatch.GraphicsDevice;
-        var sx = ScreenX;
-        var sy = ScreenY;
-
-        DrawClippedColumn(
-            spriteBatch,
-            device,
-            SpellRows,
-            new Rectangle(
-                sx + SpellRect.X,
-                sy + SpellRect.Y,
-                SpellRect.Width,
-                SpellRect.Height));
-
-        DrawClippedColumn(
-            spriteBatch,
-            device,
-            SkillRows,
-            new Rectangle(
-                sx + SkillRect.X,
-                sy + SkillRect.Y,
-                SkillRect.Width,
-                SkillRect.Height));
-    }
-
-    private static void DrawClippedColumn(
-        SpriteBatch spriteBatch,
-        GraphicsDevice device,
-        AbilityMetadataEntryControl[] rows,
-        Rectangle clipRect)
-    {
-        spriteBatch.End();
-
-        var prevScissor = device.ScissorRectangle;
-        device.ScissorRectangle = clipRect;
-
-        spriteBatch.Begin(samplerState: GlobalSettings.Sampler, rasterizerState: ScissorRasterizer);
-
-        foreach (var row in rows)
-            if (row.Visible)
-                row.Draw(spriteBatch);
-
-        spriteBatch.End();
-
-        device.ScissorRectangle = prevScissor;
-        spriteBatch.Begin(samplerState: GlobalSettings.Sampler);
     }
 
     private static bool HasPreRequisite(string? name, byte requiredLevel)
@@ -339,34 +299,15 @@ public sealed class SelfProfileAbilityMetadataTab : PrefabPanel
         Dirty = true;
     }
 
-    /// <summary>
-    ///     Temporarily hides/restores entry rows that have data so base.Draw() skips them. Rows without data stay hidden.
-    /// </summary>
-    private void SetRowVisibilityForBaseDraw(bool visible)
-    {
-        foreach (var row in SpellRows)
-            if (row.Entry is not null)
-                row.Visible = visible;
-
-        foreach (var row in SkillRows)
-            if (row.Entry is not null)
-                row.Visible = visible;
-    }
-
     public override void OnMouseScroll(MouseScrollEvent e)
     {
-        var sx = ScreenX;
-        var sy = ScreenY;
-        var spellScreenRect = new Rectangle(sx + SpellRect.X, sy + SpellRect.Y, SpellRect.Width, SpellRect.Height);
-        var skillScreenRect = new Rectangle(sx + SkillRect.X, sy + SkillRect.Y, SkillRect.Width, SkillRect.Height);
-
-        if (spellScreenRect.Contains(e.ScreenX, e.ScreenY) && (SpellEntries.Count > MAX_VISIBLE_ROWS))
+        if (SpellContainer.ContainsPoint(e.ScreenX, e.ScreenY) && (SpellEntries.Count > MAX_VISIBLE_ROWS))
         {
             SpellScrollOffset = Math.Clamp(SpellScrollOffset - e.Delta, 0, SpellEntries.Count - MAX_VISIBLE_ROWS);
             SpellScrollBar.Value = SpellScrollOffset;
             Dirty = true;
             e.Handled = true;
-        } else if (skillScreenRect.Contains(e.ScreenX, e.ScreenY) && (SkillEntries.Count > MAX_VISIBLE_ROWS))
+        } else if (SkillContainer.ContainsPoint(e.ScreenX, e.ScreenY) && (SkillEntries.Count > MAX_VISIBLE_ROWS))
         {
             SkillScrollOffset = Math.Clamp(SkillScrollOffset - e.Delta, 0, SkillEntries.Count - MAX_VISIBLE_ROWS);
             SkillScrollBar.Value = SkillScrollOffset;
