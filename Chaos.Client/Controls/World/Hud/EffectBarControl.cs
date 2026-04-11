@@ -8,13 +8,13 @@ namespace Chaos.Client.Controls.World.Hud;
 
 /// <summary>
 ///     Vertical status effect bar on the right side of the HUD. Shows active persistent effects as half-size spell icons
-///     with 2px-high horizontal color bars underneath each icon. Uses spelled.epf as the background strip (22x212). Only
+///     with 2px-high horizontal color bars underneath each icon. Uses spelled.epf as the background strip (22x230). Only
 ///     visible when at least one effect is active. 10 slots, keyed by EffectIcon.
 /// </summary>
 public sealed class EffectBarControl : UIPanel
 {
     private const int MAX_EFFECTS = 10;
-    private const int SLOT_SIZE = 24;
+    private const int SLOT_SIZE = 23;
     private const int SLOT_WIDTH = 22;
 
     private readonly EffectSlotControl[] Slots = new EffectSlotControl[MAX_EFFECTS];

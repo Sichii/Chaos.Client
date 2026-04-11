@@ -109,15 +109,6 @@ public sealed partial class WorldScreen
                 transform);
             DrawForegroundAndEntities(spriteBatch, sortedEntities);
             SilhouetteRenderer.DrawSilhouettes(spriteBatch);
-
-            Overlays.Draw(
-                spriteBatch,
-                Camera,
-                MapFile.Height,
-                sortedEntities,
-                Highlight.ShowTintHighlight,
-                Highlight.HoveredEntityId,
-                WorldState.PlayerEntityId);
             spriteBatch.End();
 
             //darkness overlay — drawn over the world in screen space (no camera transform)
@@ -131,6 +122,26 @@ public sealed partial class WorldScreen
                 DarknessRenderer.Draw(spriteBatch, viewport);
                 spriteBatch.End();
             }
+
+            //entity overlays (chat bubbles, health bars, name tags) — drawn after darkness so light level doesn't tint them
+            spriteBatch.Begin(
+                SpriteSortMode.Immediate,
+                BlendState.AlphaBlend,
+                GlobalSettings.Sampler,
+                null,
+                ScissorRasterizerState,
+                null,
+                transform);
+
+            Overlays.Draw(
+                spriteBatch,
+                Camera,
+                MapFile.Height,
+                sortedEntities,
+                Highlight.ShowTintHighlight,
+                Highlight.HoveredEntityId,
+                WorldState.PlayerEntityId);
+            spriteBatch.End();
 
             //blind overlay — full black over the viewport when the player is blinded
             if (WorldState.Attributes.Current?.Blind is true)

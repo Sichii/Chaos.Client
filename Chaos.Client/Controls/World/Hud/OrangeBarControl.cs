@@ -164,7 +164,7 @@ public sealed class OrangeBarControl : UIPanel
 
     public override void OnMouseDown(MouseDownEvent e)
     {
-        if (e.Button != MouseButton.Left || PaneBg is null || WrapBounds == Rectangle.Empty)
+        if ((e.Button != MouseButton.Left) || PaneBg is null || (WrapBounds == Rectangle.Empty))
             return;
 
         IsDragging = true;
@@ -184,7 +184,7 @@ public sealed class OrangeBarControl : UIPanel
 
     public override void OnMouseUp(MouseUpEvent e)
     {
-        if (e.Button == MouseButton.Left && IsDragging)
+        if ((e.Button == MouseButton.Left) && IsDragging)
         {
             IsDragging = false;
             ExpandedLines = 0;

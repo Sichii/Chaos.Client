@@ -12,6 +12,8 @@ using DALib.Data;
 using DALib.Extensions;
 using Pathfinder = Chaos.Pathfinding.Pathfinder;
 using TileFlags = DALib.Definitions.TileFlags;
+using XnaRectangle = Microsoft.Xna.Framework.Rectangle;
+using XnaVector2 = Microsoft.Xna.Framework.Vector2;
 #endregion
 
 namespace Chaos.Client.Screens;
@@ -311,6 +313,24 @@ public sealed partial class WorldScreen
         AnimationSystem.ResetToIdle(player);
         Pathfinding.Clear();
         FollowPlayerCamera();
+    }
+
+    /// <summary>
+    ///     Recomputes Camera.Offset to keep the player at the correct screen position for the current HUD layout. The base
+    ///     offset (-28, 24) was calibrated for the small HUD viewport; when switching to the large HUD, the viewport center
+    ///     shifts on screen, so the offset must compensate.
+    /// </summary>
+    private void UpdateCameraOffset(XnaRectangle viewport)
+    {
+        var smallVp = SmallHud.ViewportBounds;
+        var smallCenterX = smallVp.X + smallVp.Width / 2f;
+        var smallCenterY = smallVp.Y + smallVp.Height / 2f;
+        var currentCenterX = viewport.X + viewport.Width / 2f;
+        var currentCenterY = viewport.Y + viewport.Height / 2f;
+
+        Camera.Offset = new XnaVector2(
+            -28 + (smallCenterX - currentCenterX),
+            24 + (smallCenterY - currentCenterY));
     }
 
     /// <summary>

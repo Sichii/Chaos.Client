@@ -1,4 +1,5 @@
 #region
+using System.Runtime.InteropServices;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Input;
 #endregion
@@ -9,12 +10,31 @@ namespace Chaos.Client;
 ///     Buffers keyboard and mouse input using window events so that discrete key presses are never lost during frame rate
 ///     drops. Call <see cref="Update" /> at the start of each frame, then read the snapshot via the query methods.
 /// </summary>
-public sealed class InputBuffer : IDisposable
+public sealed partial class InputBuffer : IDisposable
 {
+    //SDL2 interop — event-driven mouse button detection so rapid clicks (turbo buttons)
+    //are never lost between Mouse.GetState() polls
+    private const uint SDL_MOUSEBUTTONDOWN = 0x401;
+    private const uint SDL_MOUSEBUTTONUP = 0x402;
+    private const byte SDL_BUTTON_LEFT = 1;
+    private const byte SDL_BUTTON_RIGHT = 3;
+    private const int SDL_MOUSEBUTTONEVENT_BUTTON_OFFSET = 16;
+
+    [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+    private delegate int SdlEventWatchCallback(nint userdata, nint sdlEvent);
+
+    [LibraryImport("SDL2")]
+    [UnmanagedCallConv(CallConvs = [typeof(System.Runtime.CompilerServices.CallConvCdecl)])]
+    private static partial void SDL_AddEventWatch(nint filter, nint userdata);
+
+    [LibraryImport("SDL2")]
+    [UnmanagedCallConv(CallConvs = [typeof(System.Runtime.CompilerServices.CallConvCdecl)])]
+    private static partial void SDL_DelEventWatch(nint filter, nint userdata);
+
     private readonly Game Game;
     private readonly HashSet<Keys> HeldKeys = [];
 
-    //accumulation buffers — filled by window events between update() calls
+    //accumulation buffers — filled by window/SDL events between update() calls
     private readonly List<Keys> PendingPresses = [];
     private readonly List<Keys> PendingReleases = [];
     private readonly List<char> PendingText = [];
@@ -22,15 +42,24 @@ public sealed class InputBuffer : IDisposable
     private readonly GameWindow Window;
     private MouseState CurrentMouse;
 
+    //mouse button accumulation — filled by SDL event watcher between update() calls
+    private readonly List<BufferedMouseButtonEvent> PendingMouseButtonEvents = [];
+
     //frame snapshot — frozen at the start of each update()
     private readonly HashSet<Keys> FrameKeyPresses = [];
     private readonly HashSet<Keys> FrameKeyReleases = [];
+    private BufferedMouseButtonEvent[] MouseButtonEventBuffer = [];
+    private int MouseButtonEventCount;
     private MouseState PreviousMouse;
     private char[] TextBuffer = [];
     private int TextCount;
     private bool WasInactive;
     private OrderedKeyEvent[] OrderedBuffer = [];
     private int OrderedCount;
+
+    //prevent GC of the unmanaged callback delegate
+    private readonly SdlEventWatchCallback SdlEventWatch;
+    private readonly nint SdlEventWatchPtr;
 
     //virtual resolution transform — raw window coords → virtual 640×480 coords
     private float VirtualScale = 1f;
@@ -43,14 +72,42 @@ public sealed class InputBuffer : IDisposable
         Window.KeyDown += OnKeyDown;
         Window.KeyUp += OnKeyUp;
         Window.TextInput += OnTextInput;
+
+        SdlEventWatch = OnSdlEvent;
+        SdlEventWatchPtr = Marshal.GetFunctionPointerForDelegate(SdlEventWatch);
+        SDL_AddEventWatch(SdlEventWatchPtr, nint.Zero);
     }
 
     /// <inheritdoc />
     public void Dispose()
     {
+        SDL_DelEventWatch(SdlEventWatchPtr, nint.Zero);
         Window.KeyDown -= OnKeyDown;
         Window.KeyUp -= OnKeyUp;
         Window.TextInput -= OnTextInput;
+    }
+
+    private int OnSdlEvent(nint userdata, nint sdlEvent)
+    {
+        var eventType = (uint)Marshal.ReadInt32(sdlEvent);
+
+        if (eventType is not (SDL_MOUSEBUTTONDOWN or SDL_MOUSEBUTTONUP))
+            return 1;
+
+        var sdlButton = Marshal.ReadByte(sdlEvent, SDL_MOUSEBUTTONEVENT_BUTTON_OFFSET);
+        var isPress = eventType == SDL_MOUSEBUTTONDOWN;
+
+        var mouseButton = sdlButton switch
+        {
+            SDL_BUTTON_LEFT  => MouseButton.Left,
+            SDL_BUTTON_RIGHT => MouseButton.Right,
+            _                => (MouseButton)(-1)
+        };
+
+        if ((int)mouseButton >= 0)
+            PendingMouseButtonEvents.Add(new BufferedMouseButtonEvent(mouseButton, isPress));
+
+        return 1;
     }
 
     private void OnKeyDown(object? sender, InputKeyEventArgs e)
@@ -59,7 +116,7 @@ public sealed class InputBuffer : IDisposable
 
         HeldKeys.Add(key);
         PendingPresses.Add(key);
-        PendingOrdered.Add(new OrderedKeyEvent(OrderedKeyEventKind.KeyDown, key, default));
+        PendingOrdered.Add(new OrderedKeyEvent(OrderedKeyEventKind.KeyDown, key, '\0'));
     }
 
     private void OnKeyUp(object? sender, InputKeyEventArgs e)
@@ -113,6 +170,7 @@ public sealed class InputBuffer : IDisposable
             FrameKeyReleases.Clear();
             TextCount = 0;
             OrderedCount = 0;
+            ClearMouseButtonEvents();
 
             //update position (so MouseX/MouseY stay current) but set both states
             //identical so no button edges fire
@@ -130,6 +188,7 @@ public sealed class InputBuffer : IDisposable
             WasInactive = false;
             CurrentMouse = Mouse.GetState();
             PreviousMouse = CurrentMouse;
+            ClearMouseButtonEvents();
         }
 
         //suppress clicks when cursor is outside the client area — Mouse.GetState() reports
@@ -143,8 +202,23 @@ public sealed class InputBuffer : IDisposable
         {
             CurrentMouse = raw;
             PreviousMouse = CurrentMouse;
+            ClearMouseButtonEvents();
 
             return;
+        }
+
+        //freeze mouse button events from SDL watcher
+        MouseButtonEventCount = PendingMouseButtonEvents.Count;
+
+        if (MouseButtonEventCount > 0)
+        {
+            if (MouseButtonEventBuffer.Length < MouseButtonEventCount)
+                MouseButtonEventBuffer = new BufferedMouseButtonEvent[Math.Max(MouseButtonEventCount, 16)];
+
+            for (var i = 0; i < MouseButtonEventCount; i++)
+                MouseButtonEventBuffer[i] = PendingMouseButtonEvents[i];
+
+            PendingMouseButtonEvents.Clear();
         }
 
         FrameKeyPresses.Clear();
@@ -241,28 +315,11 @@ public sealed class InputBuffer : IDisposable
     }
 
     /// <summary>
-    ///     Returns true if the left mouse button was pressed this frame (rising edge).
+    ///     Chronologically ordered mouse button press/release events for this frame (event-driven
+    ///     via SDL watcher, so rapid clicks from turbo buttons are never lost between polls).
     /// </summary>
-    public bool WasLeftButtonPressed
-        => (CurrentMouse.LeftButton == ButtonState.Pressed) && (PreviousMouse.LeftButton == ButtonState.Released);
-
-    /// <summary>
-    ///     Returns true if the left mouse button was released this frame (falling edge).
-    /// </summary>
-    public bool WasLeftButtonReleased
-        => (CurrentMouse.LeftButton == ButtonState.Released) && (PreviousMouse.LeftButton == ButtonState.Pressed);
-
-    /// <summary>
-    ///     Returns true if the right mouse button was pressed this frame (rising edge).
-    /// </summary>
-    public bool WasRightButtonPressed
-        => (CurrentMouse.RightButton == ButtonState.Pressed) && (PreviousMouse.RightButton == ButtonState.Released);
-
-    /// <summary>
-    ///     Returns true if the right mouse button was released this frame (falling edge).
-    /// </summary>
-    public bool WasRightButtonReleased
-        => (CurrentMouse.RightButton == ButtonState.Released) && (PreviousMouse.RightButton == ButtonState.Pressed);
+    public ReadOnlySpan<BufferedMouseButtonEvent> MouseButtonEvents
+        => MouseButtonEventBuffer.AsSpan(0, MouseButtonEventCount);
 
     /// <summary>
     ///     Returns true if the left mouse button is currently held down.
@@ -274,6 +331,12 @@ public sealed class InputBuffer : IDisposable
     /// </summary>
     public bool IsRightButtonHeld => CurrentMouse.RightButton == ButtonState.Pressed;
     #endregion
+
+    private void ClearMouseButtonEvents()
+    {
+        PendingMouseButtonEvents.Clear();
+        MouseButtonEventCount = 0;
+    }
 
     #region Internal Accessors (used by InputDispatcher)
     internal IReadOnlySet<Keys> FramePresses => FrameKeyPresses;
@@ -295,3 +358,5 @@ public enum OrderedKeyEventKind : byte
 }
 
 public readonly record struct OrderedKeyEvent(OrderedKeyEventKind Kind, Keys Key, char Character);
+
+public readonly record struct BufferedMouseButtonEvent(MouseButton Button, bool IsPress);

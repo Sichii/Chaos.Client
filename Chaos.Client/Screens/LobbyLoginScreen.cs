@@ -637,7 +637,7 @@ public sealed class LobbyLoginScreen : IScreen
                 return;
 
             //enter — repeat last-clicked button when no sub-control is open
-            if (e.Key == Keys.Enter
+            if ((e.Key == Keys.Enter)
                 && Screen.LastClickedButton is { Enabled: true }
                 && !Screen.LoginControl.Visible
                 && !Screen.ServerSelectControl.Visible
@@ -651,7 +651,7 @@ public sealed class LobbyLoginScreen : IScreen
             }
 
             //escape — dismiss serverselectcontrol when it is visible and nothing else claims focus
-            if (e.Key == Keys.Escape && Screen.ServerSelectControl.Visible)
+            if ((e.Key == Keys.Escape) && Screen.ServerSelectControl.Visible)
             {
                 Screen.ServerSelectControl.Visible = false;
                 e.Handled = true;

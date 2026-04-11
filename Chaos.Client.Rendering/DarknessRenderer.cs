@@ -26,6 +26,7 @@ public sealed class DarknessRenderer : IDisposable
     private int CachedLayerIndex0 = -1;
     private int CachedLayerIndex1 = -1;
     private bool CacheValid;
+    private short CurrentMapId;
     private string CurrentLightType = "default";
     private Color DarknessColor;
     private HeaFile? HeaFile;
@@ -258,6 +259,7 @@ public sealed class DarknessRenderer : IDisposable
     public void OnMapChanged(short mapId, bool isDarkMap)
     {
         IsDarkMap = isDarkMap;
+        CurrentMapId = mapId;
         CurrentLightType = LightData?.MapLightTypes.TryGetValue(mapId, out var lightType) is true ? lightType : "default";
 
         //dark maps start dark immediately — light metadata can refine via onlightlevel
@@ -285,8 +287,8 @@ public sealed class DarknessRenderer : IDisposable
     }
 
     /// <summary>
-    ///     Reapplies the last received light level. Called from FinalizeMapLoad to handle the case where LightLevel arrives
-    ///     before MapInfo (e.g. initial login).
+    ///     Reapplies the last received light level. Called after metadata reload so the refreshed light type and
+    ///     properties take effect.
     /// </summary>
     public void ReapplyLightLevel() => OnLightLevel(LastLightLevel);
 
@@ -464,9 +466,14 @@ public sealed class DarknessRenderer : IDisposable
     }
 
     /// <summary>
-    ///     Reloads light metadata from disk. Call after metadata sync completes.
+    ///     Reloads light metadata from disk. Call after metadata sync completes. Recomputes the current light type
+    ///     from the fresh metadata so that stale "default" fallback from pre-sync OnMapChanged is corrected.
     /// </summary>
-    public void ReloadMetadata() => LightData = DataContext.MetaFiles.GetLightMetadata();
+    public void ReloadMetadata()
+    {
+        LightData = DataContext.MetaFiles.GetLightMetadata();
+        CurrentLightType = LightData?.MapLightTypes.TryGetValue(CurrentMapId, out var lightType) is true ? lightType : "default";
+    }
 
     /// <summary>
     ///     Sets the light sources for the current frame. Call before Update() each frame. Light sources are screen-space

@@ -502,7 +502,7 @@ public class UILabel : UIElement
 
         for (var i = 0; i < lines.Count; i++)
         {
-            if (position < charOffset + lines[i].Length)
+            if (position < (charOffset + lines[i].Length))
                 return i;
 
             charOffset += lines[i].Length;
@@ -552,7 +552,7 @@ public class UILabel : UIElement
 
         var now = Environment.TickCount64;
 
-        if ((now - LastClickTime < 400) && (clickPos == LastClickPosition))
+        if (((now - LastClickTime) < 400) && (clickPos == LastClickPosition))
             ClickCount++;
         else
             ClickCount = 1;
@@ -667,7 +667,7 @@ public class UILabel : UIElement
                 var lines = TextElement.WrappedLines!;
                 var line = GetWrappedLineForPosition(CursorPosition);
 
-                if (line + 1 < lines.Count)
+                if ((line + 1) < lines.Count)
                 {
                     var lineStart = GetWrappedLineStart(line);
                     var col = CursorPosition - lineStart;
@@ -705,7 +705,7 @@ public class UILabel : UIElement
 
                 break;
 
-            case Keys.A when ctrl && PlainText.Length > 0:
+            case Keys.A when ctrl && (PlainText.Length > 0):
                 SelectionAnchor = 0;
                 CursorPosition = PlainText.Length;
                 e.Handled = true;

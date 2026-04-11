@@ -348,11 +348,11 @@ public sealed class WorldHudControl : PrefabPanel, IWorldHud
                 InventoryTabButtons[i]!.Clicked += () =>
                 {
                     //toggle between primary and alt panes for skills/spells when clicking the same button
-                    if (tab == HudTab.Skills && (ActiveTab is HudTab.Skills or HudTab.SkillsAlt))
+                    if ((tab == HudTab.Skills) && (ActiveTab is HudTab.Skills or HudTab.SkillsAlt))
                         ShowTab(ActiveTab == HudTab.Skills ? HudTab.SkillsAlt : HudTab.Skills);
-                    else if (tab == HudTab.Spells && (ActiveTab is HudTab.Spells or HudTab.SpellsAlt))
+                    else if ((tab == HudTab.Spells) && (ActiveTab is HudTab.Spells or HudTab.SpellsAlt))
                         ShowTab(ActiveTab == HudTab.Spells ? HudTab.SpellsAlt : HudTab.Spells);
-                    else if (tab == HudTab.Inventory && ActiveTab == HudTab.Inventory)
+                    else if ((tab == HudTab.Inventory) && (ActiveTab == HudTab.Inventory))
                         InventoryReactivated?.Invoke();
                     else
                         ShowTab(tab);

@@ -1152,7 +1152,7 @@ public class UITextBox : UIElement
             return;
 
         //tab cycles focus when istabstop is set — parent handles the actual transfer
-        if (c == '\t' && IsTabStop)
+        if ((c == '\t') && IsTabStop)
             return;
 
         if ((c == '\r') || (c == '\n'))

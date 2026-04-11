@@ -462,8 +462,6 @@ public sealed class MenuListPanel : FramedDialogPanelBase
         private readonly UIImage IconImage;
         private readonly UILabel NameLabel;
 
-        public bool HasData { get; private set; }
-
         public ListEntryControl(int columnWidth)
         {
             Width = columnWidth;
@@ -492,14 +490,12 @@ public sealed class MenuListPanel : FramedDialogPanelBase
 
         public void ClearEntry()
         {
-            HasData = false;
             IconImage.Visible = false;
             NameLabel.Text = string.Empty;
         }
 
         public void SetEntry(Texture2D? icon, string name, bool selected)
         {
-            HasData = true;
             IconImage.Texture = icon;
             IconImage.Visible = icon is not null;
             NameLabel.Text = name;

@@ -1,6 +1,5 @@
 #region
 using Chaos.Client.Controls.Components;
-using Chaos.Client.Definitions;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 #endregion
@@ -221,7 +220,7 @@ public sealed class ScrollBarControl : UIElement
 
     public override void OnMouseDown(MouseDownEvent e)
     {
-        if (e.Button != MouseButton.Left || (TotalItems <= VisibleItems))
+        if ((e.Button != MouseButton.Left) || (TotalItems <= VisibleItems))
             return;
 
         if (Orientation == ScrollOrientation.Horizontal)

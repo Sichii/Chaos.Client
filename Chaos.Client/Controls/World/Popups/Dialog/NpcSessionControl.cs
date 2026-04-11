@@ -731,7 +731,7 @@ public sealed class NpcSessionControl : PrefabPanel
             {
                 OnNext?.Invoke();
                 e.Handled = true;
-            } else if (!DialogOption.Visible || DialogOption.OptionCount == 0)
+            } else if (!DialogOption.Visible || (DialogOption.OptionCount == 0))
             {
                 HideAll();
                 OnClose?.Invoke();

@@ -1,7 +1,6 @@
 #region
 using Chaos.Client.Controls.Components;
 using Chaos.DarkAges.Definitions;
-using Microsoft.Xna.Framework;
 #endregion
 
 namespace Chaos.Client.Controls.World.Popups.Exchange;

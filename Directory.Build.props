@@ -13,6 +13,7 @@
         <IsPackable>true</IsPackable>
         <WarningLevel>4</WarningLevel>
         <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
+        <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     </PropertyGroup>
     <PropertyGroup>
         <Company>Chaotic Minds</Company>

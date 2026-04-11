@@ -106,10 +106,10 @@ public static class MachineIdentity
         if (elements is null)
             return null;
 
-        for (var i = 0; i < elements.Count - 1; i++)
-            if (elements[i].Name == "key"
-                && elements[i].Value == "CLSID"
-                && elements[i + 1].Name == "integer"
+        for (var i = 0; i < (elements.Count - 1); i++)
+            if ((elements[i].Name == "key")
+                && (elements[i].Value == "CLSID")
+                && (elements[i + 1].Name == "integer")
                 && uint.TryParse(elements[i + 1].Value, out var val))
                 return val;
 

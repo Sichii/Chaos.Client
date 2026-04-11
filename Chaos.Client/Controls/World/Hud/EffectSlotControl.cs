@@ -16,7 +16,8 @@ public sealed class EffectSlotControl : UIPanel
     private const int ICON_OFFSET_X = 3;
     private const int ICON_OFFSET_Y = 3;
     private const int BAR_HEIGHT = 2;
-    private const int BAR_OFFSET_X = 3;
+    private const int BAR_MAX_WIDTH = 14;
+    private const int BAR_OFFSET_X = 4;
 
     private readonly UIProgressBar Bar;
     private readonly UIImage Icon;
@@ -43,7 +44,7 @@ public sealed class EffectSlotControl : UIPanel
             Name = "Bar",
             X = BAR_OFFSET_X,
             Y = ICON_OFFSET_Y + ICON_SIZE + 1,
-            Width = ICON_SIZE,
+            Width = BAR_MAX_WIDTH,
             Height = BAR_HEIGHT
         };
 
@@ -82,11 +83,11 @@ public sealed class EffectSlotControl : UIPanel
         => effectColor switch
         {
             EffectColor.White  => 1f,
-            EffectColor.Red    => 5f / 6f,
-            EffectColor.Orange => 4f / 6f,
-            EffectColor.Yellow => 3f / 6f,
-            EffectColor.Green  => 2f / 6f,
-            EffectColor.Blue   => 1f / 6f,
+            EffectColor.Red    => 6f / 7f,
+            EffectColor.Orange => 5f / 7f,
+            EffectColor.Yellow => 4f / 7f,
+            EffectColor.Green  => 3f / 7f,
+            EffectColor.Blue   => 2f / 7f,
             _                  => 0f
         };
 

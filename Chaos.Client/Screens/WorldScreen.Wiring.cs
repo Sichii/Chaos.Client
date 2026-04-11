@@ -299,7 +299,7 @@ public sealed partial class WorldScreen
     /// </summary>
     private void ForceCloseOtherTogglePanels(Keys except)
     {
-        if (except != Keys.Q && MainOptions.Visible)
+        if ((except != Keys.Q) && MainOptions.Visible)
         {
             SettingsDialog.Hide();
             MacrosList.Hide();
@@ -307,7 +307,7 @@ public sealed partial class WorldScreen
             MainOptions.SlideClose();
         }
 
-        if (except != Keys.W && IsAnyBoardPanelVisible())
+        if ((except != Keys.W) && IsAnyBoardPanelVisible())
         {
             if (BoardList.Visible)
                 BoardList.SlideClose();
@@ -315,10 +315,10 @@ public sealed partial class WorldScreen
                 WorldState.Board.CloseSession();
         }
 
-        if (except != Keys.E && WorldList.Visible)
+        if ((except != Keys.E) && WorldList.Visible)
             WorldList.SlideClose();
 
-        if (except != Keys.R && SocialStatusPicker.Visible)
+        if ((except != Keys.R) && SocialStatusPicker.Visible)
         {
             SocialStatusPicker.Hide();
 
@@ -835,6 +835,7 @@ public sealed partial class WorldScreen
 
         var viewport = WorldHud.ViewportBounds;
         Camera.Resize(viewport.Width, viewport.Height);
+        UpdateCameraOffset(viewport);
         WorldList.SetViewportBounds(viewport);
         BoardList.SetViewportBounds(viewport);
         ArticleList.SetViewportBounds(viewport);

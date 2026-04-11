@@ -999,7 +999,7 @@ public sealed class AislingRenderer : IDisposable
                 }
             }
 
-            if (!layers[(int)LayerSlot.Body].HasValue)
+            if (!layers[(int)LayerSlot.Body].HasValue && !layers[(int)LayerSlot.BodyB].HasValue)
                 return null;
 
             var order = isFront ? FRONT_ORDER : BACK_ORDER;
@@ -1531,7 +1531,7 @@ public sealed class AislingRenderer : IDisposable
         //base rest sprite
         var spf = DrawData.GetRestSpf(isFemale, pos, false);
 
-        if (spf is null || spf.Count < 2)
+        if (spf is null || (spf.Count < 2))
             return null;
 
         var frameIndex = isFrontFacing ? 1 : 0;

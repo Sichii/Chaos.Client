@@ -276,7 +276,7 @@ public sealed class TownMapControl : UIPanel
 
         while (i < line.Length)
         {
-            if (!char.IsDigit(line[i]) && line[i] != '-')
+            if (!char.IsDigit(line[i]) && (line[i] != '-'))
             {
                 i++;
 
@@ -287,7 +287,7 @@ public sealed class TownMapControl : UIPanel
 
             if (line[i] == '-')
             {
-                if (i + 1 < line.Length && char.IsDigit(line[i + 1]))
+                if (((i + 1) < line.Length) && char.IsDigit(line[i + 1]))
                     i++;
                 else
                 {
@@ -297,7 +297,7 @@ public sealed class TownMapControl : UIPanel
                 }
             }
 
-            while (i < line.Length && char.IsDigit(line[i]))
+            while ((i < line.Length) && char.IsDigit(line[i]))
                 i++;
 
             if (int.TryParse(line.AsSpan(start, i - start), out var value))

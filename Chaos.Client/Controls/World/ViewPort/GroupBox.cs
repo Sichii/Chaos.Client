@@ -72,14 +72,14 @@ public sealed class GroupBox : UIPanel
     {
         var source = UiRenderer.Instance!.GetSpfTexture("gc_pane2.spf");
 
-        if (source.Width < PANEL_WIDTH || source.Height < PANEL_HEIGHT)
+        if ((source.Width < PANEL_WIDTH) || (source.Height < PANEL_HEIGHT))
             return source;
 
         var pixels = new Color[source.Width * source.Height];
         source.GetData(pixels);
 
-        for (var y = TITLE_Y; y < TITLE_Y + TITLE_HEIGHT; y++)
-            for (var x = TITLE_X; x < TITLE_X + TITLE_WIDTH; x++)
+        for (var y = TITLE_Y; y < (TITLE_Y + TITLE_HEIGHT); y++)
+            for (var x = TITLE_X; x < (TITLE_X + TITLE_WIDTH); x++)
                 pixels[y * source.Width + x] = titleFill;
 
         var texture = new Texture2D(ChaosGame.Device, source.Width, source.Height);

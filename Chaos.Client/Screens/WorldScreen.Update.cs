@@ -230,10 +230,10 @@ public sealed partial class WorldScreen
         //── track which entity the mouse is hovering over ──
         var hoverEntity = GetEntityAtScreen(Game.Input.MouseX, Game.Input.MouseY);
 
-        var isItemDrag = GetDraggingPanel() is { } dragPanel && dragPanel == WorldHud.Inventory;
+        var isItemDrag = GetDraggingPanel() is { } dragPanel && (dragPanel == WorldHud.Inventory);
 
         var newHoveredId = hoverEntity?.Type is ClientEntityType.Aisling or ClientEntityType.Creature
-                           && !(isItemDrag && hoverEntity.Id == Game.Connection.AislingId)
+                           && !(isItemDrag && (hoverEntity.Id == Game.Connection.AislingId))
             ? hoverEntity.Id
             : (uint?)null;
 
@@ -266,8 +266,11 @@ public sealed partial class WorldScreen
 
         var skipDispatch = false;
 
-        if (Game.Input.WasLeftButtonPressed)
+        foreach (var mbEvt in Game.Input.MouseButtonEvents)
         {
+            if (mbEvt is not { Button: MouseButton.Left, IsPress: true })
+                continue;
+
             var mx = Game.Input.MouseX;
             var my = Game.Input.MouseY;
 
@@ -280,6 +283,8 @@ public sealed partial class WorldScreen
                 EventMetadataDetails.Hide();
                 skipDispatch = true;
             }
+
+            break;
         }
 
         if (!skipDispatch)

@@ -520,7 +520,7 @@ public sealed class TabMapRenderer : IDisposable
         if (entity.Id == playerEntityId)
             return 3;
 
-        if (entity.Type == ClientEntityType.Creature && entity.CreatureType != CreatureType.Merchant)
+        if ((entity.Type == ClientEntityType.Creature) && (entity.CreatureType != CreatureType.Merchant))
             return 2;
 
         if (entity.Type == ClientEntityType.Aisling)

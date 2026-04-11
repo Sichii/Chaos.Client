@@ -180,7 +180,7 @@ public class UIPanel : UIElement
                 CollectTabStops(childPanel, ref tabStops);
         }
 
-        if (tabStops is null || tabStops.Count < 2)
+        if (tabStops is null || (tabStops.Count < 2))
             return;
 
         tabStops.Sort((a, b) =>

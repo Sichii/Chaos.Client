@@ -192,7 +192,7 @@ public class PanelSlot : UIButton
 
     public override void OnDoubleClick(DoubleClickEvent e)
     {
-        if (e.Button == MouseButton.Left && NormalTexture is not null && CooldownPercent <= 0)
+        if ((e.Button == MouseButton.Left) && NormalTexture is not null && (CooldownPercent <= 0))
         {
             DoubleClicked?.Invoke(Slot);
             DoubleClickFired = true;
@@ -202,7 +202,7 @@ public class PanelSlot : UIButton
 
     public override void OnDragStart(DragStartEvent e)
     {
-        if (NormalTexture is null || CooldownPercent > 0 || DoubleClickFired)
+        if (NormalTexture is null || (CooldownPercent > 0) || DoubleClickFired)
             return;
 
         e.Payload = new SlotDragPayload
@@ -217,7 +217,7 @@ public class PanelSlot : UIButton
 
     public override void OnDragMove(DragMoveEvent e)
     {
-        if (e.Payload is SlotDragPayload payload && payload.Source.Parent == Parent)
+        if (e.Payload is SlotDragPayload payload && (payload.Source.Parent == Parent))
             IsDropTarget = true;
     }
 
@@ -236,7 +236,7 @@ public class PanelSlot : UIButton
             return;
 
         //only accept drops from slots within the same parent panel
-        if (Parent is not PanelBase panel || payload.Source.Parent != Parent)
+        if (Parent is not PanelBase panel || (payload.Source.Parent != Parent))
             return;
 
         //dropping on the same slot is a no-op — just end drag

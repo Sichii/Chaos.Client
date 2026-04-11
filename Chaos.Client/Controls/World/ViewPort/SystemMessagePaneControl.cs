@@ -56,7 +56,7 @@ public sealed class SystemMessagePaneControl : UIPanel
         //shift existing messages up, dropping oldest
         if (Count >= MAX_LINES)
         {
-            for (var i = 0; i < MAX_LINES - 1; i++)
+            for (var i = 0; i < (MAX_LINES - 1); i++)
             {
                 Lines[i].Text = Lines[i + 1].Text;
                 BaseColors[i] = BaseColors[i + 1];

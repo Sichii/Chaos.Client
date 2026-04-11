@@ -61,7 +61,7 @@ public sealed partial class WorldScreen
             if (child is not UIPanel { Visible: true, IsPassThrough: false } panel)
                 continue;
 
-            if (panel == SmallHud || panel == LargeHud)
+            if ((panel == SmallHud) || (panel == LargeHud))
                 continue;
 
             if (panel.ContainsPoint(screenX, screenY))
@@ -653,7 +653,7 @@ public sealed partial class WorldScreen
         if (Game.Dispatcher.ControlStackCount > 0)
             return;
 
-        if (e.Key == Keys.T && TownMapControl.Visible)
+        if ((e.Key == Keys.T) && TownMapControl.Visible)
         {
             TownMapControl.Hide();
             e.Handled = true;
@@ -705,7 +705,7 @@ public sealed partial class WorldScreen
 
             if (e.Key == Keys.S)
             {
-                var alt = e.Shift || (!ClientSettings.UseShiftKeyForAltPanels && WorldHud.ActiveTab == HudTab.Skills);
+                var alt = e.Shift || (!ClientSettings.UseShiftKeyForAltPanels && (WorldHud.ActiveTab == HudTab.Skills));
                 WorldHud.ShowTab(alt ? HudTab.SkillsAlt : HudTab.Skills);
                 e.Handled = true;
 
@@ -714,7 +714,7 @@ public sealed partial class WorldScreen
 
             if (e.Key == Keys.D)
             {
-                var alt = e.Shift || (!ClientSettings.UseShiftKeyForAltPanels && WorldHud.ActiveTab == HudTab.Spells);
+                var alt = e.Shift || (!ClientSettings.UseShiftKeyForAltPanels && (WorldHud.ActiveTab == HudTab.Spells));
                 WorldHud.ShowTab(alt ? HudTab.SpellsAlt : HudTab.Spells);
                 e.Handled = true;
 
@@ -883,7 +883,7 @@ public sealed partial class WorldScreen
         }
 
         //j — flash group member highlighting (1000ms, gated while pending or active)
-        if (e.Key == Keys.J && !GroupHighlightRequested && (GroupHighlightedIds.Count == 0))
+        if ((e.Key == Keys.J) && !GroupHighlightRequested && (GroupHighlightedIds.Count == 0))
         {
             GroupHighlightRequested = true;
             Game.Connection.RequestSelfProfile();
@@ -1363,7 +1363,7 @@ public sealed partial class WorldScreen
 
         var player = WorldState.GetPlayerEntity();
 
-        if (player is null || player.AnimState != EntityAnimState.Idle)
+        if (player is null || (player.AnimState != EntityAnimState.Idle))
             return;
 
         var viewport = WorldHud.ViewportBounds;

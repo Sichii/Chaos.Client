@@ -77,7 +77,7 @@ public sealed class WorldListEntryControl : UIPanel
 
     public override void OnDoubleClick(DoubleClickEvent e)
     {
-        if (e.Button == MouseButton.Left && PlayerName is not null)
+        if ((e.Button == MouseButton.Left) && PlayerName is not null)
         {
             OnWhisper?.Invoke(PlayerName);
             e.Handled = true;

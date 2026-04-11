@@ -220,7 +220,7 @@ public sealed class ChatInputControl : UIPanel
 
     private void CycleWhisperTarget(int direction)
     {
-        if (WhisperHistory.Count == 0 || Mode != ChatMode.WhisperName)
+        if ((WhisperHistory.Count == 0) || (Mode != ChatMode.WhisperName))
             return;
 
         WhisperHistoryIndex = (WhisperHistoryIndex + direction + WhisperHistory.Count) % WhisperHistory.Count;
@@ -229,11 +229,12 @@ public sealed class ChatInputControl : UIPanel
 
     private string GetBracketedWhisperTarget()
     {
+        // ReSharper disable once NullCoalescingConditionIsAlwaysNotNullAccordingToAPIContract
         var prefix = PrefixLabel.Text ?? string.Empty;
         var start = prefix.IndexOf('[') + 1;
         var end = prefix.IndexOf(']');
 
-        if (start <= 0 || end < start)
+        if ((start <= 0) || (end < start))
             return string.Empty;
 
         return prefix[start..end];
@@ -383,7 +384,7 @@ public sealed class ChatInputControl : UIPanel
     {
         base.Update(gameTime);
 
-        if (Mode != ChatMode.WhisperName || !IsFocused)
+        if ((Mode != ChatMode.WhisperName) || !IsFocused)
             return;
 
         if (Input.WasKeyPressed(Keys.Up))

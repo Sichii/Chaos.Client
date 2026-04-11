@@ -274,9 +274,9 @@ public sealed class InputDispatcher
                 DispatchBubble(scrollTarget ?? root, MouseScroll);
             }
 
-            //── mouse buttons ──
-            ProcessMouseButton(root, mouseX, mouseY, totalMs, modifiers, MouseButton.Left, Input.WasLeftButtonPressed, Input.WasLeftButtonReleased);
-            ProcessMouseButton(root, mouseX, mouseY, totalMs, modifiers, MouseButton.Right, Input.WasRightButtonPressed, Input.WasRightButtonReleased);
+            //── mouse buttons (replayed individually in SDL event order) ──
+            foreach (var mbEvt in Input.MouseButtonEvents)
+                ProcessMouseButton(root, mouseX, mouseY, totalMs, modifiers, mbEvt.Button, wasPressed: mbEvt.IsPress, wasReleased: !mbEvt.IsPress);
         } else
         {
             //mouse is blocked — still track position for delta calculation next frame
