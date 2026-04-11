@@ -52,7 +52,7 @@ public sealed class ChatPanel : ExpandablePanel
             {
                 Name = $"ChatLine{i}",
                 X = relX,
-                Width = displayBounds.Width,
+                Width = displayBounds.Width - ScrollBarControl.DEFAULT_WIDTH,
                 Height = GLYPH_HEIGHT,
                 PaddingLeft = 0,
                 PaddingTop = 0
@@ -85,7 +85,7 @@ public sealed class ChatPanel : ExpandablePanel
 
     private void AddMessage(string text, Color color)
     {
-        var maxWidth = DisplayBounds.Width;
+        var maxWidth = DisplayBounds.Width - ScrollBarControl.DEFAULT_WIDTH;
 
         if (maxWidth <= 0)
             return;
@@ -155,7 +155,7 @@ public sealed class ChatPanel : ExpandablePanel
                     Name = $"ChatLine{i}",
                     X = relX,
                     Y = relY + NormalDisplayBounds.Height - (MaxVisibleLines - i) * GLYPH_HEIGHT,
-                    Width = NormalDisplayBounds.Width,
+                    Width = NormalDisplayBounds.Width - ScrollBarControl.DEFAULT_WIDTH,
                     Height = GLYPH_HEIGHT,
                     PaddingLeft = 0,
                     PaddingTop = 0,

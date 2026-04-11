@@ -56,6 +56,7 @@ public class UILabel : UIElement
         set => Invalidate(value, TextElement.Color);
     }
 
+    public float Opacity { get; set; } = 1f;
     public VerticalAlignment VerticalAlignment { get; set; }
     public bool TruncateWithEllipsis { get; set; } = true;
     public bool WordWrap { get; set; }
@@ -102,7 +103,7 @@ public class UILabel : UIElement
                 var lineY = innerY + (lineIdx - firstLine) * TextRenderer.CHAR_HEIGHT;
 
                 if (TextElement.WrappedLines[lineIdx].Length > 0)
-                    DrawTextClipped(spriteBatch, new Vector2(innerX, lineY), TextElement.WrappedLines[lineIdx], TextElement.Color, ColorCodesEnabled);
+                    DrawTextClipped(spriteBatch, new Vector2(innerX, lineY), TextElement.WrappedLines[lineIdx], TextElement.Color, ColorCodesEnabled, Opacity);
             }
         } else if (TruncateWithEllipsis && (TextElement.Width > innerW))
         {
@@ -116,7 +117,7 @@ public class UILabel : UIElement
                 truncLen--;
 
             var truncated = truncLen > 0 ? text[..truncLen] + "..." : "...";
-            DrawTextClipped(spriteBatch, new Vector2(innerX, innerY + (int)(((VerticalAlignment == VerticalAlignment.Top ? TextElement.Height : innerH) - TextRenderer.CHAR_HEIGHT) / 2f)), truncated, TextElement.Color, ColorCodesEnabled);
+            DrawTextClipped(spriteBatch, new Vector2(innerX, innerY + (int)(((VerticalAlignment == VerticalAlignment.Top ? TextElement.Height : innerH) - TextRenderer.CHAR_HEIGHT) / 2f)), truncated, TextElement.Color, ColorCodesEnabled, Opacity);
         } else
         {
             var bounds = new Rectangle(
@@ -136,9 +137,9 @@ public class UILabel : UIElement
             var pos = new Vector2(textX, textY);
 
             if (Shadowed)
-                DrawTextShadowedClipped(spriteBatch, pos, TextElement.Text, TextElement.Color, Color.Black, ColorCodesEnabled);
+                DrawTextShadowedClipped(spriteBatch, pos, TextElement.Text, TextElement.Color, Color.Black, ColorCodesEnabled, Opacity);
             else
-                DrawTextClipped(spriteBatch, pos, TextElement.Text, TextElement.Color, ColorCodesEnabled);
+                DrawTextClipped(spriteBatch, pos, TextElement.Text, TextElement.Color, ColorCodesEnabled, Opacity);
         }
     }
 

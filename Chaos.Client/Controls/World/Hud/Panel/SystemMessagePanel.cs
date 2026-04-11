@@ -51,7 +51,7 @@ public sealed class SystemMessagePanel : ExpandablePanel
             {
                 Name = $"HistoryLine{i}",
                 X = relX,
-                Width = displayBounds.Width,
+                Width = displayBounds.Width - ScrollBarControl.DEFAULT_WIDTH,
                 Height = GLYPH_HEIGHT,
                 PaddingLeft = 0,
                 PaddingTop = 0
@@ -111,7 +111,7 @@ public sealed class SystemMessagePanel : ExpandablePanel
                     Name = $"HistoryLine{i}",
                     X = relX,
                     Y = relY + NormalDisplayBounds.Height - (MaxVisibleLines - i) * GLYPH_HEIGHT,
-                    Width = NormalDisplayBounds.Width,
+                    Width = NormalDisplayBounds.Width - ScrollBarControl.DEFAULT_WIDTH,
                     Height = GLYPH_HEIGHT,
                     PaddingLeft = 0,
                     PaddingTop = 0,

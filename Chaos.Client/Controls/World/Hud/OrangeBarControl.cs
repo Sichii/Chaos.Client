@@ -84,6 +84,10 @@ public sealed class OrangeBarControl : UIPanel
         var contentHeight = ExpandedLines * GLYPH_HEIGHT;
         var totalHeight = expandY - topY + contentHeight;
 
+        //expand bounds to cover expanded content so ClipRect doesn't clip it
+        Height = totalHeight + 4;
+        UpdateClipRect();
+
         //solid opaque fill
         DrawRectClipped(
             spriteBatch,

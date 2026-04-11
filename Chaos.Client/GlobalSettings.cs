@@ -20,19 +20,17 @@ public static class GlobalSettings
     private static ushort ClientVersion => 741;
 
     public static string DataPath
-        => //Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, ".."));
-            @"C:\Users\Despe\Desktop\Unora\Unora";
+        => @"C:\Users\Despe\Desktop\Unora\Unora";
+            //Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, ".."));
             //@"C:\Users\Despe\Desktop\Dark Ages";
 
     public static string LobbyHost
         => "chaotic-minds.dynu.net";
-
             //"127.0.0.1";
             //"da0.kru.com";
 
     public static int LobbyPort
         => 6900;
-
             //4200;
             //2610;
 

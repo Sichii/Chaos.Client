@@ -364,7 +364,8 @@ public abstract class UIElement : IDisposable
         Vector2 position,
         string text,
         Color color,
-        bool colorCodesEnabled = true)
+        bool colorCodesEnabled = true,
+        float opacity = 1f)
     {
         if (string.IsNullOrEmpty(text))
             return;
@@ -379,13 +380,13 @@ public abstract class UIElement : IDisposable
         //fully inside — fast path
         if (ClipRect.Contains(textBounds))
         {
-            TextRenderer.DrawText(spriteBatch, position, text, color, colorCodesEnabled);
+            TextRenderer.DrawText(spriteBatch, position, text, color, colorCodesEnabled, opacity);
 
             return;
         }
 
         //partially clipped — per-glyph clipping
-        TextRenderer.DrawTextClipped(spriteBatch, position, text, color, ClipRect, colorCodesEnabled);
+        TextRenderer.DrawTextClipped(spriteBatch, position, text, color, ClipRect, colorCodesEnabled, opacity);
     }
 
     /// <summary>
@@ -397,17 +398,18 @@ public abstract class UIElement : IDisposable
         string text,
         Color textColor,
         Color shadowColor,
-        bool colorCodesEnabled = true)
+        bool colorCodesEnabled = true,
+        float opacity = 1f)
     {
         if (string.IsNullOrEmpty(text))
             return;
 
         //shadow at down-right (+1,+1) and down-left (-1,+1)
-        DrawTextClipped(spriteBatch, position + new Vector2(2, 1), text, shadowColor, colorCodesEnabled);
-        DrawTextClipped(spriteBatch, position + new Vector2(0, 1), text, shadowColor, colorCodesEnabled);
+        DrawTextClipped(spriteBatch, position + new Vector2(2, 1), text, shadowColor, colorCodesEnabled, opacity);
+        DrawTextClipped(spriteBatch, position + new Vector2(0, 1), text, shadowColor, colorCodesEnabled, opacity);
 
         //main text
-        DrawTextClipped(spriteBatch, position + new Vector2(1, 0), text, textColor, colorCodesEnabled);
+        DrawTextClipped(spriteBatch, position + new Vector2(1, 0), text, textColor, colorCodesEnabled, opacity);
     }
 
     //── event handlers (dispatched by inputdispatcher) ──

@@ -65,7 +65,8 @@ public static class TextRenderer
         Vector2 position,
         string text,
         Color color,
-        bool colorCodesEnabled = true)
+        bool colorCodesEnabled = true,
+        float opacity = 1f)
     {
         if (string.IsNullOrEmpty(text))
             return;
@@ -75,13 +76,14 @@ public static class TextRenderer
         var atlas = FontAtlas.Instance;
         var cursorX = position.X;
         var y = position.Y;
-        var activeColor = color;
+        var activeColor = opacity < 1f ? color * opacity : color;
 
         for (var i = 0; i < text.Length; i++)
         {
             if (colorCodesEnabled && IsColorCode(text, i))
             {
-                activeColor = GetColorCode(text[i + 2])!.Value;
+                var codeColor = GetColorCode(text[i + 2])!.Value;
+                activeColor = opacity < 1f ? codeColor * opacity : codeColor;
                 i += 2;
 
                 continue;
@@ -177,7 +179,8 @@ public static class TextRenderer
         string text,
         Color color,
         Rectangle clipRect,
-        bool colorCodesEnabled = true)
+        bool colorCodesEnabled = true,
+        float opacity = 1f)
     {
         if (string.IsNullOrEmpty(text))
             return;
@@ -187,13 +190,14 @@ public static class TextRenderer
         var atlas = FontAtlas.Instance;
         var cursorX = position.X;
         var y = position.Y;
-        var activeColor = color;
+        var activeColor = opacity < 1f ? color * opacity : color;
 
         for (var i = 0; i < text.Length; i++)
         {
             if (colorCodesEnabled && IsColorCode(text, i))
             {
-                activeColor = GetColorCode(text[i + 2])!.Value;
+                var codeColor = GetColorCode(text[i + 2])!.Value;
+                activeColor = opacity < 1f ? codeColor * opacity : codeColor;
                 i += 2;
 
                 continue;

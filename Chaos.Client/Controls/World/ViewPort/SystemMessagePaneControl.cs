@@ -12,7 +12,7 @@ namespace Chaos.Client.Controls.World.ViewPort;
 public sealed class SystemMessagePaneControl : UIPanel
 {
     private const int MAX_LINES = 3;
-    private const float DISPLAY_DURATION_MS = 3000f;
+    private const float DISPLAY_DURATION_MS = 2500f;
     private const float FADE_DURATION_MS = 1000f;
     private const float TOTAL_DURATION_MS = DISPLAY_DURATION_MS + FADE_DURATION_MS;
 
@@ -69,11 +69,14 @@ public sealed class SystemMessagePaneControl : UIPanel
         Lines[slot].Text = text;
         BaseColors[slot] = messageColor;
 
-        //reset timer and restore all colors
+        //reset timer and restore all colors/opacity
         ElapsedMs = 0;
 
         for (var i = 0; i < Count; i++)
+        {
             Lines[i].ForegroundColor = BaseColors[i];
+            Lines[i].Opacity = 1f;
+        }
 
         RepositionLabels();
     }
@@ -108,7 +111,7 @@ public sealed class SystemMessagePaneControl : UIPanel
             var alpha = 1f - (ElapsedMs - DISPLAY_DURATION_MS) / FADE_DURATION_MS;
 
             for (var i = 0; i < Count; i++)
-                Lines[i].ForegroundColor = BaseColors[i] * alpha;
+                Lines[i].Opacity = alpha;
         }
 
         base.Update(gameTime);
