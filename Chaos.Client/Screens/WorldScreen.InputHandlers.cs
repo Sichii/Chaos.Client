@@ -555,6 +555,15 @@ public sealed partial class WorldScreen
     /// </summary>
     private void OnRootKeyDown(KeyDownEvent e)
     {
+        //alt+enter — cycle window size
+        if ((e.Key == Keys.Enter) && e.Modifiers.HasFlag(KeyModifiers.Alt))
+        {
+            Game.CycleWindowSize();
+            e.Handled = true;
+
+            return;
+        }
+
         //casting mode: escape cancels targeting
         if (CastingSystem.IsTargeting && (e.Key == Keys.Escape))
         {

@@ -35,6 +35,7 @@ public sealed class ChaosGame : Game
     private bool MetaSyncStarted;
     private RenderTarget2D RenderTarget = null!;
     private bool ResizingInProgress;
+    private int WindowSizeMultiplier = 1;
     private SpriteBatch SpriteBatch = null!;
 
     /// <summary>
@@ -266,7 +267,38 @@ public sealed class ChaosGame : Game
             (HandCursorOffsetX, HandCursorOffsetY) = FindCursorHotspot(HandCursorTexture);
     }
 
-    #region Aspect Ratio Constraint
+    #region Window Sizing
+    /// <summary>
+    ///     Cycles the window through integer multipliers of the virtual resolution (640x480).
+    ///     Advances to the next multiplier if it fits on the current monitor, otherwise wraps to 1x.
+    /// </summary>
+    internal void CycleWindowSize()
+    {
+        var displayIndex = Sdl.SDL_GetWindowDisplayIndex(Window.Handle);
+
+        if ((displayIndex < 0) || (Sdl.SDL_GetDisplayBounds(displayIndex, out var bounds) < 0))
+            return;
+
+        var nextMultiplier = WindowSizeMultiplier + 1;
+        var nextWidth = VIRTUAL_WIDTH * nextMultiplier;
+        var nextHeight = VIRTUAL_HEIGHT * nextMultiplier;
+
+        if ((nextWidth > bounds.W) || (nextHeight > bounds.H))
+        {
+            nextMultiplier = 1;
+            nextWidth = VIRTUAL_WIDTH;
+            nextHeight = VIRTUAL_HEIGHT;
+        }
+
+        WindowSizeMultiplier = nextMultiplier;
+
+        ResizingInProgress = true;
+        Graphics.PreferredBackBufferWidth = nextWidth;
+        Graphics.PreferredBackBufferHeight = nextHeight;
+        Graphics.ApplyChanges();
+        ResizingInProgress = false;
+    }
+
     /// <summary>
     ///     Corrects the window size after a resize to enforce 4:3 aspect ratio.
     ///     Uses the larger dimension as the reference and adjusts the other.
@@ -312,7 +344,7 @@ public sealed class ChaosGame : Game
 
         ResizingInProgress = false;
     }
-    #endregion
+    #endregion Window Sizing
 
     /// <summary>
     ///     Fired when all metadata files are up to date with the server.

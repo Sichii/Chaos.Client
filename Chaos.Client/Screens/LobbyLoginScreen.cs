@@ -636,6 +636,15 @@ public sealed class LobbyLoginScreen : IScreen
             if (Screen is null)
                 return;
 
+            //alt+enter — cycle window size
+            if ((e.Key == Keys.Enter) && e.Modifiers.HasFlag(KeyModifiers.Alt))
+            {
+                Screen.Game.CycleWindowSize();
+                e.Handled = true;
+
+                return;
+            }
+
             //enter — repeat last-clicked button when no sub-control is open
             if ((e.Key == Keys.Enter)
                 && Screen.LastClickedButton is { Enabled: true }

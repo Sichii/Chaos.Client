@@ -12,24 +12,6 @@ namespace Chaos.Client;
 /// </summary>
 public sealed partial class InputBuffer : IDisposable
 {
-    //SDL2 interop — event-driven mouse button detection so rapid clicks (turbo buttons)
-    //are never lost between Mouse.GetState() polls
-    private const uint SDL_MOUSEBUTTONDOWN = 0x401;
-    private const uint SDL_MOUSEBUTTONUP = 0x402;
-    private const byte SDL_BUTTON_LEFT = 1;
-    private const byte SDL_BUTTON_RIGHT = 3;
-    private const int SDL_MOUSEBUTTONEVENT_BUTTON_OFFSET = 16;
-
-    [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
-    private delegate int SdlEventWatchCallback(nint userdata, nint sdlEvent);
-
-    [LibraryImport("SDL2")]
-    [UnmanagedCallConv(CallConvs = [typeof(System.Runtime.CompilerServices.CallConvCdecl)])]
-    private static partial void SDL_AddEventWatch(nint filter, nint userdata);
-
-    [LibraryImport("SDL2")]
-    [UnmanagedCallConv(CallConvs = [typeof(System.Runtime.CompilerServices.CallConvCdecl)])]
-    private static partial void SDL_DelEventWatch(nint filter, nint userdata);
 
     private readonly Game Game;
     private readonly HashSet<Keys> HeldKeys = [];
@@ -58,7 +40,7 @@ public sealed partial class InputBuffer : IDisposable
     private int OrderedCount;
 
     //prevent GC of the unmanaged callback delegate
-    private readonly SdlEventWatchCallback SdlEventWatch;
+    private readonly Sdl.EventWatchCallback SdlEventWatch;
     private readonly nint SdlEventWatchPtr;
 
     //virtual resolution transform — raw window coords → virtual 640×480 coords
@@ -75,13 +57,13 @@ public sealed partial class InputBuffer : IDisposable
 
         SdlEventWatch = OnSdlEvent;
         SdlEventWatchPtr = Marshal.GetFunctionPointerForDelegate(SdlEventWatch);
-        SDL_AddEventWatch(SdlEventWatchPtr, nint.Zero);
+        Sdl.SDL_AddEventWatch(SdlEventWatchPtr, nint.Zero);
     }
 
     /// <inheritdoc />
     public void Dispose()
     {
-        SDL_DelEventWatch(SdlEventWatchPtr, nint.Zero);
+        Sdl.SDL_DelEventWatch(SdlEventWatchPtr, nint.Zero);
         Window.KeyDown -= OnKeyDown;
         Window.KeyUp -= OnKeyUp;
         Window.TextInput -= OnTextInput;
@@ -91,16 +73,16 @@ public sealed partial class InputBuffer : IDisposable
     {
         var eventType = (uint)Marshal.ReadInt32(sdlEvent);
 
-        if (eventType is not (SDL_MOUSEBUTTONDOWN or SDL_MOUSEBUTTONUP))
+        if (eventType is not (Sdl.MOUSEBUTTONDOWN or Sdl.MOUSEBUTTONUP))
             return 1;
 
-        var sdlButton = Marshal.ReadByte(sdlEvent, SDL_MOUSEBUTTONEVENT_BUTTON_OFFSET);
-        var isPress = eventType == SDL_MOUSEBUTTONDOWN;
+        var sdlButton = Marshal.ReadByte(sdlEvent, Sdl.MOUSEBUTTONEVENT_BUTTON_OFFSET);
+        var isPress = eventType == Sdl.MOUSEBUTTONDOWN;
 
         var mouseButton = sdlButton switch
         {
-            SDL_BUTTON_LEFT  => MouseButton.Left,
-            SDL_BUTTON_RIGHT => MouseButton.Right,
+            Sdl.BUTTON_LEFT  => MouseButton.Left,
+            Sdl.BUTTON_RIGHT => MouseButton.Right,
             _                => (MouseButton)(-1)
         };
 

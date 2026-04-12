@@ -59,6 +59,8 @@ public sealed class WorldMap : UIPanel
         if (!Visible)
             return;
 
+        UpdateClipRect();
+
         //draw background image
         if (BackgroundTexture is not null)
             spriteBatch.Draw(

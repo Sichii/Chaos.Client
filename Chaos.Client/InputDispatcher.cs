@@ -276,7 +276,7 @@ public sealed class InputDispatcher
 
             //── mouse buttons (replayed individually in SDL event order) ──
             foreach (var mbEvt in Input.MouseButtonEvents)
-                ProcessMouseButton(root, mouseX, mouseY, totalMs, modifiers, mbEvt.Button, wasPressed: mbEvt.IsPress, wasReleased: !mbEvt.IsPress);
+                ProcessMouseButton(root, mouseX, mouseY, totalMs, modifiers, mbEvt.Button, mbEvt.IsPress, !mbEvt.IsPress);
         } else
         {
             //mouse is blocked — still track position for delta calculation next frame
