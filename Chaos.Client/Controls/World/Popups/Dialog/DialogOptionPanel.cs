@@ -52,8 +52,7 @@ public sealed class DialogOptionPanel : FramedDialogPanelBase
     {
         Name = "OptionMenu";
         Visible = false;
-
-
+        
         OkButton = CreateButton("Btn1");
 
         if (OkButton is not null)
@@ -241,7 +240,7 @@ public sealed class DialogOptionPanel : FramedDialogPanelBase
             StripeMidOn = stripeMidOn;
             StripeRightOn = stripeRightOn;
             TextWidth = TextRenderer.MeasureWidth(text);
-            TextCache.Update(text, Color.White);
+            TextCache.Update(text, LegendColors.Silver);
         }
 
         public override void Draw(SpriteBatch spriteBatch)

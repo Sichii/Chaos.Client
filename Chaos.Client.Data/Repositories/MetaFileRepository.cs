@@ -25,6 +25,7 @@ public sealed class MetaFileRepository
 
     private readonly string MetaFileDirectory = Path.Combine(DataContext.DataPath, "metafile");
     private FrozenDictionary<int, ushort>? ItemIndex;
+    private NpcIllustrationMetadata? NpcIllustrationMetadataCache;
 
     /// <summary>
     ///     Builds the item name-to-file index for fast lookups. Must be called once after metadata files are synced to disk.
@@ -210,17 +211,12 @@ public sealed class MetaFileRepository
     }
 
     /// <summary>
-    ///     Loads NPC name-to-illustration-filename mappings from the "NPCIllust" metadata file.
+    ///     Returns merged NPC illustration metadata from both <c>npci.tbl</c> (inside <c>npcbase.dat</c>) and the
+    ///     server-pushed <c>NPCIllust</c> metafile. <c>npci.tbl</c> variants occupy the low indices; metafile
+    ///     variants are appended after them. Cached after first call — the data only changes on startup.
     /// </summary>
-    public NpcIllustrationMetadata? GetNpcIllustrationMetadata()
-    {
-        var metaFile = Get("NPCIllust");
-
-        if (metaFile is null or { Count: 0 })
-            return null;
-
-        return NpcIllustrationMetadata.Parse(metaFile);
-    }
+    public NpcIllustrationMetadata GetNpcIllustrationMetadata()
+        => NpcIllustrationMetadataCache ??= NpcIllustrationMetadata.Build(DatArchives.Npcbase, Get("NPCIllust"));
 
     /// <summary>
     ///     Scans a single MetaFile on disk for entries matching the requested names, adding matches to the results dictionary.

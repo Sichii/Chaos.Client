@@ -33,8 +33,6 @@ public sealed class CharacterCreationControl : PrefabPanel
         DisplayColor.Black
     ];
 
-    private const int BODY_CENTER_X = 28;
-    private const int BODY_CENTER_Y = 42;
     private const int ANIM_FRAME_COUNT = 5;
     private const float WALK_FRAME_INTERVAL_MS = 350f;
 
@@ -220,11 +218,12 @@ public sealed class CharacterCreationControl : PrefabPanel
         if (femaleTexture is not null && FemaleToggleArea is not null)
             DrawTexture(spriteBatch, femaleTexture, new Vector2(sx + FemaleToggleArea.X, sy + FemaleToggleArea.Y), Color.White);
 
-        //character preview
+        //character preview — composite texture is padded by LAYER_OFFSET_PADDING on each side,
+        //so the body center within the texture is at CANVAS_CENTER_X, not BODY_CENTER_X.
         if (AnimFrameTextures[WalkFrame] is { } currentFrame)
         {
-            var centerX = sx + PreviewX + PreviewWidth / 2 - BODY_CENTER_X;
-            var centerY = sy + PreviewY + PreviewHeight / 2 - BODY_CENTER_Y;
+            var centerX = sx + PreviewX + PreviewWidth / 2 - AislingRenderer.CANVAS_CENTER_X;
+            var centerY = sy + PreviewY + PreviewHeight / 2 - AislingRenderer.BODY_CENTER_Y;
             DrawTexture(spriteBatch, currentFrame, new Vector2(centerX, centerY), Color.White);
         }
     }

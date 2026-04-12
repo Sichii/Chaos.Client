@@ -239,7 +239,7 @@ public sealed class ExchangeControl : PrefabPanel
 
     public event CancelHandler? OnCancel;
 
-    private void OnExchangeClosed()
+    private void OnExchangeClosed(string? message)
     {
         ClearAllItems();
         ResetAllScrollbars();

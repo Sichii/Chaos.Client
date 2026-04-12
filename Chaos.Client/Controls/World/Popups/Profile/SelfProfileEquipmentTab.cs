@@ -64,7 +64,7 @@ public sealed class SelfProfileEquipmentTab : PrefabPanel
     private readonly UIButton? GroupBtn;
     private readonly Texture2D? GroupClosedTexture;
     private readonly Texture2D? GroupOpenTexture;
-    private readonly Rectangle HumanIconRect;
+    private readonly UIImage? EmoticonImage;
     private readonly UILabel? IntLabel;
 
     //player info labels
@@ -146,8 +146,13 @@ public sealed class SelfProfileEquipmentTab : PrefabPanel
         NameLabel = CreateLabel("NAME");
         ClassLabel = CreateLabel("CLASSTEXT");
         ClanLabel = CreateLabel("CLANTEXT");
+        ClanLabel?.TruncateWithEllipsis = false;
+        
         ClanTitleLabel = CreateLabel("CLANTITLETEXT");
+        ClanTitleLabel?.TruncateWithEllipsis = false;
+        
         TitleLabel = CreateLabel("TITLETEXT");
+        TitleLabel?.TruncateWithEllipsis = false;
 
         //group button — single button that swaps textures based on groupopen state.
         //groupbtn prefab has the "open/recruiting" images, groupbtn_disabled has the "closed" images.
@@ -188,7 +193,7 @@ public sealed class SelfProfileEquipmentTab : PrefabPanel
         }
 
         //emoticon status areas
-        HumanIconRect = GetRect("HumanIcon");
+        var humanIconRect = GetRect("HumanIcon");
 
         //load emoticon icons from _nemots.spf (frames 0-7)
         EmoticonIcons = new Texture2D?[EMOTICON_FRAME_COUNT];
@@ -196,9 +201,30 @@ public sealed class SelfProfileEquipmentTab : PrefabPanel
         for (var i = 0; i < EMOTICON_FRAME_COUNT; i++)
             EmoticonIcons[i] = UiRenderer.Instance!.GetSpfTexture("_nemots.spf", i);
 
-        //emoticon status text label — centered in humanstate rect
-        EmoticonLabel = CreateLabel("HumanState", HorizontalAlignment.Center);
+        //emoticon status text label — prefab places it at the same origin as the icon, so shift
+        //it right past the icon to avoid overlap
+        EmoticonLabel = CreateLabel("HumanState", HorizontalAlignment.Left);
         EmoticonLabel?.ForegroundColor = LegendColors.White;
+
+        if ((EmoticonLabel is not null) && (humanIconRect != Rectangle.Empty))
+            EmoticonLabel.X += humanIconRect.Width + 2;
+
+        //emoticon icon — drawn as a uiimage child so it participates in the regular child render
+        //pipeline. this ensures zindex ordering works correctly, allowing the tooltip (zindex 10)
+        //to draw on top of the emoticon icon.
+        if (humanIconRect != Rectangle.Empty)
+        {
+            EmoticonImage = new UIImage
+            {
+                Name = "EmoticonIcon",
+                X = humanIconRect.X,
+                Y = humanIconRect.Y,
+                Width = humanIconRect.Width,
+                Height = humanIconRect.Height,
+                Texture = EmoticonIcons[0]
+            };
+            AddChild(EmoticonImage);
+        }
 
         //tooltip label — hidden by default, follows cursor when an equipment slot is hovered
         TooltipLabel = new UILabel
@@ -213,8 +239,9 @@ public sealed class SelfProfileEquipmentTab : PrefabPanel
                 0,
                 0,
                 128),
-            BorderColor = Color.White,
-            ZIndex = 1
+            BorderColor = LegendColors.White,
+            ForegroundColor = LegendColors.White,
+            ZIndex = 10
         };
 
         AddChild(TooltipLabel);
@@ -281,26 +308,12 @@ public sealed class SelfProfileEquipmentTab : PrefabPanel
         NationIconTexture?.Dispose();
         PaperdollTexture?.Dispose();
 
+        //clear the emoticon image texture so uiimage.dispose doesn't dispose the cached spf texture
+        if (EmoticonImage is not null)
+            EmoticonImage.Texture = null;
+
         //uiimage children are disposed by base.dispose, but we own the dynamic textures
         base.Dispose();
-    }
-
-    public override void Draw(SpriteBatch spriteBatch)
-    {
-        if (!Visible)
-            return;
-
-        base.Draw(spriteBatch);
-
-        //emoticon icon — draw at humanicon rect origin (not a uiimage since frame changes per state)
-        if ((HumanIconRect != Rectangle.Empty)
-            && (EmoticonState < EmoticonIcons.Length)
-            && EmoticonIcons[EmoticonState] is { } emoticonIcon)
-            DrawTexture(
-                spriteBatch,
-                emoticonIcon,
-                new Vector2(ScreenX + HumanIconRect.X, ScreenY + HumanIconRect.Y),
-                Color.White);
     }
 
     public event GroupToggledHandler? OnGroupToggled;
@@ -317,6 +330,9 @@ public sealed class SelfProfileEquipmentTab : PrefabPanel
     {
         EmoticonState = state;
         EmoticonLabel?.Text = statusText;
+
+        if ((EmoticonImage is not null) && (state < EmoticonIcons.Length))
+            EmoticonImage.Texture = EmoticonIcons[state];
     }
 
     /// <summary>

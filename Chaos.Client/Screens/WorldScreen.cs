@@ -32,8 +32,8 @@ public sealed partial class WorldScreen : IScreen
     //walk queue: when walk animation is >= 75% complete, one walk can be queued
     private const float WALK_QUEUE_THRESHOLD = 0.75f;
 
-    //spacebar (assail) repeat interval when held
-    private const float SPACEBAR_INTERVAL_MS = 100f;
+    //minimum interval between spacebar assail fires when held (os key-repeat rate varies)
+    private const long SPACEBAR_INTERVAL_MS = 100;
 
     //aisling body anchor within the padded composite canvas — matches aislingrenderer.canvas_center_x/y.
     private const int BODY_CENTER_X = AislingRenderer.CANVAS_CENTER_X;
@@ -42,6 +42,10 @@ public sealed partial class WorldScreen : IScreen
     //entity hitbox dimensions (screen pixels)
     private const int HITBOX_WIDTH = 28;
     private const int HITBOX_HEIGHT = 60;
+
+    //doubleclick entity cache expiry — slightly larger than the dispatcher's 300ms double-click window so the cache
+    //remains valid through the full doubleclick detection window
+    private const int DOUBLE_CLICK_CACHE_WINDOW_MS = 350;
 
     private const string SPOUSE_PREFIX = "Spouse: ";
     private const string GROUP_MEMBERS_PREFIX = "Group members";
@@ -85,6 +89,7 @@ public sealed partial class WorldScreen : IScreen
     //event detail popup (from events tab)
     private EventMetadataDetailsControl EventMetadataDetails = null!;
     private ExchangeControl Exchange = null!;
+    private OkPopupMessageControl ExchangeResultPopup = null!;
     private ItemAmountControl ItemAmount = null!;
 
     private FriendsListControl FriendsList = null!;
@@ -124,6 +129,10 @@ public sealed partial class WorldScreen : IScreen
     private OtherProfileTabControl OtherProfile = null!;
     private Action? PendingBoardSuccessAction;
     private Action? PendingDeleteAction;
+
+    //entity captured on first right-click so a follow-up double-click can still target it even if pathfinding has shifted the camera between clicks
+    private uint? PendingDoubleClickEntityId;
+    private int PendingDoubleClickTick;
     private bool PendingLoginSwitch;
     private byte[] PlayerPortrait = [];
     private SelfProfileTextEditorControl SelfProfileTextEditor = null!;
@@ -139,7 +148,7 @@ public sealed partial class WorldScreen : IScreen
     private SilhouetteRenderer SilhouetteRenderer = null!;
     private WorldHudControl SmallHud = null!;
     private SocialStatusControl SocialStatusPicker = null!;
-    private float SpacebarTimer;
+    private long LastSpacebarMs;
     private SelfProfileTabControl StatusBook = null!;
     private TabMapEntity[] TabMapEntities = [];
     private TabMapRenderer TabMapRenderer = null!;
@@ -197,6 +206,7 @@ public sealed partial class WorldScreen : IScreen
         Game.Connection.OnRefreshResponse += HandleRefreshResponse;
 
         WorldState.Exchange.AmountRequested += HandleExchangeAmountRequested;
+        WorldState.Exchange.Closed += HandleExchangeClosed;
 
         //board — subscribe to state events
         WorldState.Board.PostListChanged += HandleBoardPostListChanged;
@@ -488,6 +498,12 @@ public sealed partial class WorldScreen : IScreen
 
         BoardResponsePopup.OnOk += () => BoardResponsePopup.Hide();
 
+        ExchangeResultPopup = new OkPopupMessageControl
+        {
+            ZIndex = 3
+        };
+        ExchangeResultPopup.OnOk += () => ExchangeResultPopup.Hide();
+
         DisconnectPopup = new OkPopupMessageControl(true)
         {
             ZIndex = 10
@@ -650,6 +666,7 @@ public sealed partial class WorldScreen : IScreen
         Root.AddChild(MailSend);
         Root.AddChild(DeleteConfirm);
         Root.AddChild(BoardResponsePopup);
+        Root.AddChild(ExchangeResultPopup);
         Root.AddChild(StatusBook);
         Root.AddChild(SelfProfileTextEditor);
         Root.AddChild(AbilityMetadataDetails);
@@ -696,6 +713,7 @@ public sealed partial class WorldScreen : IScreen
         WorldState.NpcInteraction.MenuChanged -= HandleMenuChanged;
         Game.Connection.OnRefreshResponse -= HandleRefreshResponse;
         WorldState.Exchange.AmountRequested -= HandleExchangeAmountRequested;
+        WorldState.Exchange.Closed -= HandleExchangeClosed;
         WorldState.Board.PostListChanged -= HandleBoardPostListChanged;
         WorldState.Board.PostViewed -= HandleBoardPostViewed;
         WorldState.Board.BoardListReceived -= HandleBoardListReceived;

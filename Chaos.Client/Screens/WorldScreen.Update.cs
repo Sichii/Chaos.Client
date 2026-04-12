@@ -249,20 +249,9 @@ public sealed partial class WorldScreen
         //tick casting timer (chant lines are sent on a 1-second interval)
         CastingSystem.Update(elapsedMs, Game.Connection);
 
-        //── spacebar assail repeat (timer-based, not event-based) ──
-        //guard against textbox focus only — assail should work during npc dialogs, popups, etc.
-        if (Game.Dispatcher.ExplicitFocus is null)
-        {
-            SpacebarTimer -= elapsedMs;
-
-            if (Game.Input.IsKeyHeld(Keys.Space) && (SpacebarTimer <= 0))
-            {
-                Game.Connection.Spacebar();
-                SpacebarTimer = SPACEBAR_INTERVAL_MS;
-                Pathfinding.Clear();
-            } else if (!Game.Input.IsKeyHeld(Keys.Space))
-                SpacebarTimer = 0;
-        }
+        //spacebar assail is handled in OnRootKeyDown — the dispatcher delivers both the
+        //initial press and os key-repeat keydowns through the event pipeline, so dialogs
+        //that consume spacebar (via e.Handled = true) naturally block it.
 
         var skipDispatch = false;
 
@@ -274,7 +263,11 @@ public sealed partial class WorldScreen
             var mx = Game.Input.MouseX;
             var my = Game.Input.MouseY;
 
-            if (AbilityMetadataDetails.Visible && !AbilityMetadataDetails.ContainsPoint(mx, my))
+            if (AislingContext.Visible && !AislingContext.ContainsPoint(mx, my))
+            {
+                AislingContext.Hide();
+                skipDispatch = true;
+            } else if (AbilityMetadataDetails.Visible && !AbilityMetadataDetails.ContainsPoint(mx, my))
             {
                 AbilityMetadataDetails.Hide();
                 skipDispatch = true;

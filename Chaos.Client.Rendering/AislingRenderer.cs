@@ -864,16 +864,20 @@ public sealed class AislingRenderer : IDisposable
         var frame = epf[resolvedFrame];
         var lookup = DrawData.GetPaletteLookup(typeLetter);
 
+        // Shields always use the male override since the EPF file is loaded from khanmns.
+        var paletteOverride = typeLetter == 's' ? KhanPalOverrideType.Male : appearance.OverrideType;
+        var effectiveIsMale = typeLetter == 's' || appearance.IsMale;
+
         var palette = ResolvePalette(
             lookup,
             spriteId,
             dyeColor,
-            appearance.OverrideType);
+            paletteOverride);
 
         if (palette is null)
             return null;
 
-        var paletteNumber = lookup.Table.GetPaletteNumber(spriteId, appearance.OverrideType);
+        var paletteNumber = lookup.Table.GetPaletteNumber(spriteId, paletteOverride);
 
         if (paletteNumber >= 1000)
             paletteNumber -= 1000;
@@ -884,7 +888,7 @@ public sealed class AislingRenderer : IDisposable
             typeLetter,
             spriteId,
             resolvedFrame,
-            appearance.IsMale,
+            effectiveIsMale,
             paletteKey,
             anim);
 
@@ -1352,11 +1356,14 @@ public sealed class AislingRenderer : IDisposable
         var frame = epf[resolvedFrame];
         var lookup = DrawData.GetPaletteLookup(typeLetter);
 
+        // Shields always use the male override since the EPF file is loaded from khanmns.
+        var paletteOverride = typeLetter == 's' ? KhanPalOverrideType.Male : appearance.OverrideType;
+
         var palette = ResolvePalette(
             lookup,
             spriteId,
             dyeColor,
-            appearance.OverrideType);
+            paletteOverride);
 
         if (palette is null)
             return null;
@@ -1635,8 +1642,15 @@ public sealed class AislingRenderer : IDisposable
         string anim,
         int idleFallbackFrame)
     {
-        var fileName = $"{appearance.GenderPrefix}{typeLetter}{spriteId:D3}{anim}";
-        var epf = TryLoadEpf(typeLetter, appearance.IsMale, fileName);
+        // Shields always load from the male archive (khanmns.dat) regardless of gender.
+        // Vanilla Darkages.exe FUN_0048cb30 hardcodes the filename prefix to 'm' for the
+        // shield slot; khanwns.dat only contains vestigial entries for 3 sprite IDs that
+        // the paperdoll builder never requests.
+        var useMale = typeLetter == 's' || appearance.IsMale;
+        var genderPrefix = useMale ? 'm' : 'w';
+
+        var fileName = $"{genderPrefix}{typeLetter}{spriteId:D3}{anim}";
+        var epf = TryLoadEpf(typeLetter, useMale, fileName);
 
         if ((anim == IDLE_ANIM) && epf is not null && (epf.Count >= 2) && (idleFallbackFrame >= 0))
         {
@@ -1645,8 +1659,8 @@ public sealed class AislingRenderer : IDisposable
             frameIndex = dirBase + frameIndex % framesPerDir;
         } else if ((epf is null || (frameIndex >= epf.Count)) && (idleFallbackFrame >= 0))
         {
-            fileName = $"{appearance.GenderPrefix}{typeLetter}{spriteId:D3}{WALK_ANIM}";
-            epf = TryLoadEpf(typeLetter, appearance.IsMale, fileName);
+            fileName = $"{genderPrefix}{typeLetter}{spriteId:D3}{WALK_ANIM}";
+            epf = TryLoadEpf(typeLetter, useMale, fileName);
             frameIndex = idleFallbackFrame;
         }
 

@@ -250,21 +250,21 @@ public sealed partial class WorldScreen
         {
             case ServerMessageType.Whisper:
                 WorldState.Chat.AddMessage(args.Message, TextColors.Whisper);
-                WorldState.Chat.AddOrangeBarMessage(args.Message);
+                WorldState.Chat.AddOrangeBarMessage(args.Message, TextColors.Whisper);
                 UpdateHuds(h => h.ShowSystemMessage(args.Message, TextColors.Whisper));
 
                 break;
 
             case ServerMessageType.GroupChat:
                 WorldState.Chat.AddMessage(args.Message, TextColors.GroupChat);
-                WorldState.Chat.AddOrangeBarMessage(args.Message);
+                WorldState.Chat.AddOrangeBarMessage(args.Message, TextColors.GroupChat);
                 UpdateHuds(h => h.ShowSystemMessage(args.Message, TextColors.GroupChat));
 
                 break;
 
             case ServerMessageType.GuildChat:
                 WorldState.Chat.AddMessage(args.Message, TextColors.GuildChat);
-                WorldState.Chat.AddOrangeBarMessage(args.Message);
+                WorldState.Chat.AddOrangeBarMessage(args.Message, TextColors.GuildChat);
                 UpdateHuds(h => h.ShowSystemMessage(args.Message, TextColors.GuildChat));
 
                 break;
@@ -408,10 +408,13 @@ public sealed partial class WorldScreen
 
     private void RenderNpcSessionPortrait()
     {
-        //phase 1: try full-art illustration spf (only when shouldillustrate is true)
-        if (NpcSession.ShouldIllustrate && !string.IsNullOrEmpty(NpcSession.NpcName))
+        //phase 1: try full-art illustration spf. The original DA client attempts this unconditionally for every
+        //dialog/menu packet — the only gate is whether the NPC name matches an entry in the merged illustration
+        //metadata (npci.tbl inside npcbase.dat + server-pushed NPCIllust metafile). IllustrationIndex picks which
+        //filename variant to load when a name has multiple.
+        if (!string.IsNullOrEmpty(NpcSession.NpcName))
         {
-            var illustTexture = TryLoadNpcIllustration(NpcSession.NpcName);
+            var illustTexture = TryLoadNpcIllustration(NpcSession.NpcName, NpcSession.IllustrationIndex);
 
             if (illustTexture is not null)
             {
@@ -459,14 +462,22 @@ public sealed partial class WorldScreen
     }
 
     /// <summary>
-    ///     Attempts to load a full-art NPC illustration SPF from npcbase.dat via the NPCIllust metadata mapping.
+    ///     Attempts to load a full-art NPC illustration SPF from <c>npcbase.dat</c>. Looks up <paramref name="npcName" />
+    ///     in the merged illustration metadata (npci.tbl + server NPCIllust metafile) and picks the filename at
+    ///     <paramref name="variant" />. Returns null if the NPC has no entries, the variant index is out of range,
+    ///     or the SPF file is missing.
     /// </summary>
-    private static Texture2D? TryLoadNpcIllustration(string npcName)
+    private static Texture2D? TryLoadNpcIllustration(string npcName, byte variant)
     {
         var illustMeta = DataContext.MetaFiles.GetNpcIllustrationMetadata();
 
-        if ((illustMeta?.Illustrations.TryGetValue(npcName, out var spfFileName) != true) || spfFileName is null)
+        if (!illustMeta.Illustrations.TryGetValue(npcName, out var filenames) || (filenames.Count == 0))
             return null;
+
+        if (variant >= filenames.Count)
+            return null;
+
+        var spfFileName = filenames[variant];
 
         if (!DatArchives.Npcbase.TryGetValue(spfFileName, out var entry))
             return null;
@@ -510,6 +521,12 @@ public sealed partial class WorldScreen
         ItemAmount.X = Exchange.X + (Exchange.Width - ItemAmount.Width) / 2;
         ItemAmount.Y = Exchange.Y + (Exchange.Height - ItemAmount.Height) / 2;
         ItemAmount.ShowForSlot(fromSlot);
+    }
+
+    private void HandleExchangeClosed(string? message)
+    {
+        if (!string.IsNullOrEmpty(message))
+            ExchangeResultPopup.Show(message);
     }
 
     //--- board / mail ---
@@ -745,6 +762,8 @@ public sealed partial class WorldScreen
 
     private void HandleSelfProfile(SelfProfileArgs args)
     {
+        WorldState.IsMaster = args.EnableMasterQuestMetaData;
+
         //nation emblem and text
         StatusBook.SetNation((byte)args.Nation);
 

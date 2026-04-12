@@ -1,6 +1,7 @@
 #region
 using Chaos.Client.Controls.Components;
 using Chaos.Client.Controls.Generic;
+using Chaos.Client.ViewModel;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 #endregion
@@ -9,12 +10,13 @@ namespace Chaos.Client.Controls.World.Hud.Panel;
 
 /// <summary>
 ///     Message history panel (Shift+F). Displays server message history (same text as the orange bar) in its own tab-sized
-///     panel. Reads from the shared history list.
+///     panel. Reads from the shared history list and preserves the per-message color (orange for system messages,
+///     whisper/group/guild colors for echoed chat).
 /// </summary>
 public sealed class SystemMessagePanel : ExpandablePanel
 {
     private const int GLYPH_HEIGHT = 12;
-    private readonly IReadOnlyList<string> History;
+    private readonly IReadOnlyList<Chat.OrangeBarMessage> History;
     private readonly Rectangle NormalDisplayBounds;
     private readonly int PanelOriginX;
     private readonly int PanelOriginY;
@@ -29,7 +31,7 @@ public sealed class SystemMessagePanel : ExpandablePanel
     private int RenderedScrollOffset = -1;
     private int ScrollOffset;
 
-    public SystemMessagePanel(Rectangle displayBounds, Rectangle panelBounds, IReadOnlyList<string> history)
+    public SystemMessagePanel(Rectangle displayBounds, Rectangle panelBounds, IReadOnlyList<Chat.OrangeBarMessage> history)
     {
         Name = "MessageHistory";
         NormalDisplayBounds = displayBounds;
@@ -142,8 +144,9 @@ public sealed class SystemMessagePanel : ExpandablePanel
 
         for (var i = startIndex; (i < History.Count) && (lineIndex < maxLines); i++)
         {
-            Lines[lineIndex].Text = History[i];
-            Lines[lineIndex].ForegroundColor = Color.Orange;
+            var msg = History[i];
+            Lines[lineIndex].Text = msg.Text;
+            Lines[lineIndex].ForegroundColor = msg.Color;
             lineIndex++;
         }
 

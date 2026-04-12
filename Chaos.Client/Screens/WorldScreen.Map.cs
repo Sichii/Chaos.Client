@@ -80,6 +80,7 @@ public sealed partial class WorldScreen
         DarknessRenderer.OnMapChanged(args.MapId, CurrentMapFlags.HasFlag(MapFlags.Darkness));
 
         UpdateHuds(h => h.SetZoneName(args.Name));
+        UpdateHuds(h => h.ShowPersistentMessage(string.Empty));
     }
 
     private void ClearTransientState()
@@ -316,21 +317,15 @@ public sealed partial class WorldScreen
     }
 
     /// <summary>
-    ///     Recomputes Camera.Offset to keep the player at the correct screen position for the current HUD layout. The base
-    ///     offset (-28, 24) was calibrated for the small HUD viewport; when switching to the large HUD, the viewport center
-    ///     shifts on screen, so the offset must compensate.
+    ///     Sets Camera.Offset for the current HUD. Both HUD MAP rects share the same X origin and width; only the height
+    ///     differs (large is ~116px taller, extending downward). The small HUD is calibrated to (-28, 24). The large HUD uses
+    ///     (-28, -4) so the player appears ~30px lower than the small HUD on screen — not the naive ~58px that a fixed
+    ///     viewport-relative offset would produce.
     /// </summary>
     private void UpdateCameraOffset(XnaRectangle viewport)
     {
-        var smallVp = SmallHud.ViewportBounds;
-        var smallCenterX = smallVp.X + smallVp.Width / 2f;
-        var smallCenterY = smallVp.Y + smallVp.Height / 2f;
-        var currentCenterX = viewport.X + viewport.Width / 2f;
-        var currentCenterY = viewport.Y + viewport.Height / 2f;
-
-        Camera.Offset = new XnaVector2(
-            -28 + (smallCenterX - currentCenterX),
-            24 + (smallCenterY - currentCenterY));
+        _ = viewport;
+        Camera.Offset = WorldHud == SmallHud ? new XnaVector2(-28, 24) : new XnaVector2(-28, -4);
     }
 
     /// <summary>

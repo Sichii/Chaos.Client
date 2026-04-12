@@ -54,9 +54,9 @@ public delegate void GoldChangedHandler();
 public delegate void ChatMessageAddedHandler(Chat.ChatMessage message);
 
 /// <summary>
-///     An orange bar message was added (system messages).
+///     An orange bar message was added (system messages, whisper/group/guild echoes).
 /// </summary>
-public delegate void OrangeBarMessageAddedHandler(string text);
+public delegate void OrangeBarMessageAddedHandler(Chat.OrangeBarMessage message);
 
 /// <summary>
 ///     The current NPC dialog changed (shown, updated, or closed).
@@ -114,9 +114,10 @@ public delegate void ExchangeGoldSetHandler(bool isOtherSide);
 public delegate void ExchangeOtherAcceptedHandler();
 
 /// <summary>
-///     The exchange was closed (cancelled or completed).
+///     The exchange was closed (cancelled or completed). Message is the server-provided result text,
+///     or null for local-initiated closes that have no associated message.
 /// </summary>
-public delegate void ExchangeClosedHandler();
+public delegate void ExchangeClosedHandler(string? message);
 
 /// <summary>
 ///     The server requests a stackable item count from the given inventory slot.

@@ -375,15 +375,7 @@ public abstract class PanelBase : ExpandablePanel
 
     public override void OnMouseMove(MouseMoveEvent e)
     {
-        PanelSlot? hoveredSlot = null;
-
-        for (var i = 0; (i < VisibleSlotCount) && (i < Slots.Length); i++)
-            if (Slots[i].NormalTexture is not null && Slots[i].ContainsPoint(e.ScreenX, e.ScreenY))
-            {
-                hoveredSlot = Slots[i];
-
-                break;
-            }
+        var hoveredSlot = FindHoveredSlot(e.ScreenX, e.ScreenY);
 
         if (hoveredSlot == LastHoveredSlot)
             return;
@@ -395,6 +387,15 @@ public abstract class PanelBase : ExpandablePanel
 
         if (hoveredSlot is not null)
             OnSlotHoverEnter?.Invoke(hoveredSlot);
+    }
+
+    protected virtual PanelSlot? FindHoveredSlot(int screenX, int screenY)
+    {
+        for (var i = 0; (i < VisibleSlotCount) && (i < Slots.Length); i++)
+            if (Slots[i].NormalTexture is not null && Slots[i].ContainsPoint(screenX, screenY))
+                return Slots[i];
+
+        return null;
     }
 
     public override void OnMouseLeave()

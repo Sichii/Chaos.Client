@@ -65,7 +65,13 @@ public sealed class NpcSessionControl : PrefabPanel
     public DisplayColor PortraitColor { get; private set; }
     public ushort PortraitSpriteId { get; private set; }
     public ushort PursuitId { get; private set; }
-    public bool ShouldIllustrate { get; private set; }
+
+    /// <summary>
+    ///     Server-sent index into the NPC's variant list. Picks which SPF filename to load when the current NPC
+    ///     name has multiple variants defined in <c>npci.tbl</c> or the server's <c>NPCIllust</c> metafile. 0 is the
+    ///     near-universal default and means "first filename".
+    /// </summary>
+    public byte IllustrationIndex { get; private set; }
 
     //session state
     public EntityType SourceEntityType { get; private set; }
@@ -527,7 +533,7 @@ public sealed class NpcSessionControl : PrefabPanel
         NpcName = args.Name;
         PortraitSpriteId = args.Sprite;
         PortraitColor = args.Color;
-        ShouldIllustrate = args.ShouldIllustrate;
+        IllustrationIndex = args.IllustrationIndex;
 
         HideAllSubPanels();
         SetDialogText(args.Text);
@@ -610,7 +616,7 @@ public sealed class NpcSessionControl : PrefabPanel
         NpcName = args.Name;
         PortraitSpriteId = args.Sprite;
         PortraitColor = args.Color;
-        ShouldIllustrate = args.ShouldIllustrate;
+        IllustrationIndex = args.IllustrationIndex;
 
         MenuArgs = args.Args;
         HideAllSubPanels();

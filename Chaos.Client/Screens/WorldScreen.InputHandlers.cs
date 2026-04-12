@@ -129,10 +129,10 @@ public sealed partial class WorldScreen
             return;
         }
 
-        //stackable items — prompt for count before dropping
+        //stackable items with more than one — prompt for count before dropping
         var invSlot = WorldState.Inventory.GetSlot(slot);
 
-        if (invSlot.Stackable)
+        if (invSlot.Stackable && (invSlot.Count > 1))
         {
             var capturedSlot = slot;
             var capturedX = tileX;
@@ -662,6 +662,26 @@ public sealed partial class WorldScreen
         if (Game.Dispatcher.ControlStackCount > 0)
             return;
 
+        //spacebar assail — fires on both initial press and os key-repeat keydowns
+        //while held. sits after the stack guard so dialogs/menus block it; sits inside
+        //the root handler so any ui element above can mark e.handled first and suppress it.
+        //rate-limited to SPACEBAR_INTERVAL_MS since os key-repeat rates vary wildly.
+        if (e.Key == Keys.Space)
+        {
+            var now = Environment.TickCount64;
+
+            if ((now - LastSpacebarMs) >= SPACEBAR_INTERVAL_MS)
+            {
+                Game.Connection.Spacebar();
+                Pathfinding.Clear();
+                LastSpacebarMs = now;
+            }
+
+            e.Handled = true;
+
+            return;
+        }
+
         if ((e.Key == Keys.T) && TownMapControl.Visible)
         {
             TownMapControl.Hide();
@@ -992,6 +1012,23 @@ public sealed partial class WorldScreen
     }
 
     /// <summary>
+    ///     Handles mouse scroll that bubbles up to the root panel (no child consumed it). Forwards to whichever chat-style
+    ///     HUD panel is currently visible so the player can scroll chat/system messages from anywhere on screen.
+    /// </summary>
+    private void OnRootMouseScroll(MouseScrollEvent e)
+    {
+        if (WorldHud.ChatDisplay.Visible)
+        {
+            WorldHud.ChatDisplay.OnMouseScroll(e);
+
+            return;
+        }
+
+        if (WorldHud.MessageHistory.Visible)
+            WorldHud.MessageHistory.OnMouseScroll(e);
+    }
+
+    /// <summary>
     ///     Handles mouse clicks that bubble up to the root panel (no child element consumed them).
     ///     Contains cast-mode target selection, Ctrl/Alt-click, world click, and right-click pathfinding.
     /// </summary>
@@ -1064,7 +1101,25 @@ public sealed partial class WorldScreen
             if (e.Shift)
                 HandleShiftRightClick(e.ScreenX, e.ScreenY);
             else if (!e.Ctrl)
+            {
+                //cache the hovered entity for the upcoming doubleclick — pathfinding triggered by this click will start
+                //moving the player on the next update, which shifts the camera and makes the second click's ScreenToTile
+                //resolve to a different world tile than the entity actually occupies
+                var currentTick = Environment.TickCount;
+
+                if ((currentTick - PendingDoubleClickTick) > DOUBLE_CLICK_CACHE_WINDOW_MS)
+                    PendingDoubleClickEntityId = null;
+
+                var hoverEntity = GetEntityAtScreen(e.ScreenX, e.ScreenY);
+
+                if (hoverEntity?.Type is ClientEntityType.Aisling or ClientEntityType.Creature)
+                {
+                    PendingDoubleClickEntityId = hoverEntity.Id;
+                    PendingDoubleClickTick = currentTick;
+                }
+
                 HandleWorldRightClick(e.ScreenX, e.ScreenY);
+            }
 
             e.Handled = true;
         }
@@ -1138,12 +1193,29 @@ public sealed partial class WorldScreen
             tileX = Math.Clamp(tileX, 0, MapFile.Width - 1);
             tileY = Math.Clamp(tileY, 0, MapFile.Height - 1);
 
+            //tracker still updates so any consumers relying on the last-clicked tile stay accurate
             var sameTile = RightClickTracker.Click(tileX, tileY);
 
-            if (!sameTile)
-                return;
+            //prefer the entity captured on the first single right-click — pathfinding started by that click will have
+            //moved the player by now, shifting the camera and making ScreenToTile resolve to a different world tile
+            WorldEntity? entity = null;
 
-            var entity = WorldState.GetEntityAt(tileX, tileY);
+            if (PendingDoubleClickEntityId.HasValue
+                && ((Environment.TickCount - PendingDoubleClickTick) <= DOUBLE_CLICK_CACHE_WINDOW_MS))
+                entity = WorldState.GetEntity(PendingDoubleClickEntityId.Value);
+
+            //fallback to the legacy tile-based lookup only when the cache miss AND the tiles line up
+            if (entity is null)
+            {
+                if (!sameTile)
+                {
+                    PendingDoubleClickEntityId = null;
+
+                    return;
+                }
+
+                entity = WorldState.GetEntityAt(tileX, tileY);
+            }
 
             if (entity?.Type is ClientEntityType.Aisling or ClientEntityType.Creature)
             {
@@ -1151,6 +1223,7 @@ public sealed partial class WorldScreen
                 PathfindToEntity(player, entity);
             }
 
+            PendingDoubleClickEntityId = null;
             e.Handled = true;
         }
     }

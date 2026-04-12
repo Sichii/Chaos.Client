@@ -321,7 +321,7 @@ public class UITextBox : UIElement
                     cursorY,
                     CURSOR_WIDTH,
                     TextRenderer.CHAR_HEIGHT),
-                Color.White);
+                ForegroundColor);
         }
     }
 
@@ -408,7 +408,7 @@ public class UITextBox : UIElement
                 textY,
                 CURSOR_WIDTH,
                 TextRenderer.CHAR_HEIGHT),
-            Color.White);
+            ForegroundColor);
     }
 
     private void EnsureCursorVisible()

@@ -3,6 +3,7 @@ using Chaos.Client.Data.Utilities;
 using Chaos.Client.Models;
 using Chaos.DarkAges.Definitions;
 using Chaos.Geometry.Abstractions.Definitions;
+using DALib.Definitions;
 using Microsoft.Xna.Framework;
 #endregion
 
@@ -26,7 +27,10 @@ public static class AnimationSystem
     private const float BODY_ANIM_SPEED_TO_MS = 10f;
     private const float DEFAULT_BODY_ANIM_FRAME_MS = 150f;
     private const float CREATURE_ATTACK_FRAME_MS = 300f;
-    private const float IDLE_ANIM_FRAME_MS = 300f;
+
+    //fallback per-frame delay for idle animation (ms). applies to aislings and to uninitialized
+    //entities; creature intervals come directly from CreatureAnimInfo.AnimationIntervalMs.
+    private const float DEFAULT_IDLE_FRAME_MS = 300f;
 
     //aisling walk anim "01": frame 0 = up idle, 1-4 = up walk; frame 5 = right idle, 6-9 = right walk
     private const int AISLING_UP_WALK_BASE = 1;
@@ -104,10 +108,13 @@ public static class AnimationSystem
     }
 
     /// <summary>
-    ///     Sets up an attack animation on a creature entity. Maps BodyAnimation to attack index: Kick(131)→Attack2,
-    ///     RoundHouseKick(133)→Attack3, everything else→Attack1. Falls back to Attack1 if the mapped attack has no frames.
-    ///     Monster attack frame delay is hardcoded to 300ms in the original client.
+    ///     Starts an attack animation on a creature entity.
     /// </summary>
+    /// <remarks>
+    ///     The <see cref="BodyAnimation" /> is mapped to an attack index — Kick(131)→Attack2, RoundHouseKick(133)→Attack3,
+    ///     everything else→Attack1 — and falls back to Attack1 when the mapped attack has no frames. Per-frame display time
+    ///     for creature attacks is fixed at 300 ms.
+    /// </remarks>
     public static void StartCreatureBodyAnimation(
         WorldEntity entity,
         BodyAnimation bodyAnim,
@@ -213,35 +220,64 @@ public static class AnimationSystem
 
     private static void AdvanceIdleAnim(WorldEntity entity, float elapsedMs)
     {
+        //per-entity interval is set by UpdateCreatureIdleCycle for creatures; aislings and
+        //pre-seeded entities fall through to the default 300ms tick rate.
+        var interval = entity.IdleFrameIntervalMs > 0f ? entity.IdleFrameIntervalMs : DEFAULT_IDLE_FRAME_MS;
+
         entity.IdleAnimElapsedMs += elapsedMs;
 
-        while (entity.IdleAnimElapsedMs >= IDLE_ANIM_FRAME_MS)
+        while (entity.IdleAnimElapsedMs >= interval)
         {
             entity.IdleAnimTick++;
-            entity.IdleAnimElapsedMs -= IDLE_ANIM_FRAME_MS;
+            entity.IdleAnimElapsedMs -= interval;
         }
     }
 
     /// <summary>
-    ///     Re-rolls optional standing animation when the idle tick reaches the current cycle's end. Called each frame from
-    ///     DrawCreature; only acts once per cycle boundary.
+    ///     Updates a creature's idle animation cycle, selecting the per-frame interval and rolling a new active loop when
+    ///     the previous one completes.
     /// </summary>
+    /// <param name="entity">The creature whose idle cycle to advance.</param>
+    /// <param name="info">The creature's animation metadata.</param>
+    /// <remarks>
+    ///     Per-frame timing comes directly from <see cref="CreatureAnimInfo.AnimationIntervalMs" />; cycle selection is
+    ///     chosen from <see cref="CreatureAnimInfo.IdleType" />. Intended to be called once per update after
+    ///     <see cref="Advance" />.
+    /// </remarks>
     public static void UpdateCreatureIdleCycle(WorldEntity entity, in CreatureAnimInfo info)
     {
-        if (info.StandingFrameCount == 0)
-            return;
+        entity.IdleFrameIntervalMs = info.AnimationIntervalMs;
 
-        if (entity.IdleAnimTick < entity.IdleCycleEndsAt)
-            return;
+        switch (info.IdleType)
+        {
+            case MpfIdleType.StaticNoIdle:
+                entity.IdleOptionalActive = false;
+                entity.IdleCycleEndsAt = int.MaxValue;
 
-        //roll for next cycle: optionalanimationratio is % chance to play extended frames
-        if ((info.OptionalAnimationFrameCount > info.StandingFrameCount) && (info.OptionalAnimationRatio > 0))
-            entity.IdleOptionalActive = Random.Shared.Next(100) < info.OptionalAnimationRatio;
-        else
-            entity.IdleOptionalActive = false;
+                return;
 
-        int cycleLength = entity.IdleOptionalActive ? info.OptionalAnimationFrameCount : info.StandingFrameCount;
-        entity.IdleCycleEndsAt = entity.IdleAnimTick + Math.Max(cycleLength, 1);
+            case MpfIdleType.NormalIdle:
+                entity.IdleOptionalActive = true;
+
+                if (entity.IdleAnimTick < entity.IdleCycleEndsAt)
+                    return;
+
+                entity.IdleCycleEndsAt = entity.IdleAnimTick + Math.Max((int)info.OptionalAnimationFrameCount, 1);
+
+                return;
+
+            case MpfIdleType.NormalPlusOptional:
+                if (entity.IdleAnimTick < entity.IdleCycleEndsAt)
+                    return;
+
+                entity.IdleOptionalActive = (info.OptionalAnimationProbability > 0)
+                                            && (Random.Shared.Next(100) < info.OptionalAnimationProbability);
+
+                int cycleLength = entity.IdleOptionalActive ? info.OptionalAnimationFrameCount : info.StandingFrameCount;
+                entity.IdleCycleEndsAt = entity.IdleAnimTick + Math.Max(cycleLength, 1);
+
+                return;
+        }
     }
 
     private static void AdvanceBodyAnim(WorldEntity entity, float elapsedMs)
@@ -492,17 +528,26 @@ public static class AnimationSystem
         int dirOffset;
         int frameCount;
 
-        if (info.StandingFrameCount > 0)
+        //must align with UpdateCreatureIdleCycle: StaticNoIdle always holds the first walk frame
+        //(even when StandingFrameCount > 0) because no idle loop is defined.
+        if (info.OptionalAnimationFrameCount == 0)
         {
-            baseIndex = info.StandingFrameIndex;
-            frameCount = entity.IdleOptionalActive ? info.OptionalAnimationFrameCount : info.StandingFrameCount;
-            dirOffset = info.OptionalAnimationFrameCount > 0 ? info.OptionalAnimationFrameCount : info.StandingFrameCount;
-        } else
-        {
-            //fallback: static first walk frame per direction (no cycling)
             baseIndex = info.WalkFrameIndex;
             dirOffset = info.WalkFrameCount;
             frameCount = 1;
+        } else if ((info.StandingFrameCount == 0) || (info.StandingFrameCount == info.OptionalAnimationFrameCount))
+        {
+            //NormalIdle: one continuous loop that always starts at StandingFrameIndex, even when
+            //StandingFrameCount is zero.
+            baseIndex = info.StandingFrameIndex;
+            frameCount = info.OptionalAnimationFrameCount;
+            dirOffset = info.OptionalAnimationFrameCount;
+        } else
+        {
+            //NormalPlusOptional: cycle length depends on which loop was picked this cycle.
+            baseIndex = info.StandingFrameIndex;
+            frameCount = entity.IdleOptionalActive ? info.OptionalAnimationFrameCount : info.StandingFrameCount;
+            dirOffset = info.OptionalAnimationFrameCount;
         }
 
         //single-direction sprite: second direction frames don't exist — reuse base frames for all directions

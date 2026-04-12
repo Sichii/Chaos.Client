@@ -69,7 +69,7 @@ public sealed class Exchange
     /// </summary>
     public event ExchangeAmountRequestedHandler? AmountRequested;
 
-    public void Close()
+    public void Close(string? message = null)
     {
         IsActive = false;
         OtherUserId = 0;
@@ -79,7 +79,7 @@ public sealed class Exchange
         IsOtherAccepted = false;
         MyItems.Clear();
         OtherItems.Clear();
-        Closed?.Invoke();
+        Closed?.Invoke(message);
     }
 
     /// <summary>

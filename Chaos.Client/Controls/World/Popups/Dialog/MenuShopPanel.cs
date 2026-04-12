@@ -52,6 +52,10 @@ public sealed class MenuShopPanel : PrefabPanel
     private int TabWindowStart;
     private int TotalPages;
 
+    //per-NPC shop state memory: restore last-used tab + page when the same NPC re-opens a shop menu
+    private readonly Dictionary<string, (string Category, int Page)> NpcShopMemory = new(StringComparer.OrdinalIgnoreCase);
+    private string? CurrentNpcName;
+
     public MenuType CurrentMenuType { get; private set; }
 
     public UIButton? CloseButton { get; }
@@ -86,6 +90,7 @@ public sealed class MenuShopPanel : PrefabPanel
                 {
                     CurrentPage--;
                     UpdatePageDisplay();
+                    SaveNpcMemory();
                 }
             };
 
@@ -96,6 +101,7 @@ public sealed class MenuShopPanel : PrefabPanel
                 {
                     CurrentPage++;
                     UpdatePageDisplay();
+                    SaveNpcMemory();
                 }
             };
 
@@ -161,6 +167,7 @@ public sealed class MenuShopPanel : PrefabPanel
         {
             var listing = new MerchantListingPanel(ContentRect.Width)
             {
+                RowIndex = i,
                 X = ContentRect.X,
                 Y = ContentRect.Y + i * ROW_HEIGHT,
                 Width = ContentRect.Width,
@@ -175,17 +182,27 @@ public sealed class MenuShopPanel : PrefabPanel
         }
 
         DescClassLabel = CreateLabel("DescClass");
+        DescClassLabel?.ForegroundColor = LegendColors.White;
+        
         DescLevelLabel = CreateLabel("DescLevel");
+        DescLevelLabel?.ForegroundColor = LegendColors.White;
+        
         DescWeightLabel = CreateLabel("DescWeight");
+        DescWeightLabel?.ForegroundColor = LegendColors.White;
+        
         DescTextLabel = CreateLabel("DescText");
+        DescTextLabel?.ForegroundColor = LegendColors.White;
 
         DescTextLabel?.WordWrap = true;
         MoneyLabel = CreateLabel("Money", HorizontalAlignment.Right);
+        MoneyLabel?.ForegroundColor = LegendColors.White;
+        
         PageLabel = CreateLabel("Page", HorizontalAlignment.Center);
         PageLabel?.PaddingLeft = 0;
         PageLabel?.PaddingRight = 0;
         PageLabel?.HorizontalAlignment = HorizontalAlignment.Center;
         PageLabel?.TruncateWithEllipsis = false;
+        PageLabel?.ForegroundColor = LegendColors.White;
     }
 
     private void BuildCategories()
@@ -340,6 +357,19 @@ public sealed class MenuShopPanel : PrefabPanel
         ClearDetails();
 
         CloseButton?.Enabled = false;
+
+        SaveNpcMemory();
+    }
+
+    private void SaveNpcMemory()
+    {
+        if (string.IsNullOrEmpty(CurrentNpcName) || Categories.Count == 0)
+            return;
+
+        if ((SelectedCategoryIndex < 0) || (SelectedCategoryIndex >= Categories.Count))
+            return;
+
+        NpcShopMemory[CurrentNpcName] = (Categories[SelectedCategoryIndex], CurrentPage);
     }
 
     public override void Hide()
@@ -374,6 +404,7 @@ public sealed class MenuShopPanel : PrefabPanel
                 {
                     HoveredRow = row;
                     var absoluteIndex = FilteredIndices[filteredPosition];
+                    ShowDetails(absoluteIndex);
                     OnItemHoverEnter?.Invoke(Entries[absoluteIndex].Name);
                 }
             } else if (HoveredRow >= 0)
@@ -388,9 +419,16 @@ public sealed class MenuShopPanel : PrefabPanel
         }
     }
 
-    public override void OnMouseLeave()
+    /// <summary>
+    ///     Called by a child listing when its OnMouseLeave fires. Because OnMouseMove is dispatched BEFORE
+    ///     OnMouseLeave in the input dispatcher, a row-to-row transition has already updated HoveredRow via
+    ///     the MenuShopPanel.OnMouseMove bubble from the new listing by the time this runs — so we only
+    ///     reset state when HoveredRow still matches the exiting row (meaning no sibling listing took over,
+    ///     i.e. the mouse left the panel entirely, possibly via a fast jump).
+    /// </summary>
+    private void NotifyListingLeave(int rowIndex)
     {
-        if (HoveredRow >= 0)
+        if (HoveredRow == rowIndex)
         {
             HoveredRow = -1;
             OnItemHoverExit?.Invoke();
@@ -580,6 +618,7 @@ public sealed class MenuShopPanel : PrefabPanel
     public void ShowMerchant(DisplayMenuArgs args)
     {
         CurrentMenuType = args.MenuType;
+        CurrentNpcName = args.Name;
 
         ClearEntries();
         CurrentPage = 0;
@@ -619,11 +658,32 @@ public sealed class MenuShopPanel : PrefabPanel
         }
 
         BuildCategories();
+
+        //restore the last-used tab + page for this NPC, if the saved category still exists
         SelectedCategoryIndex = 0;
+        var savedPage = 0;
+
+        if (!string.IsNullOrEmpty(CurrentNpcName) && NpcShopMemory.TryGetValue(CurrentNpcName, out var saved))
+            for (var i = 0; i < Categories.Count; i++)
+                if (Categories[i].EqualsI(saved.Category))
+                {
+                    SelectedCategoryIndex = i;
+                    savedPage = saved.Page;
+
+                    break;
+                }
+
+        //scroll the tab window so the restored tab is visible
         TabWindowStart = 0;
+
+        if (SelectedCategoryIndex >= MAX_VISIBLE_TABS)
+            TabWindowStart = Math.Min(SelectedCategoryIndex - MAX_VISIBLE_TABS + 1, Math.Max(0, Categories.Count - MAX_VISIBLE_TABS));
 
         BuildFilteredIndices();
         TotalPages = FilteredIndices.Count > 0 ? (FilteredIndices.Count + ItemsPerPage - 1) / ItemsPerPage : 1;
+
+        //clamp saved page against the new filtered total; fall back to page 1 if out of range
+        CurrentPage = savedPage < TotalPages ? savedPage : 0;
 
         UpdateTabDisplay();
         UpdatePageDisplay();
@@ -727,6 +787,7 @@ public sealed class MenuShopPanel : PrefabPanel
         private readonly UIImage IconImage;
         private readonly UILabel NameLabel;
         public bool IsSelected { get; set; }
+        public int RowIndex { get; init; }
 
         public MerchantListingPanel(int contentWidth)
         {
@@ -814,6 +875,8 @@ public sealed class MenuShopPanel : PrefabPanel
             Clicked?.Invoke();
             e.Handled = true;
         }
+
+        public override void OnMouseLeave() => (Parent as MenuShopPanel)?.NotifyListingLeave(RowIndex);
     }
 
     /// <summary>

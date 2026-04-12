@@ -42,6 +42,11 @@ public static class WorldState
     public static string PlayerName { get; set; } = string.Empty;
 
     /// <summary>
+    ///     Whether the player has attained master class status. Set from the SelfProfile packet's EnableMasterQuestMetaData flag.
+    /// </summary>
+    public static bool IsMaster { get; set; }
+
+    /// <summary>
     ///     Active spell/effect animations currently playing in the world.
     /// </summary>
     public static List<Animation> ActiveEffects { get; } = [];
@@ -678,20 +683,12 @@ public static class WorldState
                     if (args.PersistExchange == true)
                         Exchange.SetOtherAccepted();
                     else
-                    {
-                        Exchange.Close();
-
-                        if (!string.IsNullOrEmpty(args.Message))
-                            Chat.AddOrangeBarMessage(args.Message!);
-                    }
+                        Exchange.Close(args.Message);
 
                     break;
 
                 case ExchangeResponseType.Cancel:
-                    Exchange.Close();
-
-                    if (!string.IsNullOrEmpty(args.Message))
-                        Chat.AddOrangeBarMessage(args.Message!);
+                    Exchange.Close(args.Message);
 
                     break;
             }

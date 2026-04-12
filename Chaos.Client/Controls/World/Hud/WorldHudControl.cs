@@ -133,6 +133,8 @@ public sealed class WorldHudControl : PrefabPanel, IWorldHud
         ZoneNameLabel = CreateLabel("SZ_ZONE", HorizontalAlignment.Center)!;
         ZoneNameLabel.ForegroundColor = LegendColors.White;
         WeightLabel = CreateLabel("SZ_WEIGHT", HorizontalAlignment.Center)!;
+        WeightLabel.PaddingLeft = 0;
+        WeightLabel.PaddingRight = 0;
         CoordsLabel = CreateLabel("SZ_XY", HorizontalAlignment.Center)!;
         ServerNameLabel = CreateLabel("SZ_SERVER", HorizontalAlignment.Center);
         DescriptionLabel = CreateLabel("SZ_DESCRIPTION");
@@ -151,6 +153,11 @@ public sealed class WorldHudControl : PrefabPanel, IWorldHud
         UsersButton = CreateButton("BTN_USERS");
         ExpandButton = CreateButton("BTN_EXPAND");
         ChangeLayoutButton = CreateButton("BTN_CHANGELAYOUT");
+
+        //btn_changelayout is a stateful indicator — small hud shows the normal frame, and the
+        //pressed frame is only shown by the large hud. strip the press-state visual here.
+        if (ChangeLayoutButton is not null)
+            ChangeLayoutButton.PressedTexture = null;
 
         //buttons — lower right
         HelpButton = CreateButton("BTN_HELP");

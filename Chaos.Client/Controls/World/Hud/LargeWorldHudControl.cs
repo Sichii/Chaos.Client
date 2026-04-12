@@ -120,6 +120,8 @@ public sealed class LargeWorldHudControl : PrefabPanel, IWorldHud
         ZoneNameLabel = CreateLabel("SZ_ZONE", HorizontalAlignment.Center)!;
         ZoneNameLabel.ForegroundColor = LegendColors.White;
         WeightLabel = CreateLabel("SZ_WEIGHT", HorizontalAlignment.Center)!;
+        WeightLabel.PaddingLeft = 0;
+        WeightLabel.PaddingRight = 0;
         CoordsLabel = CreateLabel("SZ_XY", HorizontalAlignment.Center)!;
         ServerNameLabel = CreateLabel("SZ_SERVER", HorizontalAlignment.Center);
         DescriptionLabel = CreateLabel("SZ_DESCRIPTION");
@@ -138,6 +140,14 @@ public sealed class LargeWorldHudControl : PrefabPanel, IWorldHud
         UsersButton = CreateButton("BTN_USERS");
         ExpandButton = CreateButton("BTN_EXPAND");
         ChangeLayoutButton = CreateButton("BTN_CHANGELAYOUT");
+
+        //btn_changelayout is a stateful indicator — large hud shows the pressed frame as its
+        //persistent look. promote it to normal and drop the press-state swap.
+        if (ChangeLayoutButton is not null)
+        {
+            ChangeLayoutButton.NormalTexture = ChangeLayoutButton.PressedTexture;
+            ChangeLayoutButton.PressedTexture = null;
+        }
         HelpButton = CreateButton("BTN_HELP");
         LegendButton = CreateButton("BTN_LEGEND");
         TownMapButton = CreateButton("BTN_TOWNMAP");

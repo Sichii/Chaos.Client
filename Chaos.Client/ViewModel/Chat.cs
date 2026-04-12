@@ -15,7 +15,7 @@ public sealed class Chat
     private const int MAX_HISTORY = 1000;
 
     private readonly CircularBuffer<ChatMessage> Messages = new(MAX_MESSAGES);
-    private readonly CircularBuffer<string> OrangeBarHistory = new(MAX_HISTORY);
+    private readonly CircularBuffer<OrangeBarMessage> OrangeBarHistory = new(MAX_HISTORY);
 
     /// <summary>
     ///     Adds a chat message (public, whisper, group, guild) with the specified color.
@@ -28,12 +28,14 @@ public sealed class Chat
     }
 
     /// <summary>
-    ///     Adds an orange bar message (system messages, server notifications).
+    ///     Adds an orange bar message. Defaults to orange for system/server notifications; callers may pass a custom color
+    ///     for whisper/group/guild messages so the Shift+F history and orange bar expand view preserve their chat color.
     /// </summary>
-    public void AddOrangeBarMessage(string text)
+    public void AddOrangeBarMessage(string text, Color? color = null)
     {
-        OrangeBarHistory.Add(text);
-        OrangeBarMessageAdded?.Invoke(text);
+        var msg = new OrangeBarMessage(text, color ?? Color.Orange);
+        OrangeBarHistory.Add(msg);
+        OrangeBarMessageAdded?.Invoke(msg);
     }
 
     /// <summary>
@@ -55,7 +57,7 @@ public sealed class Chat
     ///     Returns the orange bar message history as a read-only list. Used by MessageHistoryPanel and OrangeBarControl for
     ///     display.
     /// </summary>
-    public IReadOnlyList<string> GetOrangeBarHistory() => OrangeBarHistory;
+    public IReadOnlyList<OrangeBarMessage> GetOrangeBarHistory() => OrangeBarHistory;
 
     /// <summary>
     ///     Fired when a chat message is added (public, whisper, group, guild). Carries the message data.
@@ -71,4 +73,10 @@ public sealed class Chat
     ///     A single chat message with text and display color.
     /// </summary>
     public readonly record struct ChatMessage(string Text, Color Color);
+
+    /// <summary>
+    ///     A single orange bar entry with text and display color. System/server notifications default to orange; whisper,
+    ///     group, and guild messages carry their own chat color.
+    /// </summary>
+    public readonly record struct OrangeBarMessage(string Text, Color Color);
 }

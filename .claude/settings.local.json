@@ -5,7 +5,11 @@
   "permissions": {
     "allow": [
       "mcp__serena__find_symbol",
-      "Bash(dotnet build:*)"
+      "Bash(dotnet build:*)",
+      "Bash(cp \"C:/Users/Despe/.claude/projects/D--repos-Sichii-Chaos-Client/scratch/verify_naudio.cs\" /tmp/csharp-scratch/verify_naudio.cs)",
+      "Bash(dotnet run:*)",
+      "Bash(rm -f /tmp/csharp-scratch/verify_naudio.cs)",
+      "Bash(rm -f \"C:/Users/Despe/.claude/projects/D--repos-Sichii-Chaos-Client/scratch/verify_naudio.cs\")"
     ],
     "deny": [],
     "ask": []

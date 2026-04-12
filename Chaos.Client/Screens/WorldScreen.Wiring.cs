@@ -349,6 +349,7 @@ public sealed partial class WorldScreen
 
         public override void OnKeyDown(KeyDownEvent e) => Screen.OnRootKeyDown(e);
         public override void OnClick(ClickEvent e) => Screen.OnRootClick(e);
+        public override void OnMouseScroll(MouseScrollEvent e) => Screen.OnRootMouseScroll(e);
         public override void OnDoubleClick(DoubleClickEvent e) => Screen.OnRootDoubleClick(e);
         public override void OnDragMove(DragMoveEvent e) => Screen.OnRootDragMove(e);
         public override void OnDragDrop(DragDropEvent e) => Screen.OnRootDragDrop(e);
@@ -846,6 +847,15 @@ public sealed partial class WorldScreen
         MailSend.SetViewportBounds(viewport);
 
         FollowPlayerCamera();
+
+        //rebuild darkness texture immediately so this frame's draw uses the new viewport size —
+        //DarknessRenderer.Update runs earlier in the frame (before ProcessInput), so without this
+        //the first frame after the swap would draw the old-sized texture over the new viewport
+        if (DarknessRenderer.IsActive)
+        {
+            DarknessRenderer.SetLightSources(GatherLightSources());
+            DarknessRenderer.Update(Camera, viewport);
+        }
     }
 
     /// <summary>

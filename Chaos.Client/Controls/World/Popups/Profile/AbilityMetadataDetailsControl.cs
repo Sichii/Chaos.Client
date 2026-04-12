@@ -43,14 +43,29 @@ public sealed class AbilityMetadataDetailsControl : PrefabPanel
         LevelLabel?.ForegroundColor = LegendColors.White;
         StrLabel = CreateLabel("STR");
         StrLabel?.ForegroundColor = LegendColors.White;
+        StrLabel?.PaddingLeft = 0;
+        StrLabel?.PaddingRight = 0;
+        
         IntLabel = CreateLabel("INT");
         IntLabel?.ForegroundColor = LegendColors.White;
+        IntLabel?.PaddingLeft = 0;
+        IntLabel?.PaddingRight = 0;
+        
         WisLabel = CreateLabel("WIS");
         WisLabel?.ForegroundColor = LegendColors.White;
+        WisLabel?.PaddingLeft = 0;
+        WisLabel?.PaddingRight = 0;
+        
         ConLabel = CreateLabel("CON");
         ConLabel?.ForegroundColor = LegendColors.White;
+        ConLabel?.PaddingLeft = 0;
+        ConLabel?.PaddingRight = 0;
+        
         DexLabel = CreateLabel("DEX");
         DexLabel?.ForegroundColor = LegendColors.White;
+        DexLabel?.PaddingLeft = 0;
+        DexLabel?.PaddingRight = 0;
+        
         NameLabel = CreateLabel("NAME");
         NameLabel?.ForegroundColor = LegendColors.White;
         Sub1Label = CreateLabel("SUB1");
@@ -169,8 +184,10 @@ public sealed class AbilityMetadataDetailsControl : PrefabPanel
 
         if (LevelLabel is not null)
         {
-            LevelLabel.Text = $"level {entry.Level}";
-            LevelLabel.ForegroundColor = RequirementColor(entry.Level, attrs?.Level);
+            LevelLabel.Text = entry.RequiresMaster ? "master" : $"level {entry.Level}";
+            LevelLabel.ForegroundColor = entry.RequiresMaster
+                ? (WorldState.IsMaster ? LegendColors.White : UnmetColor)
+                : RequirementColor(entry.Level, attrs?.Level);
         }
 
         if (StrLabel is not null)

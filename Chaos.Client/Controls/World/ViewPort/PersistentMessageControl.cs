@@ -33,11 +33,14 @@ public sealed class PersistentMessageControl : UILabel
     public void SetMessage(string text)
     {
         if (string.IsNullOrEmpty(text))
-            Visible = false;
-        else
         {
-            Text = text;
-            Visible = true;
+            Text = string.Empty;
+            Visible = false;
+
+            return;
         }
+
+        Text = text;
+        Visible = true;
     }
 }

@@ -51,7 +51,6 @@ public sealed class OrangeBarControl : UIPanel
                 X = TextBounds.X - WrapBounds.X,
                 Width = TextBounds.Width,
                 Height = GLYPH_HEIGHT,
-                ForegroundColor = Color.Orange,
                 PaddingLeft = 0,
                 PaddingTop = 0,
                 Visible = false,
@@ -151,9 +150,11 @@ public sealed class OrangeBarControl : UIPanel
 
         for (var i = history.Count - 1; (i >= 0) && (slot <= ExpandedLines); i--)
         {
+            var msg = history[i];
             var lineY = baseRelY + ExpandedLines * GLYPH_HEIGHT - slot * GLYPH_HEIGHT;
             Lines[slot].Y = lineY;
-            Lines[slot].Text = history[i];
+            Lines[slot].Text = msg.Text;
+            Lines[slot].ForegroundColor = msg.Color;
             Lines[slot].Visible = true;
             slot++;
         }

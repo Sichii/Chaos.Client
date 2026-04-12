@@ -47,7 +47,6 @@ public sealed class LobbyLoginScreen : IScreen
 
     //ui panels
     private LobbyLoginControl StartPanel = null!;
-    private UILabel StatusLabel = null!;
 
     /// <inheritdoc />
     public UIPanel? Root { get; private set; }
@@ -133,17 +132,6 @@ public sealed class LobbyLoginScreen : IScreen
         };
         PopupMessage.OnOk += OnPopupMessageOk;
 
-        StatusLabel = new UILabel
-        {
-            Name = "StatusText",
-            X = 0,
-            Y = ChaosGame.VIRTUAL_HEIGHT - 20,
-            Width = ChaosGame.VIRTUAL_WIDTH,
-            Height = 12,
-            HorizontalAlignment = HorizontalAlignment.Center,
-            ZIndex = 2
-        };
-
         Root = new LobbyRootPanel
         {
             Name = "LobbyRoot",
@@ -157,7 +145,6 @@ public sealed class LobbyLoginScreen : IScreen
         Root.AddChild(CharCreateControl);
         Root.AddChild(PasswordChangeControl);
         Root.AddChild(PopupMessage);
-        Root.AddChild(StatusLabel);
 
         //build ui atlas after all login controls are constructed
         UiRenderer.Instance?.BuildAtlas();
@@ -169,7 +156,6 @@ public sealed class LobbyLoginScreen : IScreen
             //already connected to login server via redirect — skip lobby handshake, show login directly
             StartPanel.SetButtonsEnabled(false);
             LoginControl.Show();
-            SetStatus("Logged out.", Color.LightBlue);
         } else
 
             //fresh start — connect to lobby
@@ -201,12 +187,6 @@ public sealed class LobbyLoginScreen : IScreen
 
         Game.Dispatcher.ProcessInput(Root!, gameTime);
         Root!.Update(gameTime);
-    }
-
-    private void SetStatus(string message, Color color)
-    {
-        StatusLabel.ForegroundColor = color;
-        StatusLabel.Text = message;
     }
 
     private void WireRootInputHandlers()
@@ -259,7 +239,6 @@ public sealed class LobbyLoginScreen : IScreen
         Connecting = true;
         CreatingCharacter = true;
         AwaitingCharFinalize = false;
-        SetStatus("Creating character...", Color.LightBlue);
         Game.Connection.CreateCharInitial(name, password);
     }
 
@@ -304,7 +283,6 @@ public sealed class LobbyLoginScreen : IScreen
 
         Connecting = true;
         ChangingPassword = true;
-        SetStatus("Changing password...", Color.LightBlue);
         Game.Connection.ChangePassword(name, currentPassword, newPassword);
     }
 
@@ -315,14 +293,16 @@ public sealed class LobbyLoginScreen : IScreen
         StartPanel.SetButtonsEnabled(true);
     }
 
-    private void OnCreditClicked() => SetStatus("Credits panel not yet implemented.", Color.Yellow);
+    private void OnCreditClicked()
+    {
+        //credits panel not yet implemented
+    }
 
     private void OnHomepageClicked()
     {
         if (string.IsNullOrWhiteSpace(HomepageUrl))
         {
-            SetStatus("Homepage URL not yet received.", Color.Yellow);
-
+            //homepage url not yet received
             return;
         }
 
@@ -335,7 +315,7 @@ public sealed class LobbyLoginScreen : IScreen
                 });
         } catch
         {
-            SetStatus("Could not open browser.", Color.Yellow);
+            //could not open browser
         }
     }
 
@@ -346,14 +326,14 @@ public sealed class LobbyLoginScreen : IScreen
 
         if (string.IsNullOrWhiteSpace(username) || string.IsNullOrWhiteSpace(password))
         {
-            SetStatus("Username and password are required.", Color.IndianRed);
-
+            //username and password are required
             return;
         }
 
         Connecting = true;
         LoginControl.Visible = false;
-        SetStatus("Logging in...", Color.LightBlue);
+
+        //logging in...
         WorldState.PlayerName = username;
 
         Game.Connection.Login(
@@ -374,7 +354,6 @@ public sealed class LobbyLoginScreen : IScreen
     private void OnServerSelected(byte serverId)
     {
         ServerSelectControl.Visible = false;
-        SetStatus("Selecting server...", Color.LightBlue);
 
         var server = ServerList.FirstOrDefault(s => s.Id == serverId);
 
@@ -389,7 +368,6 @@ public sealed class LobbyLoginScreen : IScreen
     private async void BeginLobbyConnect()
     {
         Connecting = true;
-        SetStatus("Connecting to lobby...", Color.LightBlue);
 
         await Game.Connection.ConnectToLobbyAsync(DataContext.LobbyHost, DataContext.LobbyPort, DataContext.ClientVersion);
     }
@@ -399,13 +377,10 @@ public sealed class LobbyLoginScreen : IScreen
         switch (newState)
         {
             case ConnectionState.Lobby:
-                SetStatus("Connected. Negotiating...", Color.LightBlue);
-
                 break;
 
             case ConnectionState.Login:
                 Connecting = false;
-                SetStatus("Waiting for server notice...", Color.LightBlue);
 
                 //buttons are enabled after eula acceptance (or checksum cache hit) in onloginnotice
                 break;
@@ -417,7 +392,6 @@ public sealed class LobbyLoginScreen : IScreen
 
             case ConnectionState.Disconnected when Connecting:
                 Connecting = false;
-                SetStatus("Disconnected.", Color.IndianRed);
 
                 break;
         }
@@ -425,8 +399,8 @@ public sealed class LobbyLoginScreen : IScreen
 
     private void OnConnectionError(string error)
     {
+        //connection error: {error}
         Connecting = false;
-        SetStatus(error, Color.IndianRed);
     }
 
     private void OnServerTableReceived(ServerTableData data)
@@ -435,20 +409,24 @@ public sealed class LobbyLoginScreen : IScreen
 
         if (data is { ShowServerList: true, Servers.Count: > 1 })
         {
-            SetStatus("Select a server.", Color.LightBlue);
+            //select a server
             ServerSelectControl.SetServers(data.Servers);
             ServerSelectControl.Visible = true;
         } else if (data.Servers.Count > 0)
         {
             //auto-select the first (or only) server
-            SetStatus("Selecting server...", Color.LightBlue);
             Game.Connection.ServerName = data.Servers[0].Name;
             Game.Connection.SelectServer(data.Servers[0].Id);
         } else
-            SetStatus("No servers available.", Color.IndianRed);
+        {
+            //no servers available
+        }
     }
 
-    private void OnRedirectReceived(RedirectInfo _) => SetStatus("Following redirect...", Color.LightBlue);
+    private void OnRedirectReceived(RedirectInfo _)
+    {
+        //following redirect...
+    }
 
     private void OnLoginMessage(LoginMessageArgs args)
     {
@@ -468,8 +446,7 @@ public sealed class LobbyLoginScreen : IScreen
 
         if (args.LoginMessageType == LoginMessageType.Confirm)
         {
-            SetStatus("Login accepted. Waiting for redirect...", Color.LightGreen);
-
+            //login accepted. waiting for redirect...
             return;
         }
 
@@ -492,9 +469,8 @@ public sealed class LobbyLoginScreen : IScreen
         {
             if (!AwaitingCharFinalize)
             {
-                //initial step confirmed — send finalize with appearance
+                //initial step confirmed — send finalize with appearance (setting appearance...)
                 AwaitingCharFinalize = true;
-                SetStatus("Setting appearance...", Color.LightBlue);
 
                 Game.Connection.CreateCharFinalize(
                     CharCreateControl.SelectedHairStyle,
@@ -507,7 +483,6 @@ public sealed class LobbyLoginScreen : IScreen
                 CreatingCharacter = false;
                 AwaitingCharFinalize = false;
                 CharCreateControl.Hide();
-                SetStatus(string.Empty, Color.White);
                 PopupMessage.Show("Character has been created. Choose \"CONTINUE\".");
             }
 
@@ -550,7 +525,6 @@ public sealed class LobbyLoginScreen : IScreen
         if (args.LoginMessageType == LoginMessageType.Confirm)
         {
             PasswordChangeControl.Hide();
-            SetStatus(string.Empty, Color.White);
             PopupMessage.Show("Password has been changed.");
 
             return;

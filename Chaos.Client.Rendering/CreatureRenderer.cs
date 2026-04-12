@@ -1,6 +1,7 @@
 #region
 using Chaos.Client.Data;
 using Chaos.Client.Rendering.Models;
+using DALib.Definitions;
 using DALib.Drawing;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
@@ -127,7 +128,8 @@ public sealed class CreatureRenderer : IDisposable
             mpf.StandingFrameIndex,
             mpf.StandingFrameCount,
             mpf.OptionalAnimationFrameCount,
-            mpf.OptionalAnimationRatio,
+            mpf.OptionalAnimationProbability,
+            mpf.AnimationIntervalMs,
             mpf.Count);
     }
 
@@ -208,7 +210,8 @@ public sealed class CreatureRenderer : IDisposable
 }
 
 /// <summary>
-///     Creature animation metadata: frame index ranges and counts for each animation state (walk, attack, standing).
+///     Creature animation metadata describing frame index ranges, counts, and idle timing for every animation state
+///     (walk, attack, standing).
 /// </summary>
 public readonly record struct CreatureAnimInfo(
     byte WalkFrameIndex,
@@ -222,5 +225,12 @@ public readonly record struct CreatureAnimInfo(
     byte StandingFrameIndex,
     byte StandingFrameCount,
     byte OptionalAnimationFrameCount,
-    byte OptionalAnimationRatio,
-    int TotalFrameCount);
+    byte OptionalAnimationProbability,
+    int AnimationIntervalMs,
+    int TotalFrameCount)
+{
+    /// <summary>
+    ///     The <see cref="MpfIdleType" /> that governs this creature's idle animation behavior.
+    /// </summary>
+    public MpfIdleType IdleType => MpfFile.DetectIdleType(StandingFrameCount, OptionalAnimationFrameCount);
+}

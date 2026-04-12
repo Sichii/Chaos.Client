@@ -3,6 +3,7 @@
         <File Path="CLAUDE.md" />
         <File Path="Directory.Build.props" />
         <File Path="Directory.Packages.props" />
+        <File Path="README.md" />
     </Folder>
     <Project Path="../dalib/DALib/DALib.csproj" />
     <Project Path="Chaos.Client.Data/Chaos.Client.Data.csproj" />

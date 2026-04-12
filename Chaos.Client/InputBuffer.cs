@@ -173,34 +173,34 @@ public sealed partial class InputBuffer : IDisposable
             ClearMouseButtonEvents();
         }
 
-        //suppress clicks when cursor is outside the client area — Mouse.GetState() reports
-        //global button state, so clicking another window shows as Pressed even though the
-        //click didn't target our window
+        //suppress mouse clicks when cursor is outside the client area — Mouse.GetState()
+        //reports global button state, so clicking another window shows as Pressed even
+        //though the click didn't target our window. Keyboard input still processes so the
+        //focused window receives hotkeys regardless of cursor position.
         var raw = Mouse.GetState();
         var clientWidth = (int)(ChaosGame.VIRTUAL_WIDTH * VirtualScale);
         var clientHeight = (int)(ChaosGame.VIRTUAL_HEIGHT * VirtualScale);
+        var mouseOutsideClient = (raw.X < 0) || (raw.X >= clientWidth) || (raw.Y < 0) || (raw.Y >= clientHeight);
 
-        if ((raw.X < 0) || (raw.X >= clientWidth) || (raw.Y < 0) || (raw.Y >= clientHeight))
+        if (mouseOutsideClient)
         {
-            CurrentMouse = raw;
-            PreviousMouse = CurrentMouse;
             ClearMouseButtonEvents();
-
-            return;
         }
-
-        //freeze mouse button events from SDL watcher
-        MouseButtonEventCount = PendingMouseButtonEvents.Count;
-
-        if (MouseButtonEventCount > 0)
+        else
         {
-            if (MouseButtonEventBuffer.Length < MouseButtonEventCount)
-                MouseButtonEventBuffer = new BufferedMouseButtonEvent[Math.Max(MouseButtonEventCount, 16)];
+            //freeze mouse button events from SDL watcher
+            MouseButtonEventCount = PendingMouseButtonEvents.Count;
 
-            for (var i = 0; i < MouseButtonEventCount; i++)
-                MouseButtonEventBuffer[i] = PendingMouseButtonEvents[i];
+            if (MouseButtonEventCount > 0)
+            {
+                if (MouseButtonEventBuffer.Length < MouseButtonEventCount)
+                    MouseButtonEventBuffer = new BufferedMouseButtonEvent[Math.Max(MouseButtonEventCount, 16)];
 
-            PendingMouseButtonEvents.Clear();
+                for (var i = 0; i < MouseButtonEventCount; i++)
+                    MouseButtonEventBuffer[i] = PendingMouseButtonEvents[i];
+
+                PendingMouseButtonEvents.Clear();
+            }
         }
 
         FrameKeyPresses.Clear();
@@ -240,9 +240,17 @@ public sealed partial class InputBuffer : IDisposable
         PendingText.Clear();
         PendingOrdered.Clear();
 
-        PreviousMouse = CurrentMouse;
-        CurrentMouse = Mouse.GetState();
-
+        if (mouseOutsideClient)
+        {
+            //set both states identical so no button edges fire while cursor is outside
+            CurrentMouse = raw;
+            PreviousMouse = CurrentMouse;
+        }
+        else
+        {
+            PreviousMouse = CurrentMouse;
+            CurrentMouse = Mouse.GetState();
+        }
     }
 
     #region Keyboard

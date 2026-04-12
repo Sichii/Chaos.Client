@@ -146,4 +146,12 @@ public sealed class InventoryPanel : PanelBase
 
         PositionGoldSlot(VisibleSlotCount - 1);
     }
+
+    protected override PanelSlot? FindHoveredSlot(int screenX, int screenY)
+    {
+        if (GoldSlot.Visible && GoldSlot.ContainsPoint(screenX, screenY))
+            return GoldSlot;
+
+        return base.FindHoveredSlot(screenX, screenY);
+    }
 }

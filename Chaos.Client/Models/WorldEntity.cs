@@ -61,6 +61,10 @@ public sealed class WorldEntity
     public int IdleAnimFrameCount { get; set; }
     public int IdleAnimTick { get; set; }
     public int IdleCycleEndsAt { get; set; }
+
+    //per-entity per-frame delay for idle animation (ms). 0 = use default. set per creature by
+    //AnimationSystem.UpdateCreatureIdleCycle based on the creature's MpfIdleType.
+    public float IdleFrameIntervalMs { get; set; }
     public bool IdleOptionalActive { get; set; }
     public bool IsDead { get; set; }
 

@@ -357,7 +357,14 @@ public sealed class DarknessRenderer : IDisposable
         var worldOffsetX = (int)viewportTopLeft.X;
         var worldOffsetY = (int)viewportTopLeft.Y;
 
-        if ((worldOffsetX == LastOffsetX) && (worldOffsetY == LastOffsetY))
+        //early return only if everything matches — viewport size changes (hud swap) must force a rebuild
+        //even when the world offset happens to coincide with the previous frame's value
+        if ((worldOffsetX == LastOffsetX)
+            && (worldOffsetY == LastOffsetY)
+            && Texture is not null
+            && !Texture.IsDisposed
+            && (Texture.Width == vpWidth)
+            && (Texture.Height == vpHeight))
             return;
 
         var heaOffsetX = worldOffsetX + HeaFile.ScreenWidth;
