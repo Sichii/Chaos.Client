@@ -81,7 +81,13 @@ public sealed class MenuShopPanel : PrefabPanel
         TabNextButton = CreateButton("TabNext");
 
         if (CloseButton is not null)
-            CloseButton.Clicked += () => OnClose?.Invoke();
+            CloseButton.Clicked += () =>
+            {
+                if (SelectedIndex >= 0)
+                    OnItemSelected?.Invoke(SelectedIndex);
+                else
+                    OnClose?.Invoke();
+            };
 
         if (PagePrevButton is not null)
             PagePrevButton.Clicked += () =>
@@ -794,12 +800,16 @@ public sealed class MenuShopPanel : PrefabPanel
             Width = contentWidth;
             Height = ROW_HEIGHT;
 
+            //display-only children: the listing must remain the deepest hit-test target so its
+            //OnMouseLeave fires reliably when the cursor exits the panel — otherwise the parent
+            //MenuShopPanel never learns that hover ended and the tooltip "escapes" the panel.
             IconImage = new UIImage
             {
                 X = 4,
                 Y = (ROW_HEIGHT - ICON_SIZE) / 2,
                 Width = ICON_SIZE,
-                Height = ICON_SIZE
+                Height = ICON_SIZE,
+                IsHitTestVisible = false
             };
 
             NameLabel = new UILabel
@@ -808,7 +818,8 @@ public sealed class MenuShopPanel : PrefabPanel
                 Y = (ROW_HEIGHT - TextRenderer.CHAR_HEIGHT) / 2,
                 Width = 200,
                 Height = TextRenderer.CHAR_HEIGHT,
-                ForegroundColor = Color.White
+                ForegroundColor = Color.White,
+                IsHitTestVisible = false
             };
 
             CostLabel = new UILabel
@@ -818,7 +829,8 @@ public sealed class MenuShopPanel : PrefabPanel
                 Width = contentWidth - 4,
                 Height = TextRenderer.CHAR_HEIGHT,
                 HorizontalAlignment = HorizontalAlignment.Right,
-                ForegroundColor = Color.White
+                ForegroundColor = Color.White,
+                IsHitTestVisible = false
             };
 
             AddChild(IconImage);

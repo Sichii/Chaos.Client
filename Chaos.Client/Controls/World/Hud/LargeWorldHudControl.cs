@@ -4,6 +4,7 @@ using Chaos.Client.Controls.Components;
 using Chaos.Client.Controls.World.Hud.Panel;
 using Chaos.Client.Controls.World.ViewPort;
 using Chaos.Client.Data;
+using Chaos.Client.Systems;
 using Chaos.Client.ViewModel;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
@@ -37,6 +38,7 @@ public sealed class LargeWorldHudControl : PrefabPanel, IWorldHud
     private readonly SystemMessagePaneControl SystemMessagePane;
     private readonly UILabel PlayerNameLabel;
     private readonly UILabel? ServerNameLabel;
+    private readonly UILabel TooltipLabel;
 
     private readonly UIPanel?[] TabPanels = new UIPanel?[Enum.GetValues<HudTab>()
                                                              .Length];
@@ -60,6 +62,7 @@ public sealed class LargeWorldHudControl : PrefabPanel, IWorldHud
     public ToolsPanel Tools { get; private set; } = null!;
     public UIButton? BulletinButton { get; }
     public UIButton? ChangeLayoutButton { get; }
+    public UIButton? CharScreenshotButton { get; }
     public ChatInputControl ChatInput { get; }
     public EffectBarControl EffectBar { get; }
     public UIButton? EmoteButton { get; }
@@ -122,6 +125,8 @@ public sealed class LargeWorldHudControl : PrefabPanel, IWorldHud
         PlayerNameLabel = CreateLabel("SZ_ID", HorizontalAlignment.Center)!;
         ZoneNameLabel = CreateLabel("SZ_ZONE", HorizontalAlignment.Center)!;
         ZoneNameLabel.ForegroundColor = LegendColors.White;
+        ZoneNameLabel.TruncateWithEllipsis = false;
+        
         WeightLabel = CreateLabel("SZ_WEIGHT", HorizontalAlignment.Center)!;
         WeightLabel.PaddingLeft = 0;
         WeightLabel.PaddingRight = 0;
@@ -161,7 +166,33 @@ public sealed class LargeWorldHudControl : PrefabPanel, IWorldHud
         ScreenshotButton = CreateButton("CShot");
         EmoteButton = CreateButton("BTN_EMOT");
         SettingsButton = CreateButton("BTN_SETTING");
-        CreateButton("BTN_SCREENSHOT");
+        CharScreenshotButton = CreateButton("BTN_SCREENSHOT");
+
+        //shared tooltip label for hud utility buttons — anchored above the hovered button
+        TooltipLabel = new UILabel
+        {
+            Name = "HudTooltip",
+            Visible = false,
+            IsHitTestVisible = false,
+            PaddingLeft = 1,
+            PaddingTop = 1,
+            BackgroundColor = new Color(0, 0, 0, 128),
+            BorderColor = LegendColors.White,
+            ForegroundColor = LegendColors.White,
+            ZIndex = 100
+        };
+        AddChild(TooltipLabel);
+
+        //wire tooltips for the 9 utility buttons on the large hud
+        WireTooltip(LegendButton, "Legend");
+        WireTooltip(TownMapButton, "Map");
+        WireTooltip(GroupButton, "Group");
+        WireTooltip(MailButton, "Mail");
+        WireTooltip(GroupIndicator, "Group");
+        WireTooltip(ScreenshotButton, "Portraits");
+        WireTooltip(SettingsButton, "Settings");
+        WireTooltip(CharScreenshotButton, "ScreenShot");
+        WireTooltip(HelpButton, "Hotkeys");
 
         for (var i = 0; i < 6; i++)
             InventoryTabButtons[i] = CreateButton($"BTN_INV{i}");
@@ -292,6 +323,44 @@ public sealed class LargeWorldHudControl : PrefabPanel, IWorldHud
             ? cache.GetPrefabTexture(PrefabSet.Name, controlName, 0)
             : null;
 
+    private void WireTooltip(UIButton? btn, string label)
+    {
+        if (btn is null)
+            return;
+
+        btn.TooltipText = label;
+        btn.Hovered += ShowTooltip;
+        btn.Unhovered += _ => HideTooltip();
+        btn.VisibilityChanged += _ => HideTooltip();
+    }
+
+    private void ShowTooltip(UIButton btn)
+    {
+        if (btn.TooltipText is not { Length: > 0 } text)
+            return;
+
+        TooltipLabel.Text = text;
+        TooltipLabel.Width = TextRenderer.MeasureWidth(text) + 4;
+        TooltipLabel.Height = TextRenderer.CHAR_HEIGHT + 4;
+
+        var x = btn.X;
+        var y = btn.Y + 5 - TooltipLabel.Height;
+
+        var rightLimit = ChaosGame.VIRTUAL_WIDTH - TooltipLabel.Width;
+
+        if (x > rightLimit)
+            x = rightLimit;
+
+        if (x < 0)
+            x = 0;
+
+        TooltipLabel.X = x;
+        TooltipLabel.Y = y;
+        TooltipLabel.Visible = true;
+    }
+
+    private void HideTooltip() => TooltipLabel.Visible = false;
+
     private void CreateTabPanels(
         Texture2D? invBgTexture,
         Texture2D? invBgExpandedTexture,
@@ -385,18 +454,8 @@ public sealed class LargeWorldHudControl : PrefabPanel, IWorldHud
             {
                 var tab = tabMapping[i];
 
-                InventoryTabButtons[i]!.Clicked += () =>
-                {
-                    //toggle between primary and alt panes for skills/spells when clicking the same button
-                    if ((tab == HudTab.Skills) && (ActiveTab is HudTab.Skills or HudTab.SkillsAlt))
-                        ShowTab(ActiveTab == HudTab.Skills ? HudTab.SkillsAlt : HudTab.Skills);
-                    else if ((tab == HudTab.Spells) && (ActiveTab is HudTab.Spells or HudTab.SpellsAlt))
-                        ShowTab(ActiveTab == HudTab.Spells ? HudTab.SpellsAlt : HudTab.Spells);
-                    else if ((tab == HudTab.Inventory) && (ActiveTab == HudTab.Inventory))
-                        InventoryReactivated?.Invoke();
-                    else
-                        ShowTab(tab);
-                };
+                //mirror keyboard semantics: shift+click and click-while-active behaviors
+                InventoryTabButtons[i]!.ClickedWithModifiers += modifiers => HandleTabActivation(tab, (modifiers & KeyModifiers.Shift) != 0);
             }
 
         ShowTab(HudTab.Inventory);
@@ -486,6 +545,69 @@ public sealed class LargeWorldHudControl : PrefabPanel, IWorldHud
         Expanded = !Expanded;
 
         ApplyExpandToActiveTab();
+    }
+
+    public void HandleTabActivation(HudTab tab, bool shift)
+    {
+        switch (tab)
+        {
+            case HudTab.Inventory:
+                if (shift)
+                {
+                    if (ActiveTab != HudTab.Inventory)
+                        ShowTab(HudTab.Inventory);
+
+                    ToggleExpand();
+                } else if (ActiveTab == HudTab.Inventory)
+                    InventoryReactivated?.Invoke();
+                else
+                    ShowTab(HudTab.Inventory);
+
+                break;
+
+            case HudTab.Skills:
+            case HudTab.SkillsAlt:
+            {
+                var alt = shift || (!ClientSettings.UseShiftKeyForAltPanels && (ActiveTab == HudTab.Skills));
+                ShowTab(alt ? HudTab.SkillsAlt : HudTab.Skills);
+
+                break;
+            }
+
+            case HudTab.Spells:
+            case HudTab.SpellsAlt:
+            {
+                var alt = shift || (!ClientSettings.UseShiftKeyForAltPanels && (ActiveTab == HudTab.Spells));
+                ShowTab(alt ? HudTab.SpellsAlt : HudTab.Spells);
+
+                break;
+            }
+
+            case HudTab.Chat:
+            case HudTab.MessageHistory:
+                if (shift)
+                {
+                    ShowTab(HudTab.MessageHistory);
+                    MessageHistory.ScrollToBottom();
+                } else
+                {
+                    ShowTab(HudTab.Chat);
+                    ChatDisplay.ScrollToBottom();
+                }
+
+                break;
+
+            case HudTab.Stats:
+            case HudTab.ExtendedStats:
+                ShowTab(shift ? HudTab.ExtendedStats : HudTab.Stats);
+
+                break;
+
+            case HudTab.Tools:
+                ShowTab(HudTab.Tools);
+
+                break;
+        }
     }
 
     private void ApplyExpandToActiveTab()

@@ -3,6 +3,7 @@ using System.Reflection;
 using System.Runtime.CompilerServices;
 using System.Text;
 using Chaos.Client.Data;
+using Chaos.Client.Systems;
 using Microsoft.Xna.Framework.Graphics;
 #endregion
 
@@ -15,7 +16,7 @@ namespace Chaos.Client;
 public static class GlobalSettings
 {
     private static readonly string[] PreLoadedAssemblies = ["Chaos.Networking"];
-    private static readonly Type[] PreInitializedStatics = [typeof(DataContext)];
+    private static readonly Type[] PreInitializedStatics = [typeof(DataContext), typeof(MachineIdentity)];
     public static readonly SamplerState Sampler = SamplerState.PointClamp; //SamplerState.LinearClamp;
     private static ushort ClientVersion => 741;
 

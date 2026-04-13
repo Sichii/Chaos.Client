@@ -17,6 +17,7 @@ public interface IWorldHud
     //buttons — nullable since some may not exist in a given prefab
     UIButton? BulletinButton { get; }
     UIButton? ChangeLayoutButton { get; }
+    UIButton? CharScreenshotButton { get; }
     ChatPanel ChatDisplay { get; }
     SystemMessagePanel MessageHistory { get; }
     ChatInputControl ChatInput { get; }
@@ -58,6 +59,13 @@ public interface IWorldHud
     void ShowSystemMessage(string text, Color? color = null);
     void ShowTab(HudTab tab);
     void ToggleExpand();
+
+    /// <summary>
+    ///     Shared activation logic for HUD tab hotkeys (A/S/D/F/G/H) and the matching tab buttons. Mirrors the keyboard
+    ///     handler exactly: applies shift modifiers (alt panels, expand inventory, message history, extended stats) and
+    ///     the click-while-active behavior gated on <c>UseShiftKeyForAltPanels</c>.
+    /// </summary>
+    void HandleTabActivation(HudTab tab, bool shift);
 
     /// <summary>
     ///     Fired when the inventory tab button is clicked while already on the inventory tab.

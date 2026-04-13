@@ -73,7 +73,7 @@ public sealed class MailReadControl : PrefabPanel
         AuthorLabel?.ForegroundColor = LegendColors.White;
         
         TitleLabel = CreateLabel("Title");
-        AuthorLabel?.ForegroundColor = LegendColors.White;
+        TitleLabel?.ForegroundColor = LegendColors.White;
         
         DateLabel = CreateLabel("Mmdd");
         DateLabel?.ForegroundColor = LegendColors.White;

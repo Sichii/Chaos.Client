@@ -17,6 +17,7 @@ public class UIButton : UIElement
     public Texture2D? DisabledTexture { get; set; }
     public Texture2D? HoverTexture { get; set; }
     public bool IsHovered { get; private set; }
+    public string? TooltipText { get; set; }
     public bool IsPressed { get; private set; }
     public bool IsSelected { get; set; }
     public Texture2D? NormalTexture { get; set; }
@@ -93,6 +94,9 @@ public class UIButton : UIElement
     }
 
     public event ClickedHandler? Clicked;
+    public event ClickedWithModifiersHandler? ClickedWithModifiers;
+    public event HoveredHandler? Hovered;
+    public event UnhoveredHandler? Unhovered;
 
     public void PerformClick() => Clicked?.Invoke();
 
@@ -103,12 +107,17 @@ public class UIButton : UIElement
         IsSelected = false;
     }
 
-    public override void OnMouseEnter() => IsHovered = true;
+    public override void OnMouseEnter()
+    {
+        IsHovered = true;
+        Hovered?.Invoke(this);
+    }
 
     public override void OnMouseLeave()
     {
         IsHovered = false;
         IsPressed = false;
+        Unhovered?.Invoke(this);
     }
 
     public override void OnMouseDown(MouseDownEvent e)
@@ -131,6 +140,7 @@ public class UIButton : UIElement
         if (e.Button == MouseButton.Left)
         {
             Clicked?.Invoke();
+            ClickedWithModifiers?.Invoke(e.Modifiers);
             e.Handled = true;
         }
     }

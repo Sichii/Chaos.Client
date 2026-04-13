@@ -4,6 +4,7 @@ using Chaos.Client.Controls.Components;
 using Chaos.Client.Controls.World.Hud.Panel;
 using Chaos.Client.Controls.World.ViewPort;
 using Chaos.Client.Data;
+using Chaos.Client.Systems;
 using Chaos.Client.ViewModel;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
@@ -44,6 +45,9 @@ public sealed class WorldHudControl : PrefabPanel, IWorldHud
     private readonly UIPanel?[] TabPanels = new UIPanel?[Enum.GetValues<HudTab>()
                                                              .Length];
 
+    //shared tooltip label for hud utility buttons
+    private readonly UILabel TooltipLabel;
+
     private readonly UILabel WeightLabel;
     private readonly UILabel ZoneNameLabel;
     public HudTab ActiveTab { get; private set; } = HudTab.Inventory;
@@ -60,6 +64,7 @@ public sealed class WorldHudControl : PrefabPanel, IWorldHud
     public ToolsPanel Tools { get; private set; } = null!;
     public UIButton? BulletinButton { get; }
     public UIButton? ChangeLayoutButton { get; }
+    public UIButton? CharScreenshotButton { get; }
 
     //chat
     public ChatInputControl ChatInput { get; }
@@ -133,6 +138,8 @@ public sealed class WorldHudControl : PrefabPanel, IWorldHud
         PlayerNameLabel = CreateLabel("SZ_ID", HorizontalAlignment.Center)!;
         ZoneNameLabel = CreateLabel("SZ_ZONE", HorizontalAlignment.Center)!;
         ZoneNameLabel.ForegroundColor = LegendColors.White;
+        ZoneNameLabel.TruncateWithEllipsis = false;
+        
         WeightLabel = CreateLabel("SZ_WEIGHT", HorizontalAlignment.Center)!;
         WeightLabel.PaddingLeft = 0;
         WeightLabel.PaddingRight = 0;
@@ -176,11 +183,46 @@ public sealed class WorldHudControl : PrefabPanel, IWorldHud
 
         //conditional buttons (may not exist in all client versions)
         SettingsButton = CreateButton("BTN_SETTING");
-        CreateButton("BTN_SCREENSHOT");
+        CharScreenshotButton = CreateButton("BTN_SCREENSHOT");
+
+        //shared tooltip label for hud utility buttons — anchored above the hovered button
+        TooltipLabel = new UILabel
+        {
+            Name = "HudTooltip",
+            Visible = false,
+            IsHitTestVisible = false,
+            PaddingLeft = 1,
+            PaddingTop = 1,
+            BackgroundColor = new Color(0, 0, 0, 128),
+            BorderColor = LegendColors.White,
+            ForegroundColor = LegendColors.White,
+            ZIndex = 100
+        };
+        AddChild(TooltipLabel);
+
+        //wire tooltips for the 6 utility buttons on the small hud
+        WireTooltip(LegendButton, "Legend");
+        WireTooltip(TownMapButton, "Map");
+        WireTooltip(GroupButton, "Group");
+        WireTooltip(SettingsButton, "Settings");
+        WireTooltip(CharScreenshotButton, "ScreenShot");
+        WireTooltip(HelpButton, "Hotkeys");
 
         //inventory tab buttons (btn_inv0 through btn_inv5)
         for (var i = 0; i < 6; i++)
             InventoryTabButtons[i] = CreateButton($"BTN_INV{i}");
+
+        //_nbk_s.txt has BTN_INV4 with rect H=23 (others are H=24). UpdateClipRect uses Height for clipping,
+        //so the 24-tall texture's bottom row gets clipped, leaving a 1px gap before BTN_INV5. Normalize.
+        foreach (var btn in InventoryTabButtons)
+            if (btn?.NormalTexture is { } tex)
+            {
+                if (btn.Height < tex.Height)
+                    btn.Height = tex.Height;
+
+                if (btn.Width < tex.Width)
+                    btn.Width = tex.Width;
+            }
 
         //persistent message — floating text, top-right of viewport
         PersistentMessage = new PersistentMessageControl(ViewportBounds);
@@ -251,6 +293,44 @@ public sealed class WorldHudControl : PrefabPanel, IWorldHud
         => PrefabSet.Contains(controlName) && (PrefabSet[controlName].Images.Count > 0)
             ? cache.GetPrefabTexture(PrefabSet.Name, controlName, 0)
             : null;
+
+    private void WireTooltip(UIButton? btn, string label)
+    {
+        if (btn is null)
+            return;
+
+        btn.TooltipText = label;
+        btn.Hovered += ShowTooltip;
+        btn.Unhovered += _ => HideTooltip();
+        btn.VisibilityChanged += _ => HideTooltip();
+    }
+
+    private void ShowTooltip(UIButton btn)
+    {
+        if (btn.TooltipText is not { Length: > 0 } text)
+            return;
+
+        TooltipLabel.Text = text;
+        TooltipLabel.Width = TextRenderer.MeasureWidth(text) + 4;
+        TooltipLabel.Height = TextRenderer.CHAR_HEIGHT + 4;
+
+        var x = btn.X;
+        var y = btn.Y + 5 - TooltipLabel.Height;
+
+        var rightLimit = ChaosGame.VIRTUAL_WIDTH - TooltipLabel.Width;
+
+        if (x > rightLimit)
+            x = rightLimit;
+
+        if (x < 0)
+            x = 0;
+
+        TooltipLabel.X = x;
+        TooltipLabel.Y = y;
+        TooltipLabel.Visible = true;
+    }
+
+    private void HideTooltip() => TooltipLabel.Visible = false;
     #endregion
 
     #region Tab Panel Management
@@ -354,18 +434,8 @@ public sealed class WorldHudControl : PrefabPanel, IWorldHud
             {
                 var tab = tabMapping[i];
 
-                InventoryTabButtons[i]!.Clicked += () =>
-                {
-                    //toggle between primary and alt panes for skills/spells when clicking the same button
-                    if ((tab == HudTab.Skills) && (ActiveTab is HudTab.Skills or HudTab.SkillsAlt))
-                        ShowTab(ActiveTab == HudTab.Skills ? HudTab.SkillsAlt : HudTab.Skills);
-                    else if ((tab == HudTab.Spells) && (ActiveTab is HudTab.Spells or HudTab.SpellsAlt))
-                        ShowTab(ActiveTab == HudTab.Spells ? HudTab.SpellsAlt : HudTab.Spells);
-                    else if ((tab == HudTab.Inventory) && (ActiveTab == HudTab.Inventory))
-                        InventoryReactivated?.Invoke();
-                    else
-                        ShowTab(tab);
-                };
+                //mirror keyboard semantics: shift+click and click-while-active behaviors
+                InventoryTabButtons[i]!.ClickedWithModifiers += modifiers => HandleTabActivation(tab, (modifiers & KeyModifiers.Shift) != 0);
             }
 
         //default to inventory visible
@@ -460,6 +530,69 @@ public sealed class WorldHudControl : PrefabPanel, IWorldHud
     ///     Small HUD: only inventory supports expand (3 rows → 5 rows).
     /// </summary>
     public void ToggleExpand() => Inventory.SetExpanded(!Inventory.IsExpanded);
+
+    public void HandleTabActivation(HudTab tab, bool shift)
+    {
+        switch (tab)
+        {
+            case HudTab.Inventory:
+                if (shift)
+                {
+                    if (ActiveTab != HudTab.Inventory)
+                        ShowTab(HudTab.Inventory);
+
+                    ToggleExpand();
+                } else if (ActiveTab == HudTab.Inventory)
+                    InventoryReactivated?.Invoke();
+                else
+                    ShowTab(HudTab.Inventory);
+
+                break;
+
+            case HudTab.Skills:
+            case HudTab.SkillsAlt:
+            {
+                var alt = shift || (!ClientSettings.UseShiftKeyForAltPanels && (ActiveTab == HudTab.Skills));
+                ShowTab(alt ? HudTab.SkillsAlt : HudTab.Skills);
+
+                break;
+            }
+
+            case HudTab.Spells:
+            case HudTab.SpellsAlt:
+            {
+                var alt = shift || (!ClientSettings.UseShiftKeyForAltPanels && (ActiveTab == HudTab.Spells));
+                ShowTab(alt ? HudTab.SpellsAlt : HudTab.Spells);
+
+                break;
+            }
+
+            case HudTab.Chat:
+            case HudTab.MessageHistory:
+                if (shift)
+                {
+                    ShowTab(HudTab.MessageHistory);
+                    MessageHistory.ScrollToBottom();
+                } else
+                {
+                    ShowTab(HudTab.Chat);
+                    ChatDisplay.ScrollToBottom();
+                }
+
+                break;
+
+            case HudTab.Stats:
+            case HudTab.ExtendedStats:
+                ShowTab(shift ? HudTab.ExtendedStats : HudTab.Stats);
+
+                break;
+
+            case HudTab.Tools:
+                ShowTab(HudTab.Tools);
+
+                break;
+        }
+    }
 
     public void ShowPersistentMessage(string text) => PersistentMessage.SetMessage(text);
 

@@ -64,11 +64,11 @@ public sealed class HotkeyHelpControl : PrefabPanel
             //standard single-rect key group
             if (keyPrefabSet.Contains(name))
             {
-                var element = CreateKeyElement(keyPrefabSet[name], mainRect);
+                var (element, texture) = CreateKeyElement(keyPrefabSet[name], mainRect);
 
                 if (element is not null)
                 {
-                    KeyGroups[i] = new KeyGroupEntry(element, null);
+                    KeyGroups[i] = new KeyGroupEntry(element, texture, null, null);
                     DetailImages[i] = TryLoadDetailImage(i);
                 }
 
@@ -76,7 +76,8 @@ public sealed class HotkeyHelpControl : PrefabPanel
             }
 
             //multi-rect key group (e.g. c02 → c021, c022)
-            var subElements = new List<UIElement>();
+            var subElements = new List<UIImage>();
+            var subTextures = new List<Texture2D?>();
 
             for (var s = 1; s <= 9; s++)
             {
@@ -85,15 +86,18 @@ public sealed class HotkeyHelpControl : PrefabPanel
                 if (!keyPrefabSet.Contains(subName))
                     continue;
 
-                var sub = CreateKeyElement(keyPrefabSet[subName], mainRect);
+                var (sub, subTex) = CreateKeyElement(keyPrefabSet[subName], mainRect);
 
                 if (sub is not null)
+                {
                     subElements.Add(sub);
+                    subTextures.Add(subTex);
+                }
             }
 
             if (subElements.Count > 0)
             {
-                KeyGroups[i] = new KeyGroupEntry(subElements[0], subElements.ToArray());
+                KeyGroups[i] = new KeyGroupEntry(subElements[0], null, subElements.ToArray(), subTextures.ToArray());
                 DetailImages[i] = TryLoadDetailImage(i);
             }
         }
@@ -101,16 +105,18 @@ public sealed class HotkeyHelpControl : PrefabPanel
 
     /// <summary>
     ///     Creates a UIImage element from a _nhotkey prefab control, offset by the MAIN rect origin to convert from
-    ///     keyboard-local space to panel space. Starts hidden.
+    ///     keyboard-local space to panel space. The element is always visible (so it participates in hit-testing) but
+    ///     starts with a null Texture — the highlight texture is returned separately and assigned on hover.
     /// </summary>
-    private UIImage? CreateKeyElement(ControlPrefab prefab, Rectangle mainRect)
+    private (UIImage? Image, Texture2D? Texture) CreateKeyElement(ControlPrefab prefab, Rectangle mainRect)
     {
         var rect = prefab.Control.Rect;
 
         if (rect is null || (prefab.Images.Count == 0))
-            return null;
+            return (null, null);
 
         var r = rect.Value;
+        var highlightTexture = UiRenderer.Instance!.GetPrefabTexture("_nhotkey", prefab.Control.Name, 0);
 
         var image = new UIImage
         {
@@ -119,14 +125,13 @@ public sealed class HotkeyHelpControl : PrefabPanel
             Y = mainRect.Y + (int)r.Top,
             Width = (int)r.Width,
             Height = (int)r.Height,
-            Texture = UiRenderer.Instance!.GetPrefabTexture("_nhotkey", prefab.Control.Name, 0),
-            Visible = false,
+            Texture = null,
             IsHitTestVisible = false
         };
 
         AddChild(image);
 
-        return image;
+        return (image, highlightTexture);
     }
 
     public override void Dispose()
@@ -164,15 +169,16 @@ public sealed class HotkeyHelpControl : PrefabPanel
 
     public event CloseHandler? OnClose;
 
-    private void SetKeyGroupVisible(int index, bool visible)
+    private void SetKeyGroupHighlighted(int index, bool highlighted)
     {
         var group = KeyGroups[index];
 
-        if (group.SubElements is not null)
-            foreach (var sub in group.SubElements)
-                sub.Visible = visible;
-        else
-            group.Primary?.Visible = visible;
+        if (group.SubElements is not null && group.SubTextures is not null)
+        {
+            for (var i = 0; i < group.SubElements.Length; i++)
+                group.SubElements[i].Texture = highlighted ? group.SubTextures[i] : null;
+        } else if (group.Primary is not null)
+            group.Primary.Texture = highlighted ? group.PrimaryTexture : null;
     }
 
     private static Texture2D TryLoadDetailImage(int index) => UiRenderer.Instance!.GetNationalSpfTexture($"_nhke{index:D2}.spf");
@@ -203,7 +209,7 @@ public sealed class HotkeyHelpControl : PrefabPanel
         //hide previous key group highlight
         if (HoveredIndex >= 0)
         {
-            SetKeyGroupVisible(HoveredIndex, false);
+            SetKeyGroupHighlighted(HoveredIndex, false);
 
             DetailDisplay?.Visible = false;
         }
@@ -213,7 +219,7 @@ public sealed class HotkeyHelpControl : PrefabPanel
         //show new key group highlight and detail image
         if (HoveredIndex >= 0)
         {
-            SetKeyGroupVisible(HoveredIndex, true);
+            SetKeyGroupHighlighted(HoveredIndex, true);
 
             if ((DetailDisplay is not null) && DetailImages[HoveredIndex] is { } detailTex)
             {
@@ -227,7 +233,7 @@ public sealed class HotkeyHelpControl : PrefabPanel
     {
         if (HoveredIndex >= 0)
         {
-            SetKeyGroupVisible(HoveredIndex, false);
+            SetKeyGroupHighlighted(HoveredIndex, false);
 
             DetailDisplay?.Visible = false;
         }
@@ -237,5 +243,9 @@ public sealed class HotkeyHelpControl : PrefabPanel
 
     private int HoveredIndex = -1;
 
-    private record struct KeyGroupEntry(UIElement? Primary, UIElement[]? SubElements);
+    private record struct KeyGroupEntry(
+        UIImage? Primary,
+        Texture2D? PrimaryTexture,
+        UIImage[]? SubElements,
+        Texture2D?[]? SubTextures);
 }

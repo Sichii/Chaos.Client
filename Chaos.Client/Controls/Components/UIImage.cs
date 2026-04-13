@@ -20,10 +20,15 @@ public class UIImage : UIElement
 
     public override void Draw(SpriteBatch spriteBatch)
     {
-        if (!Visible || Texture is null)
+        if (!Visible)
             return;
 
+        //always run base.Draw so ClipRect updates for hit-testing — even when Texture is null.
+        //a textureless visible image still has bounds and may be hit-tested.
         base.Draw(spriteBatch);
+
+        if (Texture is null)
+            return;
 
         DrawTexture(
             spriteBatch,

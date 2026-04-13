@@ -9,7 +9,7 @@ namespace Chaos.Client.Systems;
 public static class MachineIdentity
 {
     private const uint DEFAULT_CLIENT_ID1 = 4278255360;
-    private const uint DEFAULT_CLIENT_ID2 = 7695;
+    private const uint DEFAULT_CLIENT_ID2 = 4278255360;
 
     public static uint ClientId1 { get; }
     public static uint ClientId2 { get; }

@@ -142,6 +142,21 @@ public delegate void UserOptionChangedHandler(int setting, bool enabled);
 public delegate void ClickedHandler();
 
 /// <summary>
+///     A UI button was clicked, with the keyboard modifiers active at click time.
+/// </summary>
+public delegate void ClickedWithModifiersHandler(KeyModifiers modifiers);
+
+/// <summary>
+///     A UI button was hovered (mouse enter).
+/// </summary>
+public delegate void HoveredHandler(UIButton button);
+
+/// <summary>
+///     A UI button was unhovered (mouse leave).
+/// </summary>
+public delegate void UnhoveredHandler(UIButton button);
+
+/// <summary>
 ///     A UIElement's visibility changed.
 /// </summary>
 public delegate void VisibilityChangedHandler(bool visible);

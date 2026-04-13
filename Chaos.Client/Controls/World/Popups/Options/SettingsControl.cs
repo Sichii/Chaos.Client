@@ -33,8 +33,6 @@ public sealed class SettingsControl : PrefabPanel
     private int SlideAnchorY;
     private bool SlideMode;
 
-    public UIButton? CancelButton { get; }
-
     public UIButton? OkButton { get; }
 
     public SettingsControl(UserOptions options)
@@ -46,13 +44,9 @@ public sealed class SettingsControl : PrefabPanel
         UsesControlStack = true;
 
         OkButton = CreateButton("OK");
-        CancelButton = CreateButton("Cancel");
 
         if (OkButton is not null)
             OkButton.Clicked += Close;
-
-        if (CancelButton is not null)
-            CancelButton.Clicked += Close;
 
         //create per-setting number buttons from _nsettb.spf (2 frames per setting: normal, pressed)
         //2-column layout: settings 0-9 in left column, 10-12 in right column

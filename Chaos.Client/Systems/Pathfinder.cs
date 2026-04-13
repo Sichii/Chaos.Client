@@ -32,7 +32,8 @@ public static class Pathfinder
     /// <summary>
     ///     Finds an A* path from the player to the best adjacent tile around the target entity. Returns null if no path exists
     ///     or if already adjacent. Sets <paramref name="alreadyAdjacent" /> to true if the player is already next to the
-    ///     target.
+    ///     target. Map dimensions are required because the external pathfinder does not bounds-check start/end and throws
+    ///     <see cref="IndexOutOfRangeException" /> if either coordinate falls outside the grid.
     /// </summary>
     public static Stack<IPoint>? FindPathToEntity(
         Pathfinding.Pathfinder pathfinder,
@@ -40,11 +41,20 @@ public static class Pathfinder
         int fromY,
         int targetX,
         int targetY,
+        int mapWidth,
+        int mapHeight,
         IReadOnlyCollection<IPoint> blockedPoints,
         bool ignoreWalls,
         out bool alreadyAdjacent)
     {
         alreadyAdjacent = false;
+
+        if (!IsInGrid(
+                fromX,
+                fromY,
+                mapWidth,
+                mapHeight))
+            return null;
 
         if (IsAdjacent(
                 fromX,
@@ -72,6 +82,13 @@ public static class Pathfinder
             var adjX = targetX + dx;
             var adjY = targetY + dy;
 
+            if (!IsInGrid(
+                    adjX,
+                    adjY,
+                    mapWidth,
+                    mapHeight))
+                continue;
+
             if ((adjX == fromX) && (adjY == fromY))
             {
                 alreadyAdjacent = true;
@@ -97,7 +114,9 @@ public static class Pathfinder
     }
 
     /// <summary>
-    ///     Finds an A* path from the player to the target tile. Returns null if no path exists.
+    ///     Finds an A* path from the player to the target tile. Returns null if no path exists. Map dimensions are required
+    ///     because the external pathfinder does not bounds-check start/end and throws
+    ///     <see cref="IndexOutOfRangeException" /> if either coordinate falls outside the grid.
     /// </summary>
     public static Stack<IPoint>? FindPathToTile(
         Pathfinding.Pathfinder pathfinder,
@@ -105,9 +124,23 @@ public static class Pathfinder
         int fromY,
         int toX,
         int toY,
+        int mapWidth,
+        int mapHeight,
         IReadOnlyCollection<IPoint> blockedPoints,
         bool ignoreWalls)
     {
+        if (!IsInGrid(
+                fromX,
+                fromY,
+                mapWidth,
+                mapHeight)
+            || !IsInGrid(
+                toX,
+                toY,
+                mapWidth,
+                mapHeight))
+            return null;
+
         var path = pathfinder.FindPath(
             new Point(fromX, fromY),
             new Point(toX, toY),
@@ -120,6 +153,9 @@ public static class Pathfinder
 
         return path.Count > 0 ? path : null;
     }
+
+    private static bool IsInGrid(int x, int y, int width, int height)
+        => (x >= 0) && (x < width) && (y >= 0) && (y < height);
 
     /// <summary>
     ///     Returns true if two tile positions are cardinally adjacent (Manhattan distance == 1).

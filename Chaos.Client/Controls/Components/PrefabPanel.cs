@@ -76,12 +76,28 @@ public abstract class PrefabPanel : UIPanel
         var cache = UiRenderer.Instance!;
         var count = prefab.Images.Count;
 
-        //normal is always the first image and pressed is always the last. Some files (e.g. _ncarrow for
-        //the angle/hair arrow buttons) pack all normals together followed by all presseds, so the button's
-        //Images list covers 3 sequential frames where the middle one belongs to an adjacent button and
-        //should be ignored here.
+        //standard layout (_nbtn, etc): 3 frames per button as [normal, pressed, disabled].
+        //exception: _ncarrow (angle/hair arrow buttons) packs all normals together followed by
+        //all presseds, so a single button's expanded Images list is [normal, OTHER_BUTTON, pressed]
+        //where the middle frame belongs to an adjacent button and must be skipped — for that
+        //layout the pressed texture is the LAST entry, not index 1.
+        var firstImageName = prefab.Control.Images is { Count: > 0 } ctrlImages ? ctrlImages[0].ImageName : string.Empty;
+        var isInterleavedPattern = firstImageName.StartsWithI("_ncarrow");
+
         var normalTexture = count > 0 ? cache.GetPrefabTexture(PrefabSet.Name, prefab.Control.Name, 0) : null;
-        var pressedTexture = count > 1 ? cache.GetPrefabTexture(PrefabSet.Name, prefab.Control.Name, count - 1) : null;
+
+        Texture2D? pressedTexture;
+        Texture2D? disabledTexture;
+
+        if (isInterleavedPattern)
+        {
+            pressedTexture = count > 1 ? cache.GetPrefabTexture(PrefabSet.Name, prefab.Control.Name, count - 1) : null;
+            disabledTexture = null;
+        } else
+        {
+            pressedTexture = count > 1 ? cache.GetPrefabTexture(PrefabSet.Name, prefab.Control.Name, 1) : null;
+            disabledTexture = count > 2 ? cache.GetPrefabTexture(PrefabSet.Name, prefab.Control.Name, 2) : null;
+        }
 
         return new UIButton
         {
@@ -92,6 +108,7 @@ public abstract class PrefabPanel : UIPanel
             Height = (int)r.Height,
             NormalTexture = normalTexture,
             PressedTexture = pressedTexture,
+            DisabledTexture = disabledTexture,
             SelectedTexture = pressedTexture
         };
     }

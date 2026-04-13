@@ -48,10 +48,12 @@ public sealed class MailSendControl : PrefabPanel
 
         CreateLabel("Receiver");
         ReceiverEditBox = CreateTextBox("ReceiverEdit", 24);
-        TitleBox = CreateTextBox("Title", 60);
-
         ReceiverEditBox?.ForegroundColor = LegendColors.White;
+        ReceiverEditBox?.IsTabStop = true;
+        
+        TitleBox = CreateTextBox("Title", 60);
         TitleBox?.ForegroundColor = LegendColors.White;
+        TitleBox?.IsTabStop = true;
 
         //content rect for multi-line body text entry
         var contentRect = GetRect("Content");
@@ -69,7 +71,8 @@ public sealed class MailSendControl : PrefabPanel
             PaddingRight = 0,
             PaddingTop = 0,
             PaddingBottom = 0,
-            ForegroundColor = TextColors.Default
+            ForegroundColor = TextColors.Default,
+            IsTabStop = true
         };
 
         AddChild(BodyBox);

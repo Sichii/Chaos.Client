@@ -14,12 +14,47 @@
     <configurations />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="2cf40e53-e49e-4e2b-a433-eb4f57999662" name="Changes" comment="readme">
+    <list default="true" id="2cf40e53-e49e-4e2b-a433-eb4f57999662" name="Changes" comment="h pane, readme updates">
       <change beforePath="$PROJECT_DIR$/.idea/.idea.Chaos.Client/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/.idea.Chaos.Client/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/README.md" beforeDir="false" afterPath="$PROJECT_DIR$/README.md" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/pyghidra_mcp_projects/my_project.rep/idata/00/~00000000.db/tmp12267190056091811798.ps" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/Chaos.Client/Controls/Components/PrefabPanel.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client/Controls/Components/PrefabPanel.cs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Chaos.Client/Controls/Components/UIButton.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client/Controls/Components/UIButton.cs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Chaos.Client/Controls/Components/UIImage.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client/Controls/Components/UIImage.cs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Chaos.Client/Controls/World/Hud/IWorldHud.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client/Controls/World/Hud/IWorldHud.cs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Chaos.Client/Controls/World/Hud/LargeWorldHudControl.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client/Controls/World/Hud/LargeWorldHudControl.cs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Chaos.Client/Controls/World/Hud/WorldHudControl.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client/Controls/World/Hud/WorldHudControl.cs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Chaos.Client/Controls/World/Popups/Boards/ArticleSendControl.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client/Controls/World/Popups/Boards/ArticleSendControl.cs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Chaos.Client/Controls/World/Popups/Boards/MailReadControl.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client/Controls/World/Popups/Boards/MailReadControl.cs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Chaos.Client/Controls/World/Popups/Boards/MailSendControl.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client/Controls/World/Popups/Boards/MailSendControl.cs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Chaos.Client/Controls/World/Popups/Dialog/DialogOptionPanel.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client/Controls/World/Popups/Dialog/DialogOptionPanel.cs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Chaos.Client/Controls/World/Popups/Dialog/MenuListPanel.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client/Controls/World/Popups/Dialog/MenuListPanel.cs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Chaos.Client/Controls/World/Popups/Dialog/MenuShopPanel.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client/Controls/World/Popups/Dialog/MenuShopPanel.cs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Chaos.Client/Controls/World/Popups/Dialog/NpcSessionControl.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client/Controls/World/Popups/Dialog/NpcSessionControl.cs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Chaos.Client/Controls/World/Popups/HotkeyHelpControl.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client/Controls/World/Popups/HotkeyHelpControl.cs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Chaos.Client/Controls/World/Popups/ItemTooltipControl.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client/Controls/World/Popups/ItemTooltipControl.cs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Chaos.Client/Controls/World/Popups/Profile/OtherProfileEquipmentTab.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client/Controls/World/Popups/Profile/OtherProfileEquipmentTab.cs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Chaos.Client/Definitions/Delegates.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client/Definitions/Delegates.cs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Chaos.Client/GlobalSettings.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client/GlobalSettings.cs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Chaos.Client/Screens/WorldScreen.InputHandlers.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client/Screens/WorldScreen.InputHandlers.cs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Chaos.Client/Screens/WorldScreen.Update.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client/Screens/WorldScreen.Update.cs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Chaos.Client/Systems/MachineIdentity.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client/Systems/MachineIdentity.cs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Chaos.Client/Systems/Pathfinder.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client/Systems/Pathfinder.cs" afterDir="false" />
     </list>
-    <list id="7231daaa-f0af-42dd-822b-aeab5364bc8b" name="AiStuff" comment="" />
+    <list id="7231daaa-f0af-42dd-822b-aeab5364bc8b" name="AiStuff" comment="">
+      <change afterPath="$PROJECT_DIR$/.claude/agent-memory/reverse-engineer/MEMORY.md" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/.claude/agent-memory/reverse-engineer/ref_darkages_render_classes.md" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/.claude/agent-memory/reverse-engineer/ref_display_aisling_monster_form.md" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/.claude/agent-memory/reverse-engineer/ref_effect_bar_rendering.md" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/.claude/agent-memory/reverse-engineer/ref_equipment_sprite_loader.md" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/.claude/agent-memory/reverse-engineer/ref_npcillust_system.md" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/.claude/agent-memory/reverse-engineer/ref_nui_b1_dead_asset.md" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/bash.exe.stackdump" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/docs/superpowers/plans/2026-04-13-tools-panel.md" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/docs/superpowers/plans/2026-04-13-tools-panel.md.tasks.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/docs/superpowers/specs/2026-04-13-tools-panel-design.md" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/pyghidra_mcp_projects/my_project-pyghidra-mcp/chromadb/chroma.sqlite3" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/pyghidra_mcp_projects/my_project.rep/idata/00/~00000000.db/db.2.gbf" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/pyghidra_mcp_projects/my_project.rep/idata/00/~00000000.db/tmp17194003914979311650.ps" afterDir="false" />
+    </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
     <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
@@ -39,6 +74,7 @@
   <component name="HighlightingSettingsPerFile">
     <setting file="file://$USER_HOME$/AppData/Local/JetBrains/Shared/vAny/DecompilerCache/decompiler/e3a3b5d33b164c3fba4211220b2073133609c8/da/e9a305f9/UserSettingsGroup.cs" root0="SKIP_HIGHLIGHTING" />
     <setting file="file://$USER_HOME$/AppData/Local/JetBrains/Shared/vAny/SourcesCache/228bff957d5b9f32cfbedd8bf82a5d3e862ec3e051593a67913b95ae288287/ThrowHelper.cs" root0="FORCE_HIGHLIGHTING" />
+    <setting file="file://$USER_HOME$/AppData/Local/JetBrains/Shared/vAny/SourcesCache/effb8f5a6e1b4a2f6b572595fad66070be446aa53e5cc35cf98ef5f56c55fde/Pathfinder.cs" root0="FORCE_HIGHLIGHTING" />
   </component>
   <component name="McpProjectServerCommands">
     <commands />
@@ -118,7 +154,7 @@
       <workItem from="1775431289754" duration="5525000" />
       <workItem from="1775439696041" duration="16603000" />
       <workItem from="1775506872956" duration="138101000" />
-      <workItem from="1775895595683" duration="78051000" />
+      <workItem from="1775895595683" duration="94615000" />
     </task>
     <task id="LOCAL-00001" summary="safety">
       <option name="closed" value="true" />
@@ -304,7 +340,15 @@
       <option name="project" value="LOCAL" />
       <updated>1776037337112</updated>
     </task>
-    <option name="localTasksCounter" value="24" />
+    <task id="LOCAL-00024" summary="h pane, readme updates">
+      <option name="closed" value="true" />
+      <created>1776061421743</created>
+      <option name="number" value="00024" />
+      <option name="presentableId" value="LOCAL-00024" />
+      <option name="project" value="LOCAL" />
+      <updated>1776061421743</updated>
+    </task>
+    <option name="localTasksCounter" value="25" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -325,7 +369,8 @@
     <MESSAGE value="mpf stuff" />
     <MESSAGE value="bugfixes and readme" />
     <MESSAGE value="readme" />
-    <option name="LAST_COMMIT_MESSAGE" value="readme" />
+    <MESSAGE value="h pane, readme updates" />
+    <option name="LAST_COMMIT_MESSAGE" value="h pane, readme updates" />
   </component>
   <component name="XDebuggerManager">
     <pin-to-top-manager>

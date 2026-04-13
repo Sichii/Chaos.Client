@@ -481,8 +481,8 @@ public sealed class NpcSessionControl : PrefabPanel
 
         if (TopButton is not null)
         {
-            TopButton.Visible = true;
-            TopButton.Enabled = true;
+            TopButton.Visible = false;
+            TopButton.Enabled = false;
         }
     }
 
@@ -549,12 +549,6 @@ public sealed class NpcSessionControl : PrefabPanel
 
             case DialogType.DialogMenu:
             case DialogType.CreatureMenu:
-                if (TopButton is not null)
-                {
-                    TopButton.Visible = false;
-                    TopButton.Enabled = false;
-                }
-
                 if (args.Options is not null && (args.Options.Count > 0))
                 {
                     var options = args.Options

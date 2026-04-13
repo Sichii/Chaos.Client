@@ -211,13 +211,7 @@ public sealed partial class WorldScreen
 
         //tooltip follows cursor — always reposition regardless of active panel
         if (ItemTooltip.Visible)
-        {
-            var rightX = input.MouseX + 15;
-
-            ItemTooltip.X = (rightX + ItemTooltip.Width) <= ChaosGame.VIRTUAL_WIDTH ? rightX : input.MouseX - ItemTooltip.Width;
-
-            ItemTooltip.Y = Math.Clamp(input.MouseY + 15, 0, ChaosGame.VIRTUAL_HEIGHT - ItemTooltip.Height);
-        }
+            ItemTooltip.UpdatePosition(input.MouseX, input.MouseY);
 
         //── tooltip dismissal — clear hovered slot when blocking panels are visible ──
         if (HoveredInventorySlot is not null

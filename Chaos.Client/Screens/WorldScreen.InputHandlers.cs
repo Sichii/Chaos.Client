@@ -39,8 +39,8 @@ public sealed partial class WorldScreen
             slot.SlotName ?? string.Empty,
             slot.CurrentDurability,
             slot.MaxDurability,
-            Game.Input.MouseX + 15,
-            Game.Input.MouseY + 15);
+            Game.Input.MouseX,
+            Game.Input.MouseY);
     }
 
     private void HandleInventoryHoverExit()
@@ -721,73 +721,20 @@ public sealed partial class WorldScreen
         //tab panel switching — blocked while dragging the orange bar
         if (!WorldHud.IsOrangeBarDragging)
         {
-            if (e.Key == Keys.A)
+            HudTab? tab = e.Key switch
             {
-                if (e.Shift)
-                {
-                    if (WorldHud.ActiveTab != HudTab.Inventory)
-                        WorldHud.ShowTab(HudTab.Inventory);
+                Keys.A => HudTab.Inventory,
+                Keys.S => HudTab.Skills,
+                Keys.D => HudTab.Spells,
+                Keys.F => HudTab.Chat,
+                Keys.G => HudTab.Stats,
+                Keys.H => HudTab.Tools,
+                _      => null
+            };
 
-                    WorldHud.ToggleExpand();
-                } else if (WorldHud.ActiveTab == HudTab.Inventory)
-                {
-                    SelfProfileRequested = true;
-                    SelfProfileRequestedTab = StatusBookTab.Equipment;
-                    Game.Connection.RequestSelfProfile();
-                } else
-                    WorldHud.ShowTab(HudTab.Inventory);
-
-                e.Handled = true;
-
-                return;
-            }
-
-            if (e.Key == Keys.S)
+            if (tab is not null)
             {
-                var alt = e.Shift || (!ClientSettings.UseShiftKeyForAltPanels && (WorldHud.ActiveTab == HudTab.Skills));
-                WorldHud.ShowTab(alt ? HudTab.SkillsAlt : HudTab.Skills);
-                e.Handled = true;
-
-                return;
-            }
-
-            if (e.Key == Keys.D)
-            {
-                var alt = e.Shift || (!ClientSettings.UseShiftKeyForAltPanels && (WorldHud.ActiveTab == HudTab.Spells));
-                WorldHud.ShowTab(alt ? HudTab.SpellsAlt : HudTab.Spells);
-                e.Handled = true;
-
-                return;
-            }
-
-            if (e.Key == Keys.F)
-            {
-                if (e.Shift)
-                {
-                    WorldHud.ShowTab(HudTab.MessageHistory);
-                    WorldHud.MessageHistory.ScrollToBottom();
-                } else
-                {
-                    WorldHud.ShowTab(HudTab.Chat);
-                    WorldHud.ChatDisplay.ScrollToBottom();
-                }
-
-                e.Handled = true;
-
-                return;
-            }
-
-            if (e.Key == Keys.G)
-            {
-                WorldHud.ShowTab(e.Shift ? HudTab.ExtendedStats : HudTab.Stats);
-                e.Handled = true;
-
-                return;
-            }
-
-            if (e.Key == Keys.H)
-            {
-                WorldHud.ShowTab(HudTab.Tools);
+                WorldHud.HandleTabActivation(tab.Value, e.Shift);
                 e.Handled = true;
 
                 return;
@@ -1490,7 +1437,7 @@ public sealed partial class WorldScreen
 
     private void PathfindToTile(WorldEntity player, int tileX, int tileY)
     {
-        if (MapPathfinder is null)
+        if (MapPathfinder is null || MapFile is null)
             return;
 
         Pathfinding.Path = Pathfinder.FindPathToTile(
@@ -1499,13 +1446,15 @@ public sealed partial class WorldScreen
             player.TileY,
             tileX,
             tileY,
+            MapFile.Width,
+            MapFile.Height,
             IsGameMaster ? [] : WorldState.GetBlockedPoints(),
             IsGameMaster);
     }
 
     private void PathfindToEntity(WorldEntity player, WorldEntity target)
     {
-        if (MapPathfinder is null)
+        if (MapPathfinder is null || MapFile is null)
             return;
 
         var path = Pathfinder.FindPathToEntity(
@@ -1514,6 +1463,8 @@ public sealed partial class WorldScreen
             player.TileY,
             target.TileX,
             target.TileY,
+            MapFile.Width,
+            MapFile.Height,
             IsGameMaster ? [] : WorldState.GetBlockedPoints(),
             IsGameMaster,
             out var alreadyAdjacent);

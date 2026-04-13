@@ -69,7 +69,6 @@ public sealed class MenuListPanel : FramedDialogPanelBase
 
         if (OkButton is not null)
         {
-            OkButton.DisabledTexture = UiRenderer.Instance!.GetSpfTexture("_nbtn.spf", 5);
             OkButton.Enabled = false;
 
             OkButton.Clicked += () =>
@@ -481,7 +480,7 @@ public sealed class MenuListPanel : FramedDialogPanelBase
                 Y = (ROW_HEIGHT - TextRenderer.CHAR_HEIGHT) / 2,
                 Width = columnWidth - ICON_SIZE - ICON_TEXT_GAP,
                 Height = TextRenderer.CHAR_HEIGHT,
-                ForegroundColor = TextColors.Default
+                ForegroundColor = LegendColors.White
             };
 
             AddChild(IconImage);

@@ -56,10 +56,7 @@ public sealed class DialogOptionPanel : FramedDialogPanelBase
         OkButton = CreateButton("Btn1");
 
         if (OkButton is not null)
-        {
-            OkButton.DisabledTexture = UiRenderer.Instance!.GetSpfTexture("_nbtn.spf", 5);
             OkButton.Enabled = false;
-        }
     }
 
     private void ClearOptionLabels()
@@ -218,6 +215,7 @@ public sealed class DialogOptionPanel : FramedDialogPanelBase
         private readonly TextElement TextCache = new();
         private readonly int TextWidth;
         private bool IsHovered;
+        private bool IsPressed;
         public ushort PursuitId { get; }
         public string Text { get; }
 
@@ -250,8 +248,17 @@ public sealed class DialogOptionPanel : FramedDialogPanelBase
 
             base.Draw(spriteBatch);
 
-            var sx = ScreenX;
-            var sy = ScreenY;
+            //pressed state shifts down 1px and contracts 1px on each side. expand ClipRect
+            //downward so the stripe textures' bottom border row (now at sy+textureHeight)
+            //isn't clipped by the OptionLabel's nominal bounds — otherwise the BL/BR ends
+            //of the bottom border vanish (StripeMid uses TileTexture which bypasses ClipRect,
+            //but DrawTexture for left/right pieces clips to ClipRect).
+            if (IsPressed)
+                ClipRect.Height += 1;
+
+            var sx = ScreenX + (IsPressed ? 1 : 0);
+            var sy = ScreenY + (IsPressed ? 1 : 0);
+            var drawWidth = Width - (IsPressed ? 2 : 0);
 
             //draw 3-slice stripe background
             var left = IsHovered ? StripeLeftOn ?? StripeLeft : StripeLeft;
@@ -260,7 +267,7 @@ public sealed class DialogOptionPanel : FramedDialogPanelBase
 
             var leftW = left?.Width ?? 0;
             var rightW = right?.Width ?? 0;
-            var midWidth = Width - leftW - rightW;
+            var midWidth = drawWidth - leftW - rightW;
 
             if (left is not null)
                 DrawTexture(
@@ -282,10 +289,11 @@ public sealed class DialogOptionPanel : FramedDialogPanelBase
                 DrawTexture(
                     spriteBatch,
                     right,
-                    new Vector2(sx + Width - rightW, sy),
+                    new Vector2(sx + drawWidth - rightW, sy),
                     Color.White);
 
-            //centered text on top
+            //centered text on top — center against full Width (not drawWidth) so the press shift
+            //carries through; otherwise the contracted drawWidth cancels out the sx+1 offset.
             TextCache.Update(Text, Color.White);
 
             var textX = sx + (Width - TextWidth) / 2;
@@ -304,6 +312,22 @@ public sealed class DialogOptionPanel : FramedDialogPanelBase
         public override void OnMouseLeave()
         {
             IsHovered = false;
+            IsPressed = false;
+        }
+
+        public override void OnMouseDown(MouseDownEvent e)
+        {
+            if (e.Button == MouseButton.Left)
+            {
+                IsPressed = true;
+                e.Handled = true;
+            }
+        }
+
+        public override void OnMouseUp(MouseUpEvent e)
+        {
+            if (e.Button == MouseButton.Left)
+                IsPressed = false;
         }
 
         public override void OnClick(ClickEvent e)

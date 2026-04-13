@@ -49,7 +49,9 @@ public sealed class OtherProfileEquipmentTab : PrefabPanel
     private readonly UIImage? EmoticonImage;
     private readonly UILabel? EmoticonLabel;
     private readonly UIButton? GroupBtn;
+    private readonly Texture2D? GroupClosedPressedTexture;
     private readonly Texture2D? GroupClosedTexture;
+    private readonly Texture2D? GroupOpenPressedTexture;
     private readonly Texture2D? GroupOpenTexture;
     private readonly UILabel? NameLabel;
     private readonly UIImage? NationImage;
@@ -104,7 +106,7 @@ public sealed class OtherProfileEquipmentTab : PrefabPanel
         if (GroupBtn is not null)
         {
             GroupOpenTexture = GroupBtn.NormalTexture;
-            GroupBtn.PressedTexture = null;
+            GroupOpenPressedTexture = GroupBtn.PressedTexture;
 
             GroupBtn.Clicked += () =>
             {
@@ -118,6 +120,7 @@ public sealed class OtherProfileEquipmentTab : PrefabPanel
         if (CreateImage("GroupBtn_Disabled") is { } disabledImage)
         {
             GroupClosedTexture = disabledImage.Texture;
+            GroupClosedPressedTexture = UiRenderer.Instance!.GetPrefabTexture(PrefabSet.Name, "GroupBtn_Disabled", 1);
             Children.Remove(disabledImage);
             disabledImage.Dispose();
         }
@@ -125,8 +128,8 @@ public sealed class OtherProfileEquipmentTab : PrefabPanel
         //nation icon and text
         NationImage = CreateImage("Nation");
         NationTextLabel = CreateLabel("NationText");
-
         NationTextLabel?.VerticalAlignment = VerticalAlignment.Top;
+        NationTextLabel?.ForegroundColor = LegendColors.White;
 
         //paperdoll area
         PaperdollImage = CreateImage("HumanImage");
@@ -139,7 +142,7 @@ public sealed class OtherProfileEquipmentTab : PrefabPanel
         {
             PortraitTextLabel.WordWrap = true;
             PortraitTextLabel.HorizontalAlignment = HorizontalAlignment.Left;
-            PortraitTextLabel.ForegroundColor = Color.White;
+            PortraitTextLabel.ForegroundColor = LegendColors.White;
             PortraitTextLabel.VerticalAlignment = VerticalAlignment.Top;
         }
 
@@ -153,7 +156,8 @@ public sealed class OtherProfileEquipmentTab : PrefabPanel
 
         //prefab places humanstate at the same origin as humanicon, so shift the label right
         //past the icon to avoid overlap
-        EmoticonLabel = CreateLabel("HumanState", HorizontalAlignment.Left);
+        EmoticonLabel = CreateLabel("HumanState", HorizontalAlignment.Center);
+        EmoticonLabel?.ForegroundColor = LegendColors.White;
 
         if ((EmoticonLabel is not null) && (humanIconRect != Rectangle.Empty))
             EmoticonLabel.X += humanIconRect.Width + 2;
@@ -276,7 +280,11 @@ public sealed class OtherProfileEquipmentTab : PrefabPanel
     /// </summary>
     public void SetGroupOpen(bool groupOpen)
     {
-        GroupBtn?.NormalTexture = groupOpen ? GroupOpenTexture : GroupClosedTexture;
+        if (GroupBtn is null)
+            return;
+
+        GroupBtn.NormalTexture = groupOpen ? GroupOpenTexture : GroupClosedTexture;
+        GroupBtn.PressedTexture = groupOpen ? GroupOpenPressedTexture : GroupClosedPressedTexture;
     }
 
     /// <summary>

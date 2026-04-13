@@ -98,6 +98,19 @@ public sealed class ItemTooltipControl : UIPanel
 
     public void Hide() => Visible = false;
 
+    /// <summary>
+    ///     Positions the tooltip relative to the cursor. Flips to the left of the cursor when the default right-side
+    ///     placement would overflow the virtual viewport. Must be called after <see cref="UIElement.Width"/> and
+    ///     <see cref="UIElement.Height"/> are set.
+    /// </summary>
+    public void UpdatePosition(int mouseX, int mouseY)
+    {
+        var rightX = mouseX + 15;
+
+        X = (rightX + Width) <= ChaosGame.VIRTUAL_WIDTH ? rightX : mouseX - Width;
+        Y = Math.Clamp(mouseY + 15, 0, ChaosGame.VIRTUAL_HEIGHT - Height);
+    }
+
     public void Show(
         string itemName,
         int currentDurability,
@@ -135,8 +148,7 @@ public sealed class ItemTooltipControl : UIPanel
         TooltipImage.Width = totalWidth;
         TooltipImage.Height = totalHeight;
 
-        X = Math.Clamp(mouseX + 15, 0, ChaosGame.VIRTUAL_WIDTH - totalWidth);
-        Y = Math.Clamp(mouseY + 15, 0, ChaosGame.VIRTUAL_HEIGHT - totalHeight);
+        UpdatePosition(mouseX, mouseY);
 
         Visible = true;
     }
