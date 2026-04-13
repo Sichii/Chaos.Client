@@ -1,6 +1,6 @@
 # Chaos.Client
 
-A custom Dark Ages client written in C# (.NET 10) on top of MonoGame, [DALib](https://github.com/Sichii/DALib), and the [Chaos.Networking](https://github.com/Sichii/Chaos-Server) networking layer. Built to talk to [Chaos-Server](https://github.com/Sichii/Chaos-Server) (and any private server using the same networking layer), and intended as a baseline other private server projects can fork and modify.
+A custom Dark Ages client written in C# (.NET 10) on top of MonoGame, [DALib](https://github.com/Sichii/DALib), and the [Chaos.Networking](https://github.com/Sichii/Chaos-Server) layer. Built to talk to [Chaos-Server](https://github.com/Sichii/Chaos-Server) (and any private server using the same networking layer), and intended as a baseline other private server projects can fork and modify.
 
 Targets Dark Ages client version **7.4.1** for feature parity.
 
@@ -54,10 +54,10 @@ These are intentional, and are the first things a fork should know about:
 3. **gndattr.tbl tinting no longer breaks draw order.** On retail, standing on a tinted ground tile while occluded caused the character to pop in front of the foreground object. This client keeps the character behind the foreground and still applies the ground tint.
 4. **Background tile animations from gndani.tbl are implemented.** Retail ignores these entirely. Animated background tiles now play.
 5. **Overcoat/armor palette mappings with IDs >= 1000 work.** Retail falls back to the default palette for these IDs; this client honors the mapped palette.
-6. **Tab map is a custom reimplementation.** The look is intentionally different from retail. If you want pixel-accurate retail behavior you will need to replace `TabMapRenderer` and related controls.
+6. **Tab map is a custom reimplementation.** The look is intentionally different from retail. If you want pixel-accurate retail behavior, you will need to replace `TabMapRenderer` and related controls.
 7. **Tab map zoom is not rogue-locked.** Every class can zoom. If you want to gate this on class, put the check back in the input handler.
 8. **Idle animations survive emotes on items with idle animations.** Retail stops or partially plays the item's idle animation when you emote. This client keeps them running.
-9. **Inline color codes work everywhere, and apply immediately.** Color codes are resolved at the renderer level, so the source string still contains the codes even though they're invisible. Every `TextElement` / `UILabel` has a `ColorCodesEnabled` toggle so you can turn them off per-control if you need to.
+9. **Inline color codes work everywhere and apply immediately.** Color codes are resolved at the renderer level, so the source string still contains the codes even though they're invisible. Every `TextElement` / `UILabel` has a `ColorCodesEnabled` toggle so you can turn them off per-control if you need to.
 10. **Pants render under overcoats when the server allows it.** If the server's item definition says the overcoat permits pants, this client draws them. Retail does not.
 11. **Album and Portrait systems are not implemented.** The Album tab in the self-profile is not wired up, and the portrait button does not actually take a portrait of your character. Both are straightforward to fill in if you need them.
 12. **Alt+Enter cycles through window sizes.** The virtual canvas is 640×480; Alt+Enter steps the backbuffer through multiples of that — 1×, 2×, 3×, … — up to whatever the current monitor can fit, then wraps back to 1×.
@@ -70,13 +70,13 @@ This is not an exhaustive list, but other differences are likely too minor to bo
 
 ### Project layout
 
-| Project | Responsibility |
-|---|---|
-| **DALib** (`../dalib/DALib/`, project ref) | Dark Ages file formats and SkiaSharp rendering. Local fork. |
-| **Chaos.Client.Data** | Opens the `.dat` archives via memory-mapped files and exposes repositories for sprites, tiles, fonts, metafiles, UI prefabs, etc. Some repositories cache their entries with eviction policies appropriate to the asset type; others are pass-through. |
-| **Chaos.Client.Rendering** | Converts DALib's SkiaSharp output into MonoGame `Texture2D` and owns the map, camera, darkness, tab map, and per-entity renderers. |
-| **Chaos.Client.Networking** | TCP, crypto, packet framing, and a state-machine `ConnectionManager` on top of the `Chaos.Networking` NuGet package. Packet handlers are registered into an opcode-indexed delegate array. |
-| **Chaos.Client** | MonoGame `Game`, screens, UI controls, game systems, and world state. |
+| Project                                    | Responsibility                                                                                                                                                                                                                                         |
+|--------------------------------------------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| **DALib** (`../dalib/DALib/`, project ref) | Dark Ages file formats and SkiaSharp rendering. Local fork.                                                                                                                                                                                            |
+| **Chaos.Client.Data**                      | Opens the `.dat` archives via memory-mapped files and exposes repositories for sprites, tiles, fonts, metafiles, UI prefabs, etc. Some repositories cache their entries with eviction policies appropriate to the asset type; others are pass-through. |
+| **Chaos.Client.Rendering**                 | Converts DALib's SkiaSharp output into MonoGame `Texture2D` and owns the map, camera, darkness, tab map, and per-entity renderers.                                                                                                                     |
+| **Chaos.Client.Networking**                | TCP, crypto, packet framing, and a state-machine `ConnectionManager` on top of the `Chaos.Networking` NuGet package. Packet handlers are registered into an opcode-indexed delegate array.                                                             |
+| **Chaos.Client**                           | MonoGame `Game`, screens, UI controls, game systems, and world state.                                                                                                                                                                                  |
 
 Dependency flow:
 
@@ -103,14 +103,14 @@ Each frame goes through three phases (see `WorldScreen.Draw.cs`):
    - Foreground tiles, entities, and effects interleaved in diagonal stripes by `x + y` depth. Within a stripe the order is **ground items → aislings → creatures → dying-creature dissolves → ground-targeted effects → entity-attached effects → foreground tiles**.
    - Silhouette render target overlaid at reduced alpha.
    - Darkness overlay (screen space, no camera transform).
-   - Blind overlay (full black, player redrawn on top) if the player is blinded. Drawn **before** the entity overlays so chat bubbles, name tags, chant text, and health bars all stay visible while blinded. Retail keeps chat bubbles and name tags visible the same way, but hides HP bars because on retail the HP bar is drawn with the entity sprite itself — if you want strict retail parity, split health bars out of `EntityOverlayManager.Draw` and render them alongside the entity body. Chant overlay retail behavior is not confirmed; worth verifying in-game.
-   - Entity overlays — chat bubbles, health bars, name tags, chant text, group box text — drawn after darkness so the light level doesn't tint them, and after blind so they remain visible while blinded.
+   - Blind overlay (full black, player redrawn on top) if the player is blinded. Drawn **before** the entity overlays so chat bubbles, name tags, chant text, and health bars all stay visible while blinded. Retail keeps chat bubbles and name tags visible the same way. It hides HP bars because on retail the HP bar is drawn with the entity sprite itself — if you want strict retail parity, split health bars out of `EntityOverlayManager.Draw` and render them alongside the entity body. Chant overlay retail behavior is not confirmed; worth verifying in-game.
+   - Entity overlays — chat bubbles, health bars, name tags, chant text, group box text — drawn after darkness, so the light level doesn't tint them, and after blind so they remain visible while blinded.
    - Debug overlay if active.
 
 **3. Screen pass** — no camera transform:
    - Tab map overlay if visible (on top of the world, under the HUD).
    - UI root panel (HUD + all popups).
-   - Drag icon at the cursor, if something is being dragged.
+   - Drag icon at the cursor if something is being dragged.
 
 ## UI System
 
@@ -137,21 +137,21 @@ Draw order within a panel is by `ZIndex`, ties broken by insertion order.
 
 ### `PrefabPanel`
 
-Abstract `UIPanel` that loads a `ControlPrefabSet` from a DALib control file. The first entry (the "anchor") sets the panel's `Width`, `Height`, position, and background texture. Call `CreateButton("name")` / `CreateImage` / `CreateLabel` / `CreateTextBox` / `CreateProgressBar` to instantiate only the children you actually need — there's no auto-populate, and the helpers return `null` if the named entry doesn't exist in the prefab. `GetRect("name")` returns an anchor-relative rectangle without creating a child, useful when you want to position something manually into a prefab slot.
+Abstract `UIPanel` that loads a `ControlPrefabSet` from a DALib control file. The first entry (the "anchor") sets the panel's `Width`, `Height`, position, and background texture. Call `CreateButton("name")` / `CreateImage` / `CreateLabel` / `CreateTextBox` / `CreateProgressBar` to instantiate only the children you actually need — there's no autopopulate, and the helpers return `null` if the named entry doesn't exist in the prefab. `GetRect("name")` returns an anchor-relative rectangle without creating a child, useful when you want to position something manually into a prefab slot.
 
 ### Widgets
 
-| Class | Purpose |
-|---|---|
-| `UIImage` | Static texture. Owns its `Texture` and disposes it. |
-| `UIAnimatedImage` | Plays a `Frames[]` array on a fixed interval. `Looping`, `PingPong`, and `FrameIntervalMs` are all configurable. |
-| `UIButton` | Five optional state textures (`NormalTexture`, `HoverTexture`, `PressedTexture`, `SelectedTexture`, `DisabledTexture`). Set `CenterTexture = true` when the textures are different sizes (e.g. status-book tabs with a small normal and a big selected). |
-| `BlinkButton` | `UIButton` that alternates between two textures on a timer. |
-| `UILabel` | Non-editable text with optional selection and word wrap. Re-measures only when content or color changes. `ColorCodesEnabled` is passed through to the renderer. |
-| `UITextBox` | Editable text input. Blinking caret, click-to-position, drag-to-select, and double/triple click for word/line selection. |
-| `UIProgressBar` | Fill bar. |
-| `SliderControl` | Draggable thumb on a 0–10 track. Panel bounds include thumb overflow so clicks off the track still register. |
-| `ExpandablePanel` | Panel that can swap to a taller background drawn upward from its anchor position. Used for HUD panels that grow on Shift-press. |
+| Class             | Purpose                                                                                                                                                                                                                                                  |
+|-------------------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `UIImage`         | Static texture. Owns its `Texture` and disposes it.                                                                                                                                                                                                      |
+| `UIAnimatedImage` | Plays a `Frames[]` array on a fixed interval. `Looping`, `PingPong`, and `FrameIntervalMs` are all configurable.                                                                                                                                         |
+| `UIButton`        | Five optional state textures (`NormalTexture`, `HoverTexture`, `PressedTexture`, `SelectedTexture`, `DisabledTexture`). Set `CenterTexture = true` when the textures are different sizes (e.g. status-book tabs with a small normal and a big selected). |
+| `BlinkButton`     | `UIButton` that alternates between two textures on a timer.                                                                                                                                                                                              |
+| `UILabel`         | Non-editable text with optional selection and word wrap. Re-measures only when content or color changes. `ColorCodesEnabled` is passed through to the renderer.                                                                                          |
+| `UITextBox`       | Editable text input. Blinking caret, click-to-position, drag-to-select, and double/triple click for word/line selection.                                                                                                                                 |
+| `UIProgressBar`   | Fill bar.                                                                                                                                                                                                                                                |
+| `SliderControl`   | Draggable thumb on a 0–10 track. Panel bounds include thumb overflow so clicks off the track still register.                                                                                                                                             |
+| `ExpandablePanel` | Panel that can swap to a taller background drawn upward from its anchor position. Used for HUD panels that grow on Shift-press.                                                                                                                          |
 
 ### `TextElement`
 
@@ -190,7 +190,7 @@ Mouse API:
 Behaviors worth knowing about:
 
 - When `Game.IsActive` is false (window unfocused), all buffered input is discarded and nothing is reported. On focus regain, the mouse state is re-synced so no spurious button edges fire on the activation frame.
-- When the cursor is outside the client area, mouse button events are dropped but keyboard still works — clicking on another window doesn't fire a click on ours, but hotkeys still reach the focused window.
+- When the cursor is outside the client area, mouse button events are dropped, but keyboard still works — clicking on another window doesn't fire a click on ours, but hotkeys still reach the focused window.
 - `OrderedKeyboardEvents` preserves the OS `WM_KEYDOWN → WM_CHAR` ordering. The dispatcher uses this to suppress a `TextInput` whose preceding `KeyDown` was consumed as a hotkey (see below).
 
 ### `InputDispatcher`
@@ -204,8 +204,8 @@ Turns the buffered snapshot into typed `InputEvent`s (`MouseDownEvent`, `ClickEv
 - **MouseMove** — routed to the hit element under the cursor (or to the *captured* element if a button is currently held, so a scrollbar or text selection keeps tracking after the cursor leaves the widget). Hover tracking uses the same hit result to drive `OnMouseEnter` / `OnMouseLeave`.
 - **MouseScroll** — delivered to the hit element, bubbles.
 - **MouseDown** — hit-tested, then the hit element is *captured*. All subsequent `MouseMove` events go to the captured element until release.
-- **MouseUp → Click → DoubleClick** — on release, `MouseUp` is delivered to the captured element. If the cursor is still inside the captured element's bounds and no drag occurred, `Click` follows. A second click on the same target within 300ms synthesizes `DoubleClick`. Both bubble.
-- **Drag** — once the cursor travels more than 4px from the down position, `DragStart` fires on the captured element. The handler sets `e.Payload` if it wants to commit — otherwise the drag is dropped. For a committed drag, `DragMove` fires every frame on the element currently under the cursor (not the captured source), and `DragDrop` fires on release.
+- **MouseUp → Click → DoubleClick** — on release, `MouseUp` is delivered to the captured element. If the cursor is still inside the captured element's bounds and no drag occurred, `Click` follows. A second click on the same target within 300 ms synthesizes `DoubleClick`. Both bubble.
+- **Drag** — once the cursor travels more than 4 px from the down position, `DragStart` fires on the captured element. The handler sets `e.Payload` if it wants to commit — otherwise the drag is dropped. For a committed drag, `DragMove` fires every frame on the element currently under the cursor (not the captured source), and `DragDrop` fires on release.
 
 **Keyboard event routing** is two-phase:
 
@@ -216,7 +216,7 @@ Turns the buffered snapshot into typed `InputEvent`s (`MouseDownEvent`, `ClickEv
 
 **Mouse blocking during textbox focus.** When a textbox has explicit focus, mouse button events outside the panel containing the textbox are swallowed. You can't accidentally click past a modal dialog onto the world behind it while typing.
 
-**Hotkey-to-textbox leak suppression.** When a `KeyDown` causes a textbox to gain explicit focus (e.g. pressing Enter to focus the chat textbox), the immediately-following `TextInput` is suppressed so the hotkey character doesn't leak into the now-focused textbox — otherwise the Enter would immediately insert a newline. This works because `InputBuffer.OrderedKeyboardEvents` preserves the OS `KeyDown → TextInput` ordering — without that ordering, the dispatcher wouldn't know the two events were paired.
+**Hotkey-to-textbox leak suppression.** When a `KeyDown` causes a textbox to gain explicit focus (e.g., pressing Enter to focus the chat textbox), the immediately-following `TextInput` is suppressed so the hotkey character doesn't leak into the now-focused textbox — otherwise the Enter would immediately insert a newline. This works because `InputBuffer.OrderedKeyboardEvents` preserves the OS `KeyDown → TextInput` ordering — without that ordering, the dispatcher wouldn't know the two events were paired.
 
 **State reset.** `Dispatcher.Clear()` is called by `ScreenManager` on screen switch to wipe the control stack, explicit focus, hover, capture, and drag state so nothing bleeds across transitions.
 
@@ -231,25 +231,25 @@ Depends on the layer you want to intercept at.
 
 All renderers live in `Chaos.Client.Rendering/`. Quick reference:
 
-| Renderer | Purpose |
-|---|---|
-| `TextureConverter` | Static utility. SkiaSharp `SKImage` → MonoGame `Texture2D`. |
-| `Camera` | Isometric world/screen/tile coordinate math. |
-| `MapRenderer` | Background + foreground tile rendering, animated tile playback. |
-| `PaletteCyclingManager` | Palette shimmer for cycling-palette tiles. Owned by `MapRenderer`. |
-| `DarknessRenderer` | Light/dark overlay — light metadata lookup, HEA sampling, light sources. |
-| `TabMapRenderer` | Custom Tab map (wall diamonds + entity dots). |
-| `SilhouetteRenderer` | Occluded-entity silhouettes and transparent-aisling compositing. |
-| `TextRenderer` + `FontAtlas` | Per-character text draws from a shared glyph atlas. |
-| `UiRenderer` | Deduplicated UI texture cache from control prefabs. |
-| `CreatureRenderer`, `AislingRenderer`, `EffectRenderer`, `ItemRenderer` | Per-entity sprite caches. **Must** `Clear()` on map change. |
+| Renderer                                                                | Purpose                                                                  |
+|-------------------------------------------------------------------------|--------------------------------------------------------------------------|
+| `TextureConverter`                                                      | Static utility. SkiaSharp `SKImage` → MonoGame `Texture2D`.              |
+| `Camera`                                                                | Isometric world/screen/tile coordinate math.                             |
+| `MapRenderer`                                                           | Background + foreground tile rendering, animated tile playback.          |
+| `PaletteCyclingManager`                                                 | Palette shimmer for cycling-palette tiles. Owned by `MapRenderer`.       |
+| `DarknessRenderer`                                                      | Light/dark overlay — light metadata lookup, HEA sampling, light sources. |
+| `TabMapRenderer`                                                        | Custom Tab map (wall diamonds + entity dots).                            |
+| `SilhouetteRenderer`                                                    | Occluded-entity silhouettes and transparent-aisling compositing.         |
+| `TextRenderer` + `FontAtlas`                                            | Per-character text draws from a shared glyph atlas.                      |
+| `UiRenderer`                                                            | Deduplicated UI texture cache from control prefabs.                      |
+| `CreatureRenderer`, `AislingRenderer`, `EffectRenderer`, `ItemRenderer` | Per-entity sprite caches. **Must** `Clear()` on map change.              |
 
 > [!IMPORTANT]
 > The four per-entity renderers cache `Texture2D` outputs lazily. Forgetting to call `Clear()` on map change leaks GPU memory. If you add a new renderer that caches textures, follow the same pattern.
 
-Supporting types worth knowing:
+Supporting types are worth knowing:
 
-- **`CachedTexture2D`** — `Texture2D` subclass whose `Dispose` is a no-op. Only the owning cache can release GPU memory, via `ForceDispose`. Lets cache consumers hand the texture around freely without worrying about double-dispose.
+- **`CachedTexture2D`** — `Texture2D` subclass whose `Dispose` is a no-op. Only the owning cache can release GPU memory, via `ForceDispose`. Let's cache consumers hand the texture around freely without worrying about double-dispose.
 - **`TextureAtlas`** — packs many small textures into atlas pages. Grid packing (uniform sizes, used for tiles) and shelf packing (variable, used for tab-map wall variants). Used wherever batch throughput matters more than per-texture flexibility.
 
 ### `TextureConverter` (static)
@@ -272,14 +272,14 @@ Handles palette shimmer — tiles whose palette entries cycle through a color ra
 
 The light/dark overlay. Three inputs drive it:
 
-1. **The map's darkness flag** (`isDarkMap`, passed to `OnMapChanged`). Dark maps start pure black immediately on map change so the unlit map never flashes in before the first `LightLevel` packet arrives.
+1. **The map's darkness flag** (`isDarkMap`, passed to `OnMapChanged`). Dark maps start pure black immediately on map change, so the unlit map never flashes in before the first `LightLevel` packet arrives.
 2. **Server `LightLevel` packets combined with light metadata.** Each map has a *light type* looked up in `LightMetadata.MapLightTypes` (defaults to `"default"`). On every `LightLevel` packet the renderer builds a key `{lightType}_{hexLightLevel}` and looks up `(R, G, B, Alpha)` in `LightMetadata.LightProperties`. That's how the same light level produces a different tint in a cave vs. outdoors. If the key isn't in metadata but the map is flagged dark, it falls back to pure black; if neither, the overlay is fully transparent.
 3. **The map's HEA file**, a per-pixel light map loaded in `OnMapChanged` when one exists. It encodes layered brightness data that gets sampled into the overlay texture as the camera moves; without one, the overlay is flat-filled with the current color.
 
 On top of that, registered `LightSource`s (lanterns, windows, entity-attached lights) are max-blended into the overlay so they brighten specific areas. The final texture is sized to the current viewport.
 
 > [!WARNING]
-> The overlay texture is dirty-checked on the camera offset **and** the viewport dimensions. If you add a new source of viewport change, extend the dirty check or you will see stale overlays — this is how the HUD-swap bug happened.
+> The overlay texture is dirty-checked on the camera offset **and** the viewport dimensions. If you add a new source of viewport change, extend the dirty check, or you will see stale overlays — this is how the HUD-swap bug happened.
 
 ### `TabMapRenderer`
 
@@ -289,7 +289,7 @@ The custom Tab map. Walls are drawn as 20×10 scaled diamonds, and adjacent wall
 
 Two related effects composited through offscreen `RenderTarget2D`s.
 
-**Occluded-entity silhouettes.** Any entity registered for the current frame via `AddSilhouette(entityId)` is drawn into a single viewport-sized render target, which is then overlaid on top of the world pass at reduced alpha. Because the RT captures all of the registered entities at their real world positions, inter-entity occlusion inside the silhouette layer still works. The mechanism is entity-type agnostic — but right now the only caller is the silhouette pre-pass in `WorldScreen.Draw.cs`, and that block only registers the player. That's why your own character is the only thing that currently shows a silhouette through foreground tiles.
+**Occluded-entity silhouettes.** Any entity registered for the current frame via `AddSilhouette(entityId)` is drawn into a single viewport-sized render target, which is then overlaid on top of the world pass at reduced alpha. Because the RT captures all the registered entities at their real world positions, inter-entity occlusion inside the silhouette layer still works. The mechanism is entity-type agnostic — but right now the only caller is the silhouette pre-pass in `WorldScreen.Draw.cs`, and that block only registers the player. That's why your own character is the only thing that currently shows a silhouette through foreground tiles.
 
 To give another entity the same treatment, add a call to `SilhouetteRenderer.AddSilhouette(entity.Id)` in that same pre-pass block, alongside the existing player registration. Pick whatever criterion you want — party members, every aisling on the map — the renderer doesn't care.
 
@@ -346,15 +346,13 @@ dotnet run --project Chaos.Client/Chaos.Client.csproj
 
 Almost everything a fork needs to change is in `Chaos.Client/GlobalSettings.cs`:
 
-| Setting | What it is |
-|---|---|
-| `ClientVersion` | Version sent to the server on handshake. Default `741`. |
-| `DataPath` | Absolute path to the Dark Ages data folder (contains the `.dat` archives). |
-| `LobbyHost` | Lobby server hostname or IP. |
-| `LobbyPort` | Lobby server port. |
+| Setting                | What it is                                                                                                                          |
+|------------------------|-------------------------------------------------------------------------------------------------------------------------------------|
+| `ClientVersion`        | Version sent to the server on handshake. Default `741`.                                                                             |
+| `DataPath`             | Absolute path to the Dark Ages data folder (contains the `.dat` archives).                                                          |
+| `LobbyHost`            | Lobby server hostname or IP.                                                                                                        |
+| `LobbyPort`            | Lobby server port.                                                                                                                  |
 | `RequireSwimmingSkill` | When `true`, restores retail swim gate — water tiles require the GM flag or the `Swimming` skill. Default `false` (no requirement). |
-
-These are hardcoded on purpose — it's a baseline, not a shipped product. For user-facing options, use `ClientSettings`, which already persists the user preferences the client exposes.
 
 ## Extending
 
@@ -369,7 +367,7 @@ These are hardcoded on purpose — it's a baseline, not a shipped product. For u
 
 There are two cases, and they're very different.
 
-**Handling an opcode `Chaos.Networking` already defines.** This is the common case — the library knows the packet shape and has the args type and converter; you just need the client to react. Three additions:
+**Handling an opcode `Chaos.Networking` already defines.** This is the common case — the library knows the packet shape and has the args type and converter; you need the client to react. Three additions:
 
 1. In `ConnectionManager`, write a handler that deserializes into the existing args type and fires an event:
 
@@ -397,7 +395,7 @@ Outbound packets are symmetric — add a method on `ConnectionManager` that call
 
 The most obvious path is to **fork [Chaos-Server](https://github.com/Sichii/Chaos-Server), drop the `Chaos.Networking` NuGet reference from this project, and add `ProjectReference`s to the networking source projects from your server fork**. The server repo ships the full source for `Chaos.Networking` and it's dependencies; you can pull those into the client solution and leave the server-only `Chaos` project out if you don't want it here. New opcodes / args / converters then live in a single source tree that both client and server compile against, which keeps them in sync by construction.
 
-Other routes exist — republishing your own preview NuGets, or shimming new converters on the client side alongside the library's — but referencing the source projects directly is the path with the fewest moving parts, and if you're adding a protocol extension you'll already have the server repo open anyway.
+Other routes exist — republishing your own preview NuGets, or shimming new converters on the client side alongside the library's — but referencing the source projects directly is the path with the fewest moving parts, and if you're adding a protocol extension, you'll already have the server repo open anyway.
 
 ## Related Repositories
 
