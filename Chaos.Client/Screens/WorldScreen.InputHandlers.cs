@@ -349,10 +349,8 @@ public sealed partial class WorldScreen
             case HudTab.Tools:
                 if (slot is >= 1 and <= 6)
                     HandleSkillSlotClicked((byte)(72 + slot));
-                else if (slot is >= 7 and <= 12)
-                    HandleSpellSlotClicked((byte)(66 + slot));
                 else
-                    return false;
+                    HandleSpellSlotClicked((byte)(66 + slot));
 
                 break;
 
@@ -1448,7 +1446,7 @@ public sealed partial class WorldScreen
             tileY,
             MapFile.Width,
             MapFile.Height,
-            IsGameMaster ? [] : WorldState.GetBlockedPoints(),
+            GetPathfindingBlockedPoints(),
             IsGameMaster);
     }
 
@@ -1465,7 +1463,7 @@ public sealed partial class WorldScreen
             target.TileY,
             MapFile.Width,
             MapFile.Height,
-            IsGameMaster ? [] : WorldState.GetBlockedPoints(),
+            GetPathfindingBlockedPoints(),
             IsGameMaster,
             out var alreadyAdjacent);
 

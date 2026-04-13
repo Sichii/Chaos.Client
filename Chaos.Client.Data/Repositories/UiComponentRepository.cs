@@ -33,7 +33,9 @@ public sealed class UiComponentRepository : RepositoryBase
         try
         {
             return GetOrCreate(key, () => LoadPrefabSet(key));
-        } catch
+        }
+        //rule 6 exemption: corrupt asset -> graceful null fallback (no validate-before-parse path)
+        catch
         {
             return null;
         }

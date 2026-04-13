@@ -26,8 +26,7 @@ public sealed class SystemMessagePaneControl : UIPanel
         Name = "SystemMessagePane";
         Width = TextRenderer.CHAR_WIDTH * 48;
         Height = MAX_LINES * TextRenderer.CHAR_HEIGHT;
-        X = viewportBounds.X + 6;
-        Y = viewportBounds.Y;
+        SetViewportBounds(viewportBounds);
         IsHitTestVisible = false;
 
         for (var i = 0; i < MAX_LINES; i++)
@@ -47,6 +46,12 @@ public sealed class SystemMessagePaneControl : UIPanel
 
             AddChild(Lines[i]);
         }
+    }
+
+    public void SetViewportBounds(Rectangle viewportBounds)
+    {
+        X = viewportBounds.X + 6;
+        Y = viewportBounds.Y;
     }
 
     public void AddMessage(string text, Color? color = null)

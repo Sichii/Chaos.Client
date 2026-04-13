@@ -21,7 +21,9 @@ public sealed class CreatureSpriteRepository : RepositoryBase
         try
         {
             return GetOrCreate(spriteId, () => LoadCreatureSprite(spriteId));
-        } catch
+        }
+        //rule 6 exemption: corrupt asset -> graceful null fallback (no validate-before-parse path)
+        catch
         {
             return null;
         }

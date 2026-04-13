@@ -18,6 +18,7 @@ using Chaos.Client.Rendering.Models;
 using Chaos.Client.Systems;
 using Chaos.Client.ViewModel;
 using Chaos.DarkAges.Definitions;
+using Chaos.Geometry.Abstractions;
 using Chaos.Geometry.Abstractions.Definitions;
 using DALib.Data;
 using Microsoft.Xna.Framework;
@@ -121,6 +122,7 @@ public sealed partial class WorldScreen : IScreen
     private MapLoadingBar MapLoading = null!;
     private Pathfinder? MapPathfinder;
     private bool MapPreloaded;
+    private List<IPoint> MapWaterTiles = [];
     private MapRenderer MapRenderer = null!;
 
     //overlay panels (rendered on top of hud)
@@ -147,6 +149,7 @@ public sealed partial class WorldScreen : IScreen
     private SettingsControl SettingsDialog = null!;
     private SilhouetteRenderer SilhouetteRenderer = null!;
     private WorldHudControl SmallHud = null!;
+    private SystemMessagePaneControl SystemMessagePane = null!;
     private SocialStatusControl SocialStatusPicker = null!;
     private long LastSpacebarMs;
     private SelfProfileTabControl StatusBook = null!;
@@ -173,90 +176,7 @@ public sealed partial class WorldScreen : IScreen
     public void Initialize(ChaosGame game)
     {
         Game = game;
-
-        //player identity
-        Game.Connection.OnUserId += HandleUserId;
-
-        //map assembly events
-        Game.Connection.OnMapInfo += HandleMapInfo;
-        Game.Connection.OnMapData += HandleMapData;
-        Game.Connection.OnMapLoadComplete += HandleMapLoadComplete;
-        Game.Connection.OnLocationChanged += HandleLocationChanged;
-
-        //entity events
-        //worldstate updates (entity add/remove/walk/turn) are wired in chaosgame so they
-        //work during world entry before this screen exists. we subscribe here only for
-        //screen-specific side effects (hud updates, cache cleanup).
-        Game.Connection.OnDisplayAisling += HandleDisplayAisling;
-        Game.Connection.OnRemoveEntity += HandleRemoveEntity;
-        Game.Connection.OnClientWalkResponse += HandleClientWalkResponse;
-
-        //hud data events
-        Game.Connection.OnAttributes += HandleAttributes;
-
-        //chat events
-        Game.Connection.OnDisplayPublicMessage += HandleDisplayPublicMessage;
-        Game.Connection.OnServerMessage += HandleServerMessage;
-
-        //npc dialog/menu
-        WorldState.NpcInteraction.DialogChanged += HandleDialogChanged;
-        WorldState.NpcInteraction.MenuChanged += HandleMenuChanged;
-
-        //refresh response
-        Game.Connection.OnRefreshResponse += HandleRefreshResponse;
-
-        WorldState.Exchange.AmountRequested += HandleExchangeAmountRequested;
-        WorldState.Exchange.Closed += HandleExchangeClosed;
-
-        //board — subscribe to state events
-        WorldState.Board.PostListChanged += HandleBoardPostListChanged;
-        WorldState.Board.PostViewed += HandleBoardPostViewed;
-        WorldState.Board.BoardListReceived += HandleBoardListReceived;
-        WorldState.Board.ResponseReceived += HandleBoardResponse;
-
-        //group invite — subscribe to state event
-        WorldState.GroupInvite.Received += HandleGroupInviteReceived;
-
-        //profiles
-        Game.Connection.OnEditableProfileRequest += HandleEditableProfileRequest;
-        Game.Connection.OnSelfProfile += HandleSelfProfile;
-        Game.Connection.OnOtherProfile += HandleOtherProfile;
-
-        //animations / effects / sound
-        Game.Connection.OnBodyAnimation += HandleBodyAnimation;
-        Game.Connection.OnAnimation += HandleAnimation;
-        Game.Connection.OnSound += HandleSound;
-        Game.Connection.OnCancelCasting += CastingSystem.Reset;
-
-        //map transitions
-        Game.Connection.OnMapChangePending += HandleMapChangePending;
-
-        //logout / disconnect
-        Game.Connection.OnExitResponse += HandleExitResponse;
-        Game.Connection.StateChanged += HandleStateChanged;
-        Game.Connection.OnRedirectReceived += HandleRedirectReceived;
-
-        //health bars
-        Game.Connection.OnHealthBar += HandleHealthBar;
-
-        //status effects
-        Game.Connection.OnEffect += HandleEffect;
-
-        //light level
-        Game.Connection.OnLightLevel += HandleLightLevel;
-
-        //metadata sync — reload metadata consumers after server handshake completes
-        Game.OnMetaDataSyncComplete += HandleMetaDataSyncComplete;
-
-        //notepad popups
-        Game.Connection.OnDisplayReadonlyNotepad += HandleDisplayReadonlyNotepad;
-        Game.Connection.OnDisplayEditableNotepad += HandleDisplayEditableNotepad;
-
-        //world map
-        Game.Connection.OnWorldMap += HandleWorldMap;
-
-        //doors
-        Game.Connection.OnDoor += HandleDoor;
+        WireServerEvents();
     }
 
     /// <inheritdoc />
@@ -279,6 +199,13 @@ public sealed partial class WorldScreen : IScreen
         WorldHud = SmallHud;
 
         var viewport = WorldHud.ViewportBounds;
+
+        //shared floating system-message pane — lives at Root so its fade timer keeps ticking
+        //across HUD swaps. Repositioned in SwapHudLayout when the active HUD changes.
+        SystemMessagePane = new SystemMessagePaneControl(viewport)
+        {
+            ZIndex = -1
+        };
 
         Camera = new Camera(viewport.Width, viewport.Height)
         {
@@ -644,6 +571,7 @@ public sealed partial class WorldScreen : IScreen
         };
         Root.AddChild(SmallHud);
         Root.AddChild(LargeHud);
+        Root.AddChild(SystemMessagePane);
         Root.AddChild(NpcSession);
         Root.AddChild(ItemTooltip);
         Root.AddChild(MainOptions);

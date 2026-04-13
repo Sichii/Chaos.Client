@@ -100,7 +100,7 @@ Chaos.Client/
 ├── Collections/              — WorldState, CircularBuffer
 ├── Models/                   — WorldEntity, Animation, EntityRemovalAnimation, EntityHighlight, SlotDragPayload, PathfindingState, etc.
 ├── ViewModel/                — Authoritative state classes owned by WorldState
-├── Systems/                  — AnimationSystem, CastingSystem, ChatSystem, SoundSystem, Pathfinder, ClientSettings, MachineIdentity
+├── Systems/                  — AnimationSystem, CastingSystem, SoundSystem, Pathfinder, ClientSettings, MachineIdentity
 ├── Screens/                  — IScreen, ScreenManager, LobbyLoginScreen, WorldScreen (7 partial files)
 ├── Rendering/                — EntityOverlayManager, WorldDebugRenderer
 ├── Controls/                 — Full UI control hierarchy (see UI Control System below)
@@ -123,13 +123,13 @@ Chaos.Client/
 
 ### UI Control System
 
-**Component Primitives (`Controls/Components/`):** UIElement, UIPanel, UIButton, UITextBox, UIImage, UIAnimatedImage, UILabel, UIProgressBar, TextElement, PrefabPanel, ExpandablePanel, PromptControl, AlphaScreenPane.
+**Component Primitives (`Controls/Components/`):** UIElement, UIPanel, UIButton, BlinkButton, UITextBox, UIImage, UIAnimatedImage, UILabel, UIProgressBar, SliderControl, TextElement, PrefabPanel, ExpandablePanel.
 
 **Login Flow (`Controls/LobbyLogin/`):** LobbyLoginControl, LoginControl, ServerSelectControl, CharacterCreationControl, EulaNoticeControl, PasswordChangeControl.
 
 **Generic Controls (`Controls/Generic/`):** OkPopupMessageControl, TextPopupControl, ScrollBarControl, DebugOverlay.
 
-**World HUD (`Controls/World/Hud/`):** IWorldHud interface, WorldHudControl (classic compact HUD), LargeWorldHudControl (expanded HUD), OrangeBarControl, EffectBarControl/EffectSlotControl.
+**World HUD (`Controls/World/Hud/`):** IWorldHud interface, WorldHudControl (classic compact HUD), LargeWorldHudControl (expanded HUD), OrangeBarControl, ChatInputControl, EffectBarControl/EffectSlotControl.
 
 **HUD Panels (`Hud/Panel/`):** PanelBase, InventoryPanel, SkillBookPanel, SpellBookPanel, ToolsPanel, ChatPanel, StatsPanel, ExtendedStatsPanel, SystemMessagePanel. Slots: PanelSlot, AbilitySlotBase, SkillSlot, SpellSlot.
 
@@ -137,19 +137,18 @@ Chaos.Client/
 
 **Options (`Popups/Options/`):** MainOptionsControl, MacrosListControl, SettingsControl, FriendsListControl.
 
-**Popups (`Popups/`):** AislingContextMenu, AmountControl, ChantEditControl, GroupRecruitPanel, GroupTab/GroupTabControl, HotkeyHelpControl, ItemTooltipControl, NotepadControl, SocialStatusControl, TownMapControl. Subdirectories: `Boards/` (BoardListControl, ArticleListControl/ArticleReadControl/ArticleSendControl, MailListControl/MailReadControl/MailSendControl), `Dialog/` (NpcSessionControl, MerchantBrowserPanel, DialogTextEntryPanel, MenuTextEntryPanel, OptionMenuPanel, ProtectedEntryPanel), `Exchange/` (ExchangeControl/ExchangeItemControl), `WorldList/` (WorldListControl/WorldListEntryControl).
+**Popups (`Popups/`):** AislingContextMenu, GoldAmountControl, ItemAmountControl, ChantEditControl, GroupRecruitPanel, GroupTab/GroupTabControl, HotkeyHelpControl, ItemTooltipControl, NotepadControl, SocialStatusControl, TownMapControl. Subdirectories: `Boards/` (BoardListControl, ArticleListControl/ArticleReadControl/ArticleSendControl, MailListControl/MailReadControl/MailSendControl), `Dialog/` (NpcSessionControl, FramedDialogPanelBase, DialogAlphaGradient, MenuShopPanel, DialogTextEntryPanel, DialogProtectedTextEntryPanel, MenuTextEntryPanel, DialogOptionPanel, MenuListPanel), `Exchange/` (ExchangeControl/ExchangeItemControl), `WorldList/` (WorldListControl/WorldListEntryControl).
 
-**Viewport Overlays (`ViewPort/`):** ChatBubble, HealthBar, LoadingBar/MapLoadingBar, WorldMap/WorldMapNode, ChantOverlay.
+**Viewport Overlays (`ViewPort/`):** ChatBubble, HealthBar, LoadingBar/MapLoadingBar, WorldMap/WorldMapNode, ChantText, GroupBox, SystemMessagePaneControl, PersistentMessageControl.
 
 ### Game Systems (`Chaos.Client/Systems/`)
 - **`AnimationSystem`** -- Pure methods for walk/body/creature animations, frame calculation, walk offset lerp.
 - **`CastingSystem`** -- Spell targeting + chant management.
-- **`ChatSystem`** -- Chat message handling and routing.
 - **`SoundSystem`** -- NAudio MP3->PCM, cached playback, music looping.
 - **`Pathfinder`** -- A* pathfinding algorithm.
 - **`MachineIdentity`** -- Machine-specific identification for the client.
 - **`ClientSettings`** -- Static class. Persistent user settings. Access via `ClientSettings.SoundVolume`, etc.
-- **`GlobalSettings`** -- Static config: ClientVersion (741), DataPath, LobbyHost/Port.
+- **`GlobalSettings`** -- Static config: ClientVersion (741), DataPath, LobbyHost/Port, `RequireSwimmingSkill` toggle (default false — when true, water tiles require GM flag or Swimming skill, retail behavior).
 
 ### World State & Models
 - **`WorldState`** (`Collections/`) -- Static class. Entity tracking, sorted rendering, active effects, all ViewModel state. Access via `WorldState.Inventory`, `WorldState.Attributes`, etc.
@@ -226,7 +225,7 @@ Authoritative state objects exposed as static properties on WorldState, updated 
 
 ### Other
 - Case-insensitive string operations: `StartsWithI`, `ContainsI`, `EqualsI`, `ReplaceI`
-- Thread-safe cache access via `MemoryCacheExtensions.SafeGetOrCreate<T>`
+- Thread-safe cache access via `RepositoryBase.GetOrCreate<T>` (per-instance Lock)
 - Repository `Get` methods return null on failure (try-catch pattern)
 - UI controls use `NeverRemove` cache priority; other assets use sliding expiration
 - Disposable cached objects are disposed via post-eviction callbacks

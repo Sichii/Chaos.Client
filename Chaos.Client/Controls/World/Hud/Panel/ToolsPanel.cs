@@ -20,13 +20,13 @@ public sealed class ToolsPanel : ExpandablePanel
     private const int CELL_COUNT_PER_HALF = 18;
 
     /// <summary>
-    ///     The skill page-3 (world abilities) sub-panel. Property name parallels the <see cref="Name" /> of
+    ///     The skill page-3 (world abilities) sub-panel. Property name parallels the <see cref="UIElement.Name" /> of
     ///     "SkillBookWorld" set by <see cref="SkillBookPanel" /> for this page.
     /// </summary>
     public SkillBookPanel WorldSkills { get; }
 
     /// <summary>
-    ///     The spell page-3 (world abilities) sub-panel. Property name parallels the <see cref="Name" /> of
+    ///     The spell page-3 (world abilities) sub-panel. Property name parallels the <see cref="UIElement.Name" /> of
     ///     "SpellBookWorld" set by <see cref="SpellBookPanel" /> for this page.
     /// </summary>
     public SpellBookPanel WorldSpells { get; }
@@ -62,26 +62,26 @@ public sealed class ToolsPanel : ExpandablePanel
         WorldSkills = new SkillBookPanel(
             hudPrefabSet,
             SkillBookPage.Page3,
-            background: null,
-            normalVisibleSlots: normalVisibleSlots,
-            columns: 6,
-            cellCount: CELL_COUNT_PER_HALF,
-            gridOffsetX: 0,
-            drawSlotNumberOverlay: false,
-            loadFallbackBackground: false,
-            compactGridPadding: childCompactPadding);
+            null,
+            normalVisibleSlots,
+            6,
+            CELL_COUNT_PER_HALF,
+            0,
+            false,
+            false,
+            childCompactPadding);
 
         WorldSpells = new SpellBookPanel(
             hudPrefabSet,
             SkillBookPage.Page3,
-            background: null,
-            normalVisibleSlots: normalVisibleSlots,
-            columns: 6,
-            cellCount: CELL_COUNT_PER_HALF,
-            gridOffsetX: 0,
-            drawSlotNumberOverlay: false,
-            loadFallbackBackground: false,
-            compactGridPadding: childCompactPadding);
+            null,
+            normalVisibleSlots,
+            6,
+            CELL_COUNT_PER_HALF,
+            0,
+            false,
+            false,
+            childCompactPadding);
 
         const int HALF_WIDTH = 6 * CELL_WIDTH;
 
@@ -107,8 +107,8 @@ public sealed class ToolsPanel : ExpandablePanel
     {
         ConfigureExpand(expandedBackground);
 
-        WorldSkills.ConfigureExpand(expandedBackground: null, expandedVisibleSlotsPerHalf);
-        WorldSpells.ConfigureExpand(expandedBackground: null, expandedVisibleSlotsPerHalf);
+        WorldSkills.ConfigureExpand(null, expandedVisibleSlotsPerHalf);
+        WorldSpells.ConfigureExpand(null, expandedVisibleSlotsPerHalf);
 
         //grow the children to the expanded extent so hit-testing covers expanded slot rows.
         //the children's local origin shifts up with the parent in expanded mode (because

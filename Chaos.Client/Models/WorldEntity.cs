@@ -95,5 +95,12 @@ public sealed class WorldEntity
     public Vector2 WalkStartOffset { get; set; }
 
     public int SortDepth => TileX + TileY;
-    public bool UsesCreatureWalkTiming => (Type == ClientEntityType.Creature) || (Appearance is null && (SpriteId > 0));
+
+    /// <summary>
+    ///     True when the entity is rendered as a creature sprite (either a native creature or an aisling in monster form).
+    ///     False for normal aislings rendered via paperdoll composition.
+    /// </summary>
+    public bool IsRenderedAsCreatureSprite => (Type == ClientEntityType.Creature) || (Appearance is null && (SpriteId > 0));
+
+    public bool UsesCreatureWalkTiming => IsRenderedAsCreatureSprite;
 }

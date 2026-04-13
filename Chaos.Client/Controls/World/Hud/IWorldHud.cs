@@ -56,7 +56,6 @@ public interface IWorldHud
     void SetWeight(int current, int max);
     void SetZoneName(string zone);
     void ShowPersistentMessage(string text);
-    void ShowSystemMessage(string text, Color? color = null);
     void ShowTab(HudTab tab);
     void ToggleExpand();
 

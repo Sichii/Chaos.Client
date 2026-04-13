@@ -17,8 +17,15 @@ namespace Chaos.Client.Rendering;
 /// </summary>
 public sealed class EntityOverlayManager
 {
-    //health bar y offset from entity tile center (higher = further above entity)
+    //health bar y offset from entity tile center (higher = further above entity).
+    //for creature sprites this is the "baseline" height — actual position is averaged with sprite top.
     private const int HEALTH_BAR_Y_OFFSET = 61;
+
+    //chant overlay y offset from entity tile center. baseline for creature sprites (averaged with sprite top).
+    private const int CHANT_Y_OFFSET = 60;
+
+    //chat bubble y offset from entity tile center. baseline for creature sprites (averaged with sprite top).
+    private const int CHAT_BUBBLE_Y_OFFSET = 64;
 
     //name tag y offset from entity tile center (above health bars)
     private const int NAME_TAG_Y_OFFSET = 72;
@@ -298,27 +305,45 @@ public sealed class EntityOverlayManager
     public void Update(
         Camera camera,
         int mapHeight,
+        CreatureRenderer creatureRenderer,
         GameTime gameTime)
     {
         UpdateChatBubbles(
             camera,
             mapHeight,
+            creatureRenderer,
             gameTime);
 
         UpdateChantOverlays(
             camera,
             mapHeight,
+            creatureRenderer,
             gameTime);
 
         UpdateHealthBars(
             camera,
             mapHeight,
+            creatureRenderer,
             gameTime);
+    }
+
+    //for creature sprites, the overlay offset is the average of the baseline offset and the sprite's average top offset.
+    //this lets small sprites pull overlays closer while tall sprites push them further up, without per-frame jitter.
+    //for paperdoll aislings (and non-creature entities) the baseline offset is used unchanged.
+    private static int ResolveOverlayOffset(int baselineOffset, WorldEntity entity, CreatureRenderer creatureRenderer)
+    {
+        if (!entity.IsRenderedAsCreatureSprite)
+            return baselineOffset;
+
+        var averageTop = creatureRenderer.GetAverageTopOffset(entity.SpriteId);
+
+        return (baselineOffset + averageTop) / 2;
     }
 
     private void UpdateChantOverlays(
         Camera camera,
         int mapHeight,
+        CreatureRenderer creatureRenderer,
         GameTime gameTime)
     {
         List<uint>? expired = null;
@@ -347,8 +372,10 @@ public sealed class EntityOverlayManager
             var tileCenterX = tileWorld.X + DaLibConstants.HALF_TILE_WIDTH;
             var tileCenterY = tileWorld.Y + DaLibConstants.HALF_TILE_HEIGHT;
 
+            var offset = ResolveOverlayOffset(CHANT_Y_OFFSET, entity, creatureRenderer);
+
             var entityWorldX = tileCenterX + entity.VisualOffset.X;
-            var entityWorldY = tileCenterY + entity.VisualOffset.Y - 60;
+            var entityWorldY = tileCenterY + entity.VisualOffset.Y - offset;
 
             var overlayX = entityWorldX - overlay.Width / 2f;
             var overlayY = entityWorldY - overlay.Height;
@@ -370,6 +397,7 @@ public sealed class EntityOverlayManager
     private void UpdateChatBubbles(
         Camera camera,
         int mapHeight,
+        CreatureRenderer creatureRenderer,
         GameTime gameTime)
     {
         List<uint>? expired = null;
@@ -398,8 +426,10 @@ public sealed class EntityOverlayManager
             var tileCenterX = tileWorld.X + DaLibConstants.HALF_TILE_WIDTH;
             var tileCenterY = tileWorld.Y + DaLibConstants.HALF_TILE_HEIGHT;
 
+            var offset = ResolveOverlayOffset(CHAT_BUBBLE_Y_OFFSET, entity, creatureRenderer);
+
             var entityWorldX = tileCenterX + entity.VisualOffset.X;
-            var entityWorldY = tileCenterY + entity.VisualOffset.Y - 64;
+            var entityWorldY = tileCenterY + entity.VisualOffset.Y - offset;
 
             var bubbleX = entityWorldX - bubble.Width / 2f;
             var bubbleY = entityWorldY - bubble.Height;
@@ -421,6 +451,7 @@ public sealed class EntityOverlayManager
     private void UpdateHealthBars(
         Camera camera,
         int mapHeight,
+        CreatureRenderer creatureRenderer,
         GameTime gameTime)
     {
         List<uint>? expired = null;
@@ -445,9 +476,11 @@ public sealed class EntityOverlayManager
                 continue;
             }
 
+            var offset = ResolveOverlayOffset(HEALTH_BAR_Y_OFFSET, entity, creatureRenderer);
+
             var tileWorld = Camera.TileToWorld(entity.TileX, entity.TileY, mapHeight);
             var entityWorldX = tileWorld.X + DaLibConstants.HALF_TILE_WIDTH + entity.VisualOffset.X;
-            var entityWorldY = tileWorld.Y + DaLibConstants.HALF_TILE_HEIGHT + entity.VisualOffset.Y - HEALTH_BAR_Y_OFFSET;
+            var entityWorldY = tileWorld.Y + DaLibConstants.HALF_TILE_HEIGHT + entity.VisualOffset.Y - offset;
 
             var screenPos = camera.WorldToScreen(new Vector2(entityWorldX - bar.Width / 2f, entityWorldY));
             bar.X = (int)screenPos.X + 1;

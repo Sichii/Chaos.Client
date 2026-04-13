@@ -62,7 +62,6 @@ public sealed class OtherProfileEquipmentTab : PrefabPanel
     private readonly Dictionary<EquipmentSlot, EquipmentSlotVisual> SlotVisuals = new();
     private readonly UILabel? TitleLabel;
     private readonly UILabel TooltipLabel;
-    private byte EmoticonState;
     private Texture2D? NationIconTexture;
     private Texture2D? PaperdollTexture;
 
@@ -247,7 +246,6 @@ public sealed class OtherProfileEquipmentTab : PrefabPanel
     /// </summary>
     public void SetEmoticonState(byte state, string statusText)
     {
-        EmoticonState = state;
         EmoticonLabel?.Text = statusText;
 
         if ((EmoticonImage is not null) && (state < EmoticonIcons.Length))

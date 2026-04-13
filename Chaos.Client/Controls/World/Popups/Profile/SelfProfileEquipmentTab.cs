@@ -90,7 +90,6 @@ public sealed class SelfProfileEquipmentTab : PrefabPanel
     //tooltip for hovered equipment slot
     private readonly UILabel TooltipLabel;
     private readonly UILabel? WisLabel;
-    private byte EmoticonState;
     private Texture2D? NationIconTexture;
     private Texture2D? PaperdollTexture;
 
@@ -203,7 +202,7 @@ public sealed class SelfProfileEquipmentTab : PrefabPanel
 
         //emoticon status text label — prefab places it at the same origin as the icon, so shift
         //it right past the icon to avoid overlap
-        EmoticonLabel = CreateLabel("HumanState", HorizontalAlignment.Left);
+        EmoticonLabel = CreateLabel("HumanState");
         EmoticonLabel?.ForegroundColor = LegendColors.White;
 
         if ((EmoticonLabel is not null) && (humanIconRect != Rectangle.Empty))
@@ -328,7 +327,6 @@ public sealed class SelfProfileEquipmentTab : PrefabPanel
     /// </summary>
     public void SetEmoticonState(byte state, string statusText)
     {
-        EmoticonState = state;
         EmoticonLabel?.Text = statusText;
 
         if ((EmoticonImage is not null) && (state < EmoticonIcons.Length))

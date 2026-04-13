@@ -642,7 +642,9 @@ public sealed class DarknessRenderer : IDisposable
         try
         {
             return HeaFile.FromEntry(entry);
-        } catch
+        }
+        //rule 6 exemption: corrupt asset -> graceful null fallback (no validate-before-parse path)
+        catch
         {
             return null;
         }

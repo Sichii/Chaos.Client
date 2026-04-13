@@ -61,6 +61,8 @@ These are intentional, and are the first things a fork should know about:
 10. **Pants render under overcoats when the server allows it.** If the server's item definition says the overcoat permits pants, this client draws them. Retail does not.
 11. **Album and Portrait systems are not implemented.** The Album tab in the self-profile is not wired up, and the portrait button does not actually take a portrait of your character. Both are straightforward to fill in if you need them.
 12. **Alt+Enter cycles through window sizes.** The virtual canvas is 640×480; Alt+Enter steps the backbuffer through multiples of that — 1×, 2×, 3×, … — up to whatever the current monitor can fit, then wraps back to 1×.
+13. **Swimming is unrestricted by default.** Retail gates swim tiles behind the hidden GM swim flag or the `Swimming` skill. This client ships with that gate **off** — any character walks/pathfinds onto water tiles freely. Set `GlobalSettings.RequireSwimmingSkill = true` to restore the retail behavior.
+14. **Health bars, chants, and chat bubbles on creature sprites use a blended offset.** They sit halfway between a fixed baseline and the sprite's mean visible top instead of tracking frame heights — small sprites a little higher than retail, large sprites a little lower.
 
 This is not an exhaustive list, but other differences are likely too minor to bother with.
 
@@ -350,6 +352,7 @@ Almost everything a fork needs to change is in `Chaos.Client/GlobalSettings.cs`:
 | `DataPath` | Absolute path to the Dark Ages data folder (contains the `.dat` archives). |
 | `LobbyHost` | Lobby server hostname or IP. |
 | `LobbyPort` | Lobby server port. |
+| `RequireSwimmingSkill` | When `true`, restores retail swim gate — water tiles require the GM flag or the `Swimming` skill. Default `false` (no requirement). |
 
 These are hardcoded on purpose — it's a baseline, not a shipped product. For user-facing options, use `ClientSettings`, which already persists the user preferences the client exposes.
 

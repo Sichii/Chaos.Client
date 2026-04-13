@@ -44,7 +44,7 @@ public abstract class UIElement : IDisposable
 
     public bool Visible
     {
-        get => field;
+        get;
 
         set
         {
@@ -66,7 +66,7 @@ public abstract class UIElement : IDisposable
     /// </summary>
     public int ZIndex
     {
-        get => field;
+        get;
 
         set
         {

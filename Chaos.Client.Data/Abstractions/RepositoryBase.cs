@@ -1,5 +1,4 @@
-﻿#region
-using Chaos.Extensions.Client.Common;
+#region
 using Microsoft.Extensions.Caching.Memory;
 #endregion
 
@@ -8,6 +7,8 @@ namespace Chaos.Client.Data.Abstractions;
 public abstract class RepositoryBase
 {
     protected MemoryCache Cache { get; } = new(new MemoryCacheOptions());
+
+    private readonly Lock CacheLock = new();
 
     protected virtual void ConfigureEntry(ICacheEntry entry)
         => entry.SetPriority(CacheItemPriority.Normal)
@@ -19,14 +20,16 @@ public abstract class RepositoryBase
         if (Cache.TryGetValue(key, out T? cached))
             return cached!;
 
-        return Cache.SafeGetOrCreate(
+        using var scope = CacheLock.EnterScope();
+
+        return Cache.GetOrCreate(
             key,
             entry =>
             {
                 ConfigureEntry(entry);
 
                 return factory();
-            });
+            }) ?? throw new NullReferenceException();
     }
 
     protected virtual T GetOrCreate<T>(int key, Func<T> factory)
@@ -34,14 +37,16 @@ public abstract class RepositoryBase
         if (Cache.TryGetValue(key, out T? cached))
             return cached!;
 
-        return Cache.SafeGetOrCreate(
+        using var scope = CacheLock.EnterScope();
+
+        return Cache.GetOrCreate(
             key,
             entry =>
             {
                 ConfigureEntry(entry);
 
                 return factory();
-            });
+            }) ?? throw new NullReferenceException();
     }
 
     protected static void HandleDisposableEntries(

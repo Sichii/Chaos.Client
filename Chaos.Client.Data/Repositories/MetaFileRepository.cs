@@ -1,6 +1,7 @@
 #region
 using System.Collections.Concurrent;
 using System.Collections.Frozen;
+using System.Diagnostics.CodeAnalysis;
 using System.IO.Compression;
 using System.Text;
 using Chaos.Client.Data.Models;
@@ -52,16 +53,11 @@ public sealed class MetaFileRepository
             files,
             file =>
             {
-                try
-                {
-                    var metaFile = MetaFile.FromFile(file.Path, true);
+                if (!TryLoadMetaFile(file.Path, out var metaFile))
+                    return;
 
-                    foreach (var entry in metaFile)
-                        index.TryAdd(StringComparer.OrdinalIgnoreCase.GetHashCode(entry.Key), file.Number);
-                } catch
-                {
-                    //skip corrupt files
-                }
+                foreach (var entry in metaFile)
+                    index.TryAdd(StringComparer.OrdinalIgnoreCase.GetHashCode(entry.Key), file.Number);
             });
 
         ItemIndex = index.ToFrozenDictionary();
@@ -80,7 +76,9 @@ public sealed class MetaFileRepository
         try
         {
             return MetaFile.FromFile(filePath, true);
-        } catch
+        }
+        //rule 6 exemption: corrupt asset -> graceful null fallback (no validate-before-parse path)
+        catch
         {
             return null;
         }
@@ -116,13 +114,10 @@ public sealed class MetaFileRepository
             if (!fileName.StartsWithI(prefix))
                 continue;
 
-            try
-            {
-                results.Add(MetaFile.FromFile(filePath, true));
-            } catch
-            {
-                //skip corrupt files
-            }
+            if (!TryLoadMetaFile(filePath, out var metaFile))
+                continue;
+
+            results.Add(metaFile);
         }
 
         return results;
@@ -258,6 +253,22 @@ public sealed class MetaFileRepository
 
             if (--remaining == 0)
                 return;
+        }
+    }
+
+    //rule 6 exemption: corrupt asset -> graceful null fallback (no validate-before-parse path)
+    private static bool TryLoadMetaFile(string path, [NotNullWhen(true)] out MetaFile? metaFile)
+    {
+        try
+        {
+            metaFile = MetaFile.FromFile(path, true);
+
+            return true;
+        } catch
+        {
+            metaFile = null;
+
+            return false;
         }
     }
 }

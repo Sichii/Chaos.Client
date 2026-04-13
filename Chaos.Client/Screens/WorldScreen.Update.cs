@@ -6,7 +6,6 @@ using Chaos.Client.Systems;
 using Chaos.DarkAges.Definitions;
 using Chaos.Geometry.Abstractions.Definitions;
 using Microsoft.Xna.Framework;
-using Microsoft.Xna.Framework.Input;
 using Pathfinder = Chaos.Client.Systems.Pathfinder;
 #endregion
 
@@ -201,6 +200,7 @@ public sealed partial class WorldScreen
             Overlays.Update(
                 Camera,
                 MapFile.Height,
+                Game.CreatureRenderer,
                 gameTime);
 
         if (DarknessRenderer.IsActive)

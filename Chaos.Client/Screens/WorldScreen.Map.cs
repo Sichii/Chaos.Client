@@ -153,7 +153,7 @@ public sealed partial class WorldScreen
         {
             MapRenderer.PreloadMapTiles(Device, MapFile, MapLoading.SetProgress);
             TabMapRenderer.Generate(Device, MapFile);
-            MapPathfinder = BuildPathfinder(MapFile);
+            (MapPathfinder, MapWaterTiles) = BuildPathfinder(MapFile);
             MapPreloaded = true;
         }
 
@@ -162,11 +162,12 @@ public sealed partial class WorldScreen
         Game.GcRequested = true;
     }
 
-    private static Pathfinder BuildPathfinder(MapFile mapFile)
+    private static (Pathfinder Pathfinder, List<IPoint> WaterTiles) BuildPathfinder(MapFile mapFile)
     {
         var sotpData = DataContext.Tiles.SotpData;
         var gndAttrs = DataContext.Tiles.GroundAttributes;
         var walls = new List<IPoint>();
+        var waterTiles = new List<IPoint>();
 
         for (var y = 0; y < mapFile.Height; y++)
             for (var x = 0; x < mapFile.Width; x++)
@@ -176,10 +177,10 @@ public sealed partial class WorldScreen
                 if (IsTileWall(tile.LeftForeground, sotpData) || IsTileWall(tile.RightForeground, sotpData))
                     walls.Add(new Point(x, y));
                 else if (gndAttrs.TryGetValue(tile.Background, out var gndAttr) && gndAttr.IsWalkBlocking)
-                    walls.Add(new Point(x, y));
+                    waterTiles.Add(new Point(x, y));
             }
 
-        return new Pathfinder(
+        var pathfinder = new Pathfinder(
             new GridDetails
             {
                 Width = mapFile.Width,
@@ -187,6 +188,25 @@ public sealed partial class WorldScreen
                 Walls = walls,
                 BlockingReactors = []
             });
+
+        return (pathfinder, waterTiles);
+    }
+
+    /// <summary>
+    ///     Returns the current set of blocked points for pathfinding: entity positions, plus water tiles when the swim gate
+    ///     is active and the player can't swim. GMs bypass all blocking.
+    /// </summary>
+    private List<IPoint> GetPathfindingBlockedPoints()
+    {
+        if (IsGameMaster)
+            return [];
+
+        var blocked = WorldState.GetBlockedPoints();
+
+        if (GlobalSettings.RequireSwimmingSkill && !WorldState.SkillBook.HasSkillByName("swimming"))
+            blocked.AddRange(MapWaterTiles);
+
+        return blocked;
     }
 
     private bool TileHasForeground(int tileX, int tileY)
@@ -227,8 +247,12 @@ public sealed partial class WorldScreen
         if (IsTileWall(tile.LeftForeground, sotpData) || IsTileWall(tile.RightForeground, sotpData))
             return false;
 
-        //check gndattr walk-blocking (deep water tiles)
-        if (DataContext.Tiles.GroundAttributes.TryGetValue(tile.Background, out var gndAttr) && gndAttr.IsWalkBlocking)
+        //check gndattr walk-blocking (deep water tiles) — only when swim gate active and player can't swim
+        if (GlobalSettings.RequireSwimmingSkill
+            && !IsGameMaster
+            && !WorldState.SkillBook.HasSkillByName("swimming")
+            && DataContext.Tiles.GroundAttributes.TryGetValue(tile.Background, out var gndAttr)
+            && gndAttr.IsWalkBlocking)
             return false;
 
         //check entities at the destination tile

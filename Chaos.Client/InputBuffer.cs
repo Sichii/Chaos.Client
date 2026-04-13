@@ -10,7 +10,7 @@ namespace Chaos.Client;
 ///     Buffers keyboard and mouse input using window events so that discrete key presses are never lost during frame rate
 ///     drops. Call <see cref="Update" /> at the start of each frame, then read the snapshot via the query methods.
 /// </summary>
-public sealed partial class InputBuffer : IDisposable
+public sealed class InputBuffer : IDisposable
 {
 
     private readonly Game Game;

@@ -35,7 +35,6 @@ public sealed class LargeWorldHudControl : PrefabPanel, IWorldHud
     private readonly UIProgressBar MpOrb;
     private readonly OrangeBarControl OrangeBar;
     private readonly PersistentMessageControl PersistentMessage;
-    private readonly SystemMessagePaneControl SystemMessagePane;
     private readonly UILabel PlayerNameLabel;
     private readonly UILabel? ServerNameLabel;
     private readonly UILabel TooltipLabel;
@@ -210,10 +209,6 @@ public sealed class LargeWorldHudControl : PrefabPanel, IWorldHud
         //persistent message — floating text, top-right of viewport
         PersistentMessage = new PersistentMessageControl(ViewportBounds);
         AddChild(PersistentMessage);
-
-        //system message pane — floating text, top-left of viewport
-        SystemMessagePane = new SystemMessagePaneControl(ViewportBounds);
-        AddChild(SystemMessagePane);
 
         //resolve inventory background textures from prefab for tab panels
         var cache = UiRenderer.Instance!;
@@ -430,7 +425,7 @@ public sealed class LargeWorldHudControl : PrefabPanel, IWorldHud
         if (normalHudPrefabSet.Contains("LivingInventoryBackground") && (normalHudPrefabSet["LivingInventoryBackground"].Images.Count > 0))
             toolsExpandedTexture = uiCache.GetPrefabTexture(normalHudPrefabSet.Name, "LivingInventoryBackground", 0);
 
-        Tools = new ToolsPanel(PrefabSet, livingBgTexture, normalVisibleSlots: COMPACT_VISIBLE_SLOTS_PER_HALF);
+        Tools = new ToolsPanel(PrefabSet, livingBgTexture, COMPACT_VISIBLE_SLOTS_PER_HALF);
         Tools.ConfigureExpandPerHalf(toolsExpandedTexture, EXPANDED_VISIBLE_SLOTS_PER_HALF);
         RegisterTab(HudTab.Tools, Tools, tabRect);
 
@@ -639,7 +634,5 @@ public sealed class LargeWorldHudControl : PrefabPanel, IWorldHud
     }
 
     public void ShowPersistentMessage(string text) => PersistentMessage.SetMessage(text);
-
-    public void ShowSystemMessage(string text, Color? color = null) => SystemMessagePane.AddMessage(text, color);
     #endregion
 }

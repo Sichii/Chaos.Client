@@ -792,7 +792,24 @@ public sealed class MenuShopPanel : PrefabPanel
         private readonly UILabel CostLabel;
         private readonly UIImage IconImage;
         private readonly UILabel NameLabel;
-        public bool IsSelected { get; set; }
+
+        public bool IsSelected
+        {
+            // ReSharper disable once UnusedMember.Local
+            get;
+            set
+            {
+                if (field == value)
+                    return;
+
+                field = value;
+
+                var color = value ? SELECTED_TEXT_COLOR : Color.White;
+                NameLabel.ForegroundColor = color;
+                CostLabel.ForegroundColor = color;
+            }
+        }
+
         public int RowIndex { get; init; }
 
         public MerchantListingPanel(int contentWidth)
@@ -846,18 +863,6 @@ public sealed class MenuShopPanel : PrefabPanel
             CostLabel.Text = string.Empty;
         }
 
-        public override void Draw(SpriteBatch spriteBatch)
-        {
-            if (!Visible)
-                return;
-
-            var color = IsSelected ? SELECTED_TEXT_COLOR : Color.White;
-            NameLabel.ForegroundColor = color;
-            CostLabel.ForegroundColor = color;
-
-            base.Draw(spriteBatch);
-        }
-
         public event ClickedHandler? Clicked;
 
         public void SetEntry(Texture2D? icon, string name, int cost)
@@ -896,10 +901,24 @@ public sealed class MenuShopPanel : PrefabPanel
     /// </summary>
     private sealed class MerchantTab : UIPanel
     {
+        private readonly UIImage BackgroundImage;
         private readonly UILabel NameLabel;
         private readonly Texture2D? NormalBg;
         private readonly Texture2D? SelectedBg;
-        public bool IsSelected { get; set; }
+
+        public bool IsSelected
+        {
+            // ReSharper disable once UnusedMember.Local
+            get;
+            set
+            {
+                if (field == value)
+                    return;
+
+                field = value;
+                BackgroundImage.Texture = value ? SelectedBg : NormalBg;
+            }
+        }
 
         public MerchantTab(Texture2D? normalTexture, Texture2D? selectedTexture)
         {
@@ -907,6 +926,21 @@ public sealed class MenuShopPanel : PrefabPanel
             Height = TAB_HEIGHT;
             NormalBg = normalTexture;
             SelectedBg = selectedTexture;
+
+            //background UIImage must use the texture's natural dimensions, not TAB_WIDTH/TAB_HEIGHT:
+            //UIImage's Width/Height gate its ClipRect, so smaller values would self-clip the texture.
+            //Named "BackgroundImage" (not "Background") to avoid shadowing UIPanel.Background (Texture2D?).
+            BackgroundImage = new UIImage
+            {
+                Name = "Background",
+                X = 0,
+                Y = 0,
+                Texture = NormalBg,
+                Width = NormalBg?.Width ?? 0,
+                Height = NormalBg?.Height ?? 0,
+                IsHitTestVisible = false
+            };
+            AddChild(BackgroundImage);
 
             NameLabel = new UILabel
             {
@@ -919,23 +953,6 @@ public sealed class MenuShopPanel : PrefabPanel
             };
 
             AddChild(NameLabel);
-        }
-
-        public override void Draw(SpriteBatch spriteBatch)
-        {
-            if (!Visible)
-                return;
-
-            var texture = IsSelected ? SelectedBg : NormalBg;
-
-            if (texture is not null)
-                DrawTexture(
-                    spriteBatch,
-                    texture,
-                    new Vector2(ScreenX, ScreenY),
-                    Color.White);
-
-            base.Draw(spriteBatch);
         }
 
         public event ClickedHandler? Clicked;

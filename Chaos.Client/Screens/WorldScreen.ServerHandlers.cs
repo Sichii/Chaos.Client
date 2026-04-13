@@ -126,8 +126,11 @@ public sealed partial class WorldScreen
         if (MapFile is null || (newX < 0) || (newY < 0) || (newX >= MapFile.Width) || (newY >= MapFile.Height))
             return;
 
-        //swimming check — if on a water tile and don't have the "swimming" skill, block movement
-        if (player.IsOnSwimmingTile && !IsGameMaster && !WorldState.SkillBook.HasSkillByName("swimming"))
+        //swimming gate — retail behavior, off by default, toggled via GlobalSettings.RequireSwimmingSkill
+        if (GlobalSettings.RequireSwimmingSkill
+            && player.IsOnSwimmingTile
+            && !IsGameMaster
+            && !WorldState.SkillBook.HasSkillByName("swimming"))
         {
             WorldState.Chat.AddMessage("You need to learn how to swim.", Color.White);
 
@@ -251,27 +254,27 @@ public sealed partial class WorldScreen
             case ServerMessageType.Whisper:
                 WorldState.Chat.AddMessage(args.Message, TextColors.Whisper);
                 WorldState.Chat.AddOrangeBarMessage(args.Message, TextColors.Whisper);
-                UpdateHuds(h => h.ShowSystemMessage(args.Message, TextColors.Whisper));
+                SystemMessagePane.AddMessage(args.Message, TextColors.Whisper);
 
                 break;
 
             case ServerMessageType.GroupChat:
                 WorldState.Chat.AddMessage(args.Message, TextColors.GroupChat);
                 WorldState.Chat.AddOrangeBarMessage(args.Message, TextColors.GroupChat);
-                UpdateHuds(h => h.ShowSystemMessage(args.Message, TextColors.GroupChat));
+                SystemMessagePane.AddMessage(args.Message, TextColors.GroupChat);
 
                 break;
 
             case ServerMessageType.GuildChat:
                 WorldState.Chat.AddMessage(args.Message, TextColors.GuildChat);
                 WorldState.Chat.AddOrangeBarMessage(args.Message, TextColors.GuildChat);
-                UpdateHuds(h => h.ShowSystemMessage(args.Message, TextColors.GuildChat));
+                SystemMessagePane.AddMessage(args.Message, TextColors.GuildChat);
 
                 break;
 
             case ServerMessageType.ActiveMessage:
                 WorldState.Chat.AddOrangeBarMessage(args.Message);
-                UpdateHuds(h => h.ShowSystemMessage(args.Message));
+                SystemMessagePane.AddMessage(args.Message);
 
                 break;
 

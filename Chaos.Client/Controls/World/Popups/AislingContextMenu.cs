@@ -30,16 +30,41 @@ public sealed class AislingContextMenu : UIPanel
         "whisper"
     ];
 
+    private readonly UIImage FrameImage;
+    private readonly UIPanel HoverOverlay;
     private readonly UILabel NameLabel;
     private readonly Action[] OptionCallbacks = new Action[3];
     private readonly UILabel[] OptionLabels;
-    private Texture2D? FrameTexture;
     private int HoveredIndex = -1;
 
     public AislingContextMenu()
     {
         Visible = false;
         UsesControlStack = true;
+        BackgroundColor = BOX_FILL;
+
+        HoverOverlay = new UIPanel
+        {
+            Name = "HoverOverlay",
+            BackgroundColor = BOX_HOVER,
+            Visible = false,
+            IsHitTestVisible = false,
+            X = BOX_X,
+            Width = BOX_WIDTH,
+            Height = BOX_HEIGHT
+        };
+
+        AddChild(HoverOverlay);
+
+        FrameImage = new UIImage
+        {
+            Name = "Frame",
+            X = 0,
+            Y = 0,
+            IsHitTestVisible = false
+        };
+
+        AddChild(FrameImage);
 
         NameLabel = new UILabel
         {
@@ -76,49 +101,10 @@ public sealed class AislingContextMenu : UIPanel
         }
     }
 
-    public override void Draw(SpriteBatch spriteBatch)
-    {
-        if (!Visible)
-            return;
-
-        var bg = GetFrameTexture();
-
-        if (bg is null)
-            return;
-
-        var sx = ScreenX;
-        var sy = ScreenY;
-
-        //semi-transparent fill + hover, then frame on top
-        DrawRectClipped(
-            spriteBatch,
-            new Rectangle(
-                sx,
-                sy,
-                Width,
-                Height),
-            BOX_FILL);
-
-        if (HoveredIndex >= 0)
-            DrawRectClipped(
-                spriteBatch,
-                new Rectangle(
-                    sx + BOX_X,
-                    sy + BOX_START_Y + OPTIONS_OFFSET_Y + (HoveredIndex + 1) * BOX_HEIGHT,
-                    BOX_WIDTH,
-                    BOX_HEIGHT),
-                BOX_HOVER);
-
-        DrawTexture(spriteBatch, bg, new Vector2(sx, sy), Color.White);
-
-        //children (namelabel + optionlabels) drawn by base
-        base.Draw(spriteBatch);
-    }
-
     private Texture2D? GetFrameTexture()
     {
-        if (FrameTexture is not null)
-            return FrameTexture;
+        if (FrameImage.Texture is not null)
+            return FrameImage.Texture;
 
         if (UiRenderer.Instance is null)
             return null;
@@ -128,11 +114,14 @@ public sealed class AislingContextMenu : UIPanel
         if (frameCount <= 0)
             return null;
 
-        FrameTexture = UiRenderer.Instance.GetEpfTexture(EPF_FILE, 0);
-        Width = FrameTexture.Width;
-        Height = FrameTexture.Height;
+        var texture = UiRenderer.Instance.GetEpfTexture(EPF_FILE, 0);
+        FrameImage.Texture = texture;
+        FrameImage.Width = texture.Width;
+        FrameImage.Height = texture.Height;
+        Width = texture.Width;
+        Height = texture.Height;
 
-        return FrameTexture;
+        return texture;
     }
 
     public void Hide()
@@ -197,11 +186,19 @@ public sealed class AislingContextMenu : UIPanel
             HoveredIndex = index is >= 0 and < 3 ? index : -1;
         } else
             HoveredIndex = -1;
+
+        if (HoveredIndex >= 0)
+        {
+            HoverOverlay.Y = BOX_START_Y + OPTIONS_OFFSET_Y + (HoveredIndex + 1) * BOX_HEIGHT;
+            HoverOverlay.Visible = true;
+        } else
+            HoverOverlay.Visible = false;
     }
 
     public override void OnMouseLeave()
     {
         HoveredIndex = -1;
+        HoverOverlay.Visible = false;
     }
 
     public override void OnClick(ClickEvent e)

@@ -14,7 +14,101 @@ namespace Chaos.Client.Screens;
 
 public sealed partial class WorldScreen
 {
+    #region Server Event Wiring
+    private void WireServerEvents()
+    {
+        //player identity
+        Game.Connection.OnUserId += HandleUserId;
+
+        //map assembly events
+        Game.Connection.OnMapInfo += HandleMapInfo;
+        Game.Connection.OnMapData += HandleMapData;
+        Game.Connection.OnMapLoadComplete += HandleMapLoadComplete;
+        Game.Connection.OnLocationChanged += HandleLocationChanged;
+
+        //entity events
+        //worldstate updates (entity add/remove/walk/turn) are wired in chaosgame so they
+        //work during world entry before this screen exists. we subscribe here only for
+        //screen-specific side effects (hud updates, cache cleanup).
+        Game.Connection.OnDisplayAisling += HandleDisplayAisling;
+        Game.Connection.OnRemoveEntity += HandleRemoveEntity;
+        Game.Connection.OnClientWalkResponse += HandleClientWalkResponse;
+
+        //hud data events
+        Game.Connection.OnAttributes += HandleAttributes;
+
+        //chat events
+        Game.Connection.OnDisplayPublicMessage += HandleDisplayPublicMessage;
+        Game.Connection.OnServerMessage += HandleServerMessage;
+
+        //npc dialog/menu
+        WorldState.NpcInteraction.DialogChanged += HandleDialogChanged;
+        WorldState.NpcInteraction.MenuChanged += HandleMenuChanged;
+
+        //refresh response
+        Game.Connection.OnRefreshResponse += HandleRefreshResponse;
+
+        WorldState.Exchange.AmountRequested += HandleExchangeAmountRequested;
+        WorldState.Exchange.Closed += HandleExchangeClosed;
+
+        //board — subscribe to state events
+        WorldState.Board.PostListChanged += HandleBoardPostListChanged;
+        WorldState.Board.PostViewed += HandleBoardPostViewed;
+        WorldState.Board.BoardListReceived += HandleBoardListReceived;
+        WorldState.Board.ResponseReceived += HandleBoardResponse;
+
+        //group invite — subscribe to state event
+        WorldState.GroupInvite.Received += HandleGroupInviteReceived;
+
+        //profiles
+        Game.Connection.OnEditableProfileRequest += HandleEditableProfileRequest;
+        Game.Connection.OnSelfProfile += HandleSelfProfile;
+        Game.Connection.OnOtherProfile += HandleOtherProfile;
+
+        //animations / effects / sound
+        Game.Connection.OnBodyAnimation += HandleBodyAnimation;
+        Game.Connection.OnAnimation += HandleAnimation;
+        Game.Connection.OnSound += HandleSound;
+        Game.Connection.OnCancelCasting += CastingSystem.Reset;
+
+        //map transitions
+        Game.Connection.OnMapChangePending += HandleMapChangePending;
+
+        //logout / disconnect
+        Game.Connection.OnExitResponse += HandleExitResponse;
+        Game.Connection.StateChanged += HandleStateChanged;
+        Game.Connection.OnRedirectReceived += HandleRedirectReceived;
+
+        //health bars
+        Game.Connection.OnHealthBar += HandleHealthBar;
+
+        //status effects
+        Game.Connection.OnEffect += HandleEffect;
+
+        //light level
+        Game.Connection.OnLightLevel += HandleLightLevel;
+
+        //metadata sync — reload metadata consumers after server handshake completes
+        Game.OnMetaDataSyncComplete += HandleMetaDataSyncComplete;
+
+        //notepad popups
+        Game.Connection.OnDisplayReadonlyNotepad += HandleDisplayReadonlyNotepad;
+        Game.Connection.OnDisplayEditableNotepad += HandleDisplayEditableNotepad;
+
+        //world map
+        Game.Connection.OnWorldMap += HandleWorldMap;
+
+        //doors
+        Game.Connection.OnDoor += HandleDoor;
+    }
+    #endregion
+
     #region Exchange Wiring
+    // Exchange subscriptions are intentionally layered across ExchangeControl and WorldScreen:
+    //   - ExchangeControl subscribes to Started/ItemAdded/GoldSet/OtherAccepted/Closed — updates its own UI
+    //   - WorldScreen (WireServerEvents) subscribes to AmountRequested (spawn amount popup) + Closed (screen-level teardown)
+    // Closed is intentionally double-subscribed: the control hides itself, the screen runs side effects.
+    // Don't collapse them — they serve different layers.
     private void WireExchange()
     {
         Exchange.OnOk += () => Game.Connection.SendExchangeInteraction(ExchangeRequestType.Accept, Exchange.OtherUserId);
@@ -848,6 +942,7 @@ public sealed partial class WorldScreen
         var viewport = WorldHud.ViewportBounds;
         Camera.Resize(viewport.Width, viewport.Height);
         UpdateCameraOffset(viewport);
+        SystemMessagePane.SetViewportBounds(viewport);
         WorldList.SetViewportBounds(viewport);
         BoardList.SetViewportBounds(viewport);
         ArticleList.SetViewportBounds(viewport);

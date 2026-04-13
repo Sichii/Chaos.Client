@@ -19,6 +19,11 @@ public sealed class CreatureRenderer : IDisposable
     private readonly Dictionary<Texture2D, Texture2D> GroupTintCache = new();
     private readonly Dictionary<Texture2D, Texture2D> HighlightTintCache = new();
 
+    //average of (CenterY - Top) across all frames, keyed by spriteId.
+    //used by overlay positioning to derive a stable "sprite top" for each creature sprite.
+    //uses the frame's visible top row, which differs from the bitmap top row when Top > 0 (transparent padding).
+    private readonly Dictionary<int, int> AverageTopOffsetCache = new();
+
     /// <inheritdoc />
     public void Dispose() => Clear();
 
@@ -31,6 +36,7 @@ public sealed class CreatureRenderer : IDisposable
             frame.Dispose();
 
         FrameCache.Clear();
+        AverageTopOffsetCache.Clear();
         ClearTintCaches();
     }
 
@@ -101,6 +107,40 @@ public sealed class CreatureRenderer : IDisposable
             0f);
 
         return (int)screenPos.Y + frame.Texture.Height;
+    }
+
+    /// <summary>
+    ///     Returns the average height above the entity anchor reached by this sprite's frames, in pixels. Used by overlay
+    ///     positioning to derive a stable "sprite top" that accounts for frame-to-frame variance without per-frame jitter.
+    ///     Cached per spriteId after the first call. Returns 0 if the sprite cannot be loaded.
+    /// </summary>
+    public int GetAverageTopOffset(int spriteId)
+    {
+        if (AverageTopOffsetCache.TryGetValue(spriteId, out var cached))
+            return cached;
+
+        var palettized = DataContext.CreatureSprites.GetCreatureSprite(spriteId);
+
+        if (palettized is null)
+            return 0;
+
+        var mpf = palettized.Entity;
+
+        if (mpf.Count == 0)
+            return 0;
+
+        var sum = 0;
+
+        for (var i = 0; i < mpf.Count; i++)
+        {
+            var frame = mpf[i];
+            sum += frame.CenterY - frame.Top;
+        }
+
+        var average = sum / mpf.Count;
+        AverageTopOffsetCache[spriteId] = average;
+
+        return average;
     }
 
     /// <summary>
