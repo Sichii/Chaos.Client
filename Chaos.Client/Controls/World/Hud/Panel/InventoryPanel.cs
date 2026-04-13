@@ -17,7 +17,7 @@ public sealed class InventoryPanel : PanelBase
 {
     private const int MAX_SLOTS = 59;
     private const ushort GOLD_SPRITE = 136;
-    private const int EXPANDED_SLOTS = 5 * COLUMNS;
+    private const int EXPANDED_SLOTS = 5 * DEFAULT_COLUMNS;
 
     private readonly PanelSlot GoldSlot;
 
@@ -114,27 +114,27 @@ public sealed class InventoryPanel : PanelBase
 
     private void PositionGoldSlot(int gridIndex)
     {
-        if (gridIndex < Slots.Length)
+        if (gridIndex < Slots.Count)
         {
             GoldSlot.X = Slots[gridIndex].X;
             GoldSlot.Y = Slots[gridIndex].Y;
-        } else if (Slots.Length > 0)
+        } else if (Slots.Count > 0)
         {
             //beyond the last real slot (e.g. 60th cell in 5-row expanded with 59 slots)
-            var lastIndex = Slots.Length - 1;
-            var colDelta = (gridIndex % COLUMNS) - (lastIndex % COLUMNS);
-            var rowDelta = (gridIndex / COLUMNS) - (lastIndex / COLUMNS);
+            var lastIndex = Slots.Count - 1;
+            var colDelta = (gridIndex % Columns) - (lastIndex % Columns);
+            var rowDelta = (gridIndex / Columns) - (lastIndex / Columns);
 
             GoldSlot.X = Slots[lastIndex].X + colDelta * CELL_WIDTH;
             GoldSlot.Y = Slots[lastIndex].Y + rowDelta * CELL_HEIGHT;
         }
 
         //hide the real slot underneath the gold bag (no-op when gold is beyond real slots)
-        for (var i = 0; i < Slots.Length; i++)
+        for (var i = 0; i < Slots.Count; i++)
             if (i < VisibleSlotCount)
                 Slots[i].Visible = i != gridIndex;
 
-        if (gridIndex < Slots.Length)
+        if (gridIndex < Slots.Count)
             Slots[gridIndex].Visible = false;
     }
 

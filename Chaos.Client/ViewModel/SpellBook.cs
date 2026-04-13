@@ -10,7 +10,7 @@ namespace Chaos.Client.ViewModel;
 /// </summary>
 public sealed class SpellBook
 {
-    public const int MAX_SLOTS = 89;
+    public const int MAX_SLOTS = 90;
     private readonly float[] CooldownDuration = new float[MAX_SLOTS];
     private readonly float[] CooldownRemaining = new float[MAX_SLOTS];
 

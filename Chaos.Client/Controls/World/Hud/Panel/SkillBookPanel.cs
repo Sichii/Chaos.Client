@@ -18,18 +18,37 @@ public sealed class SkillBookPanel : PanelBase
 
     public SkillBookPanel(
         ControlPrefabSet hudPrefabSet,
-        bool secondary = false,
+        SkillBookPage page = SkillBookPage.Page1,
         Texture2D? background = null,
-        int normalVisibleSlots = DEFAULT_VISIBLE_SLOTS)
+        int normalVisibleSlots = DEFAULT_VISIBLE_SLOTS,
+        int columns = DEFAULT_COLUMNS,
+        int? cellCount = null,
+        int gridOffsetX = 8,
+        bool drawSlotNumberOverlay = true,
+        bool loadFallbackBackground = true,
+        int? compactGridPadding = null)
         : base(
             hudPrefabSet,
             MAX_SLOTS,
             CooldownStyle.Progressive,
-            secondary,
+            slotOffset: (int)page,
+            columns: columns,
+            cellCount: cellCount,
+            gridOffsetX: gridOffsetX,
             background: background,
-            normalVisibleSlots: normalVisibleSlots)
+            normalVisibleSlots: normalVisibleSlots,
+            drawSlotNumberOverlay: drawSlotNumberOverlay,
+            loadFallbackBackground: loadFallbackBackground,
+            compactGridPadding: compactGridPadding)
     {
-        Name = secondary ? "SkillBookAlt" : "SkillBook";
+        Name = page switch
+        {
+            SkillBookPage.Page1 => "SkillBook",
+            SkillBookPage.Page2 => "SkillBookAlt",
+            SkillBookPage.Page3 => "SkillBookWorld",
+            _                   => "SkillBook"
+        };
+
         WorldState.SkillBook.SlotChanged += OnSlotChanged;
         WorldState.SkillBook.Cleared += OnCleared;
     }
@@ -129,7 +148,7 @@ public sealed class SkillBookPanel : PanelBase
         base.Update(gameTime);
 
         //read cooldown state each frame — progressive style: grey base with blue overlay
-        for (var i = 0; (i < VisibleSlotCount) && (i < Slots.Length); i++)
+        for (var i = 0; (i < VisibleSlotCount) && (i < Slots.Count); i++)
         {
             var slot = (byte)(i + SlotOffset + 1);
             var control = Slots[i];

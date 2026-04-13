@@ -40,6 +40,24 @@ public enum HudTab
 }
 
 /// <summary>
+///     Selects which page of a knowledge book a SkillBookPanel/SpellBookPanel views. The enum value is the
+///     slot offset into the book. Each page contains 35 usable slots inside a 36-cell address space — wire
+///     slots 36 and 72 are intentionally skipped page-divider markers, which is why <see cref="Page2" /> = 36
+///     and <see cref="Page3" /> = 72 rather than 35 and 70. SkillBook is 89 slots, SpellBook is 90.
+/// </summary>
+public enum SkillBookPage : byte
+{
+    /// <summary>Wire slots 1–35.</summary>
+    Page1 = 0,
+
+    /// <summary>Wire slots 37–71 (Shift+S / Shift+D alt panels).</summary>
+    Page2 = 36,
+
+    /// <summary>Wire slots 73–88 (skills) / 73–89 (spells). World abilities shown on the H tab.</summary>
+    Page3 = 72
+}
+
+/// <summary>
 ///     Cooldown rendering style for panel slots.
 /// </summary>
 public enum CooldownStyle

@@ -123,38 +123,10 @@ public sealed partial class WorldScreen
                 spriteBatch.End();
             }
 
-            //entity overlays (chat bubbles, health bars, name tags) — drawn after darkness so light level doesn't tint them
-            spriteBatch.Begin(
-                SpriteSortMode.Immediate,
-                BlendState.AlphaBlend,
-                GlobalSettings.Sampler,
-                null,
-                ScissorRasterizerState,
-                null,
-                transform);
-
-            Overlays.Draw(
-                spriteBatch,
-                Camera,
-                MapFile.Height,
-                sortedEntities,
-                Highlight.ShowTintHighlight,
-                Highlight.HoveredEntityId,
-                WorldState.PlayerEntityId);
-            spriteBatch.End();
-
-            //blind overlay — full black over the viewport when the player is blinded
-            if (WorldState.Attributes.Current?.Blind is true)
-            {
-                spriteBatch.Begin(
-                    blendState: BlendState.AlphaBlend,
-                    samplerState: GlobalSettings.Sampler,
-                    rasterizerState: ScissorRasterizerState);
-                RenderHelper.DrawRect(spriteBatch, WorldHud.ViewportBounds, Color.Black);
-                spriteBatch.End();
-            }
-
-            //blind overlay — black out viewport, then redraw only the player character
+            //blind overlay — black out viewport, then redraw only the player character. drawn before
+            //entity overlays so chat bubbles, name tags, chant text, etc. remain visible while blinded,
+            //matching retail (which implements blind as a per-entity darkness mask rather than a
+            //viewport fill, so its independent overlay panes are unaffected).
             if (WorldState.Attributes.Current?.Blind is true)
             {
                 spriteBatch.Begin(
@@ -180,6 +152,27 @@ public sealed partial class WorldScreen
                     spriteBatch.End();
                 }
             }
+
+            //entity overlays (chat bubbles, health bars, name tags, chant text) — drawn after darkness
+            //so light level doesn't tint them, and after blind so they remain visible while blinded
+            spriteBatch.Begin(
+                SpriteSortMode.Immediate,
+                BlendState.AlphaBlend,
+                GlobalSettings.Sampler,
+                null,
+                ScissorRasterizerState,
+                null,
+                transform);
+
+            Overlays.Draw(
+                spriteBatch,
+                Camera,
+                MapFile.Height,
+                sortedEntities,
+                Highlight.ShowTintHighlight,
+                Highlight.HoveredEntityId,
+                WorldState.PlayerEntityId);
+            spriteBatch.End();
 
             //snapshot draw count before debug draws so the reported count excludes debug visualizations
             DebugOverlay.SnapshotDrawCount();
@@ -841,6 +834,12 @@ public sealed partial class WorldScreen
 
         if (WorldHud.SpellBookAlt.IsDragging)
             return WorldHud.SpellBookAlt;
+
+        if (WorldHud.Tools.WorldSkills.IsDragging)
+            return WorldHud.Tools.WorldSkills;
+
+        if (WorldHud.Tools.WorldSpells.IsDragging)
+            return WorldHud.Tools.WorldSpells;
 
         return null;
     }

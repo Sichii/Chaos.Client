@@ -9,6 +9,7 @@ using Chaos.Client.Data.Models;
 using Chaos.Client.Extensions;
 using Chaos.Client.Models;
 using Chaos.Client.Systems;
+using Chaos.Client.ViewModel;
 using Chaos.DarkAges.Definitions;
 using Chaos.Geometry.Abstractions.Definitions;
 using Microsoft.Xna.Framework;
@@ -157,7 +158,9 @@ public sealed partial class WorldScreen
 
     private void HandleSkillSlotClicked(byte slot)
     {
-        var skillSlot = WorldHud.SkillBook.GetSkillSlot(slot) ?? WorldHud.SkillBookAlt.GetSkillSlot(slot);
+        var skillSlot = WorldHud.SkillBook.GetSkillSlot(slot)
+                        ?? WorldHud.SkillBookAlt.GetSkillSlot(slot)
+                        ?? WorldHud.Tools.WorldSkills.GetSkillSlot(slot);
 
         if (skillSlot is not null && (skillSlot.CooldownPercent > 0))
             return;
@@ -176,7 +179,10 @@ public sealed partial class WorldScreen
         {
             HudTab.Spells    => WorldHud.SpellBook.GetSpellSlot(slot),
             HudTab.SpellsAlt => WorldHud.SpellBookAlt.GetSpellSlot(slot),
-            _                => WorldHud.SpellBook.GetSpellSlot(slot) ?? WorldHud.SpellBookAlt.GetSpellSlot(slot)
+            HudTab.Tools     => WorldHud.Tools.WorldSpells.GetSpellSlot(slot),
+            _                => WorldHud.SpellBook.GetSpellSlot(slot)
+                                ?? WorldHud.SpellBookAlt.GetSpellSlot(slot)
+                                ?? WorldHud.Tools.WorldSpells.GetSpellSlot(slot)
         };
 
         if (spellSlot is null || string.IsNullOrEmpty(spellSlot.AbilityName))
@@ -341,8 +347,14 @@ public sealed partial class WorldScreen
                 break;
 
             case HudTab.Tools:
-                //todo: left half = world skills (slots 73-78), right half = world spells (slots 73-78)
-                return false;
+                if (slot is >= 1 and <= 6)
+                    HandleSkillSlotClicked((byte)(72 + slot));
+                else if (slot is >= 7 and <= 12)
+                    HandleSpellSlotClicked((byte)(66 + slot));
+                else
+                    return false;
+
+                break;
 
             case HudTab.Chat:
             case HudTab.MessageHistory:
@@ -371,36 +383,28 @@ public sealed partial class WorldScreen
 
     private void WireAbilityRightClicks(PanelBase panel)
     {
-        for (byte i = 1; i <= 36; i++)
-            if (panel.GetSlotControl(i) is AbilitySlotControl ability)
-                ability.OnRightClick += OpenChantEdit;
+        foreach (var slotControl in panel.Slots)
+            if (slotControl is AbilitySlotControl ability)
+                ability.OnRightClick += s => OpenChantEdit(panel, s);
     }
 
-    private void OpenChantEdit(byte slot)
+    private void OpenChantEdit(PanelBase source, byte slot)
     {
-        //determine which panel this slot belongs to based on active tab
-        AbilitySlotControl? abilitySlot = WorldHud.ActiveTab switch
-        {
-            HudTab.Skills    => WorldHud.SkillBook.GetSkillSlot(slot),
-            HudTab.SkillsAlt => WorldHud.SkillBookAlt.GetSkillSlot(slot),
-            HudTab.Spells    => WorldHud.SpellBook.GetSpellSlot(slot),
-            HudTab.SpellsAlt => WorldHud.SpellBookAlt.GetSpellSlot(slot),
-            _                => null
-        };
+        var control = source.GetSlotControl(slot) as AbilitySlotControl;
 
-        if (abilitySlot is null || string.IsNullOrEmpty(abilitySlot.AbilityName))
+        if (control is null || string.IsNullOrEmpty(control.AbilityName))
             return;
 
-        var isSpell = abilitySlot is SpellSlot;
+        var isSpell = control is SpellSlot;
 
         string[] currentChants;
         int lineCount;
 
-        if (abilitySlot is SpellSlot spell)
+        if (control is SpellSlot spell)
         {
             currentChants = spell.Chants;
             lineCount = spell.CastLines;
-        } else if (abilitySlot is SkillSlot skill)
+        } else if (control is SkillSlot skill)
         {
             currentChants = [skill.Chant];
             lineCount = 1;
@@ -409,9 +413,9 @@ public sealed partial class WorldScreen
 
         ChantEdit.Show(
             slot,
-            abilitySlot.AbilityName,
-            abilitySlot.AbilityLevel ?? string.Empty,
-            abilitySlot.NormalTexture,
+            control.AbilityName,
+            control.AbilityLevel ?? string.Empty,
+            control.NormalTexture,
             currentChants,
             lineCount,
             isSpell);
@@ -424,7 +428,8 @@ public sealed partial class WorldScreen
             foreach (var panel in new[]
                      {
                          WorldHud.SpellBook,
-                         WorldHud.SpellBookAlt
+                         WorldHud.SpellBookAlt,
+                         WorldHud.Tools.WorldSpells
                      })
             {
                 var spellSlot = panel.GetSpellSlot(slot);
@@ -443,7 +448,8 @@ public sealed partial class WorldScreen
             foreach (var panel in new[]
                      {
                          WorldHud.SkillBook,
-                         WorldHud.SkillBookAlt
+                         WorldHud.SkillBookAlt,
+                         WorldHud.Tools.WorldSkills
                      })
             {
                 var skillSlot = panel.GetSkillSlot(slot);
@@ -506,9 +512,11 @@ public sealed partial class WorldScreen
     {
         var entries = new List<SkillChantEntry>();
 
-        for (byte i = 1; i <= 89; i++)
+        for (byte i = 1; i <= SkillBook.MAX_SLOTS; i++)
         {
-            var slot = WorldHud.SkillBook.GetSkillSlot(i);
+            var slot = WorldHud.SkillBook.GetSkillSlot(i)
+                       ?? WorldHud.SkillBookAlt.GetSkillSlot(i)
+                       ?? WorldHud.Tools.WorldSkills.GetSkillSlot(i);
 
             if (slot is null || string.IsNullOrEmpty(slot.AbilityName))
                 continue;
@@ -528,9 +536,11 @@ public sealed partial class WorldScreen
     {
         var entries = new List<SpellChantEntry>();
 
-        for (byte i = 1; i <= 89; i++)
+        for (byte i = 1; i <= SpellBook.MAX_SLOTS; i++)
         {
-            var slot = WorldHud.SpellBook.GetSpellSlot(i);
+            var slot = WorldHud.SpellBook.GetSpellSlot(i)
+                       ?? WorldHud.SpellBookAlt.GetSpellSlot(i)
+                       ?? WorldHud.Tools.WorldSpells.GetSpellSlot(i);
 
             if (slot is null || string.IsNullOrEmpty(slot.AbilityName))
                 continue;

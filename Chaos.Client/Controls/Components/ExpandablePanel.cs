@@ -79,14 +79,23 @@ public abstract class ExpandablePanel : UIPanel
     /// </summary>
     /// <remarks>
     ///     Subclasses should call <c>base.SetExpanded</c> first, then apply type-specific changes (slot visibility, text
-    ///     bounds, etc.).
+    ///     bounds, etc.). The <see cref="IsExpanded" /> flag is always tracked even when no expanded background is set,
+    ///     so composite panels (e.g. ToolsPanel) can drive their children's expand state without each child owning a
+    ///     background.
     /// </remarks>
     public virtual void SetExpanded(bool expanded)
     {
-        if ((expanded == IsExpanded) || ExpandedBackground is null)
+        if (expanded == IsExpanded)
             return;
 
         IsExpanded = expanded;
+
+        //panels without an expanded background skip the y/height/zindex adjustments — the parent
+        //composite handles its own bounds, and the child only needs IsExpanded flipped so its
+        //type-specific overrides (e.g. PanelBase slot visibility) run.
+        if (ExpandedBackground is null)
+            return;
+
         ZIndex = expanded ? 10 : 0;
 
         //adjust panel origin and height so hit-testing covers the expanded area.

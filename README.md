@@ -4,6 +4,43 @@ A custom Dark Ages client written in C# (.NET 10) on top of MonoGame, [DALib](ht
 
 Targets Dark Ages client version **7.4.1** for feature parity.
 
+## Contents
+
+- [Status](#status)
+- [Differences from the Retail Client](#differences-from-the-retail-client)
+- [Architecture](#architecture)
+  - [Project layout](#project-layout)
+  - [World state](#world-state)
+  - [Draw order](#draw-order)
+- [UI System](#ui-system)
+  - [UIElement](#uielement)
+  - [UIPanel](#uipanel)
+  - [PrefabPanel](#prefabpanel)
+  - [Widgets](#widgets)
+  - [TextElement](#textelement)
+  - [Adding, removing, modifying](#adding-removing-modifying)
+- [Input](#input)
+  - [InputBuffer](#inputbuffer)
+  - [InputDispatcher](#inputdispatcher)
+  - [Where to put new input handling](#where-to-put-new-input-handling)
+- [Renderers](#renderers)
+  - [TextureConverter](#textureconverter-static)
+  - [Camera](#camera)
+  - [MapRenderer](#maprenderer)
+  - [PaletteCyclingManager](#palettecyclingmanager)
+  - [DarknessRenderer](#darknessrenderer)
+  - [TabMapRenderer](#tabmaprenderer)
+  - [SilhouetteRenderer](#silhouetterenderer)
+  - [TextRenderer + FontAtlas](#textrenderer--fontatlas)
+  - [UiRenderer](#uirenderer)
+  - [Per-entity renderers](#per-entity-renderers-creaturerenderer-aislingrenderer-effectrenderer-itemrenderer)
+- [Build & Run](#build--run)
+- [Configuration](#configuration)
+- [Extending](#extending)
+  - [Adding a UI panel](#adding-a-ui-panel)
+  - [Adding a packet handler](#adding-a-packet-handler)
+- [Related Repositories](#related-repositories)
+
 ## Status
 
 This client implements the full lobby/login/world flow, rendering, HUD, inventory, skills, spells, chat, exchange, boards/mail, groups, profile, dialogs, and most of the popup UI. It is close to the retail client's look and feel but intentionally differs in several places (see below).
@@ -64,8 +101,8 @@ Each frame goes through three phases (see `WorldScreen.Draw.cs`):
    - Foreground tiles, entities, and effects interleaved in diagonal stripes by `x + y` depth. Within a stripe the order is **ground items → aislings → creatures → dying-creature dissolves → ground-targeted effects → entity-attached effects → foreground tiles**.
    - Silhouette render target overlaid at reduced alpha.
    - Darkness overlay (screen space, no camera transform).
-   - Entity overlays — chat bubbles, health bars, name tags — drawn after darkness so the light level doesn't tint them.
-   - Blind overlay (full black, player redrawn on top) if the player is blinded.
+   - Blind overlay (full black, player redrawn on top) if the player is blinded. Drawn **before** the entity overlays so chat bubbles, name tags, chant text, and health bars all stay visible while blinded. Retail keeps chat bubbles and name tags visible the same way, but hides HP bars because on retail the HP bar is drawn with the entity sprite itself — if you want strict retail parity, split health bars out of `EntityOverlayManager.Draw` and render them alongside the entity body. Chant overlay retail behavior is not confirmed; worth verifying in-game.
+   - Entity overlays — chat bubbles, health bars, name tags, chant text, group box text — drawn after darkness so the light level doesn't tint them, and after blind so they remain visible while blinded.
    - Debug overlay if active.
 
 **3. Screen pass** — no camera transform:
@@ -190,9 +227,27 @@ Depends on the layer you want to intercept at.
 
 ## Renderers
 
-All renderers live in `Chaos.Client.Rendering/`. Most of them cache their output in `Texture2D` dictionaries keyed on the sprite/frame/palette state that produced the texture, and clear on map change. Supporting types worth mentioning up front:
+All renderers live in `Chaos.Client.Rendering/`. Quick reference:
 
-- **`CachedTexture2D`** — `Texture2D` subclass whose `Dispose` is a no-op. Only the owning cache can release GPU memory, via `ForceDispose`. This lets cache consumers hand the texture around freely without worrying about double-dispose.
+| Renderer | Purpose |
+|---|---|
+| `TextureConverter` | Static utility. SkiaSharp `SKImage` → MonoGame `Texture2D`. |
+| `Camera` | Isometric world/screen/tile coordinate math. |
+| `MapRenderer` | Background + foreground tile rendering, animated tile playback. |
+| `PaletteCyclingManager` | Palette shimmer for cycling-palette tiles. Owned by `MapRenderer`. |
+| `DarknessRenderer` | Light/dark overlay — light metadata lookup, HEA sampling, light sources. |
+| `TabMapRenderer` | Custom Tab map (wall diamonds + entity dots). |
+| `SilhouetteRenderer` | Occluded-entity silhouettes and transparent-aisling compositing. |
+| `TextRenderer` + `FontAtlas` | Per-character text draws from a shared glyph atlas. |
+| `UiRenderer` | Deduplicated UI texture cache from control prefabs. |
+| `CreatureRenderer`, `AislingRenderer`, `EffectRenderer`, `ItemRenderer` | Per-entity sprite caches. **Must** `Clear()` on map change. |
+
+> [!IMPORTANT]
+> The four per-entity renderers cache `Texture2D` outputs lazily. Forgetting to call `Clear()` on map change leaks GPU memory. If you add a new renderer that caches textures, follow the same pattern.
+
+Supporting types worth knowing:
+
+- **`CachedTexture2D`** — `Texture2D` subclass whose `Dispose` is a no-op. Only the owning cache can release GPU memory, via `ForceDispose`. Lets cache consumers hand the texture around freely without worrying about double-dispose.
 - **`TextureAtlas`** — packs many small textures into atlas pages. Grid packing (uniform sizes, used for tiles) and shelf packing (variable, used for tab-map wall variants). Used wherever batch throughput matters more than per-texture flexibility.
 
 ### `TextureConverter` (static)
@@ -219,7 +274,10 @@ The light/dark overlay. Three inputs drive it:
 2. **Server `LightLevel` packets combined with light metadata.** Each map has a *light type* looked up in `LightMetadata.MapLightTypes` (defaults to `"default"`). On every `LightLevel` packet the renderer builds a key `{lightType}_{hexLightLevel}` and looks up `(R, G, B, Alpha)` in `LightMetadata.LightProperties`. That's how the same light level produces a different tint in a cave vs. outdoors. If the key isn't in metadata but the map is flagged dark, it falls back to pure black; if neither, the overlay is fully transparent.
 3. **The map's HEA file**, a per-pixel light map loaded in `OnMapChanged` when one exists. It encodes layered brightness data that gets sampled into the overlay texture as the camera moves; without one, the overlay is flat-filled with the current color.
 
-On top of that, registered `LightSource`s (lanterns, windows, entity-attached lights) are max-blended into the overlay so they brighten specific areas. The final texture is sized to the current viewport and dirty-checked on the camera offset **and** the viewport dimensions — if you add a new source of viewport change, extend the dirty check or you will see stale overlays (this is how the HUD-swap bug happened).
+On top of that, registered `LightSource`s (lanterns, windows, entity-attached lights) are max-blended into the overlay so they brighten specific areas. The final texture is sized to the current viewport.
+
+> [!WARNING]
+> The overlay texture is dirty-checked on the camera offset **and** the viewport dimensions. If you add a new source of viewport change, extend the dirty check or you will see stale overlays — this is how the HUD-swap bug happened.
 
 ### `TabMapRenderer`
 
@@ -254,7 +312,10 @@ Cache for UI textures loaded from control prefabs. Single instance accessed via 
 All four follow the same pattern: lazy `Texture2D` cache keyed on the state that produced the output, `Clear()` on map change, leak GPU memory if you forget to call `Clear`.
 
 - **`CreatureRenderer`** — creatures and NPCs from `MpfFile`. Cache key is `(spriteId, frameIndex)`.
-- **`AislingRenderer`** — player characters. Layered compositing of body, face, hair, armor, pants, boots, overcoat, weapon, shield, and accessories, in an order that depends on whether the aisling is facing the camera or away. This is where several of the Differences listed above are implemented: `b` body for BlowKiss (#1), overcoats with palette IDs ≥ 1000 (#5), and pants-under-overcoats (#10). **The cache key must include every visible piece of state** — direction, frame, dye colors, each sprite ID, the overcoat-permits-pants flag. Missing state in the cache key is the single most common source of visual bugs in this codebase.
+- **`AislingRenderer`** — player characters. Layered compositing of body, face, hair, armor, pants, boots, overcoat, weapon, shield, and accessories, in an order that depends on whether the aisling is facing the camera or away. This is where several of the Differences listed above are implemented: `b` body for BlowKiss (#1), overcoats with palette IDs ≥ 1000 (#5), and pants-under-overcoats (#10).
+
+  > [!WARNING]
+  > The cache key must include **every** visible piece of state — direction, frame, dye colors, each sprite ID, the overcoat-permits-pants flag. Missing state in the cache key is the single most common source of visual bugs in this codebase.
 - **`EffectRenderer`** — spell and hit effects. Supports both EFA (self-contained animation file) and EPF (frame-sequence driven by `effect.tbl`). The format is chosen per entry in `effect.tbl`: `[0]` means EFA; any other entry lists the EPF frame indices to play.
 - **`ItemRenderer`** — ground items. Deliberately separate from `UiRenderer`'s permanent icon cache because ground-item textures are evicted on map change while UI icons are not. Cache key includes dye color, and per-frame `(Left, Top)` offsets are stored so items center visually on their tile.
 
@@ -262,12 +323,22 @@ All four follow the same pattern: lazy `Texture2D` cache keyed on the state that
 
 Requires the **.NET 10 SDK**.
 
+> [!IMPORTANT]
+> The solution has a `ProjectReference` to [DALib](https://github.com/Sichii/DALib) at `../dalib/DALib/DALib.csproj`. DALib must be checked out into a sibling `dalib/` directory before the build will resolve. From inside this repo:
+>
+> ```bash
+> git clone https://github.com/Sichii/DALib ../dalib
+> ```
+
+Then:
+
 ```bash
 dotnet build Chaos.Client.slnx
 dotnet run --project Chaos.Client/Chaos.Client.csproj
 ```
 
-The client needs a retail Dark Ages data folder to load its archives from. Point `GlobalSettings.DataPath` at yours before the first run.
+> [!NOTE]
+> The client also needs a retail Dark Ages data folder to load its archives from. Point `GlobalSettings.DataPath` at yours before the first run, or the game will fail to start.
 
 ## Configuration
 

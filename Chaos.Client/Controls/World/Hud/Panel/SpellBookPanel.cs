@@ -14,22 +14,41 @@ namespace Chaos.Client.Controls.World.Hud.Panel;
 /// </summary>
 public sealed class SpellBookPanel : PanelBase
 {
-    private const int MAX_SLOTS = 89;
+    private const int MAX_SLOTS = 90;
 
     public SpellBookPanel(
         ControlPrefabSet hudPrefabSet,
-        bool secondary = false,
+        SkillBookPage page = SkillBookPage.Page1,
         Texture2D? background = null,
-        int normalVisibleSlots = DEFAULT_VISIBLE_SLOTS)
+        int normalVisibleSlots = DEFAULT_VISIBLE_SLOTS,
+        int columns = DEFAULT_COLUMNS,
+        int? cellCount = null,
+        int gridOffsetX = 8,
+        bool drawSlotNumberOverlay = true,
+        bool loadFallbackBackground = true,
+        int? compactGridPadding = null)
         : base(
             hudPrefabSet,
             MAX_SLOTS,
             CooldownStyle.Swap,
-            secondary,
+            slotOffset: (int)page,
+            columns: columns,
+            cellCount: cellCount,
+            gridOffsetX: gridOffsetX,
             background: background,
-            normalVisibleSlots: normalVisibleSlots)
+            normalVisibleSlots: normalVisibleSlots,
+            drawSlotNumberOverlay: drawSlotNumberOverlay,
+            loadFallbackBackground: loadFallbackBackground,
+            compactGridPadding: compactGridPadding)
     {
-        Name = secondary ? "SpellBookAlt" : "SpellBook";
+        Name = page switch
+        {
+            SkillBookPage.Page1 => "SpellBook",
+            SkillBookPage.Page2 => "SpellBookAlt",
+            SkillBookPage.Page3 => "SpellBookWorld",
+            _                   => "SpellBook"
+        };
+
         WorldState.SpellBook.SlotChanged += OnSlotChanged;
         WorldState.SpellBook.Cleared += OnCleared;
     }
@@ -128,7 +147,7 @@ public sealed class SpellBookPanel : PanelBase
         base.Update(gameTime);
 
         //read cooldown state each frame — swap style: fully on or off
-        for (var i = 0; (i < VisibleSlotCount) && (i < Slots.Length); i++)
+        for (var i = 0; (i < VisibleSlotCount) && (i < Slots.Count); i++)
         {
             var slot = (byte)(i + SlotOffset + 1);
             var control = Slots[i];

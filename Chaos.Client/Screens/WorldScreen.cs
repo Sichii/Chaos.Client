@@ -748,6 +748,8 @@ public sealed partial class WorldScreen : IScreen
         WorldHud.SkillBookAlt.OnSlotClicked -= HandleSkillSlotClicked;
         WorldHud.SpellBook.OnSlotClicked -= HandleSpellSlotClicked;
         WorldHud.SpellBookAlt.OnSlotClicked -= HandleSpellSlotClicked;
+        WorldHud.Tools.WorldSkills.OnSlotClicked -= HandleSkillSlotClicked;
+        WorldHud.Tools.WorldSpells.OnSlotClicked -= HandleSpellSlotClicked;
 
         WorldState.ResetAll();
 

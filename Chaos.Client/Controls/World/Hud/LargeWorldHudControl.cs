@@ -20,6 +20,8 @@ public sealed class LargeWorldHudControl : PrefabPanel, IWorldHud
 {
     private const int LARGE_NORMAL_SLOTS = 1 * 12;
     private const int LARGE_EXPANDED_SKILL_SPELL_SLOTS = 3 * 12;
+    private const int COMPACT_VISIBLE_SLOTS_PER_HALF = 6;
+    private const int EXPANDED_VISIBLE_SLOTS_PER_HALF = 18;
 
     private readonly PlayerAttributes AttributesState;
     private readonly UILabel CoordsLabel; 
@@ -55,6 +57,7 @@ public sealed class LargeWorldHudControl : PrefabPanel, IWorldHud
     public SpellBookPanel SpellBook { get; private set; } = null!;
     public SpellBookPanel SpellBookAlt { get; private set; } = null!;
     public StatsPanel StatsPanel { get; private set; } = null!;
+    public ToolsPanel Tools { get; private set; } = null!;
     public UIButton? BulletinButton { get; }
     public UIButton? ChangeLayoutButton { get; }
     public ChatInputControl ChatInput { get; }
@@ -312,7 +315,7 @@ public sealed class LargeWorldHudControl : PrefabPanel, IWorldHud
 
         SkillBookAlt = new SkillBookPanel(
             PrefabSet,
-            true,
+            SkillBookPage.Page2,
             invBgTexture,
             LARGE_NORMAL_SLOTS);
         SkillBookAlt.ConfigureExpand(skillSpellExpandedTexture, LARGE_EXPANDED_SKILL_SPELL_SLOTS);
@@ -325,7 +328,7 @@ public sealed class LargeWorldHudControl : PrefabPanel, IWorldHud
 
         SpellBookAlt = new SpellBookPanel(
             PrefabSet,
-            true,
+            SkillBookPage.Page2,
             invBgTexture,
             LARGE_NORMAL_SLOTS);
         SpellBookAlt.ConfigureExpand(skillSpellExpandedTexture, LARGE_EXPANDED_SKILL_SPELL_SLOTS);
@@ -349,7 +352,8 @@ public sealed class LargeWorldHudControl : PrefabPanel, IWorldHud
         RegisterTab(HudTab.Stats, StatsPanel, tabRect);
         RegisterTab(HudTab.ExtendedStats, ExtendedStatsPanel, tabRect);
 
-        //tools: 1 row normal, expanded uses the normal hud's split background
+        //tools (h tab): 1 row normal (6 cells per half), expanded to 3 rows (18 cells per half)
+        //uses the small-hud's _nbk_s LivingInventoryBackground as the expanded variant
         var normalHudPrefabSet = DataContext.UserControls.Get("_nbk_s")!;
         var uiCache = UiRenderer.Instance!;
         Texture2D? toolsExpandedTexture = null;
@@ -357,9 +361,9 @@ public sealed class LargeWorldHudControl : PrefabPanel, IWorldHud
         if (normalHudPrefabSet.Contains("LivingInventoryBackground") && (normalHudPrefabSet["LivingInventoryBackground"].Images.Count > 0))
             toolsExpandedTexture = uiCache.GetPrefabTexture(normalHudPrefabSet.Name, "LivingInventoryBackground", 0);
 
-        var tools = new ToolsPanel(PrefabSet, livingBgTexture, LARGE_NORMAL_SLOTS);
-        tools.ConfigureExpand(toolsExpandedTexture, LARGE_EXPANDED_SKILL_SPELL_SLOTS);
-        RegisterTab(HudTab.Tools, tools, tabRect);
+        Tools = new ToolsPanel(PrefabSet, livingBgTexture, normalVisibleSlots: COMPACT_VISIBLE_SLOTS_PER_HALF);
+        Tools.ConfigureExpandPerHalf(toolsExpandedTexture, EXPANDED_VISIBLE_SLOTS_PER_HALF);
+        RegisterTab(HudTab.Tools, Tools, tabRect);
 
         var msgHistoryBounds = GetRect("ChattingRect");
         MessageHistory = new SystemMessagePanel(msgHistoryBounds, tabRect, WorldState.Chat.GetOrangeBarHistory());

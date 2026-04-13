@@ -18,20 +18,34 @@ public abstract class PanelBase : ExpandablePanel
     protected const int ICON_SIZE = 32;
     protected const int CELL_WIDTH = 36;
     protected const int CELL_HEIGHT = 33;
-    protected const int COLUMNS = 12;
+    protected const int DEFAULT_COLUMNS = 12;
     protected const int DEFAULT_VISIBLE_SLOTS = 36;
 
     private static Texture2D? SlotNumberOverlay;
 
     //compact padding (large hud 1-row backgrounds need extra y before the grid)
     private readonly int CompactGridPadding;
+    private readonly bool DrawSlotNumberOverlay;
 
     protected readonly int GridOffsetX;
     protected readonly int GridOffsetY;
     protected readonly int MaxSlots;
     protected readonly int NormalVisibleSlots;
     protected readonly int SlotOffset;
-    protected readonly PanelSlot[] Slots;
+
+    /// <summary>
+    ///     Number of grid columns. Defaults to 12 (standard inventory/skill/spell book layout). Sub-panels (e.g. the
+    ///     H tab world skills/spells halves) may use a smaller value.
+    /// </summary>
+    protected int Columns { get; }
+
+    /// <summary>
+    ///     The slot controls owned by this panel, in cell order. Exposed so wiring code (right-click handlers,
+    ///     etc.) can iterate the actual slot range without guessing the slot-number window. Read-only — the
+    ///     panel constructs the array once and never replaces or shuffles elements.
+    /// </summary>
+    public IReadOnlyList<PanelSlot> Slots { get; }
+
     private int DragMouseX;
 
     //drag state
@@ -82,31 +96,46 @@ public abstract class PanelBase : ExpandablePanel
         ControlPrefabSet hudPrefabSet,
         int maxSlots,
         CooldownStyle cooldownStyle = CooldownStyle.None,
-        bool secondary = false,
+        int slotOffset = 0,
+        int columns = DEFAULT_COLUMNS,
+        int? cellCount = null,
         int gridOffsetX = 8,
         int gridOffsetY = 6,
         Texture2D? background = null,
-        int normalVisibleSlots = DEFAULT_VISIBLE_SLOTS)
+        int normalVisibleSlots = DEFAULT_VISIBLE_SLOTS,
+        bool drawSlotNumberOverlay = true,
+        bool loadFallbackBackground = true,
+        int? compactGridPadding = null)
     {
         MaxSlots = maxSlots;
         GridOffsetX = gridOffsetX;
         NormalVisibleSlots = normalVisibleSlots;
         VisibleSlotCount = normalVisibleSlots;
-        SlotOffset = secondary ? DEFAULT_VISIBLE_SLOTS : 0;
-
-        //large hud compact backgrounds (1-row) have extra top padding before the grid
-        CompactGridPadding = normalVisibleSlots < DEFAULT_VISIBLE_SLOTS ? 4 : 0;
-        GridOffsetY = gridOffsetY + CompactGridPadding;
+        SlotOffset = slotOffset;
+        Columns = columns;
+        DrawSlotNumberOverlay = drawSlotNumberOverlay;
 
         if (background is not null)
             Background = background;
-        else if (hudPrefabSet.Contains("InventoryBackground"))
+        else if (loadFallbackBackground && hudPrefabSet.Contains("InventoryBackground"))
         {
+            //fallback path used by panels that share the prefab set's default inventory background.
+            //sub-panels of a composite (e.g. ToolsPanel children) opt out via loadFallbackBackground=false
+            //so they don't pick up the wrong art over their parent's background.
             var prefab = hudPrefabSet["InventoryBackground"];
 
             if (prefab.Images.Count > 0)
                 Background = UiRenderer.Instance!.GetPrefabTexture(hudPrefabSet.Name, "InventoryBackground", 0);
         }
+
+        //large hud compact (1-row) LivingInventoryBackground has +4 empty pixels at the top that the grid
+        //must clear. auto-detection: a panel with its OWN background that is shorter than default (< 36 slots)
+        //is treated as compact. sub-panels of a composite (e.g. ToolsPanel children) have no background of
+        //their own, so the auto-detect returns 0 — the parent composite must then pass an explicit
+        //compactGridPadding when the parent's background is compact, so the children's initial y is bumped
+        //by 4 AND the same 4px is reversed on expand (see SetExpanded below).
+        CompactGridPadding = compactGridPadding ?? ((Background is not null) && (normalVisibleSlots < DEFAULT_VISIBLE_SLOTS) ? 4 : 0);
+        GridOffsetY = gridOffsetY + CompactGridPadding;
 
         SlotNumberOverlay ??= UiRenderer.Instance!.GetSpfTexture("_ninvn.spf");
 
@@ -117,19 +146,16 @@ public abstract class PanelBase : ExpandablePanel
             Height = Background.Height;
         }
 
-        //create slot controls for all possible grid cells (visibility controlled per slot)
-        var totalSlots = Math.Min(maxSlots - SlotOffset, maxSlots);
-        Slots = new PanelSlot[totalSlots];
+        //slot count: explicit cellCount overrides the derived value
+        var totalSlots = cellCount ?? Math.Min(maxSlots - SlotOffset, maxSlots);
+        var slots = new PanelSlot[totalSlots];
 
         for (var i = 0; i < totalSlots; i++)
         {
             var slotIndex = SlotOffset + i;
 
-            if (slotIndex >= maxSlots)
-                break;
-
-            var col = i % COLUMNS;
-            var row = i / COLUMNS;
+            var col = i % Columns;
+            var row = i / Columns;
 
             // ReSharper disable once VirtualMemberCallInConstructor
             var slot = CreateSlot((byte)(slotIndex + 1), $"Slot{slotIndex}", cooldownStyle);
@@ -142,9 +168,11 @@ public abstract class PanelBase : ExpandablePanel
             slot.DoubleClicked += s => OnSlotClicked?.Invoke(s);
             slot.DragStarted += OnDragStarted;
 
-            Slots[i] = slot;
+            slots[i] = slot;
             AddChild(slot);
         }
+
+        Slots = slots;
     }
 
     public virtual void ClearSlot(byte slot)
@@ -189,7 +217,7 @@ public abstract class PanelBase : ExpandablePanel
         base.Draw(spriteBatch);
 
         //slot number overlay — positioned at expanded or normal y
-        if (SlotNumberOverlay is not null)
+        if (DrawSlotNumberOverlay && SlotNumberOverlay is not null)
         {
             var overlayY = IsExpanded ? ScreenY + 3 : ScreenY + 3 + CompactGridPadding;
 
@@ -208,12 +236,12 @@ public abstract class PanelBase : ExpandablePanel
     {
         var index = slot - 1;
 
-        if ((index < SlotOffset) || (index >= (SlotOffset + Slots.Length)))
+        if ((index < SlotOffset) || (index >= (SlotOffset + Slots.Count)))
             return null;
 
         var gridIndex = index - SlotOffset;
 
-        return gridIndex < Slots.Length ? Slots[gridIndex] : null;
+        return gridIndex < Slots.Count ? Slots[gridIndex] : null;
     }
 
     /// <summary>
@@ -234,7 +262,7 @@ public abstract class PanelBase : ExpandablePanel
     /// </summary>
     public byte? GetSlotAtPosition(int mouseX, int mouseY)
     {
-        for (var i = 0; (i < VisibleSlotCount) && (i < Slots.Length); i++)
+        for (var i = 0; (i < VisibleSlotCount) && (i < Slots.Count); i++)
             if (Slots[i]
                     .ContainsPoint(mouseX, mouseY)
                 && Slots[i].NormalTexture is not null)
@@ -340,7 +368,7 @@ public abstract class PanelBase : ExpandablePanel
 
         var targetSlots = expanded ? ExpandedVisibleSlots : NormalVisibleSlots;
 
-        for (var i = 0; i < Slots.Length; i++)
+        for (var i = 0; i < Slots.Count; i++)
         {
             Slots[i].Y += padShift;
             Slots[i].Visible = i < targetSlots;
@@ -391,7 +419,7 @@ public abstract class PanelBase : ExpandablePanel
 
     protected virtual PanelSlot? FindHoveredSlot(int screenX, int screenY)
     {
-        for (var i = 0; (i < VisibleSlotCount) && (i < Slots.Length); i++)
+        for (var i = 0; (i < VisibleSlotCount) && (i < Slots.Count); i++)
             if (Slots[i].NormalTexture is not null && Slots[i].ContainsPoint(screenX, screenY))
                 return Slots[i];
 

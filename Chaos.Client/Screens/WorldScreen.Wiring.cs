@@ -795,10 +795,19 @@ public sealed partial class WorldScreen
         hud.SpellBookAlt.OnSlotSwapped += (s, t) => Game.Connection.SwapSlot(PanelType.SpellBook, s, t);
         hud.SpellBookAlt.OnSlotDroppedOutside += HandleSpellSlotDropped;
 
+        //tools (h tab) — page 3 world abilities
+        hud.Tools.WorldSkills.OnSlotClicked += HandleSkillSlotClicked;
+        hud.Tools.WorldSkills.OnSlotSwapped += (s, t) => Game.Connection.SwapSlot(PanelType.SkillBook, s, t);
+        hud.Tools.WorldSpells.OnSlotClicked += HandleSpellSlotClicked;
+        hud.Tools.WorldSpells.OnSlotSwapped += (s, t) => Game.Connection.SwapSlot(PanelType.SpellBook, s, t);
+        hud.Tools.WorldSpells.OnSlotDroppedOutside += HandleSpellSlotDropped;
+
         WireAbilityRightClicks(hud.SkillBook);
         WireAbilityRightClicks(hud.SkillBookAlt);
         WireAbilityRightClicks(hud.SpellBook);
         WireAbilityRightClicks(hud.SpellBookAlt);
+        WireAbilityRightClicks(hud.Tools.WorldSkills);
+        WireAbilityRightClicks(hud.Tools.WorldSpells);
 
         hud.StatsPanel.OnRaiseStat += stat => Game.Connection.RaiseStat(stat);
 
@@ -811,7 +820,9 @@ public sealed partial class WorldScreen
                      hud.SkillBook,
                      hud.SkillBookAlt,
                      hud.SpellBook,
-                     hud.SpellBookAlt
+                     hud.SpellBookAlt,
+                     hud.Tools.WorldSkills,
+                     hud.Tools.WorldSpells
                  })
         {
             panel.OnSlotHoverEnter += slot => WorldHud.SetDescription(slot.SlotName);

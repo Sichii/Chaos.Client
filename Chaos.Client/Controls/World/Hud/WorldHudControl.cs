@@ -57,6 +57,7 @@ public sealed class WorldHudControl : PrefabPanel, IWorldHud
     public SpellBookPanel SpellBook { get; private set; } = null!;
     public SpellBookPanel SpellBookAlt { get; private set; } = null!;
     public StatsPanel StatsPanel { get; private set; } = null!;
+    public ToolsPanel Tools { get; private set; } = null!;
     public UIButton? BulletinButton { get; }
     public UIButton? ChangeLayoutButton { get; }
 
@@ -304,14 +305,14 @@ public sealed class WorldHudControl : PrefabPanel, IWorldHud
         //skills (s) / skills alt (shift+s)
         SkillBook = new SkillBookPanel(PrefabSet, background: invBgTexture);
 
-        SkillBookAlt = new SkillBookPanel(PrefabSet, true, invBgTexture);
+        SkillBookAlt = new SkillBookPanel(PrefabSet, SkillBookPage.Page2, invBgTexture);
         RegisterTab(HudTab.Skills, SkillBook, tabRect);
         RegisterTab(HudTab.SkillsAlt, SkillBookAlt, tabRect);
 
         //spells (d) / spells alt (shift+d)
         SpellBook = new SpellBookPanel(PrefabSet, background: invBgTexture);
 
-        SpellBookAlt = new SpellBookPanel(PrefabSet, true, invBgTexture);
+        SpellBookAlt = new SpellBookPanel(PrefabSet, SkillBookPage.Page2, invBgTexture);
         RegisterTab(HudTab.Spells, SpellBook, tabRect);
         RegisterTab(HudTab.SpellsAlt, SpellBookAlt, tabRect);
 
@@ -327,8 +328,9 @@ public sealed class WorldHudControl : PrefabPanel, IWorldHud
         RegisterTab(HudTab.Stats, StatsPanel, tabRect);
         RegisterTab(HudTab.ExtendedStats, ExtendedStatsPanel, tabRect);
 
-        //tools (h)
-        RegisterTab(HudTab.Tools, new ToolsPanel(PrefabSet, livingBgTexture), tabRect);
+        //tools (h) — composite with skill page-3 left half + spell page-3 right half
+        Tools = new ToolsPanel(PrefabSet, livingBgTexture);
+        RegisterTab(HudTab.Tools, Tools, tabRect);
 
         //message history (shift+f) — displays orange bar messages in a tab panel
         var msgHistoryBounds = GetRect("ChattingRect");

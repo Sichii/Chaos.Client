@@ -42,6 +42,7 @@ public interface IWorldHud
     SpellBookPanel SpellBook { get; }
     SpellBookPanel SpellBookAlt { get; }
     StatsPanel StatsPanel { get; }
+    ToolsPanel Tools { get; }
     UIButton? TownMapButton { get; }
     UIButton? UsersButton { get; }
     Rectangle ViewportBounds { get; }
