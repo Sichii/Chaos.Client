@@ -83,6 +83,7 @@ public sealed partial class WorldScreen : IScreen
     private short CurrentMapId;
 
     private DarknessRenderer DarknessRenderer = null!;
+    private WeatherRenderer WeatherRenderer = null!;
     private OkPopupMessageControl DeleteConfirm = null!;
     private GraphicsDevice Device = null!;
     private OkPopupMessageControl DisconnectPopup = null!;
@@ -215,6 +216,7 @@ public sealed partial class WorldScreen : IScreen
         TabMapRenderer = new TabMapRenderer();
         SilhouetteRenderer = new SilhouetteRenderer(graphicsDevice);
         DarknessRenderer = new DarknessRenderer(graphicsDevice);
+        WeatherRenderer = new WeatherRenderer();
 
         ScissorRasterizerState = new RasterizerState
         {
@@ -685,6 +687,7 @@ public sealed partial class WorldScreen : IScreen
         TabMapRenderer.Dispose();
         ScissorRasterizerState.Dispose();
         DarknessRenderer.Dispose();
+        WeatherRenderer.Dispose();
         SilhouetteRenderer.Dispose();
         Root?.Dispose();
         Game.AislingRenderer.ClearCompositeCache();

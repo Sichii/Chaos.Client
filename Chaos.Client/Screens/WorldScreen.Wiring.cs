@@ -7,6 +7,7 @@ using Chaos.Client.Controls.World.Popups.Options;
 using Chaos.Client.Extensions;
 using Chaos.Client.Systems;
 using Chaos.DarkAges.Definitions;
+using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Input;
 #endregion
 
@@ -963,6 +964,11 @@ public sealed partial class WorldScreen
             DarknessRenderer.SetLightSources(GatherLightSources());
             DarknessRenderer.Update(Camera, viewport);
         }
+
+        //weather uses fresh viewport each frame via WorldHud.ViewportBounds, but snow needs an
+        //immediate respawn into the new bounds so particles don't clump at the old edges
+        if (WeatherRenderer.IsActive)
+            WeatherRenderer.Update(new GameTime(), viewport);
     }
 
     /// <summary>

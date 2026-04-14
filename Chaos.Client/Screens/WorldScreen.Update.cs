@@ -209,6 +209,8 @@ public sealed partial class WorldScreen
             DarknessRenderer.Update(Camera, WorldHud.ViewportBounds);
         }
 
+        WeatherRenderer.Update(gameTime, WorldHud.ViewportBounds);
+
         //tooltip follows cursor — always reposition regardless of active panel
         if (ItemTooltip.Visible)
             ItemTooltip.UpdatePosition(input.MouseX, input.MouseY);

@@ -14,21 +14,14 @@
     <configurations />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="2cf40e53-e49e-4e2b-a433-eb4f57999662" name="Changes" comment="readme">
+    <list default="true" id="2cf40e53-e49e-4e2b-a433-eb4f57999662" name="Changes" comment="input / auto-follow things">
       <change beforePath="$PROJECT_DIR$/.idea/.idea.Chaos.Client/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/.idea.Chaos.Client/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/CLAUDE.md" beforeDir="false" afterPath="$PROJECT_DIR$/CLAUDE.md" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Chaos.Client/Controls/World/Hud/EffectBarControl.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client/Controls/World/Hud/EffectBarControl.cs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Chaos.Client/Controls/World/Hud/EffectSlotControl.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client/Controls/World/Hud/EffectSlotControl.cs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Chaos.Client/InputBuffer.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client/InputBuffer.cs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Chaos.Client/InputDispatcher.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client/InputDispatcher.cs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Chaos.Client/Screens/WorldScreen.Draw.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client/Screens/WorldScreen.Draw.cs" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/Chaos.Client/Screens/WorldScreen.InputHandlers.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client/Screens/WorldScreen.InputHandlers.cs" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/Chaos.Client/Screens/WorldScreen.Map.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client/Screens/WorldScreen.Map.cs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Chaos.Client/Screens/WorldScreen.Update.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client/Screens/WorldScreen.Update.cs" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/Chaos.Client/Screens/WorldScreen.Wiring.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client/Screens/WorldScreen.Wiring.cs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Chaos.Client/Sdl.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client/Sdl.cs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Chaos.Client/Systems/Pathfinder.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client/Systems/Pathfinder.cs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Chaos.Client/ViewModel/SkillBook.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client/ViewModel/SkillBook.cs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Chaos.Client/ViewModel/SpellBook.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client/ViewModel/SpellBook.cs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/README.md" beforeDir="false" afterPath="$PROJECT_DIR$/README.md" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Chaos.Client/Screens/WorldScreen.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client/Screens/WorldScreen.cs" afterDir="false" />
     </list>
     <list id="7231daaa-f0af-42dd-822b-aeab5364bc8b" name="AiStuff" comment="">
       <change afterPath="$PROJECT_DIR$/pyghidra_mcp_projects/my_project.rep/idata/00/~00000000.db/db.2.gbf" afterDir="false" />
@@ -335,7 +328,15 @@
       <option name="project" value="LOCAL" />
       <updated>1776082633785</updated>
     </task>
-    <option name="localTasksCounter" value="26" />
+    <task id="LOCAL-00026" summary="input / auto-follow things">
+      <option name="closed" value="true" />
+      <created>1776144418716</created>
+      <option name="number" value="00026" />
+      <option name="presentableId" value="LOCAL-00026" />
+      <option name="project" value="LOCAL" />
+      <updated>1776144418716</updated>
+    </task>
+    <option name="localTasksCounter" value="27" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -358,7 +359,8 @@
     <MESSAGE value="readme" />
     <MESSAGE value="h pane, readme updates" />
     <MESSAGE value="many minor things" />
-    <option name="LAST_COMMIT_MESSAGE" value="many minor things" />
+    <MESSAGE value="input / auto-follow things" />
+    <option name="LAST_COMMIT_MESSAGE" value="input / auto-follow things" />
   </component>
   <component name="XDebuggerManager">
     <pin-to-top-manager>

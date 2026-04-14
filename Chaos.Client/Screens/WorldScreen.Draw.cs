@@ -123,6 +123,18 @@ public sealed partial class WorldScreen
                 spriteBatch.End();
             }
 
+            //weather overlay — drawn after darkness so snowflakes/rain remain visible on dark maps
+            if (WeatherRenderer.IsActive)
+            {
+                spriteBatch.Begin(
+                    blendState: BlendState.AlphaBlend,
+                    samplerState: GlobalSettings.Sampler,
+                    rasterizerState: ScissorRasterizerState);
+                var weatherViewport = WorldHud.ViewportBounds;
+                WeatherRenderer.Draw(spriteBatch, weatherViewport);
+                spriteBatch.End();
+            }
+
             //blind overlay — black out viewport, then redraw only the player character. drawn before
             //entity overlays so chat bubbles, name tags, chant text, etc. remain visible while blinded,
             //matching retail (which implements blind as a per-entity darkness mask rather than a
@@ -206,7 +218,8 @@ public sealed partial class WorldScreen
 
         //tab map overlay — drawn on top of world, under hud
         //tabmaprenderer manages its own spritebatch begin/end blocks (stencil passes for entity overlap)
-        if (TabMapVisible && MapFile is not null)
+        //NoTabMap map flag (0x40) suppresses both the toggle (InputHandlers) and the render
+        if (TabMapVisible && MapFile is not null && !CurrentMapFlags.HasFlag(MapFlags.NoTabMap))
         {
             var viewport = WorldHud.ViewportBounds;
             var player = WorldState.GetPlayerEntity();

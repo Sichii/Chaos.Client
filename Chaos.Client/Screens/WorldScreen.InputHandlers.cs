@@ -739,10 +739,12 @@ public sealed partial class WorldScreen
             }
         }
 
-        //tab — toggle tab map overlay
+        //tab — toggle tab map overlay (suppressed by NoTabMap map flag)
         if (e.Key == Keys.Tab)
         {
-            TabMapVisible = !TabMapVisible;
+            if (!CurrentMapFlags.HasFlag(MapFlags.NoTabMap))
+                TabMapVisible = !TabMapVisible;
+
             e.Handled = true;
 
             return;

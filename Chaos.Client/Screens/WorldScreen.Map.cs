@@ -25,24 +25,31 @@ public sealed partial class WorldScreen
 
     private void HandleMapInfo(MapInfoArgs args)
     {
+        Console.WriteLine($"[MapInfo] mapId={args.MapId} args.Flags=0x{args.Flags:X2} currentMapId={CurrentMapId} mapFileLoaded={MapFile is not null}");
+
         //same map (refresh) — skip expensive teardown, just clear transient entity state
         if ((args.MapId == CurrentMapId) && MapFile is not null)
         {
             ClearTransientState();
 
-            //re-evaluate darkness only if the flag actually changed
+            //re-evaluate darkness and weather only if the flag actually changed
             var newFlags = (MapFlags)args.Flags;
+
+            Console.WriteLine($"[MapInfo REFRESH] newFlags={newFlags} current={CurrentMapFlags} changed={newFlags != CurrentMapFlags}");
 
             if (newFlags != CurrentMapFlags)
             {
                 CurrentMapFlags = newFlags;
                 DarknessRenderer.OnMapChanged(args.MapId, CurrentMapFlags.HasFlag(MapFlags.Darkness));
+                WeatherRenderer.OnMapChanged(CurrentMapFlags);
             }
 
             UpdateHuds(h => h.SetZoneName(args.Name));
 
             return;
         }
+
+        Console.WriteLine($"[MapInfo NEW MAP] routing to new-map branch");
 
         //new map — dispose old caches, load fresh mapfile from local files
         TownMapControl.Hide();
@@ -78,6 +85,7 @@ public sealed partial class WorldScreen
 
         //reset darkness state and load hea light map for the new map
         DarknessRenderer.OnMapChanged(args.MapId, CurrentMapFlags.HasFlag(MapFlags.Darkness));
+        WeatherRenderer.OnMapChanged(CurrentMapFlags);
 
         UpdateHuds(h => h.SetZoneName(args.Name));
         UpdateHuds(h => h.ShowPersistentMessage(string.Empty));
