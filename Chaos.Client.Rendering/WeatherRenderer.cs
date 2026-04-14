@@ -30,6 +30,7 @@ public sealed class WeatherRenderer : IDisposable
     private const float SNOW_MIN_VELOCITY_Y = 30f; // px/sec
     private const float SNOW_MAX_VELOCITY_Y = 70f;
     private const float SNOW_DRIFT_X = 10f;        // horizontal drift range (+/-)
+    private const float SNOW_FRAME_DURATION = 0.10f; // seconds per animation frame for multi-frame types
 
     // Rain
     private const float RAIN_FALL_SPEED = 400f;    // px/sec vertical fall speed
@@ -47,8 +48,9 @@ public sealed class WeatherRenderer : IDisposable
     //low nibble of the map-flags byte — 1=Snow, 2=Rain, 3=Darkness (dark handled elsewhere)
     private byte WeatherNibble => (byte)((byte)CurrentMapFlags & 0x0F);
 
-    // Snow state
-    private Texture2D[]? SnowFrames;
+    // Snow state — jagged array: SnowTypeFrames[typeIndex][animFrame]. snowa00/01 have 1 frame each,
+    // snowa02/03 have 4 frames each, so inner-array lengths vary.
+    private Texture2D[][]? SnowTypeFrames;
     private SnowParticle[]? SnowParticles;
     private int LastViewportWidth;
     private int LastViewportHeight;
@@ -82,8 +84,6 @@ public sealed class WeatherRenderer : IDisposable
         var oldNibble = WeatherNibble;
         CurrentMapFlags = flags;
         var newNibble = WeatherNibble;
-
-        Console.WriteLine($"[Weather] OnMapChanged flags=0x{(byte)flags:X2} oldNibble={oldNibble} newNibble={newNibble}");
 
         if (oldNibble == newNibble)
             return;
@@ -160,12 +160,20 @@ public sealed class WeatherRenderer : IDisposable
 
     private void ReleaseTextures()
     {
-        if (SnowFrames is not null)
+        if (SnowTypeFrames is not null)
         {
-            for (var i = 0; i < SnowFrames.Length; i++)
-                SnowFrames[i]?.Dispose();
+            for (var t = 0; t < SnowTypeFrames.Length; t++)
+            {
+                var frames = SnowTypeFrames[t];
 
-            SnowFrames = null;
+                if (frames is null)
+                    continue;
+
+                for (var f = 0; f < frames.Length; f++)
+                    frames[f]?.Dispose();
+            }
+
+            SnowTypeFrames = null;
         }
 
         RainTexture?.Dispose();
@@ -199,51 +207,51 @@ public sealed class WeatherRenderer : IDisposable
 
         if (palette is null)
         {
-            Console.WriteLine("[Weather] LoadSnowAssets: legend01.pal missing, dropping to None mode");
             CurrentMapFlags &= ~(MapFlags)0x0F;
 
             return;
         }
 
-        var frames = new List<Texture2D>(4);
+        //load all frames from each snowa file (snowa00/01 have 1 frame, snowa02/03 have 4 frames)
+        var typeFrames = new List<Texture2D[]>(4);
 
         for (var i = 0; i < 4; i++)
         {
             var name = $"snowa{i:D2}.epf";
 
             if (!DatArchives.Legend.TryGetValue(name, out var entry))
-            {
-                Console.WriteLine($"[Weather] LoadSnowAssets: {name} not in legend.dat");
                 continue;
-            }
 
             var epf = EpfFile.FromEntry(entry);
 
             if (epf.Count == 0)
                 continue;
 
-            using var image = Graphics.RenderImage(epf[0], palette);
-            var texture = TextureConverter.ToTexture2D(image);
-            Console.WriteLine($"[Weather] LoadSnowAssets: {name} loaded {texture.Width}x{texture.Height}");
-            frames.Add(texture);
+            var framesForType = new Texture2D[epf.Count];
+
+            for (var f = 0; f < epf.Count; f++)
+            {
+                using var image = Graphics.RenderImage(epf[f], palette);
+                framesForType[f] = TextureConverter.ToTexture2D(image);
+            }
+
+            typeFrames.Add(framesForType);
         }
 
-        if (frames.Count == 0)
+        if (typeFrames.Count == 0)
         {
-            Console.WriteLine("[Weather] LoadSnowAssets: zero frames loaded, dropping to None mode");
             CurrentMapFlags &= ~(MapFlags)0x0F;
 
             return;
         }
 
-        SnowFrames = frames.ToArray();
+        SnowTypeFrames = typeFrames.ToArray();
         SnowParticles = new SnowParticle[SNOW_PARTICLE_COUNT];
-        Console.WriteLine($"[Weather] LoadSnowAssets: SUCCESS {SnowFrames.Length} frames, {SNOW_PARTICLE_COUNT} particles");
     }
 
     private void UpdateSnow(float dt, Rectangle viewport)
     {
-        if (SnowFrames is null || SnowParticles is null || (viewport.Width <= 0) || (viewport.Height <= 0))
+        if (SnowTypeFrames is null || SnowParticles is null || (viewport.Width <= 0) || (viewport.Height <= 0))
             return;
 
         //respawn all particles when viewport changes (hud swap, map change)
@@ -256,14 +264,27 @@ public sealed class WeatherRenderer : IDisposable
             LastViewportHeight = viewport.Height;
         }
 
-        //particles keep their FrameIndex for life — the 4 snowa files are distinct shapes,
-        //not animation frames of a single shape
+        //each particle keeps its TypeIndex (shape) for life but advances its own animation timer
+        //for multi-frame types (snowa02/03 have 4 frames each; snowa00/01 have just 1)
         for (var i = 0; i < SnowParticles.Length; i++)
         {
             ref var p = ref SnowParticles[i];
 
             p.Position.Y += p.VelocityY * dt;
             p.Position.X += p.VelocityX * dt;
+
+            var frameCount = SnowTypeFrames[p.TypeIndex].Length;
+
+            if (frameCount > 1)
+            {
+                p.FrameTimer += dt;
+
+                while (p.FrameTimer >= SNOW_FRAME_DURATION)
+                {
+                    p.FrameTimer -= SNOW_FRAME_DURATION;
+                    p.Frame = (p.Frame + 1) % frameCount;
+                }
+            }
 
             if (p.Position.Y > viewport.Bottom)
                 p = RandomSnowParticle(viewport, spawnAbove: true);
@@ -281,41 +302,30 @@ public sealed class WeatherRenderer : IDisposable
         var vy = SNOW_MIN_VELOCITY_Y + ((float)SnowRandom.NextDouble() * (SNOW_MAX_VELOCITY_Y - SNOW_MIN_VELOCITY_Y));
         var vx = (((float)SnowRandom.NextDouble() * 2f) - 1f) * SNOW_DRIFT_X;
 
+        var typeIndex = SnowRandom.Next(0, SnowTypeFrames!.Length);
+        var frameCount = SnowTypeFrames[typeIndex].Length;
+
         return new SnowParticle
         {
             Position = new Vector2(x, y),
             VelocityY = vy,
             VelocityX = vx,
-            FrameIndex = SnowRandom.Next(0, SnowFrames!.Length)
+            TypeIndex = typeIndex,
+            Frame = SnowRandom.Next(0, frameCount),
+            FrameTimer = (float)SnowRandom.NextDouble() * SNOW_FRAME_DURATION
         };
     }
 
-    private bool _drawSnowLoggedOnce;
     private void DrawSnow(SpriteBatch spriteBatch)
     {
-        if (SnowFrames is null || SnowParticles is null)
-        {
-            if (!_drawSnowLoggedOnce)
-            {
-                Console.WriteLine($"[Weather] DrawSnow: null guard hit — SnowFrames={(SnowFrames is null ? "null" : SnowFrames.Length.ToString())} SnowParticles={(SnowParticles is null ? "null" : SnowParticles.Length.ToString())}");
-                _drawSnowLoggedOnce = true;
-            }
+        if (SnowTypeFrames is null || SnowParticles is null)
             return;
-        }
-
-        if (!_drawSnowLoggedOnce)
-        {
-            var first = SnowParticles[0];
-            Console.WriteLine($"[Weather] DrawSnow FIRST CALL: {SnowParticles.Length} particles, first pos=({first.Position.X:F1},{first.Position.Y:F1}) frame0 size={SnowFrames[0].Width}x{SnowFrames[0].Height}");
-            _drawSnowLoggedOnce = true;
-        }
-
-        var frameCount = SnowFrames.Length;
 
         for (var i = 0; i < SnowParticles.Length; i++)
         {
             var p = SnowParticles[i];
-            var frame = SnowFrames[p.FrameIndex % frameCount];
+            var frames = SnowTypeFrames[p.TypeIndex];
+            var frame = frames[p.Frame % frames.Length];
 
             spriteBatch.Draw(frame, p.Position, Color.White);
         }
@@ -331,7 +341,6 @@ public sealed class WeatherRenderer : IDisposable
 
         if (palette is null)
         {
-            Console.WriteLine("[Weather] LoadRainAsset: legend01.pal missing, dropping to None mode");
             CurrentMapFlags &= ~(MapFlags)0x0F;
 
             return;
@@ -339,7 +348,6 @@ public sealed class WeatherRenderer : IDisposable
 
         if (!DatArchives.Legend.TryGetValue("rain01.epf", out var entry))
         {
-            Console.WriteLine("[Weather] LoadRainAsset: rain01.epf not in legend.dat, dropping to None mode");
             CurrentMapFlags &= ~(MapFlags)0x0F;
 
             return;
@@ -349,7 +357,6 @@ public sealed class WeatherRenderer : IDisposable
 
         if (epf.Count == 0)
         {
-            Console.WriteLine("[Weather] LoadRainAsset: rain01.epf has no frames");
             CurrentMapFlags &= ~(MapFlags)0x0F;
 
             return;
@@ -357,7 +364,6 @@ public sealed class WeatherRenderer : IDisposable
 
         using var image = Graphics.RenderImage(epf[0], palette);
         RainTexture = TextureConverter.ToTexture2D(image);
-        Console.WriteLine($"[Weather] LoadRainAsset: rain01.epf loaded {RainTexture.Width}x{RainTexture.Height}");
         RainRows.Clear();
     }
 

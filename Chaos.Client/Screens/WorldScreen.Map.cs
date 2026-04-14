@@ -25,8 +25,6 @@ public sealed partial class WorldScreen
 
     private void HandleMapInfo(MapInfoArgs args)
     {
-        Console.WriteLine($"[MapInfo] mapId={args.MapId} args.Flags=0x{args.Flags:X2} currentMapId={CurrentMapId} mapFileLoaded={MapFile is not null}");
-
         //same map (refresh) — skip expensive teardown, just clear transient entity state
         if ((args.MapId == CurrentMapId) && MapFile is not null)
         {
@@ -34,8 +32,6 @@ public sealed partial class WorldScreen
 
             //re-evaluate darkness and weather only if the flag actually changed
             var newFlags = (MapFlags)args.Flags;
-
-            Console.WriteLine($"[MapInfo REFRESH] newFlags={newFlags} current={CurrentMapFlags} changed={newFlags != CurrentMapFlags}");
 
             if (newFlags != CurrentMapFlags)
             {
@@ -48,8 +44,6 @@ public sealed partial class WorldScreen
 
             return;
         }
-
-        Console.WriteLine($"[MapInfo NEW MAP] routing to new-map branch");
 
         //new map — dispose old caches, load fresh mapfile from local files
         TownMapControl.Hide();

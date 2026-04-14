@@ -3,6 +3,7 @@ using System.IO.Compression;
 using Chaos.Client.Collections;
 using Chaos.Client.Controls.Generic;
 using Chaos.Client.Networking;
+using Chaos.Client.Networking.Definitions;
 using Chaos.Client.Screens;
 using Chaos.Client.Systems;
 using Chaos.Cryptography;
@@ -108,6 +109,7 @@ public sealed class ChaosGame : Game
         Directory.CreateDirectory(MetaFilePath);
         Connection.OnMetaData += HandleMetaData;
         Connection.OnWorldEntryComplete += () => Connection.SendMetaDataRequest(MetaDataRequestType.AllCheckSums);
+        Connection.StateChanged += OnConnectionStateChanged;
 
         //wire state events to worldstate at startup so state is tracked
         //even during world entry (before worldscreen is created)
@@ -350,6 +352,14 @@ public sealed class ChaosGame : Game
     ///     Fired when all metadata files are up to date with the server.
     /// </summary>
     public event MetaDataSyncCompleteHandler? OnMetaDataSyncComplete;
+
+    private void OnConnectionStateChanged(ConnectionState oldState, ConnectionState newState)
+    {
+        if (newState == ConnectionState.World)
+            LatencyMonitor.Start(Connection.Client);
+        else if (oldState == ConnectionState.World)
+            LatencyMonitor.Stop();
+    }
 
     protected override void UnloadContent()
     {

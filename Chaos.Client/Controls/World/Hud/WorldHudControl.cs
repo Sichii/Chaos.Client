@@ -49,6 +49,10 @@ public sealed class WorldHudControl : PrefabPanel, IWorldHud
 
     private readonly UILabel WeightLabel;
     private readonly UILabel ZoneNameLabel;
+
+    //ping indicator — _nping.spf has 4 frames mapped to latency tiers (frame 0 = best)
+    private readonly UIImage? PingIcon;
+    private readonly Texture2D?[] PingFrames = new Texture2D?[4];
     public HudTab ActiveTab { get; private set; } = HudTab.Inventory;
     public ChatPanel ChatDisplay { get; private set; } = null!;
     public event ClickedHandler? InventoryReactivated;
@@ -145,6 +149,20 @@ public sealed class WorldHudControl : PrefabPanel, IWorldHud
         CoordsLabel = CreateLabel("SZ_XY", HorizontalAlignment.Center)!;
         ServerNameLabel = CreateLabel("SZ_SERVER", HorizontalAlignment.Center);
         DescriptionLabel = CreateLabel("SZ_DESCRIPTION");
+
+        //ping indicator — prefab control supplies position; frames are loaded straight from _nping.spf
+        PingIcon = CreateImage("PING");
+
+        if (PingIcon is not null)
+        {
+            var uiCache = UiRenderer.Instance!;
+
+            for (var i = 0; i < PingFrames.Length; i++)
+                PingFrames[i] = uiCache.GetSpfTexture("_nping.spf", i);
+
+            LatencyMonitor.LatencyChanged += OnLatencyChanged;
+            OnLatencyChanged();
+        }
 
         //effect bar — right side, above the option button
         EffectBar = new EffectBarControl
@@ -255,8 +273,26 @@ public sealed class WorldHudControl : PrefabPanel, IWorldHud
     public override void Dispose()
     {
         AttributesState.Changed -= OnAttributesChanged;
+        LatencyMonitor.LatencyChanged -= OnLatencyChanged;
 
         base.Dispose();
+    }
+
+    private void OnLatencyChanged()
+    {
+        if (PingIcon is null)
+            return;
+
+        var frameIndex = LatencyMonitor.LatencyMs switch
+        {
+            null  => 0,
+            < 75  => 3,
+            < 150 => 2,
+            < 250 => 1,
+            _     => 0
+        };
+
+        PingIcon.Texture = PingFrames[frameIndex];
     }
 
     private void OnAttributesChanged()

@@ -11,5 +11,7 @@ public struct SnowParticle
     public Vector2 Position;
     public float VelocityY;
     public float VelocityX;
-    public int FrameIndex;
+    public int TypeIndex;   // which snowa file (0..3) — fixed for particle lifetime
+    public int Frame;       // current animation frame within that type
+    public float FrameTimer;
 }

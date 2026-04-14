@@ -1,6 +1,7 @@
 #region
 using System.Buffers;
 using System.Collections.Concurrent;
+using System.Net;
 using System.Net.Sockets;
 using System.Text;
 using Chaos.Cryptography;
@@ -48,6 +49,12 @@ public sealed class GameClient : IDisposable
     ///     Whether the client is currently connected to a server.
     /// </summary>
     public bool Connected => IsAlive && (Socket?.Connected ?? false);
+
+    /// <summary>
+    ///     The remote endpoint of the active socket, or null when not connected. Used by latency monitoring to ping the
+    ///     currently connected world server (which differs from the lobby host after a redirect).
+    /// </summary>
+    public IPEndPoint? RemoteEndPoint => Connected ? Socket?.RemoteEndPoint as IPEndPoint : null;
 
     /// <summary>
     ///     Initializes a new instance of the <see cref="GameClient" /> class.
