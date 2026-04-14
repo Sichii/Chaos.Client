@@ -95,8 +95,11 @@ Centralized in `Directory.Build.props`: C# 14, net10.0, nullable enabled, implic
 ```
 Chaos.Client/
 ├── ChaosGame.cs              — MonoGame Game class, entry point
+├── Program.cs                — Process entry point (Main)
 ├── GlobalSettings.cs         — Static config (ClientVersion, DataPath, LobbyHost/Port)
 ├── InputBuffer.cs            — Event-driven input capture and buffering
+├── InputDispatcher.cs        — UI event dispatch: hit-test, bubble, drag, click synthesis, control stack
+├── Sdl.cs                    — SDL event watcher for mouse button events
 ├── Collections/              — WorldState, CircularBuffer
 ├── Models/                   — WorldEntity, Animation, EntityRemovalAnimation, EntityHighlight, SlotDragPayload, PathfindingState, etc.
 ├── ViewModel/                — Authoritative state classes owned by WorldState
@@ -125,7 +128,7 @@ Chaos.Client/
 
 **Component Primitives (`Controls/Components/`):** UIElement, UIPanel, UIButton, BlinkButton, UITextBox, UIImage, UIAnimatedImage, UILabel, UIProgressBar, SliderControl, TextElement, PrefabPanel, ExpandablePanel.
 
-**Login Flow (`Controls/LobbyLogin/`):** LobbyLoginControl, LoginControl, ServerSelectControl, CharacterCreationControl, EulaNoticeControl, PasswordChangeControl.
+**Login Flow (`Controls/LobbyLogin/`):** LobbyLoginControl, LoginControl, ServerSelectControl, CharacterCreationControl, LoginNoticeControl, PasswordChangeControl.
 
 **Generic Controls (`Controls/Generic/`):** OkPopupMessageControl, TextPopupControl, ScrollBarControl, DebugOverlay.
 
@@ -172,6 +175,14 @@ Authoritative state objects exposed as static properties on WorldState, updated 
 ### Entry Point
 - **`ChaosGame : Game`** -- 640x480 MonoGame window. Owns ConnectionManager, all renderers, SoundSystem, InputBuffer, ScreenManager. Global entity event wiring at construction. WorldState and ClientSettings are static classes (not owned by ChaosGame).
 - **`InputBuffer`** -- Event-driven input: `WasKeyPressed()`, `IsKeyHeld()`, `TextInput`, mouse state. Per-frame freeze.
+
+### Input Dispatch (`InputDispatcher`)
+Per-frame processor that reads `InputBuffer` state and produces UI events. Key concepts:
+- **Hit-testing:** deepest-child-first, highest-ZIndex-first, respects `IsPassThrough`/`IsHitTestVisible`.
+- **Capture:** mouse-down captures the target; mouse-up routes `MouseUp` to the captured element and synthesizes `Click` only if the cursor is still inside it and no drag occurred.
+- **Click vs MouseDown:** `OnMouseDown` fires on press (used by `WorldScreen` for right-click pathfinding — instant response); `OnClick` fires on release. `DoubleClick` is synthesized on the second release within 300ms on the same element.
+- **Control stack:** popups push themselves via `InputDispatcher.Instance.PushControl(this)` — the topmost entry receives keyboard events in Phase 2 of dispatch. Explicit focus (textboxes) intercepts Phase 1.
+- **Drag:** initiated when the mouse moves ≥4px from the mousedown position while an element is captured. `OnDragStart` lets the source populate a payload; `DragMove`/`DragDrop` bubble to the element under the cursor.
 
 ## C# Coding Standards
 

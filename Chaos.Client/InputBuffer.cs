@@ -1,5 +1,6 @@
 #region
 using System.Runtime.InteropServices;
+using Chaos.Client.Definitions;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Input;
 #endregion
@@ -7,8 +8,9 @@ using Microsoft.Xna.Framework.Input;
 namespace Chaos.Client;
 
 /// <summary>
-///     Buffers keyboard and mouse input using window events so that discrete key presses are never lost during frame rate
-///     drops. Call <see cref="Update" /> at the start of each frame, then read the snapshot via the query methods.
+///     Buffers keyboard and mouse input using a single SDL event watcher so that discrete key presses and clicks are
+///     never lost during frame rate drops and always preserve their true chronological ordering. Call <see cref="Update" />
+///     at the start of each frame, then read the snapshot via the query methods.
 /// </summary>
 public sealed class InputBuffer : IDisposable
 {
@@ -16,12 +18,11 @@ public sealed class InputBuffer : IDisposable
     private readonly Game Game;
     private readonly HashSet<Keys> HeldKeys = [];
 
-    //accumulation buffers — filled by window/SDL events between update() calls
+    //accumulation buffers — filled by the SDL event watcher between update() calls
     private readonly List<Keys> PendingPresses = [];
     private readonly List<Keys> PendingReleases = [];
     private readonly List<char> PendingText = [];
     private readonly List<OrderedKeyEvent> PendingOrdered = [];
-    private readonly GameWindow Window;
     private MouseState CurrentMouse;
 
     //mouse button accumulation — filled by SDL event watcher between update() calls
@@ -49,11 +50,6 @@ public sealed class InputBuffer : IDisposable
     public InputBuffer(Game game)
     {
         Game = game;
-        Window = game.Window;
-
-        Window.KeyDown += OnKeyDown;
-        Window.KeyUp += OnKeyUp;
-        Window.TextInput += OnTextInput;
 
         SdlEventWatch = OnSdlEvent;
         SdlEventWatchPtr = Marshal.GetFunctionPointerForDelegate(SdlEventWatch);
@@ -61,23 +57,82 @@ public sealed class InputBuffer : IDisposable
     }
 
     /// <inheritdoc />
-    public void Dispose()
-    {
-        Sdl.SDL_DelEventWatch(SdlEventWatchPtr, nint.Zero);
-        Window.KeyDown -= OnKeyDown;
-        Window.KeyUp -= OnKeyUp;
-        Window.TextInput -= OnTextInput;
-    }
+    public void Dispose() => Sdl.SDL_DelEventWatch(SdlEventWatchPtr, nint.Zero);
 
+    //all keyboard, text-input, and mouse-button events funnel through this single
+    //watcher callback. SDL fires it synchronously during SDL_PumpEvents on the main
+    //thread, in the exact order the OS posted events — that shared ordering is what
+    //lets the dispatcher later reconstruct per-event modifier state and preserve the
+    //true temporal relationship between keyboard and mouse input.
     private int OnSdlEvent(nint userdata, nint sdlEvent)
     {
         var eventType = (uint)Marshal.ReadInt32(sdlEvent);
 
-        if (eventType is not (Sdl.MOUSEBUTTONDOWN or Sdl.MOUSEBUTTONUP))
-            return 1;
+        switch (eventType)
+        {
+            case Sdl.KEYDOWN:
+            case Sdl.KEYUP:
+                HandleKeyEvent(sdlEvent, isDown: eventType == Sdl.KEYDOWN);
 
+                break;
+
+            case Sdl.TEXTINPUT:
+                HandleTextInputEvent(sdlEvent);
+
+                break;
+
+            case Sdl.MOUSEBUTTONDOWN:
+            case Sdl.MOUSEBUTTONUP:
+                HandleMouseButtonEvent(sdlEvent, isPress: eventType == Sdl.MOUSEBUTTONDOWN);
+
+                break;
+        }
+
+        return 1;
+    }
+
+    private void HandleKeyEvent(nint sdlEvent, bool isDown)
+    {
+        var scancode = Marshal.ReadInt32(sdlEvent, Sdl.KEYBOARDEVENT_SCANCODE_OFFSET);
+        var key = TranslateScancode(scancode);
+
+        if (key == Keys.None)
+            return;
+
+        if (isDown)
+        {
+            HeldKeys.Add(key);
+            PendingPresses.Add(key);
+            PendingOrdered.Add(new OrderedKeyEvent(OrderedKeyEventKind.KeyDown, key, '\0'));
+        } else
+        {
+            HeldKeys.Remove(key);
+            PendingReleases.Add(key);
+            PendingOrdered.Add(new OrderedKeyEvent(OrderedKeyEventKind.KeyUp, key, '\0'));
+        }
+    }
+
+    private void HandleTextInputEvent(nint sdlEvent)
+    {
+        //SDL delivers text as a UTF-8 null-terminated string inline in the event struct.
+        //For ASCII input (the common case for Dark Ages) it's one byte per character,
+        //but IME composition can deliver multi-character strings in a single event.
+        var textPtr = sdlEvent + Sdl.TEXTINPUTEVENT_TEXT_OFFSET;
+        var text = Marshal.PtrToStringUTF8(textPtr);
+
+        if (string.IsNullOrEmpty(text))
+            return;
+
+        foreach (var ch in text)
+        {
+            PendingText.Add(ch);
+            PendingOrdered.Add(new OrderedKeyEvent(OrderedKeyEventKind.TextInput, default, ch));
+        }
+    }
+
+    private void HandleMouseButtonEvent(nint sdlEvent, bool isPress)
+    {
         var sdlButton = Marshal.ReadByte(sdlEvent, Sdl.MOUSEBUTTONEVENT_BUTTON_OFFSET);
-        var isPress = eventType == Sdl.MOUSEBUTTONDOWN;
 
         var mouseButton = sdlButton switch
         {
@@ -86,49 +141,155 @@ public sealed class InputBuffer : IDisposable
             _                => (MouseButton)(-1)
         };
 
-        if ((int)mouseButton >= 0)
-            PendingMouseButtonEvents.Add(new BufferedMouseButtonEvent(mouseButton, isPress));
+        if ((int)mouseButton < 0)
+            return;
 
-        return 1;
+        //capture click position at the exact moment of the event in raw window pixels,
+        //then translate to virtual coordinates using the same divisor the polled
+        //cursor uses. Using per-event coordinates means that a click which lands while
+        //the cursor is in flight (turbo-click during fast movement, or a drag release)
+        //reports its true position rather than the frame-end cursor position.
+        var rawX = Marshal.ReadInt32(sdlEvent, Sdl.MOUSEBUTTONEVENT_X_OFFSET);
+        var rawY = Marshal.ReadInt32(sdlEvent, Sdl.MOUSEBUTTONEVENT_Y_OFFSET);
+        var virtualX = (int)(rawX / VirtualScale);
+        var virtualY = (int)(rawY / VirtualScale);
+
+        //capture modifier state at the exact moment of the event. SDL maintains its
+        //own running modifier state; SDL_GetModState() reads it synchronously from
+        //within the watcher callback on the same thread SDL updates it on, so the
+        //value reflects what was held when the OS posted this button event.
+        var mods = TranslateSdlMods(Sdl.SDL_GetModState());
+
+        PendingMouseButtonEvents.Add(new BufferedMouseButtonEvent(mouseButton, isPress, virtualX, virtualY, mods));
     }
 
-    private void OnKeyDown(object? sender, InputKeyEventArgs e)
+    private static KeyModifiers TranslateSdlMods(uint sdlMods)
     {
-        var key = NormalizeNumpadKey(e.Key);
+        var mods = KeyModifiers.None;
 
-        HeldKeys.Add(key);
-        PendingPresses.Add(key);
-        PendingOrdered.Add(new OrderedKeyEvent(OrderedKeyEventKind.KeyDown, key, '\0'));
+        if ((sdlMods & (Sdl.KMOD_LSHIFT | Sdl.KMOD_RSHIFT)) != 0)
+            mods |= KeyModifiers.Shift;
+
+        if ((sdlMods & (Sdl.KMOD_LCTRL | Sdl.KMOD_RCTRL)) != 0)
+            mods |= KeyModifiers.Ctrl;
+
+        if ((sdlMods & (Sdl.KMOD_LALT | Sdl.KMOD_RALT)) != 0)
+            mods |= KeyModifiers.Alt;
+
+        return mods;
     }
 
-    private void OnKeyUp(object? sender, InputKeyEventArgs e)
+    //maps SDL_Scancode values to MonoGame Keys. Numpad digits are normalized to the
+    //main number row and numpad Enter to main Enter so hotkeys don't care which one
+    //the user hits. Scancodes are physical-key positions, so hotkey behavior is
+    //stable across keyboard layouts.
+    private static Keys TranslateScancode(int scancode) => scancode switch
     {
-        var key = NormalizeNumpadKey(e.Key);
-
-        HeldKeys.Remove(key);
-        PendingReleases.Add(key);
-    }
-
-    private static Keys NormalizeNumpadKey(Keys key) => key switch
-    {
-        Keys.NumPad0 => Keys.D0,
-        Keys.NumPad1 => Keys.D1,
-        Keys.NumPad2 => Keys.D2,
-        Keys.NumPad3 => Keys.D3,
-        Keys.NumPad4 => Keys.D4,
-        Keys.NumPad5 => Keys.D5,
-        Keys.NumPad6 => Keys.D6,
-        Keys.NumPad7 => Keys.D7,
-        Keys.NumPad8 => Keys.D8,
-        Keys.NumPad9 => Keys.D9,
-        _            => key
+        4  => Keys.A,
+        5  => Keys.B,
+        6  => Keys.C,
+        7  => Keys.D,
+        8  => Keys.E,
+        9  => Keys.F,
+        10 => Keys.G,
+        11 => Keys.H,
+        12 => Keys.I,
+        13 => Keys.J,
+        14 => Keys.K,
+        15 => Keys.L,
+        16 => Keys.M,
+        17 => Keys.N,
+        18 => Keys.O,
+        19 => Keys.P,
+        20 => Keys.Q,
+        21 => Keys.R,
+        22 => Keys.S,
+        23 => Keys.T,
+        24 => Keys.U,
+        25 => Keys.V,
+        26 => Keys.W,
+        27 => Keys.X,
+        28 => Keys.Y,
+        29 => Keys.Z,
+        30 => Keys.D1,
+        31 => Keys.D2,
+        32 => Keys.D3,
+        33 => Keys.D4,
+        34 => Keys.D5,
+        35 => Keys.D6,
+        36 => Keys.D7,
+        37 => Keys.D8,
+        38 => Keys.D9,
+        39 => Keys.D0,
+        40 => Keys.Enter,
+        41 => Keys.Escape,
+        42 => Keys.Back,
+        43 => Keys.Tab,
+        44 => Keys.Space,
+        45 => Keys.OemMinus,
+        46 => Keys.OemPlus,
+        47 => Keys.OemOpenBrackets,
+        48 => Keys.OemCloseBrackets,
+        49 => Keys.OemPipe,
+        51 => Keys.OemSemicolon,
+        52 => Keys.OemQuotes,
+        53 => Keys.OemTilde,
+        54 => Keys.OemComma,
+        55 => Keys.OemPeriod,
+        56 => Keys.OemQuestion,
+        57 => Keys.CapsLock,
+        58 => Keys.F1,
+        59 => Keys.F2,
+        60 => Keys.F3,
+        61 => Keys.F4,
+        62 => Keys.F5,
+        63 => Keys.F6,
+        64 => Keys.F7,
+        65 => Keys.F8,
+        66 => Keys.F9,
+        67 => Keys.F10,
+        68 => Keys.F11,
+        69 => Keys.F12,
+        70 => Keys.PrintScreen,
+        71 => Keys.Scroll,
+        72 => Keys.Pause,
+        73 => Keys.Insert,
+        74 => Keys.Home,
+        75 => Keys.PageUp,
+        76 => Keys.Delete,
+        77 => Keys.End,
+        78 => Keys.PageDown,
+        79 => Keys.Right,
+        80 => Keys.Left,
+        81 => Keys.Down,
+        82 => Keys.Up,
+        83 => Keys.NumLock,
+        84 => Keys.Divide,
+        85 => Keys.Multiply,
+        86 => Keys.Subtract,
+        87 => Keys.Add,
+        88 => Keys.Enter,
+        89 => Keys.D1,
+        90 => Keys.D2,
+        91 => Keys.D3,
+        92 => Keys.D4,
+        93 => Keys.D5,
+        94 => Keys.D6,
+        95 => Keys.D7,
+        96 => Keys.D8,
+        97 => Keys.D9,
+        98 => Keys.D0,
+        99 => Keys.Decimal,
+        224 => Keys.LeftControl,
+        225 => Keys.LeftShift,
+        226 => Keys.LeftAlt,
+        227 => Keys.LeftWindows,
+        228 => Keys.RightControl,
+        229 => Keys.RightShift,
+        230 => Keys.RightAlt,
+        231 => Keys.RightWindows,
+        _   => Keys.None
     };
-
-    private void OnTextInput(object? sender, TextInputEventArgs e)
-    {
-        PendingText.Add(e.Character);
-        PendingOrdered.Add(new OrderedKeyEvent(OrderedKeyEventKind.TextInput, default, e.Character));
-    }
 
     /// <summary>
     ///     Sets the scale factor for translating raw window mouse coordinates to virtual coordinates.
@@ -344,9 +505,10 @@ public sealed class InputBuffer : IDisposable
 public enum OrderedKeyEventKind : byte
 {
     KeyDown,
+    KeyUp,
     TextInput
 }
 
 public readonly record struct OrderedKeyEvent(OrderedKeyEventKind Kind, Keys Key, char Character);
 
-public readonly record struct BufferedMouseButtonEvent(MouseButton Button, bool IsPress);
+public readonly record struct BufferedMouseButtonEvent(MouseButton Button, bool IsPress, int X, int Y, KeyModifiers Modifiers);

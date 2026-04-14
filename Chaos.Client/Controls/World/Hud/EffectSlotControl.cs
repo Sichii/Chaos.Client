@@ -24,6 +24,13 @@ public sealed class EffectSlotControl : UIPanel
 
     public byte EffectIcon { get; private set; }
 
+    /// <summary>
+    ///     True if this slot currently holds an effect. Derived from <see cref="UIProgressBar.FillColor" />, which
+    ///     <see cref="ApplyBarColor" /> sets to non-null for any active effect and <see cref="ClearEffect" /> resets to
+    ///     null — so slot matching doesn't rely on <c>EffectIcon == 0</c> as a sentinel (icon 0 is a valid icon).
+    /// </summary>
+    public bool HasEffect => Bar.FillColor is not null;
+
     public EffectSlotControl()
     {
         Visible = false;

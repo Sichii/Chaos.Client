@@ -59,7 +59,7 @@ public sealed class EffectBarControl : UIPanel
     private void RemoveEffect(byte effectIcon)
     {
         for (var i = 0; i < MAX_EFFECTS; i++)
-            if (Slots[i].Visible && (Slots[i].EffectIcon == effectIcon))
+            if (Slots[i].HasEffect && (Slots[i].EffectIcon == effectIcon))
             {
                 Slots[i]
                     .ClearEffect();
@@ -87,7 +87,7 @@ public sealed class EffectBarControl : UIPanel
 
         //check if this icon already exists — update color
         for (var i = 0; i < MAX_EFFECTS; i++)
-            if (Slots[i].Visible && (Slots[i].EffectIcon == effectIcon))
+            if (Slots[i].HasEffect && (Slots[i].EffectIcon == effectIcon))
             {
                 Slots[i]
                     .UpdateColor(effectColor);
@@ -97,7 +97,7 @@ public sealed class EffectBarControl : UIPanel
 
         //find first empty slot
         for (var i = 0; i < MAX_EFFECTS; i++)
-            if (!Slots[i].Visible)
+            if (!Slots[i].HasEffect)
             {
                 Slots[i]
                     .SetEffect(effectIcon, effectColor, RenderHalfSizeIcon(effectIcon));

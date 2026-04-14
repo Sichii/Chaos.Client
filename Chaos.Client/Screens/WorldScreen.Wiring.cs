@@ -442,6 +442,7 @@ public sealed partial class WorldScreen
         public WorldRootPanel(WorldScreen screen) => Screen = screen;
 
         public override void OnKeyDown(KeyDownEvent e) => Screen.OnRootKeyDown(e);
+        public override void OnMouseDown(MouseDownEvent e) => Screen.OnRootMouseDown(e);
         public override void OnClick(ClickEvent e) => Screen.OnRootClick(e);
         public override void OnMouseScroll(MouseScrollEvent e) => Screen.OnRootMouseScroll(e);
         public override void OnDoubleClick(DoubleClickEvent e) => Screen.OnRootDoubleClick(e);

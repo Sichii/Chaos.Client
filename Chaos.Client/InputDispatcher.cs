@@ -275,8 +275,12 @@ public sealed class InputDispatcher
             }
 
             //── mouse buttons (replayed individually in SDL event order) ──
+            //each event carries the cursor position and modifier state captured at
+            //the exact moment the OS posted the click, so rapid clicks during mouse
+            //motion report true positions and shift/ctrl/alt-chorded clicks see the
+            //modifier state that was actually held, not the end-of-frame state.
             foreach (var mbEvt in Input.MouseButtonEvents)
-                ProcessMouseButton(root, mouseX, mouseY, totalMs, modifiers, mbEvt.Button, mbEvt.IsPress, !mbEvt.IsPress);
+                ProcessMouseButton(root, mbEvt.X, mbEvt.Y, totalMs, mbEvt.Modifiers, mbEvt.Button, mbEvt.IsPress, !mbEvt.IsPress);
         } else
         {
             //mouse is blocked — still track position for delta calculation next frame
@@ -288,13 +292,48 @@ public sealed class InputDispatcher
         //WM_KEYDOWN always precedes its WM_CHAR, so when a KeyDown handler gains textbox
         //focus, we suppress the immediately following TextInput to prevent the hotkey
         //character from leaking into the newly-focused textbox.
+        //
+        //Modifier state is tracked per-event via a running state rather than the
+        //end-of-frame held state. Fast macros can press Shift, tap a key, release Shift,
+        //and press another key all within a single frame — if we used end-of-frame
+        //state, both keys would see Shift=false (since shift is no longer held at
+        //dispatch time) and shift-chorded hotkeys would silently lose their modifier.
         var suppressNextTextInput = false;
         var dispatchedKeys = new HashSet<Keys>();
+        var orderedEvents = Input.OrderedKeyboardEvents;
 
-        foreach (var evt in Input.OrderedKeyboardEvents)
+        //derive start-of-frame modifier state by walking backwards from the
+        //authoritative end-of-frame held state, undoing each modifier transition.
+        var runningMods = GetModifiers();
+
+        for (var i = orderedEvents.Length - 1; i >= 0; i--)
         {
+            var evt = orderedEvents[i];
+            var bit = ModifierBitFor(evt.Key);
+
+            if (bit == KeyModifiers.None)
+                continue;
+
+            if (evt.Kind == OrderedKeyEventKind.KeyDown)
+                runningMods &= ~bit;
+            else if (evt.Kind == OrderedKeyEventKind.KeyUp)
+                runningMods |= bit;
+        }
+
+        //walk forward, updating running modifiers as each event occurs and stamping
+        //every dispatched KeyDown/KeyUp with the state that existed at its moment.
+        foreach (var evt in orderedEvents)
+        {
+            var bit = ModifierBitFor(evt.Key);
+
             if (evt.Kind == OrderedKeyEventKind.KeyDown)
             {
+                if (bit != KeyModifiers.None)
+                    runningMods |= bit;
+
+                //OS key-repeat emits repeated WM_KEYDOWN for a single held press.
+                //dispatchedKeys is reset per-key on KeyUp so genuine re-presses inside
+                //the same frame still dispatch.
                 if (!dispatchedKeys.Add(evt.Key))
                     continue;
 
@@ -302,11 +341,22 @@ public sealed class InputDispatcher
 
                 KeyDown.Reset();
                 KeyDown.Key = evt.Key;
-                KeyDown.Modifiers = modifiers;
+                KeyDown.Modifiers = runningMods;
                 DispatchKeyboardEvent(root, KeyDown);
 
                 if ((focusBefore is null) && (ExplicitFocusElement is not null))
                     suppressNextTextInput = true;
+            } else if (evt.Kind == OrderedKeyEventKind.KeyUp)
+            {
+                if (bit != KeyModifiers.None)
+                    runningMods &= ~bit;
+
+                dispatchedKeys.Remove(evt.Key);
+
+                KeyUp.Reset();
+                KeyUp.Key = evt.Key;
+                KeyUp.Modifiers = runningMods;
+                DispatchKeyboardEvent(root, KeyUp);
             } else
             {
                 if (suppressNextTextInput)
@@ -320,14 +370,6 @@ public sealed class InputDispatcher
                 TextInput.Character = evt.Character;
                 DispatchKeyboardEvent(root, TextInput);
             }
-        }
-
-        foreach (var key in Input.FrameReleases)
-        {
-            KeyUp.Reset();
-            KeyUp.Key = key;
-            KeyUp.Modifiers = modifiers;
-            DispatchKeyboardEvent(root, KeyUp);
         }
     }
 
@@ -612,6 +654,14 @@ public sealed class InputDispatcher
 
         return mods;
     }
+
+    private static KeyModifiers ModifierBitFor(Keys key) => key switch
+    {
+        Keys.LeftShift or Keys.RightShift     => KeyModifiers.Shift,
+        Keys.LeftControl or Keys.RightControl => KeyModifiers.Ctrl,
+        Keys.LeftAlt or Keys.RightAlt         => KeyModifiers.Alt,
+        _                                     => KeyModifiers.None
+    };
 
     /// <summary>
     ///     True if <paramref name="descendant" /> is a child, grandchild, etc. of <paramref name="ancestor" />.

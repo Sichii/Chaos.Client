@@ -183,9 +183,10 @@ public sealed class SpellBook
         public byte MaxLevel { get; } = ParseMaxLevel(Name);
 
         /// <summary>
-        ///     True if this slot contains a spell (has a sprite assigned).
+        ///     True if this slot contains a spell. Sprite 0 is a valid spell icon (frame 0 of spell001.epf), so
+        ///     occupation is determined by the presence of a name instead — cleared slots have <c>Name == null</c>.
         /// </summary>
-        public bool IsOccupied => Sprite > 0;
+        public bool IsOccupied => Name is not null;
 
         private static string? ParseAbilityName(string? name)
         {

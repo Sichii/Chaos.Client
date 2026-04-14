@@ -222,9 +222,18 @@ public sealed partial class WorldScreen
         return tile.LeftForeground.IsRenderedTileIndex() || tile.RightForeground.IsRenderedTileIndex();
     }
 
+    /// <summary>
+    ///     True when the foreground is a walk-blocking wall. Open door tile IDs are treated as walkable even when SOTP still
+    ///     has their Wall bit set — <see cref="DoorTable" /> is the source of truth for "is this foreground a known open
+    ///     door?" because <c>sotp.dat</c> is inconsistent about clearing the flag on some open variants.
+    /// </summary>
     private static bool IsTileWall(int fgIndex, byte[] sotpData)
     {
         if (fgIndex <= 0)
+            return false;
+
+        //an open door foreground is walkable regardless of SOTP
+        if (DoorTable.GetClosedTileId((short)fgIndex).HasValue)
             return false;
 
         var sotpIndex = fgIndex - 1;
@@ -233,6 +242,20 @@ public sealed partial class WorldScreen
             return false;
 
         return ((TileFlags)sotpData[sotpIndex]).HasFlag(TileFlags.Wall);
+    }
+
+    private bool IsTileWallBlocked(int tileX, int tileY)
+    {
+        if (MapFile is null)
+            return false;
+
+        if ((tileX < 0) || (tileY < 0) || (tileX >= MapFile.Width) || (tileY >= MapFile.Height))
+            return false;
+
+        var tile = MapFile.Tiles[tileX, tileY];
+        var sotpData = DataContext.Tiles.SotpData;
+
+        return IsTileWall(tile.LeftForeground, sotpData) || IsTileWall(tile.RightForeground, sotpData);
     }
 
     private bool IsTilePassable(int tileX, int tileY)

@@ -171,7 +171,9 @@ Input is a two-layer stack: `InputBuffer` captures raw input from the OS between
 
 ### `InputBuffer`
 
-Event-driven capture with a per-frame freeze. Keyboard input arrives via MonoGame window events (`KeyDown`, `KeyUp`, `TextInput`); mouse button events arrive via an SDL event watcher, so rapid clicks from turbo buttons are never lost between polls. `Update(gameTime)` drains the pending buffers into a frozen snapshot that lasts until the next call.
+Event-driven capture with a per-frame freeze. Every input event — `KeyDown`, `KeyUp`, `TextInput`, mouse button press/release — arrives via a single SDL event watcher (`SDL_AddEventWatch`) that fires synchronously on the main thread during `SDL_PumpEvents`. Because every event flows through one callback in OS order, the per-frame snapshot preserves the chronological relationship between keyboard and mouse. `Update(gameTime)` drains the pending buffers into a frozen snapshot that lasts until the next call.
+
+Each mouse button event carries the cursor position and `SDL_GetModState()` snapshot taken at the moment of the click. Keyboard events are translated from `SDL_Scancode` to MonoGame `Keys` so the rest of the codebase keeps using the familiar enum.
 
 Keyboard API:
 
@@ -184,14 +186,14 @@ Mouse API:
 
 - `MouseX` / `MouseY` in **virtual** (640×480) coordinates. `SetVirtualScale(scale)` tells the buffer how much the backbuffer is stretched so raw window coords get divided back down. If you change the letterboxing math, also update this.
 - `ScrollDelta` in notches.
-- `MouseButtonEvents` — chronologically ordered press/release events from the SDL watcher.
+- `MouseButtonEvents` — chronologically ordered press/release events from the SDL watcher. Each event carries its virtual-coordinate `X`/`Y` and the modifier state held at the moment of the click.
 - `IsLeftButtonHeld` / `IsRightButtonHeld`.
 
 Behaviors worth knowing about:
 
 - When `Game.IsActive` is false (window unfocused), all buffered input is discarded and nothing is reported. On focus regain, the mouse state is re-synced so no spurious button edges fire on the activation frame.
 - When the cursor is outside the client area, mouse button events are dropped, but keyboard still works — clicking on another window doesn't fire a click on ours, but hotkeys still reach the focused window.
-- `OrderedKeyboardEvents` preserves the OS `WM_KEYDOWN → WM_CHAR` ordering. The dispatcher uses this to suppress a `TextInput` whose preceding `KeyDown` was consumed as a hotkey (see below).
+- `OrderedKeyboardEvents` preserves the chronological OS ordering of `KeyDown`, `KeyUp`, and `TextInput` events within a frame. The dispatcher replays this stream to (a) suppress a `TextInput` whose preceding `KeyDown` was consumed as a hotkey, and (b) maintain a running modifier state so each keystroke is stamped with the modifiers held at the moment it fired — important for macros that chord modifiers with other keys inside a single frame.
 
 ### `InputDispatcher`
 

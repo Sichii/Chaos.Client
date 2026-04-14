@@ -191,9 +191,10 @@ public sealed class SkillBook
         public byte MaxLevel { get; } = ParseMaxLevel(Name);
 
         /// <summary>
-        ///     True if this slot contains a skill (has a sprite assigned).
+        ///     True if this slot contains a skill. Sprite 0 is a valid skill icon (frame 0 of skill001.epf), so
+        ///     occupation is determined by the presence of a name instead — cleared slots have <c>Name == null</c>.
         /// </summary>
-        public bool IsOccupied => Sprite > 0;
+        public bool IsOccupied => Name is not null;
 
         private static string? ParseAbilityName(string? name)
         {

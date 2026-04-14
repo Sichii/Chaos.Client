@@ -10,11 +10,41 @@ namespace Chaos.Client;
 /// </summary>
 internal static partial class Sdl
 {
+    //SDL event types we subscribe to via SDL_AddEventWatch
+    public const uint KEYDOWN = 0x300;
+    public const uint KEYUP = 0x301;
+    public const uint TEXTINPUT = 0x303;
     public const uint MOUSEBUTTONDOWN = 0x401;
     public const uint MOUSEBUTTONUP = 0x402;
+
     public const byte BUTTON_LEFT = 1;
     public const byte BUTTON_RIGHT = 3;
+
+    //SDL_MouseButtonEvent field offsets:
+    //  type(4) + timestamp(4) + windowID(4) + which(4) = 16 → button(1)
+    //  + state(1) + clicks(1) + padding(1) = 20 → x(4)
+    //  + x(4) = 24 → y(4)
     public const int MOUSEBUTTONEVENT_BUTTON_OFFSET = 16;
+    public const int MOUSEBUTTONEVENT_X_OFFSET = 20;
+    public const int MOUSEBUTTONEVENT_Y_OFFSET = 24;
+
+    //SDL_KeyboardEvent field offsets:
+    //  type(4) + timestamp(4) + windowID(4) = 12 → state(1) + repeat(1) + pad(2) = 16
+    //  → SDL_Keysym { scancode(4) at 16, sym(4) at 20, mod(2) at 24, unused(4) }
+    public const int KEYBOARDEVENT_REPEAT_OFFSET = 13;
+    public const int KEYBOARDEVENT_SCANCODE_OFFSET = 16;
+
+    //SDL_TextInputEvent field offsets:
+    //  type(4) + timestamp(4) + windowID(4) = 12 → text[32] UTF-8 null-terminated
+    public const int TEXTINPUTEVENT_TEXT_OFFSET = 12;
+
+    //SDL_Keymod bitmask values returned by SDL_GetModState()
+    public const uint KMOD_LSHIFT = 0x0001;
+    public const uint KMOD_RSHIFT = 0x0002;
+    public const uint KMOD_LCTRL = 0x0040;
+    public const uint KMOD_RCTRL = 0x0080;
+    public const uint KMOD_LALT = 0x0100;
+    public const uint KMOD_RALT = 0x0200;
 
     [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
     public delegate int EventWatchCallback(nint userdata, nint sdlEvent);
@@ -26,6 +56,10 @@ internal static partial class Sdl
     [LibraryImport("SDL2")]
     [UnmanagedCallConv(CallConvs = [typeof(CallConvCdecl)])]
     public static partial void SDL_DelEventWatch(nint filter, nint userdata);
+
+    [LibraryImport("SDL2")]
+    [UnmanagedCallConv(CallConvs = [typeof(CallConvCdecl)])]
+    public static partial uint SDL_GetModState();
 
     [LibraryImport("SDL2")]
     [UnmanagedCallConv(CallConvs = [typeof(CallConvCdecl)])]

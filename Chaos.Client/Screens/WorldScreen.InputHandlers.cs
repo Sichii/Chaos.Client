@@ -984,14 +984,66 @@ public sealed partial class WorldScreen
     }
 
     /// <summary>
+    ///     Handles right-mouse-button presses that bubble up to the root panel. Right-click pathfinding
+    ///     fires on press (not release) for snappier response — a held right-click begins moving the
+    ///     player immediately instead of waiting for the button to come back up.
+    /// </summary>
+    private void OnRootMouseDown(MouseDownEvent e)
+    {
+        if (e.Button != MouseButton.Right)
+            return;
+
+        //cast mode consumes right-clicks silently so pathfinding doesn't fire under a targeting cursor
+        if (CastingSystem.IsTargeting)
+            return;
+
+        if (e.Shift)
+        {
+            HandleShiftRightClick(e.ScreenX, e.ScreenY);
+            e.Handled = true;
+
+            return;
+        }
+
+        if (e.Ctrl)
+            return;
+
+        //cache the hovered entity for the upcoming doubleclick — pathfinding triggered by this press will start
+        //moving the player on the next update, which shifts the camera and makes the second click's ScreenToTile
+        //resolve to a different world tile than the entity actually occupies
+        var currentTick = Environment.TickCount;
+
+        if ((currentTick - PendingDoubleClickTick) > DOUBLE_CLICK_CACHE_WINDOW_MS)
+            PendingDoubleClickEntityId = null;
+
+        var hoverEntity = GetEntityAtScreen(e.ScreenX, e.ScreenY);
+
+        //exclude self — the player's own sprite has a hitbox, and a rapid right-click on the tile the
+        //player is walking off of overlaps that hitbox, which would cache the player as a double-click
+        //target and kick off a self-follow loop in OnRootDoubleClick
+        if (hoverEntity?.Type is ClientEntityType.Aisling or ClientEntityType.Creature
+            && (hoverEntity.Id != Game.Connection.AislingId))
+        {
+            PendingDoubleClickEntityId = hoverEntity.Id;
+            PendingDoubleClickTick = currentTick;
+        }
+
+        HandleWorldRightClick(e.ScreenX, e.ScreenY);
+        e.Handled = true;
+    }
+
+    /// <summary>
     ///     Handles mouse clicks that bubble up to the root panel (no child element consumed them).
-    ///     Contains cast-mode target selection, Ctrl/Alt-click, world click, and right-click pathfinding.
+    ///     Contains cast-mode target selection, Ctrl/Alt-click, and left-click world interaction.
+    ///     Right-click pathfinding is handled in OnRootMouseDown for faster response.
     /// </summary>
     private void OnRootClick(ClickEvent e)
     {
+        if (e.Button != MouseButton.Left)
+            return;
 
         //exchange gold-click coordination — clicking the money label opens the gold amount popup
-        if (Exchange.Visible && (e.Button == MouseButton.Left) && Exchange.IsMyMoneyClicked(e.ScreenX, e.ScreenY))
+        if (Exchange.Visible && Exchange.IsMyMoneyClicked(e.ScreenX, e.ScreenY))
         {
             GoldDrop.ShowForTarget(Exchange.OtherUserId, 0, 0);
             e.Handled = true;
@@ -1002,82 +1054,50 @@ public sealed partial class WorldScreen
         //cast mode — target selection or cancel
         if (CastingSystem.IsTargeting)
         {
-            if (e.Button == MouseButton.Left)
-            {
-                var hoverEntity = GetEntityAtScreen(e.ScreenX, e.ScreenY);
+            var hoverEntity = GetEntityAtScreen(e.ScreenX, e.ScreenY);
 
-                if (hoverEntity?.Type is ClientEntityType.Aisling or ClientEntityType.Creature)
-                    CastingSystem.SelectTarget(
-                        hoverEntity.Id,
-                        hoverEntity.TileX,
-                        hoverEntity.TileY,
-                        Game.Connection);
-                else
-                    CastingSystem.Reset();
+            if (hoverEntity?.Type is ClientEntityType.Aisling or ClientEntityType.Creature)
+                CastingSystem.SelectTarget(
+                    hoverEntity.Id,
+                    hoverEntity.TileX,
+                    hoverEntity.TileY,
+                    Game.Connection);
+            else
+                CastingSystem.Reset();
 
-                e.Handled = true;
-            }
+            e.Handled = true;
 
             return;
         }
 
-        if (e.Button == MouseButton.Left)
+        //ctrl+click — context menu on aisling entities
+        if (e.Ctrl)
         {
-            //ctrl+click — context menu on aisling entities
-            if (e.Ctrl)
-            {
-                HandleCtrlClick(e.ScreenX, e.ScreenY);
-                e.Handled = true;
-
-                return;
-            }
-
-            //alt+click on self — open self profile
-            if (e.Alt)
-            {
-                var hoverEntity = GetEntityAtScreen(e.ScreenX, e.ScreenY);
-
-                if (hoverEntity is not null && (hoverEntity.Id == Game.Connection.AislingId))
-                {
-                    SelfProfileRequested = true;
-                    Game.Connection.RequestSelfProfile();
-                } else
-                    HandleWorldClick(e.ScreenX, e.ScreenY);
-
-                e.Handled = true;
-
-                return;
-            }
-
-            HandleWorldClick(e.ScreenX, e.ScreenY);
+            HandleCtrlClick(e.ScreenX, e.ScreenY);
             e.Handled = true;
-        } else if (e.Button == MouseButton.Right)
-        {
-            if (e.Shift)
-                HandleShiftRightClick(e.ScreenX, e.ScreenY);
-            else if (!e.Ctrl)
-            {
-                //cache the hovered entity for the upcoming doubleclick — pathfinding triggered by this click will start
-                //moving the player on the next update, which shifts the camera and makes the second click's ScreenToTile
-                //resolve to a different world tile than the entity actually occupies
-                var currentTick = Environment.TickCount;
 
-                if ((currentTick - PendingDoubleClickTick) > DOUBLE_CLICK_CACHE_WINDOW_MS)
-                    PendingDoubleClickEntityId = null;
-
-                var hoverEntity = GetEntityAtScreen(e.ScreenX, e.ScreenY);
-
-                if (hoverEntity?.Type is ClientEntityType.Aisling or ClientEntityType.Creature)
-                {
-                    PendingDoubleClickEntityId = hoverEntity.Id;
-                    PendingDoubleClickTick = currentTick;
-                }
-
-                HandleWorldRightClick(e.ScreenX, e.ScreenY);
-            }
-
-            e.Handled = true;
+            return;
         }
+
+        //alt+click on self — open self profile
+        if (e.Alt)
+        {
+            var hoverEntity = GetEntityAtScreen(e.ScreenX, e.ScreenY);
+
+            if (hoverEntity is not null && (hoverEntity.Id == Game.Connection.AislingId))
+            {
+                SelfProfileRequested = true;
+                Game.Connection.RequestSelfProfile();
+            } else
+                HandleWorldClick(e.ScreenX, e.ScreenY);
+
+            e.Handled = true;
+
+            return;
+        }
+
+        HandleWorldClick(e.ScreenX, e.ScreenY);
+        e.Handled = true;
     }
 
     /// <summary>
@@ -1172,7 +1192,9 @@ public sealed partial class WorldScreen
                 entity = WorldState.GetEntityAt(tileX, tileY);
             }
 
-            if (entity?.Type is ClientEntityType.Aisling or ClientEntityType.Creature)
+            //reject self — following yourself produces a re-pathfinding loop that walks into walls or oscillates
+            if (entity?.Type is ClientEntityType.Aisling or ClientEntityType.Creature
+                && (entity.Id != Game.Connection.AislingId))
             {
                 Pathfinding.SetEntityTarget(entity.Id);
                 PathfindToEntity(player, entity);
@@ -1383,6 +1405,11 @@ public sealed partial class WorldScreen
             return;
         }
 
+        //reject right-clicks onto walls so we don't auto-walk into them. open doors pass this filter because
+        //IsTileWallBlocked consults DoorTable. gms walk through walls so skip the filter for them.
+        if (!IsGameMaster && IsTileWallBlocked(tileX, tileY))
+            return;
+
         //single right-click — pathfind to ground tile
         Pathfinding.TargetEntityId = null;
         PathfindToTile(player, tileX, tileY);
@@ -1465,6 +1492,7 @@ public sealed partial class WorldScreen
             MapFile.Height,
             GetPathfindingBlockedPoints(),
             IsGameMaster,
+            IsGameMaster ? null : IsTilePassable,
             out var alreadyAdjacent);
 
         if (alreadyAdjacent)

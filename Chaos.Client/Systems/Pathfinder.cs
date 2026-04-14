@@ -33,7 +33,9 @@ public static class Pathfinder
     ///     Finds an A* path from the player to the best adjacent tile around the target entity. Returns null if no path exists
     ///     or if already adjacent. Sets <paramref name="alreadyAdjacent" /> to true if the player is already next to the
     ///     target. Map dimensions are required because the external pathfinder does not bounds-check start/end and throws
-    ///     <see cref="IndexOutOfRangeException" /> if either coordinate falls outside the grid.
+    ///     <see cref="IndexOutOfRangeException" /> if either coordinate falls outside the grid. The external A* also
+    ///     unconditionally accepts the end node even if it's a wall or blocked, so <paramref name="isTileWalkable" /> is
+    ///     required to filter candidate adjacent tiles — pass null to skip filtering (GM case).
     /// </summary>
     public static Stack<IPoint>? FindPathToEntity(
         Pathfinding.Pathfinder pathfinder,
@@ -45,6 +47,7 @@ public static class Pathfinder
         int mapHeight,
         IReadOnlyCollection<IPoint> blockedPoints,
         bool ignoreWalls,
+        Func<int, int, bool>? isTileWalkable,
         out bool alreadyAdjacent)
     {
         alreadyAdjacent = false;
@@ -95,6 +98,11 @@ public static class Pathfinder
 
                 return null;
             }
+
+            //external A* accepts any end tile even if it's a wall or blocked, so filter candidate adjacents
+            //here. without this, an adjacent wall tile becomes the shortest "path" and the player walks into it.
+            if ((isTileWalkable is not null) && !isTileWalkable(adjX, adjY))
+                continue;
 
             var path = pathfinder.FindPath(
                 new Point(fromX, fromY),
