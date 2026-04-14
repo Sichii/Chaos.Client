@@ -28,8 +28,10 @@ Targets Dark Ages client version **7.4.1** for feature parity.
   - [Camera](#camera)
   - [MapRenderer](#maprenderer)
   - [PaletteCyclingManager](#palettecyclingmanager)
+  - [LightingSystem](#lightingsystem)
   - [DarknessRenderer](#darknessrenderer)
   - [TabMapRenderer](#tabmaprenderer)
+  - [WeatherRenderer](#weatherrenderer)
   - [SilhouetteRenderer](#silhouetterenderer)
   - [TextRenderer + FontAtlas](#textrenderer--fontatlas)
   - [UiRenderer](#uirenderer)
@@ -102,7 +104,8 @@ Each frame goes through three phases (see `WorldScreen.Draw.cs`):
    - Background tiles + the tile cursor, in a single batched pass.
    - Foreground tiles, entities, and effects interleaved in diagonal stripes by `x + y` depth. Within a stripe the order is **ground items → aislings → creatures → dying-creature dissolves → ground-targeted effects → entity-attached effects → foreground tiles**.
    - Silhouette render target overlaid at reduced alpha.
-   - Darkness overlay (screen space, no camera transform).
+   - Darkness overlay (screen space, no camera transform). `LightingSystem.Gather` runs just before `DarknessRenderer.Update` so the overlay reads the current frame's light sources.
+   - Weather overlay (snow or rain, screen space). Drawn after darkness so flakes/drops are still visible on dark maps. Inactive on maps whose `MapFlags` low nibble is `0` or `3`.
    - Blind overlay (full black, player redrawn on top) if the player is blinded. Drawn **before** the entity overlays so chat bubbles, name tags, chant text, and health bars all stay visible while blinded. Retail keeps chat bubbles and name tags visible the same way. It hides HP bars because on retail the HP bar is drawn with the entity sprite itself — if you want strict retail parity, split health bars out of `EntityOverlayManager.Draw` and render them alongside the entity body. Chant overlay retail behavior is not confirmed; worth verifying in-game.
    - Entity overlays — chat bubbles, health bars, name tags, chant text, group box text — drawn after darkness, so the light level doesn't tint them, and after blind so they remain visible while blinded.
    - Debug overlay if active.
@@ -239,8 +242,10 @@ All renderers live in `Chaos.Client.Rendering/`. Quick reference:
 | `Camera`                                                                | Isometric world/screen/tile coordinate math.                             |
 | `MapRenderer`                                                           | Background + foreground tile rendering, animated tile playback.          |
 | `PaletteCyclingManager`                                                 | Palette shimmer for cycling-palette tiles. Owned by `MapRenderer`.       |
+| `LightingSystem`                                                        | Per-frame light source buffer. Feeds `DarknessRenderer` and `TabMapRenderer`. Lives in `Chaos.Client/Systems/`. |
 | `DarknessRenderer`                                                      | Light/dark overlay — light metadata lookup, HEA sampling, light sources. |
-| `TabMapRenderer`                                                        | Custom Tab map (wall diamonds + entity dots).                            |
+| `TabMapRenderer`                                                        | Custom Tab map (wall diamonds + entity dots) with fog-of-war on dark maps. |
+| `WeatherRenderer`                                                       | Snow and rain overlay driven by the `MapFlags` low nibble.               |
 | `SilhouetteRenderer`                                                    | Occluded-entity silhouettes and transparent-aisling compositing.         |
 | `TextRenderer` + `FontAtlas`                                            | Per-character text draws from a shared glyph atlas.                      |
 | `UiRenderer`                                                            | Deduplicated UI texture cache from control prefabs.                      |
@@ -270,22 +275,52 @@ Background and foreground tile rendering. Background tiles are packed into a `Te
 
 Handles palette shimmer — tiles whose palette entries cycle through a color range, declared in the `mpt` / `stc` palette files and exposed via `PaletteLookup`. On map load it scans which tiles on the current map use cycling palettes, pre-renders each palette-shifted variant into the tile image cache, and registers the resulting atlas regions. Each frame it advances its own tick and writes the current-step region overrides into `BgOverrides` / `FgOverrides`, which `MapRenderer` checks before the default atlas lookup. It also consults the tile animation tables (`gndani.tbl` / `stcani.tbl`) during the pre-render scan, but **only** to widen the set of tiles that need shimmer variants — actual animation-frame switching lives in `MapRenderer`, not here. Owned by `MapRenderer`, not the game directly.
 
+### `LightingSystem`
+
+Centralized owner of the per-frame `LightSource` buffer. Lives in `Chaos.Client/Systems/` (not `Chaos.Client.Rendering/`) because it walks `WorldState` to build the buffer, but its single consumer audience is the two renderers that read light sources — `DarknessRenderer` and `TabMapRenderer`. Both renderers treat the system as read-only and do **not** keep their own copy.
+
+`Gather(MapFile, MapFlags, Camera)` runs once per frame from `WorldScreen.Draw.cs`, short-circuiting to an empty span when the map is null or `MapFlags.Darkness` isn't set — so stale sources from a previous dark map can't leak across a transition to a lit one. When the map is dark, it walks `WorldState.GetSortedEntities()`, filters for `LanternSize != None`, pulls the pixel-space `LightMask` from `DataContext.LightMasks`, picks up the tile-space `TileOffsets` array from `GetTileOffsets`, and packs both together into a `LightSource` record. `Sources` then exposes the populated region as a `ReadOnlySpan<LightSource>` whose lifetime is bounded by the next `Gather` call.
+
+`LightSource` carries **both** the pixel-space data used by `DarknessRenderer` (screen position + `LightMask`) and the tile-space data used by `TabMapRenderer` (`TileX`, `TileY`, `Direction`, `TileOffsets`). Doing the gather once and publishing a unified buffer means both renderers agree on the set of light sources every frame — there's no drift.
+
+Tile-space shapes are cached static arrays computed at class initialization, so every light source of a given lantern size shares the same array reference:
+
+- `Euclidean3` — radius 3 circle, used for `LanternSize.Small`.
+- `Euclidean5` — radius 5 circle, used for `LanternSize.Large`.
+- `BaselineVisibilityOffsets` — radius 0 (player tile only), used by `TabMapRenderer` to guarantee the player always sees their own tile even with no lanterns in range.
+
+`ComputeEuclidean` uses a half-step bulge: a tile counts when `4*(dx² + dy²) < (2*radius + 1)²`. That's an all-integer rearrangement of `√(dx² + dy²) < radius + 0.5`, which produces slightly fuller, rounder circles than a strict `≤ radius` test. The same expression doubles as the size hint for the stackalloc scratch buffer. Computation runs off a `Span<>` into a `stackalloc` buffer and ends in a single `.ToArray()` — no intermediate `List<>`.
+
+`GetTileOffsets(LanternSize, Direction)` currently returns the same circular array regardless of direction, but the `Direction` parameter is wired through so future directional shapes (cones, line-of-sight, cardinal sectors) drop in by returning a different cached array per direction without touching either renderer.
+
 ### `DarknessRenderer`
 
-The light/dark overlay. Three inputs drive it:
+The light/dark overlay. Four inputs drive it:
 
-1. **The map's darkness flag** (`isDarkMap`, passed to `OnMapChanged`). Dark maps start pure black immediately on map change, so the unlit map never flashes in before the first `LightLevel` packet arrives.
+1. **The map's darkness flag** (`isDarkMap`, passed to `OnMapChanged`). Dark maps start pure black immediately on map change, so the unlit map never flashes in before the first `LightLevel` packet arrives. `IsFullBlackDark` then exposes the "alpha = 1, color = black" condition to `TabMapRenderer` for fog-of-war gating.
 2. **Server `LightLevel` packets combined with light metadata.** Each map has a *light type* looked up in `LightMetadata.MapLightTypes` (defaults to `"default"`). On every `LightLevel` packet the renderer builds a key `{lightType}_{hexLightLevel}` and looks up `(R, G, B, Alpha)` in `LightMetadata.LightProperties`. That's how the same light level produces a different tint in a cave vs. outdoors. If the key isn't in metadata but the map is flagged dark, it falls back to pure black; if neither, the overlay is fully transparent.
 3. **The map's HEA file**, a per-pixel light map loaded in `OnMapChanged` when one exists. It encodes layered brightness data that gets sampled into the overlay texture as the camera moves; without one, the overlay is flat-filled with the current color.
+4. **The current-frame `LightSource` span from `LightingSystem`**, passed into `Update(camera, viewport, sources)` by `WorldScreen.Draw.cs` each frame. Sources are max-blended into the overlay via `StampLightSources` so lanterns, windows, and entity-attached lights brighten specific areas. The renderer owns no `LightSource` state of its own — it's a pure consumer of the span — and dirty-checks the incoming sources via `ComputeSourceHash` to skip rebuilds when nothing has moved.
 
-On top of that, registered `LightSource`s (lanterns, windows, entity-attached lights) are max-blended into the overlay so they brighten specific areas. The final texture is sized to the current viewport.
+The final texture is sized to the current viewport.
 
 > [!WARNING]
-> The overlay texture is dirty-checked on the camera offset **and** the viewport dimensions. If you add a new source of viewport change, extend the dirty check, or you will see stale overlays — this is how the HUD-swap bug happened.
+> The overlay texture is dirty-checked on the camera offset, the viewport dimensions, **and** the hash of the incoming light source span. If you add a new source of viewport change, extend the dirty check, or you will see stale overlays — this is how the HUD-swap bug happened.
 
 ### `TabMapRenderer`
 
 The custom Tab map. Walls are drawn as 20×10 scaled diamonds, and adjacent walls collapse their shared borders via a 4-bit neighbor mask that indexes into 16 pre-baked atlas variants. Entities draw as colored diamonds on top (yellow player, red monsters, green merchants, blue aislings), and entity overlap is resolved with stencil masking. PageUp/PageDown zoom, centered on the player. Look is intentionally different from retail — replace this class if you need pixel-accurate retail behavior.
+
+**Fog-of-war on dark maps.** When the player is on a full-black dark map (`DarknessRenderer.IsFullBlackDark` is true), `TabMapRenderer.Draw` takes the light source span from `LightingSystem` and a baseline offset array (radius 0 — player's own tile) and computes a per-frame visibility scratch grid via `ComputeVisibility`. Every light source in the span stamps its cached `TileOffsets` into the grid centered on its `(TileX, TileY)`; the baseline offsets stamp around the player. Tiles outside the stamped set are omitted from the tab map draw that frame, so you only see what the player and their lanterns actually illuminate. On lit maps the fog-of-war path is skipped and the full map draws as normal. Because the visibility grid is rebuilt every frame from the span, moving lanterns and direction changes propagate automatically with no extra bookkeeping.
+
+### `WeatherRenderer`
+
+Snow and rain overlay driven by the low nibble of the map's `MapFlags` byte — `0` = none, `1` = snow, `2` = rain, `3` = darkness (handled by `DarknessRenderer`, so this renderer stays inactive on value 3). The high nibble is unrelated (`NoTabMap`, `SnowTileset`). See `docs/re_notes/map_flags.md` for the full encoding. Snow uses the `snowaNN.epf` sprite files from `legend.dat`; rain uses `rain01.epf`. Both load paths share a cached `legend01.pal` palette — the same palette the retail client uses for weather sprites. Owned by `WorldScreen` in parallel with `DarknessRenderer`; `OnMapChanged` only touches textures when the nibble actually changes, and asset-load failures clear the nibble so `IsActive` flips false for the rest of the map.
+
+Every tunable — particle count, fall speed, drift range, frame duration, column count — is a `const` at the top of the file. Change, rebuild, and the effect reflects the new values. There's no runtime config surface.
+
+> [!NOTE]
+> Rain (nibble `2`) is client-only. Retail treats it as a no-op, but this client renders it intentionally as a deliberate divergence.
 
 ### `SilhouetteRenderer`
 
