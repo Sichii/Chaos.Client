@@ -203,11 +203,11 @@ public sealed partial class WorldScreen
                 Game.CreatureRenderer,
                 gameTime);
 
+        //gather light sources for this frame and feed them to consumers
+        Lighting.Gather(MapFile, CurrentMapFlags, Camera);
+
         if (DarknessRenderer.IsActive)
-        {
-            DarknessRenderer.SetLightSources(GatherLightSources());
-            DarknessRenderer.Update(Camera, WorldHud.ViewportBounds);
-        }
+            DarknessRenderer.Update(Camera, WorldHud.ViewportBounds, Lighting.Sources);
 
         WeatherRenderer.Update(gameTime, WorldHud.ViewportBounds);
 
@@ -299,34 +299,4 @@ public sealed partial class WorldScreen
         return best;
     }
 
-    private ReadOnlySpan<LightSource> GatherLightSources()
-    {
-        if (MapFile is null || !CurrentMapFlags.HasFlag(MapFlags.Darkness))
-            return ReadOnlySpan<LightSource>.Empty;
-
-        var count = 0;
-
-        foreach (var entity in WorldState.GetSortedEntities())
-        {
-            if (entity.LanternSize == LanternSize.None)
-                continue;
-
-            var mask = DataContext.LightMasks.Get(entity.LanternSize);
-
-            if (mask is null)
-                continue;
-
-            var tileWorld = Camera.TileToWorld(entity.TileX, entity.TileY, MapFile.Height);
-            var tileCenterX = tileWorld.X + DaLibConstants.HALF_TILE_WIDTH;
-            var tileCenterY = tileWorld.Y + DaLibConstants.HALF_TILE_HEIGHT;
-            var screenPos = Camera.WorldToScreen(new Vector2(tileCenterX + entity.VisualOffset.X, tileCenterY + entity.VisualOffset.Y));
-
-            if (count >= LightSourceBuffer.Length)
-                Array.Resize(ref LightSourceBuffer, LightSourceBuffer.Length * 2);
-
-            LightSourceBuffer[count++] = new LightSource(screenPos, mask);
-        }
-
-        return LightSourceBuffer.AsSpan(0, count);
-    }
 }

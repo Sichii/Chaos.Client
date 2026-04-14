@@ -23,7 +23,9 @@ Chaos.Client.slnx (.NET 10.0, C# 14)
 ├── Chaos.Client.Data           — Asset repositories, DALib integration, archive loading, caching
 ├── Chaos.Client.Rendering      — Texture conversion, sprite renderers, map rendering, text, camera
 ├── Chaos.Client.Networking     — TCP client, crypto, packet framing, connection state machine
-└── DALib (project ref)         — Local fork at ../dalib/DALib/ — Dark Ages file format support
+├── DALib (project ref)         — Local fork at ../dalib/DALib/ — Dark Ages file format support
+├── docs/                       — Non-code reference: `re_notes/` (reverse-engineering notes, referenced inline by code e.g. `map_flags.md`), `re/` raw RE artifacts, `bug-plans/`, `ping_frames/`, `superpowers/plans|specs/`
+└── tools/                      — Standalone utility projects: `ExtractDialogTextures`, `ExtractLine001`
 ```
 
 **Dependency flow:** Data <- Rendering <- Client, Networking <- Client
@@ -70,8 +72,9 @@ Centralized in `Directory.Build.props`: C# 14, net10.0, nullable enabled, implic
 - **`MapRenderer`** -- Background + foreground tile rendering. `DrawBackground()`, `DrawForegroundTile()`, `PreloadMapTiles()`.
 - **`TextRenderer`** -- SkiaSharp text rendering: `RenderText()`, `RenderWrappedText()`, `MeasureWidth()`, `WrapText()`.
 - **`UiRenderer`** -- UI panel rendering utilities.
-- **`DarknessRenderer`** -- Light/darkness overlay.
-- **`TabMapRenderer`** -- Mini-map rendering.
+- **`DarknessRenderer`** -- Light/darkness overlay. Consumes light sources from `LightingSystem`.
+- **`TabMapRenderer`** -- Mini-map rendering. Also consumes from `LightingSystem` for fog-of-war.
+- **`WeatherRenderer`** -- Snow/rain overlay driven by the low nibble of `MapFlags` (1=Snow, 2=Rain, 3=Darkness handled by `DarknessRenderer`). Retail treats case 2 as a no-op; this renderer intentionally diverges. See `docs/re_notes/map_flags.md` for the flag encoding.
 - **`SilhouetteRenderer`** -- Silhouette effect for blocked entities.
 - **`PaletteCyclingManager`** -- Animated palette shimmer effects.
 - **`FontAtlas`** -- Font glyph atlas management.
@@ -88,7 +91,7 @@ Centralized in `Directory.Build.props`: C# 14, net10.0, nullable enabled, implic
 - **`GameClient`** -- Low-level TCP: crypto, packet framing (0xAA + 2-byte BE length), sequence tracking, `InboundQueue` via `DrainPackets()`. Auto-responds to HeartBeat/SynchronizeTicks.
 - **`ConnectionManager`** -- State machine (Disconnected->Connecting->Lobby->Login->World), array-indexed handler dispatch (60+ handlers), 48+ events. Full lobby/login/world-entry flows. Player action methods, communication, NPC/dialog, requests.
 - **`ServerTableData`** -- Zlib-compressed server list parser.
-- Full protocol spec in `Chaos.Client.Networking/NETWORKING_SPEC.md`.
+- Protocol types come from the `Chaos.Networking` / `Chaos.DarkAges` NuGet packages (preview 1.10.0) — serialization, opcodes, and args types are all defined there rather than in this project.
 
 ### Client Project (`Chaos.Client`) Internal Organization
 
@@ -149,6 +152,8 @@ Chaos.Client/
 - **`CastingSystem`** -- Spell targeting + chant management.
 - **`SoundSystem`** -- NAudio MP3->PCM, cached playback, music looping.
 - **`Pathfinder`** -- A* pathfinding algorithm.
+- **`LightingSystem`** -- Owns the per-frame light source buffer. Walks world entities, reads `LanternSize`, and gathers into a span consumed read-only by `DarknessRenderer` and `TabMapRenderer` (neither stores its own copy). Caches Euclidean circle offset arrays (radius 3/5) and exposes `BaselineVisibilityOffsets` for the unconditional player-tile reveal on darkness maps.
+- **`LatencyMonitor`** -- Static class. Background ICMP ping loop (15s interval) against the connected server endpoint. Exposes `LatencyMs` and fires `LatencyChanged` for the HUD ping indicator. Started/stopped by `ChaosGame` on connect/disconnect. Events fire on thread-pool threads — consumers must poll from the game-loop thread.
 - **`MachineIdentity`** -- Machine-specific identification for the client.
 - **`ClientSettings`** -- Static class. Persistent user settings. Access via `ClientSettings.SoundVolume`, etc.
 - **`GlobalSettings`** -- Static config: ClientVersion (741), DataPath, LobbyHost/Port, `RequireSwimmingSkill` toggle (default false — when true, water tiles require GM flag or Swimming skill, retail behavior).
@@ -303,12 +308,18 @@ Foreground tile positioning:
   lfgDrawY = bgDrawY + (x+1) * 14 - image.Height + 14  (bottom-aligned)
   Only render if tileIndex.IsRenderedTileIndex() -> (index > 10012) || ((index % 10000) > 12)
 
-Draw order (painter's algorithm -- diagonal stripe):
+Draw order (painter's algorithm -- diagonal stripe, see WorldScreen.Draw.cs):
   1. Background tiles (floor) -- y-major, x-minor order
-  2. Foreground tiles + Entities -- diagonal stripe (depth = x+y ascending), X ascending within stripe
-  3. Effects -- ground-targeted in stripe pass, entity-targeted after entity
-  4. Tab map overlay -- on top of world, under HUD
-  5. UI overlay -- separate SpriteBatch pass, no camera transform
+  2. Tile cursor highlight
+  3. Foreground tiles + Entities + Effects -- diagonal stripe (depth = x+y ascending), X ascending within stripe; ground effects in stripe, entity effects after entity
+  4. Silhouettes -- blocked-entity outlines behind foreground
+  5. DarknessRenderer -- light/darkness overlay (if MapFlags has Darkness)
+  6. WeatherRenderer -- snow/rain overlay (low nibble 1/2 of MapFlags)
+  7. Viewport overlays (health bars, chat bubbles, chant text, etc.)
+  8. Debug renderer (draw counts, gridlines, toggled via debug flags)
+  9. Tab map overlay -- on top of world, under HUD (Tab key toggle)
+  10. UI overlay (Root panel) -- popups, HUD; separate SpriteBatch pass, no camera transform
+  11. Drag icon -- always topmost
 ```
 
 ## DALib Key Types (local fork at ../dalib/DALib/)

@@ -86,6 +86,7 @@ public sealed class TabMapRenderer : IDisposable
 
     //precomputed: which tiles are walls, and their neighbor masks
     private bool[,]? IsWallTile;
+    private bool[,]? VisibilityScratch;
     private int MapHeight;
     private int MapWidth;
 
@@ -239,10 +240,19 @@ public sealed class TabMapRenderer : IDisposable
         int playerTileY,
         TabMapEntity[] entities,
         int entityCount,
-        uint playerEntityId)
+        uint playerEntityId,
+        bool isFullBlackDark,
+        ReadOnlySpan<LightSource> lightSources,
+        (int Dx, int Dy)[] baselineOffsets)
     {
         if (Atlas is null || (Entries.Length == 0))
             return;
+
+        //defensive: if scratch wasn't allocated (Generate not yet called), force off
+        var effectiveFullBlackDark = isFullBlackDark && (VisibilityScratch is not null);
+
+        if (effectiveFullBlackDark)
+            ComputeVisibility(playerTileX, playerTileY, lightSources, baselineOffsets);
 
         //player's tile center in iso space
         var playerIsoX = (MapHeight - 1 + playerTileX - playerTileY) * HALF_TILE_W + HALF_TILE_W;
@@ -263,6 +273,9 @@ public sealed class TabMapRenderer : IDisposable
 
         foreach ((var tx, var ty, var mask) in Entries)
         {
+            if (effectiveFullBlackDark && !VisibilityScratch![tx, ty])
+                continue;
+
             var region = Atlas.TryGetRegion(mask);
 
             if (!region.HasValue)
@@ -330,7 +343,8 @@ public sealed class TabMapRenderer : IDisposable
             offsetX,
             offsetY,
             scaledTileW,
-            scaledTileH);
+            scaledTileH,
+            effectiveFullBlackDark);
         spriteBatch.End();
 
         //pass 3: draw entity diamonds with color, but only where stencil == 1 (single coverage)
@@ -350,7 +364,8 @@ public sealed class TabMapRenderer : IDisposable
             offsetX,
             offsetY,
             scaledTileW,
-            scaledTileH);
+            scaledTileH,
+            effectiveFullBlackDark);
         spriteBatch.End();
     }
 
@@ -362,13 +377,22 @@ public sealed class TabMapRenderer : IDisposable
         float offsetX,
         float offsetY,
         int scaledTileW,
-        int scaledTileH)
+        int scaledTileH,
+        bool isFullBlackDark)
     {
         for (var i = 0; i < entityCount; i++)
         {
             var entity = entities[i];
 
             if (entity.Type == ClientEntityType.GroundItem)
+                continue;
+
+            //entity coords come from the network and may race against a map transition.
+            //treat out-of-bounds as hidden rather than throwing.
+            if (isFullBlackDark
+                && (((uint)entity.TileX >= (uint)MapWidth)
+                    || ((uint)entity.TileY >= (uint)MapHeight)
+                    || !VisibilityScratch![entity.TileX, entity.TileY]))
                 continue;
 
             int atlasIndex;
@@ -417,6 +441,7 @@ public sealed class TabMapRenderer : IDisposable
 
         //determine which tiles are walls via sotp (matching chaosassetmanager's detection)
         IsWallTile = new bool[MapWidth, MapHeight];
+        VisibilityScratch = new bool[MapWidth, MapHeight];
 
         for (var y = 0; y < MapHeight; y++)
             for (var x = 0; x < MapWidth; x++)
@@ -458,6 +483,45 @@ public sealed class TabMapRenderer : IDisposable
             }
 
         Entries = entries.ToArray();
+    }
+
+    /// <summary>
+    ///     Per-frame visibility computation for full-black-darkness maps. Clears the scratch grid then
+    ///     stamps the baseline (around the player) and every light source's tile offsets.
+    /// </summary>
+    private void ComputeVisibility(
+        int playerTileX,
+        int playerTileY,
+        ReadOnlySpan<LightSource> lightSources,
+        (int Dx, int Dy)[] baselineOffsets)
+    {
+        var scratch = VisibilityScratch!;
+        Array.Clear(scratch);
+
+        StampOffsets(scratch, playerTileX, playerTileY, baselineOffsets);
+
+        for (var i = 0; i < lightSources.Length; i++)
+        {
+            var source = lightSources[i];
+            StampOffsets(scratch, source.TileX, source.TileY, source.TileOffsets);
+        }
+    }
+
+    /// <summary>
+    ///     Stamps a relative offset array centered at (centerX, centerY) into the visibility scratch grid.
+    ///     Out-of-bounds offsets are silently dropped via a single unsigned-cast bounds check.
+    /// </summary>
+    private void StampOffsets(bool[,] scratch, int centerX, int centerY, (int Dx, int Dy)[] offsets)
+    {
+        for (var i = 0; i < offsets.Length; i++)
+        {
+            var (dx, dy) = offsets[i];
+            var tx = centerX + dx;
+            var ty = centerY + dy;
+
+            if (((uint)tx < (uint)MapWidth) && ((uint)ty < (uint)MapHeight))
+                scratch[tx, ty] = true;
+        }
     }
 
     /// <summary>

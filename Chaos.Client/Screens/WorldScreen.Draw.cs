@@ -221,37 +221,45 @@ public sealed partial class WorldScreen
         //NoTabMap map flag (0x40) suppresses both the toggle (InputHandlers) and the render
         if (TabMapVisible && MapFile is not null && !CurrentMapFlags.HasFlag(MapFlags.NoTabMap))
         {
-            var viewport = WorldHud.ViewportBounds;
             var player = WorldState.GetPlayerEntity();
-            var px = player?.TileX ?? 0;
-            var py = player?.TileY ?? 0;
 
-            var entityCount = sortedEntities.Count;
-
-            if (TabMapEntities.Length < entityCount)
-                TabMapEntities = new TabMapEntity[entityCount];
-
-            for (var i = 0; i < entityCount; i++)
+            //no player → no tab map this frame (avoids stamping baseline at (0,0) during transitions)
+            if (player is not null)
             {
-                var e = sortedEntities[i];
+                var viewport = WorldHud.ViewportBounds;
+                var px = player.TileX;
+                var py = player.TileY;
 
-                TabMapEntities[i] = new TabMapEntity(
-                    e.TileX,
-                    e.TileY,
-                    e.Type,
-                    e.Id,
-                    e.CreatureType);
+                var entityCount = sortedEntities.Count;
+
+                if (TabMapEntities.Length < entityCount)
+                    TabMapEntities = new TabMapEntity[entityCount];
+
+                for (var i = 0; i < entityCount; i++)
+                {
+                    var e = sortedEntities[i];
+
+                    TabMapEntities[i] = new TabMapEntity(
+                        e.TileX,
+                        e.TileY,
+                        e.Type,
+                        e.Id,
+                        e.CreatureType);
+                }
+
+                TabMapRenderer.Draw(
+                    spriteBatch,
+                    Device,
+                    viewport,
+                    px,
+                    py,
+                    TabMapEntities,
+                    entityCount,
+                    WorldState.PlayerEntityId,
+                    DarknessRenderer.IsFullBlackDark,
+                    Lighting.Sources,
+                    LightingSystem.BaselineVisibilityOffsets);
             }
-
-            TabMapRenderer.Draw(
-                spriteBatch,
-                Device,
-                viewport,
-                px,
-                py,
-                TabMapEntities,
-                entityCount,
-                WorldState.PlayerEntityId);
         }
 
         //pass 2: ui overlay — full screen, no transform

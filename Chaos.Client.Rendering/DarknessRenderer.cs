@@ -36,8 +36,6 @@ public sealed class DarknessRenderer : IDisposable
     private int LastOffsetX = int.MinValue;
     private int LastOffsetY = int.MinValue;
     private LightMetadata? LightData;
-    private int LightSourceCount;
-    private LightSource[] LightSources = [];
     private Color[]? Pixels;
     private Texture2D? Texture;
 
@@ -50,6 +48,12 @@ public sealed class DarknessRenderer : IDisposable
     ///     Whether darkness is currently active (alpha > 0).
     /// </summary>
     public bool IsActive => Alpha > 0f;
+
+    /// <summary>
+    ///     True only when the map is dark, no graduated light metadata reduced the alpha, and the resulting
+    ///     darkness color is pure black. The tab map uses this signal to switch into limited visibility mode.
+    /// </summary>
+    public bool IsFullBlackDark => IsDarkMap && (Alpha >= 1f) && (DarknessColor == Color.Black);
 
     public DarknessRenderer(GraphicsDevice device) => Device = device;
 
@@ -292,7 +296,7 @@ public sealed class DarknessRenderer : IDisposable
     /// </summary>
     public void ReapplyLightLevel() => OnLightLevel(LastLightLevel);
 
-    private void RebuildFlatWithLights(Rectangle viewport)
+    private void RebuildFlatWithLights(Rectangle viewport, ReadOnlySpan<LightSource> sources)
     {
         var vpWidth = viewport.Width;
         var vpHeight = viewport.Height;
@@ -329,14 +333,14 @@ public sealed class DarknessRenderer : IDisposable
             Pixels[i] = darkColor;
 
         //stamp light sources
-        StampLightSources(vpWidth, vpHeight);
+        StampLightSources(sources, vpWidth, vpHeight);
 
         Texture.SetData(Pixels, 0, pixelCount);
         LastOffsetX = 0;
         LastOffsetY = 0;
     }
 
-    private void RebuildTexture(Camera camera, Rectangle viewport)
+    private void RebuildTexture(Camera camera, Rectangle viewport, ReadOnlySpan<LightSource> sources)
     {
         if (HeaFile is null)
             return;
@@ -465,7 +469,7 @@ public sealed class DarknessRenderer : IDisposable
             ambientAlpha32);
 
         //stamp lantern/dynamic light sources via max-blend
-        StampLightSources(vpWidth, vpHeight);
+        StampLightSources(sources, vpWidth, vpHeight);
 
         Texture.SetData(Pixels, 0, pixelCount);
         LastOffsetX = worldOffsetX;
@@ -480,47 +484,6 @@ public sealed class DarknessRenderer : IDisposable
     {
         LightData = DataContext.MetaFiles.GetLightMetadata();
         CurrentLightType = LightData?.MapLightTypes.TryGetValue(CurrentMapId, out var lightType) is true ? lightType : "default";
-    }
-
-    /// <summary>
-    ///     Sets the light sources for the current frame. Call before Update() each frame. Light sources are screen-space
-    ///     positioned masks that brighten the darkness overlay via max-blend.
-    /// </summary>
-    public void SetLightSources(ReadOnlySpan<LightSource> sources)
-    {
-        if (sources.Length > LightSources.Length)
-            LightSources = new LightSource[sources.Length];
-
-        sources.CopyTo(LightSources);
-        LightSourceCount = sources.Length;
-
-        //compute a cheap hash to detect changes — position + count
-        var hash = LightSourceCount;
-
-        for (var i = 0; i < LightSourceCount; i++)
-        {
-            var src = LightSources[i];
-
-            hash = HashCode.Combine(
-                hash,
-                (int)src.ScreenPosition.X,
-                (int)src.ScreenPosition.Y,
-                src.Mask.Width);
-        }
-
-        if (hash != LastLightSourceHash)
-        {
-            LastLightSourceHash = hash;
-            LastOffsetX = int.MinValue;
-            LastOffsetY = int.MinValue;
-        }
-
-        //clean up flat-dark texture when no longer needed
-        if ((LightSourceCount == 0) && HeaFile is null)
-        {
-            DisposeTexture();
-            Pixels = null;
-        }
     }
 
     private void ShiftAndDecodeRows(
@@ -568,9 +531,9 @@ public sealed class DarknessRenderer : IDisposable
         }
     }
 
-    private void StampLightSources(int vpWidth, int vpHeight)
+    private void StampLightSources(ReadOnlySpan<LightSource> sources, int vpWidth, int vpHeight)
     {
-        if (LightSourceCount == 0)
+        if (sources.Length == 0)
             return;
 
         var pixels = Pixels!;
@@ -578,10 +541,10 @@ public sealed class DarknessRenderer : IDisposable
         var darkG = DarknessColor.G;
         var darkB = DarknessColor.B;
 
-        for (var i = 0; i < LightSourceCount; i++)
+        for (var i = 0; i < sources.Length; i++)
         {
-            var source = LightSources[i];
-            var mask = source.Mask;
+            var source = sources[i];
+            var mask = source.PixelMask;
 
             //mask rect centered on screen position
             var maskLeft = (int)source.ScreenPosition.X - mask.Width / 2;
@@ -651,17 +614,50 @@ public sealed class DarknessRenderer : IDisposable
     }
 
     /// <summary>
-    ///     Rebuilds the darkness overlay texture for the current viewport. Handles both HEA-based per-pixel light maps and flat
-    ///     overlays with dynamic light sources. Call each frame before <see cref="Draw" />.
+    ///     Rebuilds the darkness overlay texture for the current viewport. Handles both HEA-based per-pixel
+    ///     light maps and flat overlays with dynamic light sources. Call each frame before <see cref="Draw" />.
     /// </summary>
-    public void Update(Camera camera, Rectangle viewport)
+    public void Update(Camera camera, Rectangle viewport, ReadOnlySpan<LightSource> sources)
     {
         if (Alpha <= 0f)
             return;
 
+        var hash = ComputeSourceHash(sources);
+
+        if (hash != LastLightSourceHash)
+        {
+            LastLightSourceHash = hash;
+            LastOffsetX = int.MinValue;
+            LastOffsetY = int.MinValue;
+        }
+
         if (HeaFile is not null)
-            RebuildTexture(camera, viewport);
-        else if (LightSourceCount > 0)
-            RebuildFlatWithLights(viewport);
+            RebuildTexture(camera, viewport, sources);
+        else if (sources.Length > 0)
+            RebuildFlatWithLights(viewport, sources);
+        else
+        {
+            //no sources, no HEA — fall back to flat-rect draw, release the texture
+            DisposeTexture();
+            Pixels = null;
+        }
+    }
+
+    private static int ComputeSourceHash(ReadOnlySpan<LightSource> sources)
+    {
+        var hash = sources.Length;
+
+        for (var i = 0; i < sources.Length; i++)
+        {
+            var src = sources[i];
+
+            hash = HashCode.Combine(
+                hash,
+                (int)src.ScreenPosition.X,
+                (int)src.ScreenPosition.Y,
+                src.PixelMask.Width);
+        }
+
+        return hash;
     }
 }

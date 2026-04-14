@@ -961,8 +961,8 @@ public sealed partial class WorldScreen
         //the first frame after the swap would draw the old-sized texture over the new viewport
         if (DarknessRenderer.IsActive)
         {
-            DarknessRenderer.SetLightSources(GatherLightSources());
-            DarknessRenderer.Update(Camera, viewport);
+            Lighting.Gather(MapFile, CurrentMapFlags, Camera);
+            DarknessRenderer.Update(Camera, viewport, Lighting.Sources);
         }
 
         //weather uses fresh viewport each frame via WorldHud.ViewportBounds, but snow needs an

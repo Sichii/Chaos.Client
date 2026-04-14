@@ -14,15 +14,17 @@
     <configurations />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="2cf40e53-e49e-4e2b-a433-eb4f57999662" name="Changes" comment="snow/rain">
+    <list default="true" id="2cf40e53-e49e-4e2b-a433-eb4f57999662" name="Changes" comment="ping indicator">
+      <change afterPath="$PROJECT_DIR$/Chaos.Client/Systems/LightingSystem.cs" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/.idea.Chaos.Client/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/.idea.Chaos.Client/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Chaos.Client.Networking/GameClient.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client.Networking/GameClient.cs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Chaos.Client.Rendering/Models/SnowParticle.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client.Rendering/Models/SnowParticle.cs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Chaos.Client.Rendering/WeatherRenderer.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client.Rendering/WeatherRenderer.cs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Chaos.Client/ChaosGame.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client/ChaosGame.cs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Chaos.Client/Controls/World/Hud/LargeWorldHudControl.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client/Controls/World/Hud/LargeWorldHudControl.cs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Chaos.Client/Controls/World/Hud/WorldHudControl.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client/Controls/World/Hud/WorldHudControl.cs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Chaos.Client/Screens/WorldScreen.Map.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client/Screens/WorldScreen.Map.cs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/CLAUDE.md" beforeDir="false" afterPath="$PROJECT_DIR$/CLAUDE.md" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Chaos.Client.Rendering/DarknessRenderer.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client.Rendering/DarknessRenderer.cs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Chaos.Client.Rendering/LightSource.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client.Rendering/LightSource.cs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Chaos.Client.Rendering/TabMapRenderer.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client.Rendering/TabMapRenderer.cs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Chaos.Client/Screens/WorldScreen.Draw.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client/Screens/WorldScreen.Draw.cs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Chaos.Client/Screens/WorldScreen.Update.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client/Screens/WorldScreen.Update.cs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Chaos.Client/Screens/WorldScreen.Wiring.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client/Screens/WorldScreen.Wiring.cs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Chaos.Client/Screens/WorldScreen.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client/Screens/WorldScreen.cs" afterDir="false" />
     </list>
     <list id="7231daaa-f0af-42dd-822b-aeab5364bc8b" name="AiStuff" comment="">
       <change afterPath="$PROJECT_DIR$/pyghidra_mcp_projects/my_project.rep/idata/00/~00000000.db/db.2.gbf" afterDir="false" />
@@ -345,7 +347,15 @@
       <option name="project" value="LOCAL" />
       <updated>1776156618068</updated>
     </task>
-    <option name="localTasksCounter" value="28" />
+    <task id="LOCAL-00028" summary="ping indicator">
+      <option name="closed" value="true" />
+      <created>1776161999939</created>
+      <option name="number" value="00028" />
+      <option name="presentableId" value="LOCAL-00028" />
+      <option name="project" value="LOCAL" />
+      <updated>1776161999939</updated>
+    </task>
+    <option name="localTasksCounter" value="29" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -370,7 +380,8 @@
     <MESSAGE value="many minor things" />
     <MESSAGE value="input / auto-follow things" />
     <MESSAGE value="snow/rain" />
-    <option name="LAST_COMMIT_MESSAGE" value="snow/rain" />
+    <MESSAGE value="ping indicator" />
+    <option name="LAST_COMMIT_MESSAGE" value="ping indicator" />
   </component>
   <component name="XDebuggerManager">
     <pin-to-top-manager>

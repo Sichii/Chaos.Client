@@ -110,7 +110,7 @@ public sealed partial class WorldScreen : IScreen
     private ItemTooltipControl ItemTooltip = null!;
     private LargeWorldHudControl LargeHud = null!;
     private TileClickTracker LeftClickTracker;
-    private LightSource[] LightSourceBuffer = new LightSource[16];
+    private readonly LightingSystem Lighting = new();
 
     //true while awaiting a paginated board response (append instead of replace)
     private bool LoadingMoreBoardPosts;
