@@ -14,13 +14,10 @@
     <configurations />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="2cf40e53-e49e-4e2b-a433-eb4f57999662" name="Changes" comment="LightingSystem&#10;- dark maps reduce tab map visibility&#10;- light sources give more tab map visibility">
-      <change beforePath="$PROJECT_DIR$/README.md" beforeDir="false" afterPath="$PROJECT_DIR$/README.md" afterDir="false" />
+    <list default="true" id="2cf40e53-e49e-4e2b-a433-eb4f57999662" name="Changes" comment="readme">
+      <change beforePath="$PROJECT_DIR$/.idea/.idea.Chaos.Client/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/.idea.Chaos.Client/.idea/workspace.xml" afterDir="false" />
     </list>
-    <list id="7231daaa-f0af-42dd-822b-aeab5364bc8b" name="AiStuff" comment="">
-      <change afterPath="$PROJECT_DIR$/pyghidra_mcp_projects/my_project.rep/idata/00/~00000000.db/db.2.gbf" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/pyghidra_mcp_projects/my_project.rep/idata/00/~00000000.db/tmp17194003914979311650.ps" afterDir="false" />
-    </list>
+    <list id="7231daaa-f0af-42dd-822b-aeab5364bc8b" name="AiStuff" comment="" />
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
     <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
@@ -354,7 +351,15 @@
       <option name="project" value="LOCAL" />
       <updated>1776173555112</updated>
     </task>
-    <option name="localTasksCounter" value="30" />
+    <task id="LOCAL-00030" summary="readme">
+      <option name="closed" value="true" />
+      <created>1776174201872</created>
+      <option name="number" value="00030" />
+      <option name="presentableId" value="LOCAL-00030" />
+      <option name="project" value="LOCAL" />
+      <updated>1776174201872</updated>
+    </task>
+    <option name="localTasksCounter" value="31" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -374,14 +379,14 @@
     <MESSAGE value="bugfixes" />
     <MESSAGE value="mpf stuff" />
     <MESSAGE value="bugfixes and readme" />
-    <MESSAGE value="readme" />
     <MESSAGE value="h pane, readme updates" />
     <MESSAGE value="many minor things" />
     <MESSAGE value="input / auto-follow things" />
     <MESSAGE value="snow/rain" />
     <MESSAGE value="ping indicator" />
     <MESSAGE value="LightingSystem&#10;- dark maps reduce tab map visibility&#10;- light sources give more tab map visibility" />
-    <option name="LAST_COMMIT_MESSAGE" value="LightingSystem&#10;- dark maps reduce tab map visibility&#10;- light sources give more tab map visibility" />
+    <MESSAGE value="readme" />
+    <option name="LAST_COMMIT_MESSAGE" value="readme" />
   </component>
   <component name="XDebuggerManager">
     <pin-to-top-manager>

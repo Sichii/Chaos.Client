@@ -63,8 +63,9 @@ These are intentional, and are the first things a fork should know about:
 10. **Pants render under overcoats when the server allows it.** If the server's item definition says the overcoat permits pants, this client draws them. Retail does not.
 11. **Album and Portrait systems are not implemented.** The Album tab in the self-profile is not wired up, and the portrait button does not actually take a portrait of your character. Both are straightforward to fill in if you need them.
 12. **Alt+Enter cycles through window sizes.** The virtual canvas is 640×480; Alt+Enter steps the backbuffer through multiples of that — 1×, 2×, 3×, … — up to whatever the current monitor can fit, then wraps back to 1×.
-13. **Swimming is unrestricted by default.** Retail gates swim tiles behind the hidden GM swim flag or the `Swimming` skill. This client ships with that gate **off** — any character walks/pathfinds onto water tiles freely. Set `GlobalSettings.RequireSwimmingSkill = true` to restore the retail behavior.
-14. **Health bars, chants, and chat bubbles on creature sprites use a blended offset.** They sit halfway between a fixed baseline and the sprite's mean visible top instead of tracking frame heights — small sprites a little higher than retail, large sprites a little lower.
+13. **Swimming is unrestricted by default.** Retail gates swimming(walking on water tiles) behind the `Swimming` skill, or having the GM flag to ignore collision. This client ships with that gate **off** — any character walks/pathfinds onto water tiles freely. Set `GlobalSettings.RequireSwimmingSkill = true` to restore the retail behavior.
+14. **Health bars, chants, and chat bubbles on creature sprites use a blended offset.** They sit halfway between a fixed baseline and the sprite's mean visible top instead of tracking frame heights — small sprites a little higher than retail, large sprites a little lower.  
+15. **Snow looks different and Rain actually works.** This client uses a different snow implementation, and unlike the original client, Rain actually works.
 
 This is not an exhaustive list, but other differences are likely too minor to bother with.
 
