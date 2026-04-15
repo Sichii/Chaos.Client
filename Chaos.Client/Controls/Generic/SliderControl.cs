@@ -1,9 +1,10 @@
 #region
+using Chaos.Client.Controls.Components;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 #endregion
 
-namespace Chaos.Client.Controls.Components;
+namespace Chaos.Client.Controls.Generic;
 
 /// <summary>
 ///     A slider control with a draggable thumb. The panel bounds encompass both the track

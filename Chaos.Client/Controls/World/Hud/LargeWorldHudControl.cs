@@ -76,7 +76,7 @@ public sealed class LargeWorldHudControl : PrefabPanel, IWorldHud
     public Rectangle InventoryBounds { get; }
     public UIButton?[] InventoryTabButtons { get; } = new UIButton?[6];
     public UIButton? LegendButton { get; }
-    public UIButton? MailButton { get; }
+    public MailButton? MailButton { get; }
     public UIButton? OptionButton { get; }
     public UIButton? ScreenshotButton { get; }
     public UIButton? SettingsButton { get; }
@@ -177,7 +177,8 @@ public sealed class LargeWorldHudControl : PrefabPanel, IWorldHud
         LegendButton = CreateButton("BTN_LEGEND");
         TownMapButton = CreateButton("BTN_TOWNMAP");
         GroupButton = CreateButton("BTN_GROUP");
-        MailButton = CreateButton("CMail");
+        //mail button pulses a yellow outline while HasUnreadMail is set
+        MailButton = CreateButton<MailButton>("CMail");
         GroupIndicator = CreateButton("CGroup");
 
         ScreenshotButton = CreateButton("CShot");
@@ -295,6 +296,8 @@ public sealed class LargeWorldHudControl : PrefabPanel, IWorldHud
         SetWeight(attrs.CurrentWeight, attrs.MaxWeight);
         StatsPanel.UpdateAttributes(attrs);
         ExtendedStatsPanel.UpdateAttributes(attrs);
+
+        MailButton?.SetAnimating(attrs.HasUnreadMail);
     }
 
     #region Tab Panel Management

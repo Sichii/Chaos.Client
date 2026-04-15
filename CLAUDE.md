@@ -32,25 +32,26 @@ Chaos.Client.slnx (.NET 10.0, C# 14)
 
 ## Related Repositories
 
-| Path | Description |
-|------|-------------|
-| `D:\repos\Sichii\Chaos-Server` | Chaos-Server private server. Contains all `Chaos.*` namespaces (Chaos.Networking, Chaos.DarkAges, etc.) |
-| `D:\repos\Sichii\ChaosAssetManager` | Asset rendering reference app |
-| `../dalib/DALib/` | Local DALib fork (project ref) |
+| Path                                | Description                                                                                             |
+|-------------------------------------|---------------------------------------------------------------------------------------------------------|
+| `D:\repos\Sichii\Chaos-Server`      | Chaos-Server private server. Contains all `Chaos.*` namespaces (Chaos.Networking, Chaos.DarkAges, etc.) |
+| `D:\repos\Sichii\ChaosAssetManager` | Asset rendering reference app                                                                           |
+| `../dalib/DALib/`                   | Local DALib fork (project ref)                                                                          |
 
 ## Key Dependencies
 
-| Package | Purpose |
-|---------|---------|
-| DALib (project ref, ../dalib/) | Dark Ages file format support, SkiaSharp rendering |
-| MonoGame.Framework.DesktopGL 3.8.4.1 | Cross-platform graphics/windowing |
-| Chaos.Networking 1.10.0-preview | Complete protocol library: packet converters, crypto, opcodes, args types |
-| Chaos.Common 1.10.0-preview | Shared extension methods (NuGet) |
-| Chaos.DarkAges 1.10.0-preview | Dark Ages protocol types (NuGet) |
-| Chaos.Geometry 1.10.0-preview | Geometry types -- rectangles, points (NuGet) |
-| Chaos.Pathfinding 1.10.0-preview | A* pathfinding (NuGet) |
-| Microsoft.Extensions.Caching.Memory 10.0.5 | MemoryCache infrastructure |
-| NAudio 2.3.0 | MP3 decoding for sound playback |
+| Package                                    | Purpose                                                                   |
+|--------------------------------------------|---------------------------------------------------------------------------|
+| DALib (project ref, ../dalib/)             | Dark Ages file format support, SkiaSharp rendering                        |
+| MonoGame.Framework.DesktopGL 3.8.4.1       | Cross-platform graphics/windowing                                         |
+| Chaos.Networking 1.11.0-preview            | Complete protocol library: packet converters, crypto, opcodes, args types |
+| Chaos.Common 1.11.0-preview                | Shared extension methods (NuGet)                                          |
+| Chaos.DarkAges 1.11.0-preview              | Dark Ages protocol types (NuGet)                                          |
+| Chaos.Geometry 1.11.0-preview              | Geometry types -- rectangles, points (NuGet)                              |
+| Chaos.Pathfinding 1.11.0-preview           | A* pathfinding (NuGet)                                                    |
+| Microsoft.Extensions.Caching.Memory 10.0.5 | MemoryCache infrastructure                                                |
+| NAudio 2.3.0                               | MP3 decoding for sound playback                                           |
+| TextCopy 6.2.1                             | Cross-platform clipboard access (used by `Utilities/Clipboard`)           |
 
 ## Build Configuration
 
@@ -91,7 +92,7 @@ Centralized in `Directory.Build.props`: C# 14, net10.0, nullable enabled, implic
 - **`GameClient`** -- Low-level TCP: crypto, packet framing (0xAA + 2-byte BE length), sequence tracking, `InboundQueue` via `DrainPackets()`. Auto-responds to HeartBeat/SynchronizeTicks.
 - **`ConnectionManager`** -- State machine (Disconnected->Connecting->Lobby->Login->World), array-indexed handler dispatch (60+ handlers), 48+ events. Full lobby/login/world-entry flows. Player action methods, communication, NPC/dialog, requests.
 - **`ServerTableData`** -- Zlib-compressed server list parser.
-- Protocol types come from the `Chaos.Networking` / `Chaos.DarkAges` NuGet packages (preview 1.10.0) — serialization, opcodes, and args types are all defined there rather than in this project.
+- Protocol types come from the `Chaos.Networking` / `Chaos.DarkAges` NuGet packages (preview 1.11.0) — serialization, opcodes, and args types are all defined there rather than in this project.
 
 ### Client Project (`Chaos.Client`) Internal Organization
 
@@ -129,9 +130,9 @@ Chaos.Client/
 
 ### UI Control System
 
-**Component Primitives (`Controls/Components/`):** UIElement, UIPanel, UIButton, BlinkButton, UITextBox, UIImage, UIAnimatedImage, UILabel, UIProgressBar, SliderControl, TextElement, PrefabPanel, ExpandablePanel.
+**Component Primitives (`Controls/Components/`):** UIElement, UIPanel, UIButton, UITextBox, UIImage, UILabel, UIProgressBar, SliderControl, TextElement, PrefabPanel, ExpandablePanel.
 
-**Login Flow (`Controls/LobbyLogin/`):** LobbyLoginControl, LoginControl, ServerSelectControl, CharacterCreationControl, LoginNoticeControl, PasswordChangeControl.
+**Login Flow (`Controls/LobbyLogin/`):** LobbyLoginControl, LoginControl, ServerSelectControl, CharacterCreationControl, LoginNoticeControl, PasswordChangeControl, LogoImage.
 
 **Generic Controls (`Controls/Generic/`):** OkPopupMessageControl, TextPopupControl, ScrollBarControl, DebugOverlay.
 

@@ -1,10 +1,11 @@
 #region
+using Chaos.Client.Controls.Components;
 using Chaos.Client.Controls.Generic;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 #endregion
 
-namespace Chaos.Client.Controls.Components;
+namespace Chaos.Client.Controls.World.Hud.Panel;
 
 /// <summary>
 ///     Base class for panels that support an expanded mode with a taller background drawn upward from the panel's anchor

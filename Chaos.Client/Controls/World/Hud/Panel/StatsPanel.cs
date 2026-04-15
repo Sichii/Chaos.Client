@@ -72,7 +72,7 @@ public sealed class StatsPanel : ExpandablePanel
     ];
 
     private readonly UILabel?[] Labels = new UILabel?[LABEL_COUNT];
-    private readonly BlinkButton?[] StatButtons = new BlinkButton?[STAT_BUTTON_COUNT];
+    private readonly StatButton?[] StatButtons = new StatButton?[STAT_BUTTON_COUNT];
     private bool HasUnspentPoints;
 
     //expand repositioning — compact and expanded label layouts
@@ -121,7 +121,7 @@ public sealed class StatsPanel : ExpandablePanel
             {
                 var stat = STAT_BUTTON_STATS[i];
 
-                var btn = new BlinkButton
+                var btn = new StatButton
                 {
                     Name = $"LevelUp_{stat}",
                     X = STAT_BUTTON_X,
@@ -132,7 +132,7 @@ public sealed class StatsPanel : ExpandablePanel
                     Visible = false
                 };
 
-                btn.SetBlinkFrames(blinkFrameA, blinkFrameB);
+                btn.SetFrames(blinkFrameA, blinkFrameB);
 
                 var capturedStat = stat;
                 btn.Clicked += () => OnRaiseStat?.Invoke(capturedStat);
@@ -318,7 +318,7 @@ public sealed class StatsPanel : ExpandablePanel
             if (StatButtons[i] is not null)
             {
                 StatButtons[i]!.Visible = hasPoints && (!CanExpand || IsExpanded);
-                StatButtons[i]!.SetBlinking(hasPoints);
+                StatButtons[i]!.SetAnimating(hasPoints);
             }
     }
 

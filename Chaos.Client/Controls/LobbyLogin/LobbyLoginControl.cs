@@ -7,7 +7,7 @@ namespace Chaos.Client.Controls.LobbyLogin;
 
 public sealed class LobbyLoginControl : PrefabPanel
 {
-    public UIAnimatedImage? AnimatedLogo { get; }
+    public LogoImage? AnimatedLogo { get; }
     public UIButton? ContinueButton { get; }
     public UIButton? CreditButton { get; }
     public UIButton? ExitButton { get; }
@@ -53,7 +53,7 @@ public sealed class LobbyLoginControl : PrefabPanel
         }
 
         //animated logo — logo control has 20 frames. create as static image first,
-        //then replace with uianimatedimage using the prefab's frames.
+        //then replace with LogoImage using the prefab's frames.
         var logoImage = CreateImage("LOGO");
 
         if (logoImage is not null)
@@ -65,7 +65,7 @@ public sealed class LobbyLoginControl : PrefabPanel
             for (var i = 0; i < logoPrefab.Images.Count; i++)
                 animFrames[i] = cache.GetPrefabTexture(PrefabSet.Name, "LOGO", i);
 
-            AnimatedLogo = new UIAnimatedImage
+            AnimatedLogo = new LogoImage
             {
                 Name = "AnimatedLogo",
                 X = logoImage.X,

@@ -89,7 +89,7 @@ public sealed class WorldHudControl : PrefabPanel, IWorldHud
     public UIButton? LegendButton { get; }
 
     //buttons — notification indicators
-    public UIButton? MailButton { get; }
+    public MailButton? MailButton { get; }
 
     //buttons — right side
     public UIButton? OptionButton { get; }
@@ -190,8 +190,8 @@ public sealed class WorldHudControl : PrefabPanel, IWorldHud
         TownMapButton = CreateButton("BTN_TOWNMAP");
         GroupButton = CreateButton("BTN_GROUP");
 
-        //notification indicators
-        MailButton = CreateButton("CMail");
+        //notification indicators — mail button pulses a yellow outline while HasUnreadMail is set
+        MailButton = CreateButton<MailButton>("CMail");
         GroupIndicator = CreateButton("CGroup");
         ScreenshotButton = CreateButton("CShot");
 
@@ -305,6 +305,8 @@ public sealed class WorldHudControl : PrefabPanel, IWorldHud
         SetWeight(attrs.CurrentWeight, attrs.MaxWeight);
         StatsPanel.UpdateAttributes(attrs);
         ExtendedStatsPanel.UpdateAttributes(attrs);
+
+        MailButton?.SetAnimating(attrs.HasUnreadMail);
     }
 
     #region Helpers

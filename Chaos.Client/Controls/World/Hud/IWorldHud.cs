@@ -33,7 +33,7 @@ public interface IWorldHud
     UIButton?[] InventoryTabButtons { get; }
     bool IsOrangeBarDragging { get; }
     UIButton? LegendButton { get; }
-    UIButton? MailButton { get; }
+    MailButton? MailButton { get; }
     UIButton? OptionButton { get; }
     string PlayerName { get; }
     UIButton? ScreenshotButton { get; }

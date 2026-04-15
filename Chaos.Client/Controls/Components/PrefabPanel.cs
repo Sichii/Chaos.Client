@@ -48,15 +48,17 @@ public abstract class PrefabPanel : UIPanel
             Background = UiRenderer.Instance!.GetPrefabTexture(prefabName, anchor.Control.Name, 0);
     }
 
-    protected UIButton? CreateButton(string name)
+    protected UIButton? CreateButton(string name) => CreateButton<UIButton>(name);
+
+    protected T? CreateButton<T>(string name) where T: UIButton, new()
     {
         if (!PrefabSet.Contains(name))
             return null;
 
-        if (ReuseOrRemoveExistingChild<UIButton>(name) is { } existing)
+        if (ReuseOrRemoveExistingChild<T>(name) is { } existing)
             return existing;
 
-        var button = CreateButtonFromPrefab(PrefabSet[name]);
+        var button = CreateButtonFromPrefab<T>(PrefabSet[name]);
 
         if (button is not null)
             AddChild(button);
@@ -64,7 +66,7 @@ public abstract class PrefabPanel : UIPanel
         return button;
     }
 
-    private UIButton? CreateButtonFromPrefab(ControlPrefab prefab)
+    private T? CreateButtonFromPrefab<T>(ControlPrefab prefab) where T : UIButton, new()
     {
         var rect = prefab.Control.Rect;
 
@@ -99,7 +101,7 @@ public abstract class PrefabPanel : UIPanel
             disabledTexture = count > 2 ? cache.GetPrefabTexture(PrefabSet.Name, prefab.Control.Name, 2) : null;
         }
 
-        return new UIButton
+        return new T
         {
             Name = prefab.Control.Name,
             X = (int)r.Left,

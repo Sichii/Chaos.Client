@@ -13,12 +13,6 @@ Targets Dark Ages client version **7.4.1** for feature parity.
   - [World state](#world-state)
   - [Draw order](#draw-order)
 - [UI System](#ui-system)
-  - [UIElement](#uielement)
-  - [UIPanel](#uipanel)
-  - [PrefabPanel](#prefabpanel)
-  - [Widgets](#widgets)
-  - [TextElement](#textelement)
-  - [Adding, removing, modifying](#adding-removing-modifying)
 - [Input](#input)
   - [InputBuffer](#inputbuffer)
   - [InputDispatcher](#inputdispatcher)
@@ -91,7 +85,7 @@ DALib ──> Chaos.Client.Rendering ─┼─> Chaos.Client
 
 ### World state
 
-`WorldState` is a static class holding the ViewModel objects (`Inventory`, `SkillBook`, `SpellBook`, `Equipment`, `PlayerAttributes`, `Chat`, `Exchange`, `Board`, `GroupState`, `NpcInteraction`, `UserOptions`, `WorldList`). Server packets write into these via `ConnectionManager` events wired in `WorldScreen.Wiring.cs`; controls read from them directly, no constructor injection. Treat `WorldState` as the single source of truth for anything shown in the world screen.
+`WorldState` is a static class holding the ViewModel objects (`Inventory`, `SkillBook`, `SpellBook`, `Equipment`, `PlayerAttributes`, `Chat`, `Exchange`, `Board`, `GroupState`, `GroupInvite`, `NpcInteraction`, `UserOptions`, `WorldList`). Server packets write into these via `ConnectionManager` events wired in `WorldScreen.Wiring.cs`; controls read from them directly, no constructor injection. Treat `WorldState` as the single source of truth for anything shown in the world screen.
 
 ### Draw order
 
@@ -120,54 +114,19 @@ Each frame goes through three phases (see `WorldScreen.Draw.cs`):
 
 All UI primitives live in `Chaos.Client/Controls/Components/`. A catalog of the prefab control files shipped in the dat archives and their consuming classes is in `controlFileList.txt` at the solution root.
 
-### `UIElement`
+| Component         | Purpose                                      | Notes                                                                                                                                                                                                                                                                                                                                                           |
+|-------------------|----------------------------------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `UIElement`       | Abstract base for every UI primitive.        | Position, size, padding, `ZIndex`, `BackgroundColor`/`BorderColor`, per-frame `ClipRect` intersected with the parent. Input events are virtual methods (`OnClick`, `OnMouseDown`/`Up`/`Move`, `OnMouseEnter`/`Leave`, `OnMouseScroll`, `OnKey*`, `OnTextInput`, `OnDrag*`). `X`/`Y` are parent-local; `ScreenX`/`ScreenY` walk the chain. See subclassing notes below. |
+| `UIPanel`         | Container with `Children`; disposal cascades. | `IsPassThrough` — children still hit-test, the panel itself never does (full-screen HUD overlays). `IsModal` — captures all input while visible; others still `Update`. `UsesControlStack` — participates in the `InputDispatcher` control stack (auto-managed for `PrefabPanel`). Draw order within a panel is by `ZIndex`, ties broken by insertion order. |
+| `PrefabPanel`     | Abstract `UIPanel` loading a DALib prefab.   | First entry is the "anchor" (sets `Width`, `Height`, position, background). Use `CreateButton`/`CreateImage`/`CreateLabel`/`CreateTextBox`/`CreateProgressBar` to instantiate named children — no autopopulate; returns `null` if the name is absent. `GetRect("name")` returns an anchor-relative rect without creating a child.                             |
+| `TextElement`     | Text-drawing helper. **Not a `UIElement`.**  | Holds the state a string needs to draw via `TextRenderer` (text, color, wrap cache, shadow, alignment, color-code toggle). No bounds, no GPU state — owning widgets draw it wherever they want. `Update`/`UpdateShadowed`/`UpdateWrapped` pick the mode and skip work when nothing changed. Wrap a `TextElement` instead of calling `TextRenderer` directly. |
+| `UIImage`         | Static texture.                              | Owns its `Texture` and disposes it.                                                                                                                                                                                                                                                                                                                             |
+| `UIButton`        | Clickable with up to 5 state textures.       | `NormalTexture`, `HoverTexture`, `PressedTexture`, `SelectedTexture`, `DisabledTexture` (all optional). Set `CenterTexture = true` when the textures differ in size (e.g. status-book tabs with a small normal and a big selected).                                                                                                                            |
+| `UILabel`         | Non-editable text.                           | Wraps a `TextElement`. Optional selection and word wrap. Re-measures only when content or color changes. `ColorCodesEnabled` passes through to the renderer.                                                                                                                                                                                                   |
+| `UITextBox`       | Editable text input.                         | Wraps a `TextElement`. Blinking caret, click-to-position, drag-to-select, double/triple click for word/line selection. Routes its own focus via the `TextBoxFocusGained` event.                                                                                                                                                                                |
+| `UIProgressBar`   | Fill bar.                                    | —                                                                                                                                                                                                                                                                                                                                                               |
 
-The abstract base. Holds position (`X`, `Y`, `Width`, `Height`), padding, visibility, z-index, optional `BackgroundColor` / `BorderColor`, `IsHitTestVisible`, and a `ClipRect` that's re-computed every frame from the element's screen bounds intersected with the parent's clip rect. Input events are virtual methods (`OnClick`, `OnMouseDown`/`Up`, `OnMouseMove`, `OnMouseEnter`/`Leave`, `OnMouseScroll`, `OnKeyDown`/`Up`, `OnTextInput`, `OnDragStart`/`Move`/`Drop`) — override whichever ones you care about. `X` / `Y` are local to the parent; `ScreenX` / `ScreenY` walk the parent chain at draw time.
-
-Subclass protocol:
-- Override `Draw(SpriteBatch)` and call `base.Draw()` first so the background and border render behind your content. Use the `DrawTexture` / `DrawRectClipped` / `DrawTextClipped` / `DrawTextShadowedClipped` helpers — they all auto-clip to `ClipRect`.
-- Override `Update(GameTime)` for animations and timers. `Update` runs every frame for every visible element regardless of focus.
-- Override `ResetInteractionState()` if you track transient hover/press/drag state — it's called recursively when a parent is hidden so the state won't linger next time the element becomes visible.
-
-### `UIPanel`
-
-A `UIElement` with `Children`. `AddChild(element)` attaches; disposal cascades. Notable flags:
-
-- `IsPassThrough` — children are still hit-tested, but the panel itself is never returned as a hit target. Clicks that miss all children fall through to whatever is behind the panel. Used for full-screen HUD overlays with large transparent areas.
-- `IsModal` — while visible, this panel captures all input. Other controls still receive `Update` calls (so their animations tick) but get no input events.
-- `UsesControlStack` — the panel participates in the `InputDispatcher` control stack. `PrefabPanel.Show` / `Hide` push and pop automatically; plain `UIPanel` subclasses that want stack behavior have to do it themselves.
-
-Draw order within a panel is by `ZIndex`, ties broken by insertion order.
-
-### `PrefabPanel`
-
-Abstract `UIPanel` that loads a `ControlPrefabSet` from a DALib control file. The first entry (the "anchor") sets the panel's `Width`, `Height`, position, and background texture. Call `CreateButton("name")` / `CreateImage` / `CreateLabel` / `CreateTextBox` / `CreateProgressBar` to instantiate only the children you actually need — there's no autopopulate, and the helpers return `null` if the named entry doesn't exist in the prefab. `GetRect("name")` returns an anchor-relative rectangle without creating a child, useful when you want to position something manually into a prefab slot.
-
-### Widgets
-
-| Class             | Purpose                                                                                                                                                                                                                                                  |
-|-------------------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| `UIImage`         | Static texture. Owns its `Texture` and disposes it.                                                                                                                                                                                                      |
-| `UIAnimatedImage` | Plays a `Frames[]` array on a fixed interval. `Looping`, `PingPong`, and `FrameIntervalMs` are all configurable.                                                                                                                                         |
-| `UIButton`        | Five optional state textures (`NormalTexture`, `HoverTexture`, `PressedTexture`, `SelectedTexture`, `DisabledTexture`). Set `CenterTexture = true` when the textures are different sizes (e.g. status-book tabs with a small normal and a big selected). |
-| `BlinkButton`     | `UIButton` that alternates between two textures on a timer.                                                                                                                                                                                              |
-| `UILabel`         | Non-editable text with optional selection and word wrap. Re-measures only when content or color changes. `ColorCodesEnabled` is passed through to the renderer.                                                                                          |
-| `UITextBox`       | Editable text input. Blinking caret, click-to-position, drag-to-select, and double/triple click for word/line selection.                                                                                                                                 |
-| `UIProgressBar`   | Fill bar.                                                                                                                                                                                                                                                |
-| `SliderControl`   | Draggable thumb on a 0–10 track. Panel bounds include thumb overflow so clicks off the track still register.                                                                                                                                             |
-| `ExpandablePanel` | Panel that can swap to a taller background drawn upward from its anchor position. Used for HUD panels that grow on Shift-press.                                                                                                                          |
-
-### `TextElement`
-
-`TextElement` is **not** a `UIElement` — it's a helper that holds the state a text string needs to draw via `TextRenderer` (current text, color, wrap cache, shadow flag, alignment, color-code toggle). It has no GPU resources of its own and no bounds/position — owning widgets draw it wherever they want. Call `Update(text, color)` whenever the source changes; `Update` skips work when nothing changed, so you can call it every frame without cost. Separate `UpdateShadowed` and `UpdateWrapped` entry points switch the draw mode.
-
-`UILabel` and `UITextBox` both wrap a `TextElement` internally. If you're building a custom widget that needs to draw text, use a `TextElement` instead of calling `TextRenderer` directly — you'll get change-detection and the wrap cache for free.
-
-### Adding, removing, modifying
-
-- **Add**: instantiate, set position/content, `parent.AddChild(element)`. For prefab panels, use `CreateXxx` instead — it wires the anchor offsets and textures for you.
-- **Remove**: take it out of `parent.Children`. Dispose it if you won't re-use it — disposal is recursive through `UIPanel`, so disposing a panel frees everything under it.
-- **Modify**: most widgets expose setters for the things you'd want to change (`Text`, `Color`, `Texture`, `Visible`, `Enabled`). All of them are safe mid-frame.
+**Subclassing `UIElement`.** Override `Draw(SpriteBatch)` and call `base.Draw()` first so the background and border render behind your content. Use the auto-clipping helpers — `DrawTexture`, `DrawRectClipped`, `DrawTextClipped`, `DrawTextShadowedClipped` — rather than drawing through `SpriteBatch` directly. Override `Update(GameTime)` for animations and timers; it runs every frame for every visible element regardless of focus. Override `ResetInteractionState()` if you track transient hover/press/drag state — it's called recursively when a parent hides so stale state doesn't linger next time the element becomes visible.
 
 ## Input
 
@@ -429,9 +388,9 @@ There are two cases, and they're very different.
 
 Outbound packets are symmetric — add a method on `ConnectionManager` that calls `Client.Send(new FooArgs { ... })`.
 
-**Adding a brand-new packet the library has never seen.** A new packet means a new `ServerOpCode` (or `ClientOpCode`) enum value, a new args type, and a new `IPacketConverter` to serialize/deserialize it. All of that lives in `Chaos.Networking` and it's depdencies, which this project consumes as a NuGet package — you can't add new types to a compiled dependency.
+**Adding a brand-new packet the library has never seen.** A new packet means a new `ServerOpCode` (or `ClientOpCode`) enum value, a new args type, and a new `IPacketConverter` to serialize/deserialize it. All of that lives in `Chaos.Networking` and its dependencies, which this project consumes as a NuGet package — you can't add new types to a compiled dependency.
 
-The most obvious path is to **fork [Chaos-Server](https://github.com/Sichii/Chaos-Server), drop the `Chaos.Networking` NuGet reference from this project, and add `ProjectReference`s to the networking source projects from your server fork**. The server repo ships the full source for `Chaos.Networking` and it's dependencies; you can pull those into the client solution and leave the server-only `Chaos` project out if you don't want it here. New opcodes / args / converters then live in a single source tree that both client and server compile against, which keeps them in sync by construction.
+The most obvious path is to **fork [Chaos-Server](https://github.com/Sichii/Chaos-Server), drop the `Chaos.Networking` NuGet reference from this project, and add `ProjectReference`s to the networking source projects from your server fork**. The server repo ships the full source for `Chaos.Networking` and its dependencies; you can pull those into the client solution and leave the server-only `Chaos` project out if you don't want it here. New opcodes / args / converters then live in a single source tree that both client and server compile against, which keeps them in sync by construction.
 
 Other routes exist — republishing your own preview NuGets, or shimming new converters on the client side alongside the library's — but referencing the source projects directly is the path with the fewest moving parts, and if you're adding a protocol extension, you'll already have the server repo open anyway.
 

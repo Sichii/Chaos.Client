@@ -1,12 +1,12 @@
 #region
+using Chaos.Client.Controls.Components;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 #endregion
 
-namespace Chaos.Client.Controls.Components;
+namespace Chaos.Client.Controls.LobbyLogin;
 
-// ReSharper disable once ClassCanBeSealed.Global
-public class UIAnimatedImage : UIElement
+public sealed class LogoImage : UIImage
 {
     private int FrameDirection = 1;
     private double FrameTimer;
@@ -18,31 +18,23 @@ public class UIAnimatedImage : UIElement
 
     public override void Dispose()
     {
+        //null out Texture so base.Dispose doesn't dispose a frame we already own and free below
+        Texture = null;
+
         foreach (var frame in Frames)
             frame.Dispose();
 
         base.Dispose();
     }
 
-    public override void Draw(SpriteBatch spriteBatch)
-    {
-        if (!Visible || (Frames.Length == 0))
-            return;
-
-        base.Draw(spriteBatch);
-
-        var frame = Frames[CurrentFrame];
-
-        DrawTexture(
-            spriteBatch,
-            frame,
-            new Vector2(ScreenX, ScreenY),
-            Color.White);
-    }
-
     public override void Update(GameTime gameTime)
     {
-        if (Frames.Length <= 1)
+        if (Frames.Length == 0)
+            return;
+
+        Texture = Frames[CurrentFrame];
+
+        if (Frames.Length == 1)
             return;
 
         FrameTimer += gameTime.ElapsedGameTime.TotalMilliseconds;
