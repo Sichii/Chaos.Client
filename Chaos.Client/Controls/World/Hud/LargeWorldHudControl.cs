@@ -84,7 +84,7 @@ public sealed class LargeWorldHudControl : PrefabPanel, IWorldHud
     public UIButton? UsersButton { get; }
     public Rectangle ViewportBounds { get; }
 
-    public LargeWorldHudControl(InputBuffer input)
+    public LargeWorldHudControl()
         : base("_nbk_l", false)
     {
         Name = "GameHudLarge";
@@ -98,7 +98,7 @@ public sealed class LargeWorldHudControl : PrefabPanel, IWorldHud
             ViewportBounds = GetRect("EMPTY");
 
         //chat input control (say)
-        ChatInput = new ChatInputControl(PrefabSet, input);
+        ChatInput = new ChatInputControl(PrefabSet);
         AddChild(ChatInput);
 
         ChatInput.FocusChanged += focused =>

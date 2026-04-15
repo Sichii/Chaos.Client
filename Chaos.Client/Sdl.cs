@@ -16,6 +16,7 @@ internal static partial class Sdl
     public const uint TEXTINPUT = 0x303;
     public const uint MOUSEBUTTONDOWN = 0x401;
     public const uint MOUSEBUTTONUP = 0x402;
+    public const uint MOUSEWHEEL = 0x403;
 
     public const byte BUTTON_LEFT = 1;
     public const byte BUTTON_RIGHT = 3;
@@ -27,6 +28,11 @@ internal static partial class Sdl
     public const int MOUSEBUTTONEVENT_BUTTON_OFFSET = 16;
     public const int MOUSEBUTTONEVENT_X_OFFSET = 20;
     public const int MOUSEBUTTONEVENT_Y_OFFSET = 24;
+
+    //SDL_MouseWheelEvent field offsets:
+    //  type(4) + timestamp(4) + windowID(4) + which(4) = 16 → x(4) at 16, y(4) at 20
+    //SDL reports y as notches (typically ±1 per detent; positive = scroll up).
+    public const int MOUSEWHEELEVENT_Y_OFFSET = 20;
 
     //SDL_KeyboardEvent field offsets:
     //  type(4) + timestamp(4) + windowID(4) = 12 → state(1) + repeat(1) + pad(2) = 16
@@ -60,6 +66,24 @@ internal static partial class Sdl
     [LibraryImport("SDL2")]
     [UnmanagedCallConv(CallConvs = [typeof(CallConvCdecl)])]
     public static partial uint SDL_GetModState();
+
+    //forces SDL to drain the OS event queue and update its internal input state.
+    //safe to call multiple times per frame — each OS event is only processed once.
+    //InputBuffer.Update() calls this so that any events which arrived after
+    //MonoGame's start-of-tick pump (e.g. a macro's trailing mouse move posted
+    //mid-frame) fire our watcher and update the cursor position SDL_GetMouseState
+    //returns.
+    [LibraryImport("SDL2")]
+    [UnmanagedCallConv(CallConvs = [typeof(CallConvCdecl)])]
+    public static partial void SDL_PumpEvents();
+
+    //reads SDL's internal cursor state. x/y are window-relative to the focused
+    //window (our game, when it has focus). the return value is a button bitmask
+    //testable via SDL_BUTTON(n) — InputBuffer discards it because it tracks button
+    //state per-event via the SDL watcher instead.
+    [LibraryImport("SDL2")]
+    [UnmanagedCallConv(CallConvs = [typeof(CallConvCdecl)])]
+    public static partial uint SDL_GetMouseState(out int x, out int y);
 
     [LibraryImport("SDL2")]
     [UnmanagedCallConv(CallConvs = [typeof(CallConvCdecl)])]

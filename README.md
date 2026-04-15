@@ -171,13 +171,15 @@ Abstract `UIPanel` that loads a `ControlPrefabSet` from a DALib control file. Th
 
 ## Input
 
-Input is a two-layer stack: `InputBuffer` captures raw input from the OS between frames, and `InputDispatcher` turns the buffered snapshot into typed events and routes them to UI elements. One instance of each is owned by `ChaosGame`. Each frame, `ChaosGame.Update` calls `Input.Update(gameTime)` first to freeze a snapshot, then the active screen calls `Dispatcher.ProcessInput(Root, gameTime)` during its own `Update` pass.
+Input is a two-layer stack: `InputBuffer` captures raw input from the OS between frames, and `InputDispatcher` turns the buffered snapshot into typed events and routes them to UI elements. `InputBuffer` is a **static** class — read `InputBuffer.MouseX`, `InputBuffer.WasKeyPressed(...)`, or walk `InputBuffer.Events` from anywhere. `InputDispatcher` is instance-based and owned by `ChaosGame`. Each frame, `ChaosGame.Update` calls `InputBuffer.Update(IsActive)` first to freeze a snapshot, then the active screen calls `Dispatcher.ProcessInput(Root, gameTime)`.
 
 ### `InputBuffer`
 
-Event-driven capture with a per-frame freeze. Every input event — `KeyDown`, `KeyUp`, `TextInput`, mouse button press/release — arrives via a single SDL event watcher (`SDL_AddEventWatch`) that fires synchronously on the main thread during `SDL_PumpEvents`. Because every event flows through one callback in OS order, the per-frame snapshot preserves the chronological relationship between keyboard and mouse. `Update(gameTime)` drains the pending buffers into a frozen snapshot that lasts until the next call.
+Event-driven capture with a per-frame freeze. Every keyboard, text, mouse button, and mouse wheel event arrives via a single SDL event watcher (`SDL_AddEventWatch`) that fires synchronously on the main thread during `SDL_PumpEvents`. One callback in OS order means a macro like `click → scroll → click → scroll` replays in exactly that order instead of being reordered by kind.
 
-Each mouse button event carries the cursor position and `SDL_GetModState()` snapshot taken at the moment of the click. Keyboard events are translated from `SDL_Scancode` to MonoGame `Keys` so the rest of the codebase keeps using the familiar enum.
+Lifecycle is `Initialize()` / `Update(isActive)` / `Shutdown()`. `Update` pumps SDL, drains the pending event list, and refreshes the cursor from `SDL_GetMouseState` — pump-then-read so `MouseX`/`MouseY` always reflect the true end-of-frame position, even when a macro's trailing mouse move lands mid-frame.
+
+Mouse button and wheel events carry the cursor position and `SDL_GetModState()` snapshot captured at the moment of the event, in virtual (640×480) coordinates. Keyboard events are translated from `SDL_Scancode` to MonoGame `Keys`.
 
 Keyboard API:
 
@@ -188,16 +190,14 @@ Keyboard API:
 
 Mouse API:
 
-- `MouseX` / `MouseY` in **virtual** (640×480) coordinates. `SetVirtualScale(scale)` tells the buffer how much the backbuffer is stretched so raw window coords get divided back down. If you change the letterboxing math, also update this.
-- `ScrollDelta` in notches.
-- `MouseButtonEvents` — chronologically ordered press/release events from the SDL watcher. Each event carries its virtual-coordinate `X`/`Y` and the modifier state held at the moment of the click.
-- `IsLeftButtonHeld` / `IsRightButtonHeld`.
+- `MouseX` / `MouseY` in **virtual** (640×480) coordinates. `SetVirtualScale(scale)` tells the buffer the backbuffer stretch factor so raw window coords get divided back down — same divisor for polled getters and per-event capture, so they always agree. If you change the letterboxing math, also update this.
+- `IsLeftButtonHeld` / `IsRightButtonHeld` — per-**window** flags, flipped by the SDL watcher. A click in another application never sets them to `true`.
+- `Events` — a `ReadOnlySpan<BufferedInputEvent>` of all this frame's input in OS post order. Each entry is a tagged record struct; `Kind` (`KeyDown` / `KeyUp` / `TextInput` / `MouseButton` / `MouseWheel`) selects which fields are meaningful. Mouse events carry virtual `X`/`Y` + modifiers; wheel events carry integer `WheelDelta` notches (positive = up).
 
 Behaviors worth knowing about:
 
-- When `Game.IsActive` is false (window unfocused), all buffered input is discarded and nothing is reported. On focus regain, the mouse state is re-synced so no spurious button edges fire on the activation frame.
-- When the cursor is outside the client area, mouse button events are dropped, but keyboard still works — clicking on another window doesn't fire a click on ours, but hotkeys still reach the focused window.
-- `OrderedKeyboardEvents` preserves the chronological OS ordering of `KeyDown`, `KeyUp`, and `TextInput` events within a frame. The dispatcher replays this stream to (a) suppress a `TextInput` whose preceding `KeyDown` was consumed as a hotkey, and (b) maintain a running modifier state so each keystroke is stamped with the modifiers held at the moment it fired — important for macros that chord modifiers with other keys inside a single frame.
+- When `Game.IsActive` is false, buffered input is discarded and nothing is reported, but the cursor position still refreshes so the custom cursor draws in the right spot. On focus regain, buffered mouse button events are dropped and the held flags cleared so the focus-click doesn't fire a UI interaction — keyboard events are preserved so held hotkeys remain responsive.
+- The dispatcher walks `Events` in order to (a) suppress a `TextInput` whose preceding `KeyDown` was consumed as a hotkey, and (b) maintain a running modifier state so each keystroke is stamped with the modifiers held at the moment it fired — important for macros that chord modifiers with other keys inside a single frame.
 
 ### `InputDispatcher`
 
@@ -222,7 +222,7 @@ Turns the buffered snapshot into typed `InputEvent`s (`MouseDownEvent`, `ClickEv
 
 **Mouse blocking during textbox focus.** When a textbox has explicit focus, mouse button events outside the panel containing the textbox are swallowed. You can't accidentally click past a modal dialog onto the world behind it while typing.
 
-**Hotkey-to-textbox leak suppression.** When a `KeyDown` causes a textbox to gain explicit focus (e.g., pressing Enter to focus the chat textbox), the immediately-following `TextInput` is suppressed so the hotkey character doesn't leak into the now-focused textbox — otherwise the Enter would immediately insert a newline. This works because `InputBuffer.OrderedKeyboardEvents` preserves the OS `KeyDown → TextInput` ordering — without that ordering, the dispatcher wouldn't know the two events were paired.
+**Hotkey-to-textbox leak suppression.** When a `KeyDown` causes a textbox to gain explicit focus (e.g., pressing Enter to focus the chat textbox), the immediately-following `TextInput` is suppressed so the hotkey character doesn't leak into the now-focused textbox — otherwise the Enter would immediately insert a newline. This works because `InputBuffer.Events` preserves the OS `KeyDown → TextInput` ordering — without that ordering, the dispatcher wouldn't know the two events were paired.
 
 **State reset.** `Dispatcher.Clear()` is called by `ScreenManager` on screen switch to wipe the control stack, explicit focus, hover, capture, and drag state so nothing bleeds across transitions.
 
@@ -231,7 +231,7 @@ Turns the buffered snapshot into typed `InputEvent`s (`MouseDownEvent`, `ClickEv
 Depends on the layer you want to intercept at.
 
 - **Inside a UI element**: override `OnKeyDown` / `OnClick` / `OnMouseScroll` / etc. on your `UIElement` or `UIPanel` subclass. Set `e.Handled = true` to stop bubbling. The event reaches you either because your panel is the current control-stack top, because it's under the cursor, or via bubbling from a descendant.
-- **From a screen**: put the logic in `WorldScreen.InputHandlers.cs` (or the equivalent in your own screen). That code runs inside the screen's `Update` and reads `Input.WasKeyPressed`, `Input.IsKeyHeld`, etc. directly against the buffer snapshot — the right place for world-screen hotkeys like movement, casting, and pathfinding, because they shouldn't care about the dispatcher's control-stack routing.
+- **From a screen**: put the logic in `WorldScreen.InputHandlers.cs` (or the equivalent in your own screen). That code runs inside the screen's `Update` and reads `InputBuffer.WasKeyPressed`, `InputBuffer.IsKeyHeld`, etc. directly against the static buffer snapshot — the right place for world-screen hotkeys like movement, casting, and pathfinding, because they shouldn't care about the dispatcher's control-stack routing.
 
 ## Renderers
 

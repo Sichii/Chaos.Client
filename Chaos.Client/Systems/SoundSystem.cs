@@ -31,6 +31,7 @@ public sealed class SoundSystem : IDisposable
     private readonly MixingSampleProvider Mixer = new(CanonicalFormat) { ReadFully = true };
     private readonly ConcurrentQueue<PendingDecode> PendingDecodedSounds = new();
     private readonly HashSet<int> PendingDecodes = [];
+    private readonly HashSet<int> PlayedThisFrame = [];
     private readonly Dictionary<int, (float[] Samples, long Timestamp)> SoundCache = new();
 
     private int CurrentMusicId = -1;
@@ -121,7 +122,11 @@ public sealed class SoundSystem : IDisposable
     /// </summary>
     public void PlaySound(int soundId)
     {
-        if (IsDisposed || Volume <= 0f)
+        if (IsDisposed || (Volume <= 0f))
+            return;
+
+        //collapse same-frame duplicate triggers (e.g. AOE hitting multiple targets in a single tick)
+        if (!PlayedThisFrame.Add(soundId))
             return;
 
         if (SoundCache.TryGetValue(soundId, out var cached))
@@ -171,6 +176,9 @@ public sealed class SoundSystem : IDisposable
         if (IsDisposed)
             return;
 
+        //reset same-frame dedup window; any PlaySound later this frame starts from a clean set
+        PlayedThisFrame.Clear();
+
         if (DeviceChangePending)
         {
             DeviceChangePending = false;
@@ -189,6 +197,8 @@ public sealed class SoundSystem : IDisposable
             if (SoundCache.Count > MAX_CACHED_SOUNDS)
                 EvictOldest();
 
+            //deferred decode counts as this frame's play — block any PlaySound(soundId) later this frame
+            PlayedThisFrame.Add(pending.SoundId);
             PlayCachedSamples(pending.Samples, pending.Volume);
         }
 

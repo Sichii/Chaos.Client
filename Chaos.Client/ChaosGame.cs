@@ -40,12 +40,6 @@ public sealed class ChaosGame : Game
     private SpriteBatch SpriteBatch = null!;
 
     /// <summary>
-    ///     Event-driven input buffer that captures all keyboard and mouse input between frames. Screens should read from this
-    ///     instead of polling Keyboard/Mouse.GetState() directly.
-    /// </summary>
-    public InputBuffer Input { get; private set; } = null!;
-
-    /// <summary>
     ///     Input dispatcher that routes mouse and keyboard events to UI elements via hit-testing and focus routing.
     /// </summary>
     public InputDispatcher Dispatcher { get; private set; } = null!;
@@ -167,7 +161,7 @@ public sealed class ChaosGame : Game
             var offsetY = UseHandCursor && HandCursorTexture is not null ? HandCursorOffsetY : CursorOffsetY;
 
             SpriteBatch.Begin(samplerState: GlobalSettings.Sampler);
-            SpriteBatch.Draw(activeCursor, new Vector2(Input.MouseX - offsetX, Input.MouseY - offsetY), Color.White);
+            SpriteBatch.Draw(activeCursor, new Vector2(InputBuffer.MouseX - offsetX, InputBuffer.MouseY - offsetY), Color.White);
             SpriteBatch.End();
         }
 
@@ -240,8 +234,8 @@ public sealed class ChaosGame : Game
             false,
             SurfaceFormat.Color,
             DepthFormat.Depth24Stencil8);
-        Input = new InputBuffer(this);
-        Dispatcher = new InputDispatcher(Input);
+        InputBuffer.Initialize();
+        Dispatcher = new InputDispatcher();
         Screens = new ScreenManager(this);
 
         TextureConverter.Device = GraphicsDevice;
@@ -368,7 +362,7 @@ public sealed class ChaosGame : Game
         RenderTarget.Dispose();
         Screens.Dispose();
         Connection.Dispose();
-        Input.Dispose();
+        InputBuffer.Shutdown();
         CreatureRenderer.Dispose();
         AislingRenderer.Dispose();
         EffectRenderer.Dispose();
@@ -385,22 +379,23 @@ public sealed class ChaosGame : Game
 
         //compute scale for mouse coordinate transform (window is always 4:3, so uniform scale)
         var scale = (float)GraphicsDevice.PresentationParameters.BackBufferWidth / VIRTUAL_WIDTH;
-        Input.SetVirtualScale(scale);
+        InputBuffer.SetVirtualScale(scale);
 
         //freeze buffered input for this frame before anything reads it
-        Input.Update(gameTime);
+        InputBuffer.Update(IsActive);
 
         //f12 — toggle debug overlay (handled globally before screen update)
-        if (Input.WasKeyPressed(Keys.F12))
+        if (InputBuffer.WasKeyPressed(Keys.F12))
             DebugOverlay.Toggle();
 
         DebugOverlay.Update(gameTime);
 
+        //pump audio decodes and reset the same-frame dedup window before any handler can trigger sounds
+        SoundSystem.Update();
+
         //drain and process network packets each frame
         PacketBuffer.Clear();
         Connection.ProcessPackets(PacketBuffer);
-
-        SoundSystem.Update();
 
         Screens.Update(gameTime);
 

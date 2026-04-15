@@ -10,6 +10,9 @@ namespace Chaos.Client.Rendering;
 
 public static class TextureConverter
 {
+    //Warm gold 50/50 blend used by CreateGroupTintedTexture for group-member highlighting.
+    private static readonly Color GroupTint = new(255, 231, 59);
+
     public static GraphicsDevice Device { get; set; } = null!;
 
     internal static T ConvertImage<T>(SKImage image, Func<GraphicsDevice, int, int, T> factory) where T: Texture2D
@@ -48,7 +51,7 @@ public static class TextureConverter
     }
 
     /// <summary>
-    ///     Creates a group-tinted copy of a texture using a warm yellow/gold (255, 231, 59) average blend. Matches the
+    ///     Creates a group-tinted copy of a texture using a warm yellow/gold (255, 231, 59) 50/50 blend. Matches the
     ///     original DA client's group member highlight.
     /// </summary>
     public static Texture2D CreateGroupTintedTexture(Texture2D source)
@@ -59,7 +62,7 @@ public static class TextureConverter
         try
         {
             source.GetData(pixels, 0, count);
-            GroupTintPixels(pixels, count);
+            Blend50Pixels(pixels, count, GroupTint);
 
             var tinted = new Texture2D(Device, source.Width, source.Height);
             tinted.SetData(pixels, 0, count);
@@ -95,10 +98,11 @@ public static class TextureConverter
     }
 
     /// <summary>
-    ///     Applies 50/50 average blend with (255, 231, 59) to a pixel array in-place. The original DA client uses
-    ///     floor((pixel + tint) / 2) per channel for group member highlighting — a warm golden shift that preserves detail.
+    ///     Applies a 50/50 per-channel additive blend with <paramref name="tint" /> in-place. Alpha is preserved and
+    ///     transparent pixels are skipped. Matches the retail DA client's generic tint primitive (see
+    ///     <c>Darkages.exe</c> <c>FUN_004548b0</c> for the original RGB565 implementation).
     /// </summary>
-    internal static void GroupTintPixels(Color[] pixels, int count)
+    internal static void Blend50Pixels(Color[] pixels, int count, Color tint)
     {
         for (var i = 0; i < count; i++)
         {
@@ -108,9 +112,9 @@ public static class TextureConverter
                 continue;
 
             pixels[i] = new Color(
-                (byte)((p.R + 255) / 2),
-                (byte)((p.G + 231) / 2),
-                (byte)((p.B + 59) / 2),
+                (byte)((p.R + tint.R) / 2),
+                (byte)((p.G + tint.G) / 2),
+                (byte)((p.B + tint.B) / 2),
                 p.A);
         }
     }

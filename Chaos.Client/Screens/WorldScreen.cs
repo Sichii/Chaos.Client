@@ -187,12 +187,12 @@ public sealed partial class WorldScreen : IScreen
 
         //create both hud layouts — '/' key swaps between them
         //zindex=-1 so hud frames render behind all popup panels
-        SmallHud = new WorldHudControl(Game.Input)
+        SmallHud = new WorldHudControl
         {
             ZIndex = -1
         };
 
-        LargeHud = new LargeWorldHudControl(Game.Input)
+        LargeHud = new LargeWorldHudControl
         {
             Visible = false,
             ZIndex = -1

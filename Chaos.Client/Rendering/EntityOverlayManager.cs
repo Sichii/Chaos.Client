@@ -6,7 +6,6 @@ using Chaos.Client.Models;
 using Chaos.DarkAges.Definitions;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
-using Microsoft.Xna.Framework.Input;
 #endregion
 
 namespace Chaos.Client.Rendering;
@@ -147,10 +146,10 @@ public sealed class EntityOverlayManager
         int mapHeight,
         IReadOnlyList<WorldEntity> sortedEntities)
     {
-        //determine which group box (if any) the mouse is over, using positions from previous frame
-        var mouseState = Mouse.GetState();
-
-        var hoveredGroupBoxId = GetGroupBoxAtScreen(mouseState.X, mouseState.Y)
+        //determine which group box (if any) the mouse is over — read the live cursor
+        //position from the static InputBuffer rather than threading coordinates through
+        //every draw call
+        var hoveredGroupBoxId = GetGroupBoxAtScreen(InputBuffer.MouseX, InputBuffer.MouseY)
             ?.EntityId;
 
         for (var i = 0; i < sortedEntities.Count; i++)

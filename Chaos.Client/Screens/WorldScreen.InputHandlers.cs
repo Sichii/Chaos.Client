@@ -39,8 +39,8 @@ public sealed partial class WorldScreen
             slot.SlotName ?? string.Empty,
             slot.CurrentDurability,
             slot.MaxDurability,
-            Game.Input.MouseX,
-            Game.Input.MouseY);
+            InputBuffer.MouseX,
+            InputBuffer.MouseY);
     }
 
     private void HandleInventoryHoverExit()
@@ -1497,8 +1497,11 @@ public sealed partial class WorldScreen
             IsGameMaster ? null : IsTilePassable,
             out var alreadyAdjacent);
 
+        //already adjacent: no path to walk, but keep TargetEntityId so the Update loop's auto-follow
+        //branch turns and assails next tick. Pathfinding.Clear() here would wipe the target entity
+        //that OnRootDoubleClick just set, breaking double-right-click follow on neighbors.
         if (alreadyAdjacent)
-            Pathfinding.Clear();
+            Pathfinding.Path = null;
         else
             Pathfinding.Path = path;
     }

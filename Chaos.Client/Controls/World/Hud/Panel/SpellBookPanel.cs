@@ -2,6 +2,7 @@
 using Chaos.Client.Collections;
 using Chaos.Client.Controls.World.Hud.Panel.Slots;
 using Chaos.Client.Data.Models;
+using Chaos.Client.Rendering;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 #endregion
@@ -139,7 +140,7 @@ public sealed class SpellBookPanel : PanelBase
     {
         var cache = UiRenderer.Instance!;
 
-        return cache.GetTintedTexture($"spell:{spriteId}", cache.GetSpellIcon(spriteId));
+        return cache.GetCooldownTintedTexture($"spell:{spriteId}", cache.GetSpellIcon(spriteId), LegendColors.CornflowerBlue);
     }
 
     public override void Update(GameTime gameTime)

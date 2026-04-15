@@ -23,8 +23,6 @@ public sealed partial class WorldScreen
             return;
         }
 
-        var input = Game.Input;
-
         var elapsedMs = (float)gameTime.ElapsedGameTime.TotalMilliseconds;
 
         //global tile animation tick — 100ms resolution (matches tile animation table format)
@@ -213,7 +211,7 @@ public sealed partial class WorldScreen
 
         //tooltip follows cursor — always reposition regardless of active panel
         if (ItemTooltip.Visible)
-            ItemTooltip.UpdatePosition(input.MouseX, input.MouseY);
+            ItemTooltip.UpdatePosition(InputBuffer.MouseX, InputBuffer.MouseY);
 
         //── tooltip dismissal — clear hovered slot when blocking panels are visible ──
         if (HoveredInventorySlot is not null
@@ -224,7 +222,7 @@ public sealed partial class WorldScreen
         }
 
         //── track which entity the mouse is hovering over ──
-        var hoverEntity = GetEntityAtScreen(Game.Input.MouseX, Game.Input.MouseY);
+        var hoverEntity = GetEntityAtScreen(InputBuffer.MouseX, InputBuffer.MouseY);
 
         var isItemDrag = GetDraggingPanel() is { } dragPanel && (dragPanel == WorldHud.Inventory);
 
@@ -251,13 +249,13 @@ public sealed partial class WorldScreen
 
         var skipDispatch = false;
 
-        foreach (var mbEvt in Game.Input.MouseButtonEvents)
+        foreach (var evt in InputBuffer.Events)
         {
-            if (mbEvt is not { Button: MouseButton.Left, IsPress: true })
+            if (evt is not { Kind: BufferedInputKind.MouseButton, Button: MouseButton.Left, IsPress: true })
                 continue;
 
-            var mx = Game.Input.MouseX;
-            var my = Game.Input.MouseY;
+            var mx = evt.X;
+            var my = evt.Y;
 
             if (AislingContext.Visible && !AislingContext.ContainsPoint(mx, my))
             {

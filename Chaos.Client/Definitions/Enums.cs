@@ -68,13 +68,15 @@ public enum CooldownStyle
     None,
 
     /// <summary>
-    ///     Spell-style: swap to CooldownTexture for the full duration.
+    ///     Spell-style: a blue-tinted copy of the icon replaces the normal icon for the full duration. Matches retail
+    ///     <c>SpellInvItemPane::Render</c> which applies a 50/50 blend with <c>legend.pal[0x58]</c> over the entire icon.
     /// </summary>
     Swap,
 
     /// <summary>
-    ///     Skill-style: normal icon + blue overlay at 33% opacity + blue progressively revealed top-to-bottom as cooldown
-    ///     elapses.
+    ///     Skill-style: a grey-tinted base (50/50 blend with <c>legend.pal[0x18]</c>) overlaid by a blue-tinted copy
+    ///     (50/50 blend with <c>legend.pal[0x58]</c>) that is progressively revealed top-to-bottom as the cooldown
+    ///     elapses. Matches retail <c>SkillInvItemPane::Render</c>.
     /// </summary>
     Progressive
 }

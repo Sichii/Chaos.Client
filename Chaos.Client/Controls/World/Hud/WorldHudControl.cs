@@ -102,7 +102,7 @@ public sealed class WorldHudControl : PrefabPanel, IWorldHud
     //viewport — the area where the game world renders
     public Rectangle ViewportBounds { get; }
 
-    public WorldHudControl(InputBuffer input, string prefabName = "_nbk_s")
+    public WorldHudControl(string prefabName = "_nbk_s")
         : base(prefabName, false)
     {
         Name = "GameHud";
@@ -115,7 +115,7 @@ public sealed class WorldHudControl : PrefabPanel, IWorldHud
             ViewportBounds = GetRect("EMPTY");
 
         //chat input control (say)
-        ChatInput = new ChatInputControl(PrefabSet, input);
+        ChatInput = new ChatInputControl(PrefabSet);
         AddChild(ChatInput);
 
         ChatInput.FocusChanged += focused =>

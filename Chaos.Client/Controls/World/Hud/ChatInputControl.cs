@@ -26,7 +26,6 @@ public sealed class ChatInputControl : UIPanel
     private const int MAX_WHISPER_HISTORY = 5;
 
     private readonly int FullWidth;
-    private readonly InputBuffer Input;
     private readonly UILabel PrefixLabel;
     private readonly UITextBox TextBox;
     private readonly List<string> WhisperHistory = [];
@@ -40,9 +39,8 @@ public sealed class ChatInputControl : UIPanel
     public ChatMode Mode { get; private set; }
     public bool IsFocused => TextBox.IsFocused;
 
-    public ChatInputControl(ControlPrefabSet prefabSet, InputBuffer input)
+    public ChatInputControl(ControlPrefabSet prefabSet)
     {
-        Input = input;
         Name = "ChatInput";
 
         var rect = PrefabPanel.GetRect(prefabSet, "SAY");
@@ -387,9 +385,9 @@ public sealed class ChatInputControl : UIPanel
         if ((Mode != ChatMode.WhisperName) || !IsFocused)
             return;
 
-        if (Input.WasKeyPressed(Keys.Up))
+        if (InputBuffer.WasKeyPressed(Keys.Up))
             CycleWhisperTarget(1);
-        else if (Input.WasKeyPressed(Keys.Down))
+        else if (InputBuffer.WasKeyPressed(Keys.Down))
             CycleWhisperTarget(-1);
     }
 }

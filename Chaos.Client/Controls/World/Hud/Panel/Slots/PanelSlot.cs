@@ -27,14 +27,16 @@ public class PanelSlot : UIButton
     public CooldownStyle CooldownStyle { get; set; }
 
     /// <summary>
-    ///     Alternate texture shown during cooldown. Tinted version of the original icon (via CreateTintedTexture).
+    ///     Blue-tinted copy of the normal icon used as the cooldown overlay. For <see cref="CooldownStyle.Progressive" />
+    ///     this is progressively revealed top-to-bottom over the grey base; for <see cref="CooldownStyle.Swap" /> it
+    ///     replaces the normal icon entirely for the duration.
     /// </summary>
     public Texture2D? CooldownTexture { get; set; }
 
     public int CurrentDurability { get; set; }
 
     /// <summary>
-    ///     Grey base texture shown underneath progressive cooldown overlay (skills only, from skill003).
+    ///     Grey-tinted copy of the normal icon shown underneath <see cref="CooldownStyle.Progressive" /> cooldowns.
     /// </summary>
     public Texture2D? GreyTexture { get; set; }
 
@@ -120,14 +122,13 @@ public class PanelSlot : UIButton
                     break;
 
                 case CooldownStyle.Progressive:
-                    //grey base icon (skill003 variant)
+                    //retail parity: grey-tinted base + blue-tinted top-revealed overlay (SkillInvItemPane::Render)
                     DrawTexture(
                         spriteBatch,
                         GreyTexture ?? icon,
                         pos,
                         Color.White);
 
-                    //tinted icon progressively revealed top-to-bottom as cooldown elapses
                     var elapsed = 1f - CooldownPercent;
                     var revealHeight = (int)(CooldownTexture.Height * elapsed);
 

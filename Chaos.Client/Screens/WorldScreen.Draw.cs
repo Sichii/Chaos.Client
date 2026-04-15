@@ -209,8 +209,8 @@ public sealed partial class WorldScreen
                     sortedEntities,
                     WorldState.GetPlayerEntity(),
                     EntityHitBoxes,
-                    Game.Input.MouseX,
-                    Game.Input.MouseY,
+                    InputBuffer.MouseX,
+                    InputBuffer.MouseY,
                     WorldHud.ViewportBounds);
                 spriteBatch.End();
             }
@@ -880,17 +880,16 @@ public sealed partial class WorldScreen
         if (MapFile is null || TileCursorTexture is null)
             return;
 
-        var input = Game.Input;
         var viewport = WorldHud.ViewportBounds;
 
         //only draw when mouse is within the world viewport
-        if ((input.MouseX < viewport.X)
-            || (input.MouseX >= (viewport.X + viewport.Width))
-            || (input.MouseY < viewport.Y)
-            || (input.MouseY >= (viewport.Y + viewport.Height)))
+        if ((InputBuffer.MouseX < viewport.X)
+            || (InputBuffer.MouseX >= (viewport.X + viewport.Width))
+            || (InputBuffer.MouseY < viewport.Y)
+            || (InputBuffer.MouseY >= (viewport.Y + viewport.Height)))
             return;
 
-        (var tileX, var tileY) = ScreenToTile(input.MouseX, input.MouseY);
+        (var tileX, var tileY) = ScreenToTile(InputBuffer.MouseX, InputBuffer.MouseY);
 
         if ((tileX < 0) || (tileX >= MapFile.Width) || (tileY < 0) || (tileY >= MapFile.Height))
             return;

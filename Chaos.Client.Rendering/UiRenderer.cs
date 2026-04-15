@@ -122,7 +122,7 @@ public sealed class UiRenderer : IDisposable
         return texture;
     }
 
-    private CachedTexture2D CreateTintedTexture(Texture2D source)
+    private CachedTexture2D CreateCooldownTintedTexture(Texture2D source, Color tint)
     {
         var count = source.Width * source.Height;
         var pixels = ArrayPool<Color>.Shared.Rent(count);
@@ -130,7 +130,7 @@ public sealed class UiRenderer : IDisposable
         try
         {
             source.GetData(pixels, 0, count);
-            TextureConverter.TintPixels(pixels, count);
+            TextureConverter.Blend50Pixels(pixels, count, tint);
 
             var tinted = new CachedTexture2D(Device, source.Width, source.Height);
             tinted.SetData(pixels, 0, count);
@@ -359,20 +359,23 @@ public sealed class UiRenderer : IDisposable
     }
 
     /// <summary>
-    ///     Renders and caches a greyed-out skill icon, used as the background layer during cooldown rendering.
+    ///     Returns a cached copy of <paramref name="source" /> with a 50/50 blend of
+    ///     <paramref name="tint" /> applied, used for cooldown overlays on skill/spell icons.
+    ///     Retail parity: <see cref="LegendColors.DimGray" /> (<c>legend.pal[0x18]</c>) is the
+    ///     dim base layer of <c>SkillInvItemPane::Render</c> (<c>FUN_004991d0</c>);
+    ///     <see cref="LegendColors.CornflowerBlue" /> (<c>legend.pal[0x58]</c>) is the upper-half
+    ///     overlay of the same method and the full-icon tint of <c>SpellInvItemPane::Render</c>.
+    ///     Keyed by <paramref name="sourceKey" /> + the packed tint color so the same source
+    ///     key can be tinted multiple colors without collision.
     /// </summary>
-    public Texture2D GetSkillGreyIcon(ushort spriteId)
+    public Texture2D GetCooldownTintedTexture(string sourceKey, Texture2D source, Color tint)
     {
-        var key = $"skill_grey:{spriteId}";
+        var key = $"cd_{tint.PackedValue:X8}:{sourceKey}";
 
         if (Cache.TryGetValue(key, out var cached))
             return cached;
 
-        var texture = RenderSprite(DataContext.PanelSprites.GetSkillLockedIcon(spriteId));
-
-        if (texture is null)
-            return MissingTexture;
-
+        var texture = CreateCooldownTintedTexture(source, tint);
         Cache[key] = texture;
 
         return texture;
@@ -514,23 +517,6 @@ public sealed class UiRenderer : IDisposable
             return MissingTexture;
 
         var texture = Convert(image);
-        Cache[key] = texture;
-
-        return texture;
-    }
-
-    /// <summary>
-    ///     Returns a cached blue-shifted (hover highlight) copy of the given source texture, keyed by sourceKey for
-    ///     deduplication.
-    /// </summary>
-    public Texture2D GetTintedTexture(string sourceKey, Texture2D source)
-    {
-        var key = $"tinted:{sourceKey}";
-
-        if (Cache.TryGetValue(key, out var cached))
-            return cached;
-
-        var texture = CreateTintedTexture(source);
         Cache[key] = texture;
 
         return texture;

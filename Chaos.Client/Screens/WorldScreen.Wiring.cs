@@ -264,8 +264,8 @@ public sealed partial class WorldScreen
             name,
             0,
             0,
-            Game.Input.MouseX,
-            Game.Input.MouseY);
+            InputBuffer.MouseX,
+            InputBuffer.MouseY);
 
         NpcSession.OnItemHoverExit += () => ItemTooltip.Hide();
 

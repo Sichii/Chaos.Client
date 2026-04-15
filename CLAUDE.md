@@ -102,11 +102,11 @@ Chaos.Client/
 ├── GlobalSettings.cs         — Static config (ClientVersion, DataPath, LobbyHost/Port)
 ├── InputBuffer.cs            — Event-driven input capture and buffering
 ├── InputDispatcher.cs        — UI event dispatch: hit-test, bubble, drag, click synthesis, control stack
-├── Sdl.cs                    — SDL event watcher for mouse button events
+├── Sdl.cs                    — Centralized SDL2 P/Invoke declarations (keyboard, text, mouse button, mouse wheel event constants consumed by InputBuffer)
 ├── Collections/              — WorldState, CircularBuffer
 ├── Models/                   — WorldEntity, Animation, EntityRemovalAnimation, EntityHighlight, SlotDragPayload, PathfindingState, etc.
 ├── ViewModel/                — Authoritative state classes owned by WorldState
-├── Systems/                  — AnimationSystem, CastingSystem, SoundSystem, Pathfinder, ClientSettings, MachineIdentity
+├── Systems/                  — AnimationSystem, CastingSystem, SoundSystem, Pathfinder, LightingSystem, LatencyMonitor, ClientSettings, MachineIdentity
 ├── Screens/                  — IScreen, ScreenManager, LobbyLoginScreen, WorldScreen (7 partial files)
 ├── Rendering/                — EntityOverlayManager, WorldDebugRenderer
 ├── Controls/                 — Full UI control hierarchy (see UI Control System below)
@@ -178,8 +178,8 @@ Authoritative state objects exposed as static properties on WorldState, updated 
 - **`WorldList`** -- Online players list.
 
 ### Entry Point
-- **`ChaosGame : Game`** -- 640x480 MonoGame window. Owns ConnectionManager, all renderers, SoundSystem, InputBuffer, ScreenManager. Global entity event wiring at construction. WorldState and ClientSettings are static classes (not owned by ChaosGame).
-- **`InputBuffer`** -- Event-driven input: `WasKeyPressed()`, `IsKeyHeld()`, `TextInput`, mouse state. Per-frame freeze.
+- **`ChaosGame : Game`** -- 640x480 virtual resolution MonoGame window. Owns ConnectionManager, shared renderers (Aisling/Creature/Effect/Item), SoundSystem, InputDispatcher, ScreenManager. Global entity event wiring at construction. WorldState, ClientSettings, and InputBuffer are static classes (not owned by ChaosGame).
+- **`InputBuffer`** (static) -- Process-global input buffer driven by a single `SDL_AddEventWatch` callback. Unified event stream for keyboard, text, mouse button, and mouse wheel events in true OS post order (chronological `Events` buffer), with live cursor position refreshed each frame from `SDL_GetMouseState`. Query API: `WasKeyPressed()`, `IsKeyHeld()`, `TextInput`, `MouseX`/`MouseY`, `IsLeftButtonHeld`/`IsRightButtonHeld`. Lifecycle: `Initialize()` / `Update(isActive)` / `Shutdown()`.
 
 ### Input Dispatch (`InputDispatcher`)
 Per-frame processor that reads `InputBuffer` state and produces UI events. Key concepts:

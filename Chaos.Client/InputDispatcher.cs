@@ -11,8 +11,6 @@ public sealed class InputDispatcher
     private const float DOUBLE_CLICK_MS = 300f;
     private const int DRAG_THRESHOLD_SQ = 16; //4px squared
 
-    private readonly InputBuffer Input;
-
     //control stack — ordered list of panels that participate in keyboard dispatch.
     //last element is the "top" (active keyboard target).
     private readonly List<UIPanel> ControlStack = [];
@@ -57,15 +55,18 @@ public sealed class InputDispatcher
     private readonly DragMoveEvent DragMove = new();
     private readonly DragDropEvent DragDrop = new();
 
+    //per-frame scratch set used to filter out OS key-repeat KeyDowns. cleared at
+    //the top of ProcessInput so the same allocation is reused every frame.
+    private readonly HashSet<Keys> DispatchedKeys = [];
+
     /// <summary>
     ///     Singleton accessor for use by UI controls that need to push/remove themselves
     ///     from the control stack (e.g. PrefabPanel.Show/Hide).
     /// </summary>
     public static InputDispatcher? Instance { get; private set; }
 
-    public InputDispatcher(InputBuffer input)
+    public InputDispatcher()
     {
-        Input = input;
         Instance = this;
         UITextBox.TextBoxFocusGained += OnTextBoxFocusGained;
     }
@@ -161,8 +162,8 @@ public sealed class InputDispatcher
     public void ProcessInput(UIPanel root, GameTime gameTime)
     {
         var totalMs = (float)gameTime.TotalGameTime.TotalMilliseconds;
-        var mouseX = Input.MouseX;
-        var mouseY = Input.MouseY;
+        var mouseX = InputBuffer.MouseX;
+        var mouseY = InputBuffer.MouseY;
         var modifiers = GetModifiers();
 
         //mouse blocking: when a textbox has explicit focus, restrict mouse events
@@ -259,28 +260,6 @@ public sealed class InputDispatcher
                 }
             }
 
-            //── mouse scroll ──
-            var scrollDelta = Input.ScrollDelta;
-
-            if (scrollDelta != 0)
-            {
-                var scrollTarget = HitTest(root, mouseX, mouseY);
-
-                MouseScroll.Reset();
-                MouseScroll.ScreenX = mouseX;
-                MouseScroll.ScreenY = mouseY;
-                MouseScroll.Delta = scrollDelta;
-                MouseScroll.Modifiers = modifiers;
-                DispatchBubble(scrollTarget ?? root, MouseScroll);
-            }
-
-            //── mouse buttons (replayed individually in SDL event order) ──
-            //each event carries the cursor position and modifier state captured at
-            //the exact moment the OS posted the click, so rapid clicks during mouse
-            //motion report true positions and shift/ctrl/alt-chorded clicks see the
-            //modifier state that was actually held, not the end-of-frame state.
-            foreach (var mbEvt in Input.MouseButtonEvents)
-                ProcessMouseButton(root, mbEvt.X, mbEvt.Y, totalMs, mbEvt.Modifiers, mbEvt.Button, mbEvt.IsPress, !mbEvt.IsPress);
         } else
         {
             //mouse is blocked — still track position for delta calculation next frame
@@ -288,87 +267,153 @@ public sealed class InputDispatcher
             PreviousMouseY = mouseY;
         }
 
-        //── keyboard + text input (processed in chronological OS order) ──
-        //WM_KEYDOWN always precedes its WM_CHAR, so when a KeyDown handler gains textbox
-        //focus, we suppress the immediately following TextInput to prevent the hotkey
-        //character from leaking into the newly-focused textbox.
+        //── unified event stream (keyboard + mouse button + wheel in true OS order) ──
+        //every event the SDL watcher captured this frame lives in a single chronologically
+        //ordered list. this matters for macros that mix input kinds: a sequence of
+        //key → click → scroll → key fires in exactly that order instead of being
+        //reordered to one-mode-then-another-mode (which would cause the first event to
+        //miss the state the earlier event was supposed to set up).
         //
-        //Modifier state is tracked per-event via a running state rather than the
-        //end-of-frame held state. Fast macros can press Shift, tap a key, release Shift,
-        //and press another key all within a single frame — if we used end-of-frame
-        //state, both keys would see Shift=false (since shift is no longer held at
-        //dispatch time) and shift-chorded hotkeys would silently lose their modifier.
-        var suppressNextTextInput = false;
-        var dispatchedKeys = new HashSet<Keys>();
-        var orderedEvents = Input.OrderedKeyboardEvents;
+        //mouse button and wheel events carry their own SDL-captured cursor position
+        //and modifier state. keyboard events use a running modifier state tracked
+        //per-event, because fast macros can press shift, tap a key, release shift,
+        //and press another key within a single frame — if we used end-of-frame state
+        //both keys would see shift=false and shift-chorded hotkeys would silently lose
+        //their modifier.
+        //
+        //WM_KEYDOWN always precedes its WM_CHAR, so when a KeyDown handler gains
+        //textbox focus we suppress the immediately following TextInput to prevent the
+        //hotkey character from leaking into the newly-focused textbox.
+        var events = InputBuffer.Events;
 
         //derive start-of-frame modifier state by walking backwards from the
-        //authoritative end-of-frame held state, undoing each modifier transition.
+        //authoritative end-of-frame held state, undoing each key-modifier transition.
+        //non-key events are skipped — they don't affect modifier state.
         var runningMods = GetModifiers();
 
-        for (var i = orderedEvents.Length - 1; i >= 0; i--)
+        for (var i = events.Length - 1; i >= 0; i--)
         {
-            var evt = orderedEvents[i];
+            var evt = events[i];
+
+            if (evt.Kind is not (BufferedInputKind.KeyDown or BufferedInputKind.KeyUp))
+                continue;
+
             var bit = ModifierBitFor(evt.Key);
 
             if (bit == KeyModifiers.None)
                 continue;
 
-            if (evt.Kind == OrderedKeyEventKind.KeyDown)
+            if (evt.Kind == BufferedInputKind.KeyDown)
                 runningMods &= ~bit;
-            else if (evt.Kind == OrderedKeyEventKind.KeyUp)
+            else
                 runningMods |= bit;
         }
 
-        //walk forward, updating running modifiers as each event occurs and stamping
-        //every dispatched KeyDown/KeyUp with the state that existed at its moment.
-        foreach (var evt in orderedEvents)
+        var suppressNextTextInput = false;
+        DispatchedKeys.Clear();
+
+        //walk forward, dispatching each event in OS order. keyboard events update and
+        //stamp the running modifier state; mouse button events carry their own
+        //SDL-captured modifiers and are dispatched (unless mouseBlocked) via the same
+        //ProcessMouseButton path the old two-pass implementation used.
+        foreach (var evt in events)
         {
-            var bit = ModifierBitFor(evt.Key);
-
-            if (evt.Kind == OrderedKeyEventKind.KeyDown)
+            switch (evt.Kind)
             {
-                if (bit != KeyModifiers.None)
-                    runningMods |= bit;
-
-                //OS key-repeat emits repeated WM_KEYDOWN for a single held press.
-                //dispatchedKeys is reset per-key on KeyUp so genuine re-presses inside
-                //the same frame still dispatch.
-                if (!dispatchedKeys.Add(evt.Key))
-                    continue;
-
-                var focusBefore = ExplicitFocusElement;
-
-                KeyDown.Reset();
-                KeyDown.Key = evt.Key;
-                KeyDown.Modifiers = runningMods;
-                DispatchKeyboardEvent(root, KeyDown);
-
-                if ((focusBefore is null) && (ExplicitFocusElement is not null))
-                    suppressNextTextInput = true;
-            } else if (evt.Kind == OrderedKeyEventKind.KeyUp)
-            {
-                if (bit != KeyModifiers.None)
-                    runningMods &= ~bit;
-
-                dispatchedKeys.Remove(evt.Key);
-
-                KeyUp.Reset();
-                KeyUp.Key = evt.Key;
-                KeyUp.Modifiers = runningMods;
-                DispatchKeyboardEvent(root, KeyUp);
-            } else
-            {
-                if (suppressNextTextInput)
+                case BufferedInputKind.MouseButton:
                 {
-                    suppressNextTextInput = false;
+                    if (!mouseBlocked)
+                        ProcessMouseButton(
+                            root,
+                            evt.X,
+                            evt.Y,
+                            totalMs,
+                            evt.Modifiers,
+                            evt.Button,
+                            evt.IsPress,
+                            !evt.IsPress);
 
-                    continue;
+                    break;
                 }
 
-                TextInput.Reset();
-                TextInput.Character = evt.Character;
-                DispatchKeyboardEvent(root, TextInput);
+                case BufferedInputKind.MouseWheel:
+                {
+                    //per-event wheel dispatch — hit-test at the captured cursor position
+                    //so a scroll that lands in a different panel than the frame-end cursor
+                    //is still routed correctly.
+                    if (!mouseBlocked)
+                    {
+                        var scrollTarget = HitTest(root, evt.X, evt.Y);
+
+                        MouseScroll.Reset();
+                        MouseScroll.ScreenX = evt.X;
+                        MouseScroll.ScreenY = evt.Y;
+                        MouseScroll.Delta = evt.WheelDelta;
+                        MouseScroll.Modifiers = evt.Modifiers;
+                        DispatchBubble(scrollTarget ?? root, MouseScroll);
+                    }
+
+                    break;
+                }
+
+                case BufferedInputKind.KeyDown:
+                {
+                    var bit = ModifierBitFor(evt.Key);
+
+                    if (bit != KeyModifiers.None)
+                        runningMods |= bit;
+
+                    //OS key-repeat emits repeated WM_KEYDOWN for a single held press.
+                    //DispatchedKeys is reset per-key on KeyUp so genuine re-presses
+                    //inside the same frame still dispatch.
+                    if (!DispatchedKeys.Add(evt.Key))
+                        break;
+
+                    var focusBefore = ExplicitFocusElement;
+
+                    KeyDown.Reset();
+                    KeyDown.Key = evt.Key;
+                    KeyDown.Modifiers = runningMods;
+                    DispatchKeyboardEvent(root, KeyDown);
+
+                    if ((focusBefore is null) && (ExplicitFocusElement is not null))
+                        suppressNextTextInput = true;
+
+                    break;
+                }
+
+                case BufferedInputKind.KeyUp:
+                {
+                    var bit = ModifierBitFor(evt.Key);
+
+                    if (bit != KeyModifiers.None)
+                        runningMods &= ~bit;
+
+                    DispatchedKeys.Remove(evt.Key);
+
+                    KeyUp.Reset();
+                    KeyUp.Key = evt.Key;
+                    KeyUp.Modifiers = runningMods;
+                    DispatchKeyboardEvent(root, KeyUp);
+
+                    break;
+                }
+
+                case BufferedInputKind.TextInput:
+                {
+                    if (suppressNextTextInput)
+                    {
+                        suppressNextTextInput = false;
+
+                        break;
+                    }
+
+                    TextInput.Reset();
+                    TextInput.Character = evt.Character;
+                    DispatchKeyboardEvent(root, TextInput);
+
+                    break;
+                }
             }
         }
     }
@@ -639,17 +684,17 @@ public sealed class InputDispatcher
 
     //── helpers ──
 
-    private KeyModifiers GetModifiers()
+    private static KeyModifiers GetModifiers()
     {
         var mods = KeyModifiers.None;
 
-        if (Input.IsKeyHeld(Keys.LeftShift) || Input.IsKeyHeld(Keys.RightShift))
+        if (InputBuffer.IsKeyHeld(Keys.LeftShift) || InputBuffer.IsKeyHeld(Keys.RightShift))
             mods |= KeyModifiers.Shift;
 
-        if (Input.IsKeyHeld(Keys.LeftControl) || Input.IsKeyHeld(Keys.RightControl))
+        if (InputBuffer.IsKeyHeld(Keys.LeftControl) || InputBuffer.IsKeyHeld(Keys.RightControl))
             mods |= KeyModifiers.Ctrl;
 
-        if (Input.IsKeyHeld(Keys.LeftAlt) || Input.IsKeyHeld(Keys.RightAlt))
+        if (InputBuffer.IsKeyHeld(Keys.LeftAlt) || InputBuffer.IsKeyHeld(Keys.RightAlt))
             mods |= KeyModifiers.Alt;
 
         return mods;
