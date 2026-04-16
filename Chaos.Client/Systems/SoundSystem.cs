@@ -35,7 +35,7 @@ public sealed class SoundSystem : IDisposable
     private readonly Dictionary<int, (float[] Samples, long Timestamp)> SoundCache = [];
 
     private int CurrentMusicId = -1;
-    private LoopingSampleProvider? CurrentMusicSource;
+    private StreamingMusicProvider? CurrentMusicSource;
     private MMDeviceEnumerator? DeviceEnumerator;
     private volatile bool DeviceChangePending;
     private bool IsDisposed;
@@ -43,8 +43,6 @@ public sealed class SoundSystem : IDisposable
     private VolumeSampleProvider? MusicVolumeWrapper;
     private DefaultDeviceNotificationClient? NotificationClient;
     private IWavePlayer? Output;
-    private int PendingMusicId;
-    private Task<float[]?>? PendingMusicLoad;
     private long SoundCacheTimestamp;
     private float Volume = 0.75f;
 
@@ -112,8 +110,24 @@ public sealed class SoundSystem : IDisposable
         if (!File.Exists(path))
             return;
 
-        PendingMusicId = musicId;
-        PendingMusicLoad = Task.Run(() => DecodeMp3File(path));
+        if (Output is null)
+            return;
+
+        try
+        {
+            CurrentMusicSource = new StreamingMusicProvider(path, CANONICAL_SAMPLE_RATE, CANONICAL_CHANNELS);
+        } catch
+        {
+            return;
+        }
+
+        MusicVolumeWrapper = new VolumeSampleProvider(CurrentMusicSource)
+        {
+            Volume = MusicVolume
+        };
+
+        Mixer.AddMixerInput(MusicVolumeWrapper);
+        CurrentMusicId = musicId;
     }
 
     /// <summary>
@@ -201,28 +215,6 @@ public sealed class SoundSystem : IDisposable
             PlayedThisFrame.Add(pending.SoundId);
             PlayCachedSamples(pending.Samples, pending.Volume);
         }
-
-        if (PendingMusicLoad is not { IsCompleted: true })
-            return;
-
-        var result = PendingMusicLoad.Result;
-        PendingMusicLoad = null;
-
-        if (result is null)
-            return;
-
-        if (Output is null)
-            return;
-
-        CurrentMusicSource = new LoopingSampleProvider(result, CanonicalFormat);
-
-        MusicVolumeWrapper = new VolumeSampleProvider(CurrentMusicSource)
-        {
-            Volume = MusicVolume
-        };
-
-        Mixer.AddMixerInput(MusicVolumeWrapper);
-        CurrentMusicId = PendingMusicId;
     }
 
     private static float[]? ConvertToCanonical(Mp3FileReader reader)
@@ -275,19 +267,6 @@ public sealed class SoundSystem : IDisposable
         }
     }
 
-    private static float[]? DecodeMp3File(string path)
-    {
-        try
-        {
-            using var stream = File.OpenRead(path);
-            using var reader = new Mp3FileReader(stream);
-
-            return ConvertToCanonical(reader);
-        } catch
-        {
-            return null;
-        }
-    }
 
     private static float[]? LoadAndDecodeSoundEffect(int soundId)
     {
@@ -423,7 +402,6 @@ public sealed class SoundSystem : IDisposable
     private void StopMusic()
     {
         CurrentMusicId = -1;
-        PendingMusicLoad = null;
 
         if (MusicVolumeWrapper is not null)
         {
@@ -431,6 +409,7 @@ public sealed class SoundSystem : IDisposable
             MusicVolumeWrapper = null;
         }
 
+        CurrentMusicSource?.Dispose();
         CurrentMusicSource = null;
     }
 
@@ -488,39 +467,82 @@ public sealed class SoundSystem : IDisposable
         }
     }
 
-    private sealed class LoopingSampleProvider : ISampleProvider
+    private sealed class StreamingMusicProvider : ISampleProvider, IDisposable
     {
-        private readonly float[] Samples;
-        private int Position;
+        private readonly string FilePath;
+        private readonly int TargetSampleRate;
+        private readonly int TargetChannels;
+        private FileStream? Stream;
+        private Mp3FileReader? Reader;
+        private ISampleProvider? Source;
+
         public WaveFormat WaveFormat { get; }
 
-        public LoopingSampleProvider(float[] samples, WaveFormat waveFormat)
+        public StreamingMusicProvider(string filePath, int sampleRate, int channels)
         {
-            Samples = samples;
-            WaveFormat = waveFormat;
+            FilePath = filePath;
+            TargetSampleRate = sampleRate;
+            TargetChannels = channels;
+            WaveFormat = WaveFormat.CreateIeeeFloatWaveFormat(sampleRate, channels);
+
+            OpenPipeline();
         }
 
         public int Read(float[] buffer, int offset, int count)
         {
-            if (Samples.Length == 0)
+            if (Source is null)
                 return 0;
 
             var totalRead = 0;
 
             while (totalRead < count)
             {
-                if (Position >= Samples.Length)
-                    Position = 0;
+                var read = Source.Read(buffer, offset + totalRead, count - totalRead);
 
-                var available = Samples.Length - Position;
-                var toRead = Math.Min(available, count - totalRead);
-                Array.Copy(Samples, Position, buffer, offset + totalRead, toRead);
-                Position += toRead;
-                totalRead += toRead;
+                if (read > 0)
+                {
+                    totalRead += read;
+
+                    continue;
+                }
+
+                //end of track — loop by rebuilding the decode pipeline from the same file
+                ClosePipeline();
+                OpenPipeline();
+
+                if (Source is null)
+                    break;
             }
 
             return totalRead;
         }
+
+        private void OpenPipeline()
+        {
+            Stream = File.OpenRead(FilePath);
+            Reader = new Mp3FileReader(Stream);
+
+            ISampleProvider source = Reader.ToSampleProvider();
+
+            if (source.WaveFormat.SampleRate != TargetSampleRate)
+                source = new WdlResamplingSampleProvider(source, TargetSampleRate);
+
+            if (source.WaveFormat.Channels == 1)
+                source = new MonoToStereoSampleProvider(source);
+
+            Source = source;
+        }
+
+        private void ClosePipeline()
+        {
+            Source = null;
+            Reader?.Dispose();
+            Reader = null;
+            Stream?.Dispose();
+            Stream = null;
+        }
+
+        public void Dispose() => ClosePipeline();
     }
 
     private sealed class DefaultDeviceNotificationClient : IMMNotificationClient

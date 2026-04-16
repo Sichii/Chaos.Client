@@ -69,7 +69,8 @@ public sealed class CreatureRenderer : IDisposable
         float tileCenterX,
         float tileCenterY,
         Vector2 visualOffset,
-        EntityTintType tint)
+        EntityTintType tint,
+        float alpha = 1f)
     {
         var spriteFrame = GetFrame(spriteId, frameIndex);
 
@@ -86,25 +87,28 @@ public sealed class CreatureRenderer : IDisposable
         var drawY = tileCenterY + visualOffset.Y - texCenterY;
         var screenPos = camera.WorldToScreen(new Vector2(drawX, drawY));
 
-        var effects = flip ? SpriteEffects.FlipHorizontally : SpriteEffects.None;
-
-        var drawTexture = tint switch
+        if (alpha > 0)
         {
-            EntityTintType.Highlight => GetOrCreateHighlightTint(frame.Texture),
-            EntityTintType.Group     => GetOrCreateGroupTint(frame.Texture),
-            _                        => frame.Texture
-        };
+            var effects = flip ? SpriteEffects.FlipHorizontally : SpriteEffects.None;
 
-        batch.Draw(
-            drawTexture,
-            screenPos,
-            null,
-            Color.White,
-            0f,
-            Vector2.Zero,
-            1f,
-            effects,
-            0f);
+            var drawTexture = tint switch
+            {
+                EntityTintType.Highlight => GetOrCreateHighlightTint(frame.Texture),
+                EntityTintType.Group     => GetOrCreateGroupTint(frame.Texture),
+                _                        => frame.Texture
+            };
+
+            batch.Draw(
+                drawTexture,
+                screenPos,
+                null,
+                Color.White * alpha,
+                0f,
+                Vector2.Zero,
+                1f,
+                effects,
+                0f);
+        }
 
         return (int)screenPos.Y + frame.Texture.Height;
     }

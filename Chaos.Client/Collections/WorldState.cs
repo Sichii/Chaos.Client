@@ -126,14 +126,6 @@ public static class WorldState
     /// </summary>
     public static void AddOrUpdateAisling(DisplayAislingArgs args)
     {
-        if (args.IsHidden)
-        {
-            Entities.Remove(args.Id);
-            SortVersion++;
-
-            return;
-        }
-
         if (!Entities.TryGetValue(args.Id, out var entity))
         {
             entity = new WorldEntity
@@ -152,6 +144,7 @@ public static class WorldState
         entity.TileY = args.Y;
         entity.Direction = args.Direction;
         entity.Name = args.Name;
+        entity.IsHidden = args.IsHidden;
         entity.IsTransparent = args.IsTransparent;
         entity.IsDead = args.IsDead;
         entity.LanternSize = args.LanternSize;

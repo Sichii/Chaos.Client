@@ -535,6 +535,16 @@ public sealed partial class WorldScreen
         var info = animInfo.Value;
         (var frameIndex, var flip) = AnimationSystem.GetCreatureFrame(entity, in info);
 
+        var alpha = entity.IsHidden
+            ? 0f
+            : entity.IsTransparent
+                ? DrawingForSilhouette ? TRANSPARENT_SILHOUETTE_ALPHA : TRANSPARENT_ALPHA
+                : 1f;
+
+        //transparent silhouette creatures skip the stripe-pass draw (drawn in silhouette pass instead)
+        if (entity.IsTransparent && !DrawingForSilhouette && SilhouetteRenderer.SilhouetteEntityIds.Contains(entity.Id))
+            alpha = 0f;
+
         var tint = Highlight.ShowTintHighlight && (Highlight.HoveredEntityId == entity.Id)
             ? EntityTintType.Highlight
             : GroupHighlightedIds.Contains(entity.Id)
@@ -550,7 +560,8 @@ public sealed partial class WorldScreen
             tileCenterX,
             tileCenterY,
             entity.VisualOffset,
-            tint);
+            tint,
+            alpha);
     }
 
     private int DrawAisling(
@@ -559,6 +570,18 @@ public sealed partial class WorldScreen
         float tileCenterX,
         float tileCenterY)
     {
+        //hidden aislings have no visual (body sprite 0, all equipment 0) but are still present for
+        //hit-testing — skip the draw and return the real texture bottom for hitbox placement.
+        if (entity.IsHidden)
+        {
+            var hiddenPos = Camera.WorldToScreen(
+                new Vector2(
+                    tileCenterX + entity.VisualOffset.X - AislingRenderer.CANVAS_CENTER_X,
+                    tileCenterY + entity.VisualOffset.Y - AislingRenderer.CANVAS_CENTER_Y));
+
+            return (int)hiddenPos.Y + AislingRenderer.COMPOSITE_HEIGHT;
+        }
+
         //morphed aislings (creature form) render as creatures — swimming overrides morphs too
         if (entity.Appearance is null && entity is { SpriteId: > 0, IsOnSwimmingTile: false })
             return DrawCreature(
@@ -634,7 +657,15 @@ public sealed partial class WorldScreen
         //producing a disappearing act when walking past walls). currently only the local player is silhouetted,
         //but this check works for any future silhouette entity too.
         if (entity.IsTransparent && !DrawingForSilhouette && SilhouetteRenderer.SilhouetteEntityIds.Contains(entity.Id))
-            return 0;
+        {
+            //skip the draw but return the real texture bottom so the caller can still place a hitbox
+            var skippedPos = Camera.WorldToScreen(
+                new Vector2(
+                    tileCenterX + entity.VisualOffset.X - AislingRenderer.CANVAS_CENTER_X,
+                    tileCenterY + entity.VisualOffset.Y - AislingRenderer.CANVAS_CENTER_Y));
+
+            return (int)skippedPos.Y + AislingRenderer.COMPOSITE_HEIGHT;
+        }
 
         //during the silhouette pass, transparent entities draw at TRANSPARENT_SILHOUETTE_ALPHA so the 0.50
         //SILHOUETTE_ALPHA overlay compounds to TRANSPARENT_ALPHA (0.33) net on screen. non-transparent silhouetted

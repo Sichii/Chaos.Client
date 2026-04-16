@@ -14,11 +14,13 @@
     <configurations />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="2cf40e53-e49e-4e2b-a433-eb4f57999662" name="Changes" comment="fix login d/c">
+    <list default="true" id="2cf40e53-e49e-4e2b-a433-eb4f57999662" name="Changes" comment="screenshots">
       <change beforePath="$PROJECT_DIR$/.idea/.idea.Chaos.Client/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/.idea.Chaos.Client/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Chaos.Client/ChaosGame.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client/ChaosGame.cs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Chaos.Client/Controls/Generic/DebugOverlay.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client/Controls/Generic/DebugOverlay.cs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Chaos.Client/Screens/WorldScreen.Wiring.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client/Screens/WorldScreen.Wiring.cs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Chaos.Client.Rendering/CreatureRenderer.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client.Rendering/CreatureRenderer.cs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Chaos.Client/Collections/WorldState.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client/Collections/WorldState.cs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Chaos.Client/Models/WorldEntity.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client/Models/WorldEntity.cs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Chaos.Client/Screens/WorldScreen.Draw.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client/Screens/WorldScreen.Draw.cs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Chaos.Client/Systems/SoundSystem.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client/Systems/SoundSystem.cs" afterDir="false" />
     </list>
     <list id="7231daaa-f0af-42dd-822b-aeab5364bc8b" name="AiStuff" comment="" />
     <option name="SHOW_DIALOG" value="false" />
@@ -128,7 +130,7 @@
       <workItem from="1775506872956" duration="138101000" />
       <workItem from="1775895595683" duration="105789000" />
       <workItem from="1776179281803" duration="29003000" />
-      <workItem from="1776251386478" duration="43910000" />
+      <workItem from="1776251386478" duration="49087000" />
     </task>
     <task id="LOCAL-00001" summary="safety">
       <option name="closed" value="true" />
@@ -418,7 +420,15 @@
       <option name="project" value="LOCAL" />
       <updated>1776335888597</updated>
     </task>
-    <option name="localTasksCounter" value="37" />
+    <task id="LOCAL-00037" summary="screenshots">
+      <option name="closed" value="true" />
+      <created>1776349904999</created>
+      <option name="number" value="00037" />
+      <option name="presentableId" value="LOCAL-00037" />
+      <option name="project" value="LOCAL" />
+      <updated>1776349904999</updated>
+    </task>
+    <option name="localTasksCounter" value="38" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -450,7 +460,8 @@
     <MESSAGE value="unify aisling rendering&#10;- and eliminate closures" />
     <MESSAGE value="fix allocation issues" />
     <MESSAGE value="fix login d/c" />
-    <option name="LAST_COMMIT_MESSAGE" value="fix login d/c" />
+    <MESSAGE value="screenshots" />
+    <option name="LAST_COMMIT_MESSAGE" value="screenshots" />
   </component>
   <component name="XDebuggerManager">
     <pin-to-top-manager>

@@ -74,6 +74,7 @@ public sealed class WorldEntity
     public bool IsOnSwimmingTile { get; set; }
 
     public bool IsTransparent { get; set; }
+    public bool IsHidden { get; set; }
     public byte ItemColor { get; set; }
     public LanternSize LanternSize { get; set; }
     public string Name { get; set; } = string.Empty;
