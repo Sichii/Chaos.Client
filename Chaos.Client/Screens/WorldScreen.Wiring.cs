@@ -858,6 +858,9 @@ public sealed partial class WorldScreen
         if (hud.EmoteButton is not null)
             SocialStatusPicker.OnClosed += () => hud.EmoteButton.IsSelected = false;
 
+        if (hud.CharScreenshotButton is not null)
+            hud.CharScreenshotButton.Clicked += () => Game.RequestScreenshot();
+
         if (hud.MailButton is not null)
         {
             hud.MailButton.Clicked += () =>

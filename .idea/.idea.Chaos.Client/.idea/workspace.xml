@@ -14,12 +14,11 @@
     <configurations />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="2cf40e53-e49e-4e2b-a433-eb4f57999662" name="Changes" comment="fix allocation issues">
+    <list default="true" id="2cf40e53-e49e-4e2b-a433-eb4f57999662" name="Changes" comment="fix login d/c">
       <change beforePath="$PROJECT_DIR$/.idea/.idea.Chaos.Client/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/.idea.Chaos.Client/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Chaos.Client.Data/Chaos.Client.Data.csproj" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client.Data/Chaos.Client.Data.csproj" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Chaos.Client.slnx" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client.slnx" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Chaos.Client/Screens/LobbyLoginScreen.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client/Screens/LobbyLoginScreen.cs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Chaos.Client/Screens/WorldScreen.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client/Screens/WorldScreen.cs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Chaos.Client/ChaosGame.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client/ChaosGame.cs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Chaos.Client/Controls/Generic/DebugOverlay.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client/Controls/Generic/DebugOverlay.cs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Chaos.Client/Screens/WorldScreen.Wiring.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client/Screens/WorldScreen.Wiring.cs" afterDir="false" />
     </list>
     <list id="7231daaa-f0af-42dd-822b-aeab5364bc8b" name="AiStuff" comment="" />
     <option name="SHOW_DIALOG" value="false" />
@@ -39,13 +38,15 @@
     <option name="ROOT_SYNC" value="DONT_SYNC" />
   </component>
   <component name="HighlightingSettingsPerFile">
+    <setting file="file://$USER_HOME$/AppData/Local/JetBrains/Shared/vAny/DecompilerCache/decompiler/3d3e32f1d08a447b8fa322b24867d73f75a38/94/ae972c04/SKColor.cs" root0="FORCE_HIGHLIGHTING" />
     <setting file="file://$USER_HOME$/AppData/Local/JetBrains/Shared/vAny/DecompilerCache/decompiler/e3a3b5d33b164c3fba4211220b2073133609c8/da/e9a305f9/UserSettingsGroup.cs" root0="SKIP_HIGHLIGHTING" />
     <setting file="file://$USER_HOME$/AppData/Local/JetBrains/Shared/vAny/SourcesCache/228bff957d5b9f32cfbedd8bf82a5d3e862ec3e051593a67913b95ae288287/ThrowHelper.cs" root0="FORCE_HIGHLIGHTING" />
     <setting file="file://$USER_HOME$/AppData/Local/JetBrains/Shared/vAny/SourcesCache/314163acf15a5c99c0172ffccfbd17201337371fd4ccc0643c55b256ea679c2d/Enums.cs" root0="FORCE_HIGHLIGHTING" />
+    <setting file="file://$USER_HOME$/AppData/Local/JetBrains/Shared/vAny/SourcesCache/404cce21dc637670b820fafd5131efcd96f493e8fc1a9378e9ed8363a7a88c18/UInt32.cs" root0="SKIP_HIGHLIGHTING" />
     <setting file="file://$USER_HOME$/AppData/Local/JetBrains/Shared/vAny/SourcesCache/effb8f5a6e1b4a2f6b572595fad66070be446aa53e5cc35cf98ef5f56c55fde/Pathfinder.cs" root0="FORCE_HIGHLIGHTING" />
     <setting file="file://$PROJECT_DIR$/.claude/settings.local.json" root0="FORCE_HIGHLIGHTING" />
     <setting file="file://$PROJECT_DIR$/Chaos.Client/Extensions/ElementExtensions.cs" root0="FORCE_HIGHLIGHTING" />
-    <setting file="file://$PROJECT_DIR$/../dalib/DALib/Extensions/BinaryReaderExtensions.cs" root0="SKIP_HIGHLIGHTING" />
+    <setting file="file://$PROJECT_DIR$/../dalib/DALib/Extensions/BinaryReaderExtensions.cs" root0="FORCE_HIGHLIGHTING" />
   </component>
   <component name="McpProjectServerCommands">
     <commands />
@@ -127,7 +128,7 @@
       <workItem from="1775506872956" duration="138101000" />
       <workItem from="1775895595683" duration="105789000" />
       <workItem from="1776179281803" duration="29003000" />
-      <workItem from="1776251386478" duration="36323000" />
+      <workItem from="1776251386478" duration="43910000" />
     </task>
     <task id="LOCAL-00001" summary="safety">
       <option name="closed" value="true" />
@@ -409,7 +410,15 @@
       <option name="project" value="LOCAL" />
       <updated>1776318033820</updated>
     </task>
-    <option name="localTasksCounter" value="36" />
+    <task id="LOCAL-00036" summary="fix login d/c">
+      <option name="closed" value="true" />
+      <created>1776335888597</created>
+      <option name="number" value="00036" />
+      <option name="presentableId" value="LOCAL-00036" />
+      <option name="project" value="LOCAL" />
+      <updated>1776335888597</updated>
+    </task>
+    <option name="localTasksCounter" value="37" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -440,7 +449,8 @@
     <MESSAGE value="mail indicator and misc" />
     <MESSAGE value="unify aisling rendering&#10;- and eliminate closures" />
     <MESSAGE value="fix allocation issues" />
-    <option name="LAST_COMMIT_MESSAGE" value="fix allocation issues" />
+    <MESSAGE value="fix login d/c" />
+    <option name="LAST_COMMIT_MESSAGE" value="fix login d/c" />
   </component>
   <component name="XDebuggerManager">
     <pin-to-top-manager>

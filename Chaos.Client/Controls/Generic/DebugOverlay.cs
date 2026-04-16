@@ -9,7 +9,7 @@ using Microsoft.Xna.Framework.Graphics;
 namespace Chaos.Client.Controls.Generic;
 
 /// <summary>
-///     Debug overlay that draws colored outlines and centered names for all visible UI elements. Toggle with F12.
+///     Debug overlay that draws colored outlines and centered names for all visible UI elements. Toggle with F11.
 ///     Also displays performance stats: frame time, GC collection counts, heap size, and Gen2 hitch detection.
 ///     Uses deferred batching and text caching to minimize draw calls and texture allocations.
 /// </summary>

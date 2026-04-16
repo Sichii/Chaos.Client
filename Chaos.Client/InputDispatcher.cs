@@ -583,6 +583,15 @@ public sealed class InputDispatcher
     /// </summary>
     private void DispatchKeyboardEvent(UIPanel root, InputEvent e)
     {
+        //phase 0: global hotkeys — always delivered to root, bypass focus and stack
+        if (e is KeyDownEvent { Key: Keys.Enter, Alt: true })
+        {
+            DispatchSingle(root, e);
+
+            if (e.Handled)
+                return;
+        }
+
         //phase 1: explicit focus (single target, no bubbling)
         if (ExplicitFocusElement is not null && IsEffectivelyVisible(ExplicitFocusElement))
         {

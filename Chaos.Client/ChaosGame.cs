@@ -1,6 +1,9 @@
 #region
+using System.Buffers.Binary;
 using System.IO.Compression;
+using System.Runtime.InteropServices;
 using Chaos.Client.Collections;
+using DALib.Utility;
 using Chaos.Client.Controls.Generic;
 using Chaos.Client.Networking;
 using Chaos.Client.Networking.Definitions;
@@ -9,9 +12,11 @@ using Chaos.Client.Systems;
 using Chaos.Cryptography;
 using Chaos.DarkAges.Definitions;
 using Chaos.Networking.Entities.Server;
+using DALib.Extensions;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using Microsoft.Xna.Framework.Input;
+using SkiaSharp;
 #endregion
 
 namespace Chaos.Client;
@@ -30,6 +35,7 @@ public sealed class ChaosGame : Game
     private int CursorOffsetY;
     private Texture2D? CursorTexture;
     internal volatile bool GcRequested;
+    private bool ScreenshotRequested;
     private int HandCursorOffsetX;
     private int HandCursorOffsetY;
     private Texture2D? HandCursorTexture;
@@ -165,6 +171,14 @@ public sealed class ChaosGame : Game
             SpriteBatch.End();
         }
 
+        //capture screenshot while the render target is still bound — DiscardContents may
+        //invalidate pixel data after SetRenderTarget(null) on some drivers
+        if (ScreenshotRequested)
+        {
+            ScreenshotRequested = false;
+            SaveScreenshot();
+        }
+
         //scale to window (aspect ratio is locked, so it always fills perfectly)
         GraphicsDevice.SetRenderTarget(null);
         SpriteBatch.Begin(samplerState: GlobalSettings.Sampler);
@@ -192,6 +206,140 @@ public sealed class ChaosGame : Game
 
             GC.WaitForPendingFinalizers();
         }
+    }
+
+    public void RequestScreenshot() => ScreenshotRequested = true;
+
+    private void SaveScreenshot()
+    {
+        var dataPath = GlobalSettings.DataPath;
+        var highestNumber = 0;
+
+        foreach (var file in Directory.EnumerateFiles(dataPath, "lod*.*"))
+        {
+            var name = Path.GetFileNameWithoutExtension(file);
+
+            if ((name.Length >= 4) && int.TryParse(name.AsSpan(3), out var num) && (num > highestNumber))
+                highestNumber = num;
+        }
+
+        var nextNumber = highestNumber + 1;
+        var fileName = Path.Combine(dataPath, $"lod{nextNumber:D3}.png");
+
+        var pixels = new Color[VIRTUAL_WIDTH * VIRTUAL_HEIGHT];
+        RenderTarget.GetData(pixels);
+
+        var imageInfo = new SKImageInfo(VIRTUAL_WIDTH, VIRTUAL_HEIGHT, SKColorType.Rgba8888, SKAlphaType.Premul);
+
+        using var sourceImage = SKImage.FromPixelCopy(
+            imageInfo,
+            MemoryMarshal.AsBytes(pixels.AsSpan()),
+            VIRTUAL_WIDTH * 4);
+
+        using var intermediary = ImageProcessor.PreserveNonTransparentBlacks(sourceImage);
+        using var quantized = ImageProcessor.Quantize(QuantizerOptions.Default, intermediary);
+        var palette = quantized.Palette;
+        var indices = quantized.Entity.GetPalettizedPixelData(palette);
+
+        var rgbPalette = new List<uint>(palette.Count);
+
+        for (var i = 0; i < palette.Count; i++)
+        {
+            var c = palette[i];
+            rgbPalette.Add(((uint)c.Red << 16) | ((uint)c.Green << 8) | c.Blue);
+        }
+
+        WritePalettizedPng(fileName, VIRTUAL_WIDTH, VIRTUAL_HEIGHT, indices, rgbPalette);
+    }
+
+    private static void WritePalettizedPng(string fileName, int width, int height, byte[] indices, List<uint> palette)
+    {
+        using var file = File.Create(fileName);
+
+        //PNG signature
+        file.Write([0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A]);
+
+        //IHDR — width, height, 8-bit indexed color
+        var ihdr = new byte[13];
+        BinaryPrimitives.WriteInt32BigEndian(ihdr.AsSpan(0), width);
+        BinaryPrimitives.WriteInt32BigEndian(ihdr.AsSpan(4), height);
+        ihdr[8] = 8; //bit depth
+        ihdr[9] = 3; //color type: indexed
+        WritePngChunk(file, "IHDR"u8, ihdr);
+
+        //PLTE — RGB triplets
+        var plte = new byte[palette.Count * 3];
+
+        for (var i = 0; i < palette.Count; i++)
+        {
+            var rgb = palette[i];
+            plte[i * 3] = (byte)(rgb >> 16);
+            plte[i * 3 + 1] = (byte)(rgb >> 8);
+            plte[i * 3 + 2] = (byte)rgb;
+        }
+
+        WritePngChunk(file, "PLTE"u8, plte);
+
+        //IDAT — zlib-compressed scanlines with no-filter bytes
+        using var idatBuffer = new MemoryStream();
+
+        using (var zlib = new ZLibStream(idatBuffer, CompressionLevel.Optimal, leaveOpen: true))
+            for (var y = 0; y < height; y++)
+            {
+                zlib.WriteByte(0); //filter: none
+                zlib.Write(indices, y * width, width);
+            }
+
+        WritePngChunk(file, "IDAT"u8, idatBuffer.ToArray());
+
+        //IEND
+        WritePngChunk(file, "IEND"u8, []);
+    }
+
+    private static void WritePngChunk(Stream stream, ReadOnlySpan<byte> type, ReadOnlySpan<byte> data)
+    {
+        Span<byte> buf = stackalloc byte[4];
+
+        //chunk length (big-endian)
+        BinaryPrimitives.WriteInt32BigEndian(buf, data.Length);
+        stream.Write(buf);
+
+        //chunk type
+        stream.Write(type);
+
+        //chunk data
+        stream.Write(data);
+
+        //CRC32 over type + data (PNG uses the standard CRC32 polynomial)
+        var crc = 0xFFFFFFFFu;
+
+        foreach (var b in type)
+            crc = PngCrcTable[(crc ^ b) & 0xFF] ^ (crc >> 8);
+
+        foreach (var b in data)
+            crc = PngCrcTable[(crc ^ b) & 0xFF] ^ (crc >> 8);
+
+        BinaryPrimitives.WriteUInt32BigEndian(buf, crc ^ 0xFFFFFFFF);
+        stream.Write(buf);
+    }
+
+    private static readonly uint[] PngCrcTable = BuildCrcTable();
+
+    private static uint[] BuildCrcTable()
+    {
+        var table = new uint[256];
+
+        for (uint n = 0; n < 256; n++)
+        {
+            var c = n;
+
+            for (var k = 0; k < 8; k++)
+                c = (c & 1) != 0 ? 0xEDB88320 ^ (c >> 1) : c >> 1;
+
+            table[n] = c;
+        }
+
+        return table;
     }
 
     private static (int X, int Y) FindCursorHotspot(Texture2D texture)
@@ -384,9 +532,13 @@ public sealed class ChaosGame : Game
         //freeze buffered input for this frame before anything reads it
         InputBuffer.Update(IsActive);
 
-        //f12 — toggle debug overlay (handled globally before screen update)
-        if (InputBuffer.WasKeyPressed(Keys.F12))
+        //f11 — toggle debug overlay (handled globally before screen update)
+        if (InputBuffer.WasKeyPressed(Keys.F11))
             DebugOverlay.Toggle();
+
+        //f12 — screenshot
+        if (InputBuffer.WasKeyPressed(Keys.F12))
+            RequestScreenshot();
 
         DebugOverlay.Update(gameTime);
 
