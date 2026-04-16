@@ -22,7 +22,7 @@ namespace Chaos.Client.Collections;
 /// </summary>
 public static class WorldState
 {
-    private static readonly Dictionary<uint, WorldEntity> Entities = new();
+    private static readonly Dictionary<uint, WorldEntity> Entities = [];
     private static readonly List<WorldEntity> SortBuffer = [];
     private static int SortVersion;
     private static int LastSortedVersion = -1;

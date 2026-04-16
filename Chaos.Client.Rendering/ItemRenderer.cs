@@ -14,7 +14,7 @@ namespace Chaos.Client.Rendering;
 /// </summary>
 public sealed class ItemRenderer : IDisposable
 {
-    private readonly Dictionary<(int SpriteId, byte Color), ItemSprite?> SpriteCache = new();
+    private readonly Dictionary<(int SpriteId, byte Color), ItemSprite?> SpriteCache = [];
 
     public void Dispose() => Clear();
 

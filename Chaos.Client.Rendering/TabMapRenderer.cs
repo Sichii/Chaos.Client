@@ -79,21 +79,19 @@ public sealed class TabMapRenderer : IDisposable
         ScissorTestEnable = true
     };
 
-    private readonly byte[] SotpData;
-    private AlphaTestEffect? AlphaTest;
+        private AlphaTestEffect? AlphaTest;
     private TextureAtlas? Atlas;
     private (int X, int Y, byte Mask)[] Entries = [];
 
     //precomputed: which tiles are walls, and their neighbor masks
     private bool[,]? IsWallTile;
     private bool[,]? VisibilityScratch;
-    private readonly Dictionary<(int, int), int> OccupiedByTile = new();
+    private readonly Dictionary<(int, int), int> OccupiedByTile = [];
     private int MapHeight;
     private int MapWidth;
 
     public float Zoom { get; private set; } = ZOOM_DEFAULT;
 
-    public TabMapRenderer() => SotpData = DataContext.Tiles.SotpData;
 
     /// <inheritdoc />
     public void Dispose()
@@ -535,11 +533,12 @@ public sealed class TabMapRenderer : IDisposable
             return false;
 
         var sotpIndex = fgIndex - 1;
+        var sotpData = DataContext.Tiles.SotpData;
 
-        if (sotpIndex >= SotpData.Length)
+        if (sotpIndex >= sotpData.Length)
             return false;
 
-        return ((TileFlags)SotpData[sotpIndex]).HasFlag(TileFlags.Wall);
+        return (sotpData[sotpIndex] & TileFlags.Wall) != 0;
     }
 
     /// <summary>

@@ -24,7 +24,7 @@ public sealed class OtherProfileTabControl : PrefabPanel
 
     private readonly Rectangle ContentRect;
     private readonly UIButton?[] TabButtons = new UIButton?[EnabledTabs.Length];
-    private readonly Dictionary<StatusBookTab, PrefabPanel?> TabPages = new();
+    private readonly Dictionary<StatusBookTab, PrefabPanel?> TabPages = [];
 
     private StatusBookTab ActiveTab = StatusBookTab.Equipment;
     private bool GroupButtonWired;

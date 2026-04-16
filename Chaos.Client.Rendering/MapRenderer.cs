@@ -14,14 +14,13 @@ namespace Chaos.Client.Rendering;
 
 public sealed class MapRenderer : IDisposable
 {
-    private readonly Dictionary<int, SKImage> BgImageCache = new();
+    private readonly Dictionary<int, SKImage> BgImageCache = [];
     private readonly Lock BgImageCacheLock = new();
-    private readonly Dictionary<int, Texture2D> BgTextureCache = new();
-    private readonly Dictionary<int, SKImage> FgImageCache = new();
+    private readonly Dictionary<int, Texture2D> BgTextureCache = [];
+    private readonly Dictionary<int, SKImage> FgImageCache = [];
     private readonly Lock FgImageCacheLock = new();
-    private readonly Dictionary<int, Texture2D> FgTextureCache = new();
-    private readonly byte[] SotpData = DataContext.Tiles.SotpData;
-
+    private readonly Dictionary<int, Texture2D> FgTextureCache = [];
+    
     private TextureAtlas? BgAtlas;
     private PaletteCyclingManager? CyclingManager;
     private TextureAtlas? FgAtlas;
@@ -374,11 +373,12 @@ public sealed class MapRenderer : IDisposable
     private bool IsTileScreenBlend(int tileId)
     {
         var sotpIndex = tileId - 1;
+        var sotpData = DataContext.Tiles.SotpData;
 
-        if ((sotpIndex < 0) || (sotpIndex >= SotpData.Length))
+        if ((sotpIndex < 0) || (sotpIndex >= sotpData.Length))
             return false;
 
-        return ((TileFlags)SotpData[sotpIndex]).HasFlag(TileFlags.Transparent);
+        return (sotpData[sotpIndex] & TileFlags.Transparent) != 0;
     }
 
     /// <summary>

@@ -15,14 +15,14 @@ namespace Chaos.Client.Rendering;
 /// </summary>
 public sealed class CreatureRenderer : IDisposable
 {
-    private readonly Dictionary<(int SpriteId, int FrameIndex), SpriteFrame> FrameCache = new();
-    private readonly Dictionary<Texture2D, Texture2D> GroupTintCache = new();
-    private readonly Dictionary<Texture2D, Texture2D> HighlightTintCache = new();
+    private readonly Dictionary<(int SpriteId, int FrameIndex), SpriteFrame> FrameCache = [];
+    private readonly Dictionary<Texture2D, Texture2D> GroupTintCache = [];
+    private readonly Dictionary<Texture2D, Texture2D> HighlightTintCache = [];
 
     //average of (CenterY - Top) across all frames, keyed by spriteId.
     //used by overlay positioning to derive a stable "sprite top" for each creature sprite.
     //uses the frame's visible top row, which differs from the bitmap top row when Top > 0 (transparent padding).
-    private readonly Dictionary<int, int> AverageTopOffsetCache = new();
+    private readonly Dictionary<int, int> AverageTopOffsetCache = [];
 
     /// <inheritdoc />
     public void Dispose() => Clear();

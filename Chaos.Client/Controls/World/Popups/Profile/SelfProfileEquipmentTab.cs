@@ -81,7 +81,7 @@ public sealed class SelfProfileEquipmentTab : PrefabPanel
     private readonly UILabel? PortraitTextLabel;
 
     //equipment slot rendering: maps equipmentslot to its visual state
-    private readonly Dictionary<EquipmentSlot, EquipmentSlotVisual> SlotVisuals = new();
+    private readonly Dictionary<EquipmentSlot, EquipmentSlotVisual> SlotVisuals = [];
 
     //stat labels from the _nui_eq prefab (n_ prefix)
     private readonly UILabel? StrLabel;

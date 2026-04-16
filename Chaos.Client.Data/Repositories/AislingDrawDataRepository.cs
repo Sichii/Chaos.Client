@@ -19,7 +19,7 @@ namespace Chaos.Client.Data.Repositories;
 /// </summary>
 public sealed class AislingDrawDataRepository
 {
-    private readonly Dictionary<string, EpfView?> EpfCache = new();
+    private readonly Dictionary<string, EpfView?> EpfCache = [];
 
     public AbilityAnimationTable AbilityAnimations { get; }
 
@@ -65,7 +65,7 @@ public sealed class AislingDrawDataRepository
         if (DatArchives.Legend.TryGetValue("color0.tbl", out var entry))
             DyeColorTable = ColorTable.FromEntry(entry);
         else
-            DyeColorTable = new ColorTable();
+            DyeColorTable = [];
 
         //cache the default (undyed) colors — entry 0 contains the placeholder colors at palette slots 98-103
         if (DyeColorTable.Contains(0))

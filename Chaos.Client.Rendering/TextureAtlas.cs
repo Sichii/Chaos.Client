@@ -23,7 +23,7 @@ public sealed class TextureAtlas : IDisposable
     private const int DEFAULT_MAX_PAGE_SIZE = 2048;
     private const int MAX_SHELF_ENTRY_SIZE = 512;
 
-    private readonly Dictionary<int, AtlasRegion> BuildIntRegions = new();
+    private readonly Dictionary<int, AtlasRegion> BuildIntRegions = [];
     private readonly Dictionary<string, AtlasRegion> BuildRegions = new(StringComparer.OrdinalIgnoreCase);
 
     private readonly int CellHeight;

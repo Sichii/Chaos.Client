@@ -406,7 +406,7 @@ public static class AnimationSystem
                 var flip = entity.Direction is Direction.Down or Direction.Left;
 
                 if (entity.IdleAnimFrameCount > 0)
-                    return (entity.IdleAnimTick, flip, "04", isFront);
+                    return (entity.IdleAnimTick % entity.IdleAnimFrameCount, flip, "04", isFront);
 
                 return (isFront ? 5 : 0, flip, "01", isFront);
             }

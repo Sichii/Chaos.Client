@@ -10,7 +10,7 @@ namespace Chaos.Client.ViewModel;
 /// </summary>
 public sealed class Equipment
 {
-    private readonly Dictionary<EquipmentSlot, EquipmentSlotData> Slots = new();
+    private readonly Dictionary<EquipmentSlot, EquipmentSlotData> Slots = [];
 
     /// <summary>
     ///     Clears all equipment. Fires <see cref="Cleared" />.

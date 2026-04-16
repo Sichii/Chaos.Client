@@ -24,7 +24,7 @@ public sealed class EffectRenderer : IDisposable
     private const int DEFAULT_FRAME_INTERVAL_MS = 100;
 
     //null value = effect doesn't exist (negative cache)
-    private readonly Dictionary<int, SpriteAnimation?> AnimationCache = new();
+    private readonly Dictionary<int, SpriteAnimation?> AnimationCache = [];
 
     /// <inheritdoc />
     public void Dispose() => Clear();

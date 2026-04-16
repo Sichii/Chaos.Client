@@ -1,7 +1,9 @@
 #region
 using System.Buffers;
+using System.Diagnostics.CodeAnalysis;
 using Chaos.Client.Data;
 using Chaos.Client.Data.Repositories;
+using Microsoft.Extensions.Caching.Memory;
 using Chaos.DarkAges.Definitions;
 using DALib.Definitions;
 using DALib.Drawing;
@@ -162,25 +164,22 @@ public sealed class AislingRenderer : IDisposable
 
     private const float GHOST_ALPHA = 0.50f;
 
-    private readonly Dictionary<uint, CompositeEntry> CompositeCache = new();
+    private readonly Dictionary<uint, CompositeEntry> CompositeCache = [];
 
     private readonly AislingDrawDataRepository DrawData = DataContext.AislingDrawData;
-    private readonly Dictionary<Texture2D, Texture2D> GroupTintCache = new();
+    private readonly Dictionary<Texture2D, Texture2D> GroupTintCache = [];
     private readonly LayerInfo?[] RenderLayers = new LayerInfo?[(int)LayerSlot.Count];
-    private readonly Dictionary<int, Texture2D> RestFemaleEmoteFrameCache = new();
-    private readonly Dictionary<int, Texture2D> RestFemaleFrameCache = new();
-    private readonly Dictionary<int, Texture2D> RestMaleEmoteFrameCache = new();
-    private readonly Dictionary<int, Texture2D> RestMaleFrameCache = new();
-    private readonly Dictionary<int, Texture2D> SwimFemaleFrameCache = new();
+    private readonly Dictionary<int, Texture2D> RestFemaleEmoteFrameCache = [];
+    private readonly Dictionary<int, Texture2D> RestFemaleFrameCache = [];
+    private readonly Dictionary<int, Texture2D> RestMaleEmoteFrameCache = [];
+    private readonly Dictionary<int, Texture2D> RestMaleFrameCache = [];
+    private readonly Dictionary<int, Texture2D> SwimFemaleFrameCache = [];
 
-    private readonly Dictionary<int, Texture2D> SwimMaleFrameCache = new();
-    private readonly Dictionary<Texture2D, Texture2D> TintedTextureCache = new();
+    private readonly Dictionary<int, Texture2D> SwimMaleFrameCache = [];
+    private readonly Dictionary<Texture2D, Texture2D> TintedTextureCache = [];
 
-    //bounded by sliding expiration + clear-on-map-change. no size cap: a fully packed 15x15 viewport of aislings
-    //can exceed any reasonable LRU limit (225 aislings * ~15 layers ≈ 3375 entries), and evicting during a frame
-    //would dispose entries still referenced by the current Render call's layers[] array.
-    private const long LAYER_IMAGE_CACHE_SLIDING_MS = 30_000;
-    private readonly Dictionary<LayerCacheKey, LayerCacheEntry> LayerImageCache = new();
+    private static readonly TimeSpan LAYER_IMAGE_CACHE_SLIDING = TimeSpan.FromSeconds(30);
+    private MemoryCache LayerImageCache = new(new MemoryCacheOptions());
 
     /// <inheritdoc />
     public void Dispose()
@@ -259,6 +258,17 @@ public sealed class AislingRenderer : IDisposable
         CompositeCache.Clear();
     }
 
+    private void DisposeCompositeTexture(Texture2D texture)
+    {
+        if (TintedTextureCache.Remove(texture, out var tinted))
+            tinted.Dispose();
+
+        if (GroupTintCache.Remove(texture, out var groupTinted))
+            groupTinted.Dispose();
+
+        texture.Dispose();
+    }
+
     /// <summary>
     ///     Disposes all cached group-tinted composite textures. Call when group membership changes.
     /// </summary>
@@ -289,38 +299,22 @@ public sealed class AislingRenderer : IDisposable
     /// </summary>
     public void ClearLayerImageCache()
     {
-        foreach (var entry in LayerImageCache.Values)
-            entry.Image.Dispose();
-
-        LayerImageCache.Clear();
+        var old = LayerImageCache;
+        LayerImageCache = new MemoryCache(new MemoryCacheOptions());
+        old.Dispose();
     }
 
     private SKImage? TryGetCachedLayerImage(in LayerCacheKey key)
-    {
-        if (!LayerImageCache.TryGetValue(key, out var entry))
-            return null;
-
-        var nowMs = Environment.TickCount64;
-
-        if ((nowMs - entry.LastAccessMs) > LAYER_IMAGE_CACHE_SLIDING_MS)
-        {
-            LayerImageCache.Remove(key);
-            entry.Image.Dispose();
-
-            return null;
-        }
-
-        entry.LastAccessMs = nowMs;
-
-        return entry.Image;
-    }
+        => LayerImageCache.TryGetValue(key, out SKImage? image) ? image : null;
 
     private void CacheLayerImage(in LayerCacheKey key, SKImage image)
-        => LayerImageCache[key] = new LayerCacheEntry
-        {
-            Image = image,
-            LastAccessMs = Environment.TickCount64
-        };
+    {
+        var options = new MemoryCacheEntryOptions()
+            .SetSlidingExpiration(LAYER_IMAGE_CACHE_SLIDING)
+            .RegisterPostEvictionCallback(static (_, value, _, _) => (value as IDisposable)?.Dispose());
+
+        LayerImageCache.Set(key, image, options);
+    }
 
     /// <summary>
     ///     Draws an aisling at the given position. Handles composite caching, ground tinting, and highlight/group tinting.
@@ -353,7 +347,8 @@ public sealed class AislingRenderer : IDisposable
             if (p.GroundPaintHeight > 0)
                 ApplyGroundTint(texture, p.GroundPaintHeight, p.GroundTintColor);
 
-            cached.Texture?.Dispose();
+            if (cached.Texture is not null)
+                DisposeCompositeTexture(cached.Texture);
 
             cached = new CompositeEntry
             {
@@ -441,8 +436,8 @@ public sealed class AislingRenderer : IDisposable
     /// </summary>
     public void RemoveCachedEntity(uint entityId)
     {
-        if (CompositeCache.Remove(entityId, out var removed))
-            removed.Texture?.Dispose();
+        if (CompositeCache.Remove(entityId, out var removed) && removed.Texture is not null)
+            DisposeCompositeTexture(removed.Texture);
     }
 
     #region Palette Resolution
@@ -495,7 +490,8 @@ public sealed class AislingRenderer : IDisposable
             TypeLetter = typeLetter;
         }
     }
-
+    
+    [SuppressMessage("ReSharper", "NotAccessedPositionalProperty.Local")]
     private readonly record struct LayerCacheKey(
         char TypeLetter,
         int SpriteId,
@@ -506,11 +502,6 @@ public sealed class AislingRenderer : IDisposable
         int FrameIndex,
         int IdleFallbackFrame);
 
-    private sealed class LayerCacheEntry
-    {
-        public required SKImage Image { get; init; }
-        public long LastAccessMs { get; set; }
-    }
 
     #region Composited Rendering (paperdoll/preview path)
     /// <summary>

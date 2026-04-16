@@ -59,7 +59,7 @@ public sealed class OtherProfileEquipmentTab : PrefabPanel
     private readonly UIImage? PaperdollImage;
     private readonly UIImage? PortraitImage;
     private readonly UILabel? PortraitTextLabel;
-    private readonly Dictionary<EquipmentSlot, EquipmentSlotVisual> SlotVisuals = new();
+    private readonly Dictionary<EquipmentSlot, EquipmentSlotVisual> SlotVisuals = [];
     private readonly UILabel? TitleLabel;
     private readonly UILabel TooltipLabel;
     private Texture2D? NationIconTexture;

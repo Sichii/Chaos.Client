@@ -16,8 +16,8 @@ namespace Chaos.Client.Rendering;
 /// </summary>
 public sealed class WorldDebugRenderer
 {
-    private readonly Dictionary<uint, DebugLabel> LabelCache = new();
-    private readonly List<(TextElement Text, Vector2 Position)> PendingLabels = new();
+    private readonly Dictionary<uint, DebugLabel> LabelCache = [];
+    private readonly List<(TextElement Text, Vector2 Position)> PendingLabels = [];
 
     //per-entity cached label — string is rebuilt only when the identity/position inputs actually change
     private sealed class DebugLabel

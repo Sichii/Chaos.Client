@@ -32,7 +32,7 @@ public sealed class SoundSystem : IDisposable
     private readonly ConcurrentQueue<PendingDecode> PendingDecodedSounds = new();
     private readonly HashSet<int> PendingDecodes = [];
     private readonly HashSet<int> PlayedThisFrame = [];
-    private readonly Dictionary<int, (float[] Samples, long Timestamp)> SoundCache = new();
+    private readonly Dictionary<int, (float[] Samples, long Timestamp)> SoundCache = [];
 
     private int CurrentMusicId = -1;
     private LoopingSampleProvider? CurrentMusicSource;

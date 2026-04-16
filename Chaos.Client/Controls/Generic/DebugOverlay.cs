@@ -34,7 +34,7 @@ public static class DebugOverlay
 
     private static readonly float[] FrameTimeHistory = new float[FRAME_TIME_HISTORY];
     private static readonly Stopwatch FrameStopwatch = new();
-    private static readonly Dictionary<UIElement, TextElement> TextElementCache = new();
+    private static readonly Dictionary<UIElement, TextElement> TextElementCache = [];
     private static TextElement[]? StatsTextElement;
     private static int FrameTimeIndex;
     private static int LastGen0Count;

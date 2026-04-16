@@ -32,12 +32,12 @@ public sealed class EntityOverlayManager
     //group box y offset — sits 2px above name tags
     private const int GROUP_BOX_Y_OFFSET = 74;
     private static readonly Color NAME_TAG_SHADOW_COLOR = new(20, 20, 20);
-    private readonly Dictionary<uint, ChantText> ChantOverlays = new();
+    private readonly Dictionary<uint, ChantText> ChantOverlays = [];
 
-    private readonly Dictionary<uint, ChatBubble> ChatBubbles = new();
-    private readonly Dictionary<uint, GroupBox> GroupBoxes = new();
-    private readonly Dictionary<uint, HealthBar> HealthBars = new();
-    private readonly Dictionary<uint, TextElement> NameTagCache = new();
+    private readonly Dictionary<uint, ChatBubble> ChatBubbles = [];
+    private readonly Dictionary<uint, GroupBox> GroupBoxes = [];
+    private readonly Dictionary<uint, HealthBar> HealthBars = [];
+    private readonly Dictionary<uint, TextElement> NameTagCache = [];
 
     /// <summary>
     ///     Adds a chant overlay for the given entity, replacing any existing chant or chat bubble. A null/empty message clears

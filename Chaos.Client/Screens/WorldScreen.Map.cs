@@ -167,7 +167,6 @@ public sealed partial class WorldScreen
 
     private static (Pathfinder Pathfinder, List<IPoint> WaterTiles) BuildPathfinder(MapFile mapFile)
     {
-        var sotpData = DataContext.Tiles.SotpData;
         var gndAttrs = DataContext.Tiles.GroundAttributes;
         var walls = new List<IPoint>();
         var waterTiles = new List<IPoint>();
@@ -177,7 +176,7 @@ public sealed partial class WorldScreen
             {
                 var tile = mapFile.Tiles[x, y];
 
-                if (IsTileWall(tile.LeftForeground, sotpData) || IsTileWall(tile.RightForeground, sotpData))
+                if (IsTileWall(tile.LeftForeground) || IsTileWall(tile.RightForeground))
                     walls.Add(new Point(x, y));
                 else if (gndAttrs.TryGetValue(tile.Background, out var gndAttr) && gndAttr.IsWalkBlocking)
                     waterTiles.Add(new Point(x, y));
@@ -230,7 +229,7 @@ public sealed partial class WorldScreen
     ///     has their Wall bit set — <see cref="DoorTable" /> is the source of truth for "is this foreground a known open
     ///     door?" because <c>sotp.dat</c> is inconsistent about clearing the flag on some open variants.
     /// </summary>
-    private static bool IsTileWall(int fgIndex, byte[] sotpData)
+    private static bool IsTileWall(int fgIndex)
     {
         if (fgIndex <= 0)
             return false;
@@ -240,11 +239,12 @@ public sealed partial class WorldScreen
             return false;
 
         var sotpIndex = fgIndex - 1;
+        var sotpData = DataContext.Tiles.SotpData;
 
         if (sotpIndex >= sotpData.Length)
             return false;
 
-        return ((TileFlags)sotpData[sotpIndex]).HasFlag(TileFlags.Wall);
+        return (sotpData[sotpIndex] & TileFlags.Wall) != 0;
     }
 
     private bool IsTileWallBlocked(int tileX, int tileY)
@@ -256,9 +256,8 @@ public sealed partial class WorldScreen
             return false;
 
         var tile = MapFile.Tiles[tileX, tileY];
-        var sotpData = DataContext.Tiles.SotpData;
 
-        return IsTileWall(tile.LeftForeground, sotpData) || IsTileWall(tile.RightForeground, sotpData);
+        return IsTileWall(tile.LeftForeground) || IsTileWall(tile.RightForeground);
     }
 
     private bool IsTilePassable(int tileX, int tileY)
@@ -268,9 +267,8 @@ public sealed partial class WorldScreen
 
         //check wall tiles (foreground sotp data)
         var tile = MapFile.Tiles[tileX, tileY];
-        var sotpData = DataContext.Tiles.SotpData;
 
-        if (IsTileWall(tile.LeftForeground, sotpData) || IsTileWall(tile.RightForeground, sotpData))
+        if (IsTileWall(tile.LeftForeground) || IsTileWall(tile.RightForeground))
             return false;
 
         //check gndattr walk-blocking (deep water tiles) — only when swim gate active and player can't swim

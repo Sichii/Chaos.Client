@@ -3,7 +3,9 @@ using Chaos.Client.Data.Models;
 using Chaos.Client.Data.Utilities;
 using DALib.Drawing;
 using DALib.Drawing.Virtualized;
+using DALib.Definitions;
 using DALib.Utility;
+using System.Runtime.InteropServices;
 #endregion
 
 namespace Chaos.Client.Data.Repositories;
@@ -39,9 +41,9 @@ public sealed class TileRepository
     ///     SOTP (Sector Object Type Properties) raw byte data from the Ia archive. Each byte encodes tile properties such as
     ///     walkability for a given foreground tile index.
     /// </summary>
-    public byte[] SotpData { get; } = DatArchives.Ia.TryGetValue("sotp.dat", out var sotpEntry)
-        ? sotpEntry.ToSpan()
-                   .ToArray()
+    public TileFlags[] SotpData { get; } = DatArchives.Ia.TryGetValue("sotp.dat", out var sotpEntry)
+        ? MemoryMarshal.Cast<byte, TileFlags>(sotpEntry.ToSpan())
+                       .ToArray()
         : [];
 
     public Palettized<Tile>? GetBackgroundTile(int tileId)

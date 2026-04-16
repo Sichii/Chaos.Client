@@ -33,7 +33,7 @@ public sealed class SelfProfileTabControl : PrefabPanel
     private readonly Rectangle ContentRect;
 
     private readonly UIButton?[] TabButtons = new UIButton?[TAB_COUNT];
-    private readonly Dictionary<StatusBookTab, PrefabPanel?> TabPages = new();
+    private readonly Dictionary<StatusBookTab, PrefabPanel?> TabPages = [];
 
     public StatusBookTab ActiveTab { get; private set; } = StatusBookTab.Equipment;
 

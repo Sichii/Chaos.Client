@@ -57,7 +57,7 @@ public sealed class WeatherRenderer : IDisposable
 
     // Rain state — queue of falling rain rows, each a full texture copy with its own shuffled columns
     private Texture2D? RainTexture;
-    private readonly List<RainRow> RainRows = new();
+    private readonly List<RainRow> RainRows = [];
 
     //each rain row is one instance of the rain texture falling down the screen with an independent
     //column ordering. new rows are added above as old ones slide off the top position, and rows are

@@ -23,13 +23,13 @@ public sealed class PaletteCyclingManager : IDisposable
     ///     Current atlas region overrides for cycling background tiles. Keyed by tile ID, updated each cycle advance. Checked
     ///     by MapRenderer before the default atlas lookup.
     /// </summary>
-    public Dictionary<int, AtlasRegion> BgOverrides { get; } = new();
+    public Dictionary<int, AtlasRegion> BgOverrides { get; } = [];
 
     /// <summary>
     ///     Current atlas region overrides for cycling foreground tiles. Keyed by tile ID, updated each cycle advance. Checked
     ///     by MapRenderer before the default atlas lookup.
     /// </summary>
-    public Dictionary<int, AtlasRegion> FgOverrides { get; } = new();
+    public Dictionary<int, AtlasRegion> FgOverrides { get; } = [];
 
     public void Dispose()
     {
