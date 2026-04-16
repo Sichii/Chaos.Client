@@ -14,30 +14,12 @@
     <configurations />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="2cf40e53-e49e-4e2b-a433-eb4f57999662" name="Changes" comment="unify aisling rendering&#10;- and eliminate closures">
+    <list default="true" id="2cf40e53-e49e-4e2b-a433-eb4f57999662" name="Changes" comment="fix allocation issues">
       <change beforePath="$PROJECT_DIR$/.idea/.idea.Chaos.Client/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/.idea.Chaos.Client/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Chaos.Client.Data/Repositories/AislingDrawDataRepository.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client.Data/Repositories/AislingDrawDataRepository.cs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Chaos.Client.Data/Repositories/TileRepository.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client.Data/Repositories/TileRepository.cs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Chaos.Client.Rendering/AislingRenderer.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client.Rendering/AislingRenderer.cs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Chaos.Client.Rendering/CreatureRenderer.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client.Rendering/CreatureRenderer.cs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Chaos.Client.Rendering/EffectRenderer.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client.Rendering/EffectRenderer.cs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Chaos.Client.Rendering/ItemRenderer.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client.Rendering/ItemRenderer.cs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Chaos.Client.Rendering/MapRenderer.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client.Rendering/MapRenderer.cs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Chaos.Client.Rendering/PaletteCyclingManager.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client.Rendering/PaletteCyclingManager.cs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Chaos.Client.Rendering/TabMapRenderer.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client.Rendering/TabMapRenderer.cs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Chaos.Client.Rendering/TextureAtlas.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client.Rendering/TextureAtlas.cs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Chaos.Client.Rendering/WeatherRenderer.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client.Rendering/WeatherRenderer.cs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Chaos.Client/Collections/WorldState.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client/Collections/WorldState.cs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Chaos.Client/Controls/Generic/DebugOverlay.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client/Controls/Generic/DebugOverlay.cs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Chaos.Client/Controls/World/Popups/Profile/OtherProfileEquipmentTab.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client/Controls/World/Popups/Profile/OtherProfileEquipmentTab.cs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Chaos.Client/Controls/World/Popups/Profile/OtherProfileTabControl.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client/Controls/World/Popups/Profile/OtherProfileTabControl.cs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Chaos.Client/Controls/World/Popups/Profile/SelfProfileEquipmentTab.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client/Controls/World/Popups/Profile/SelfProfileEquipmentTab.cs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Chaos.Client/Controls/World/Popups/Profile/SelfProfileTabControl.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client/Controls/World/Popups/Profile/SelfProfileTabControl.cs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Chaos.Client/Rendering/EntityOverlayManager.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client/Rendering/EntityOverlayManager.cs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Chaos.Client/Rendering/WorldDebugRenderer.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client/Rendering/WorldDebugRenderer.cs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Chaos.Client/Screens/WorldScreen.Map.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client/Screens/WorldScreen.Map.cs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Chaos.Client/Systems/SoundSystem.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client/Systems/SoundSystem.cs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Chaos.Client/ViewModel/Equipment.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client/ViewModel/Equipment.cs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Chaos.Client.Data/Chaos.Client.Data.csproj" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client.Data/Chaos.Client.Data.csproj" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Chaos.Client.slnx" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client.slnx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Chaos.Client/Screens/LobbyLoginScreen.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client/Screens/LobbyLoginScreen.cs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Chaos.Client/Screens/WorldScreen.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client/Screens/WorldScreen.cs" afterDir="false" />
     </list>
     <list id="7231daaa-f0af-42dd-822b-aeab5364bc8b" name="AiStuff" comment="" />
     <option name="SHOW_DIALOG" value="false" />
@@ -63,6 +45,7 @@
     <setting file="file://$USER_HOME$/AppData/Local/JetBrains/Shared/vAny/SourcesCache/effb8f5a6e1b4a2f6b572595fad66070be446aa53e5cc35cf98ef5f56c55fde/Pathfinder.cs" root0="FORCE_HIGHLIGHTING" />
     <setting file="file://$PROJECT_DIR$/.claude/settings.local.json" root0="FORCE_HIGHLIGHTING" />
     <setting file="file://$PROJECT_DIR$/Chaos.Client/Extensions/ElementExtensions.cs" root0="FORCE_HIGHLIGHTING" />
+    <setting file="file://$PROJECT_DIR$/../dalib/DALib/Extensions/BinaryReaderExtensions.cs" root0="SKIP_HIGHLIGHTING" />
   </component>
   <component name="McpProjectServerCommands">
     <commands />
@@ -86,7 +69,7 @@
   </component>
   <component name="PropertiesComponent"><![CDATA[{
   "keyToString": {
-    ".NET Project.Chaos.Client.executor": "dotMemory",
+    ".NET Project.Chaos.Client.executor": "Debug",
     "Rider.SolutionAnalysis.ShowIgnored": "true",
     "RunOnceActivity.MCP Project settings loaded": "true",
     "RunOnceActivity.ShowReadmeOnStart": "true",
@@ -144,7 +127,7 @@
       <workItem from="1775506872956" duration="138101000" />
       <workItem from="1775895595683" duration="105789000" />
       <workItem from="1776179281803" duration="29003000" />
-      <workItem from="1776251386478" duration="32297000" />
+      <workItem from="1776251386478" duration="36323000" />
     </task>
     <task id="LOCAL-00001" summary="safety">
       <option name="closed" value="true" />
@@ -418,7 +401,15 @@
       <option name="project" value="LOCAL" />
       <updated>1776313472497</updated>
     </task>
-    <option name="localTasksCounter" value="35" />
+    <task id="LOCAL-00035" summary="fix allocation issues">
+      <option name="closed" value="true" />
+      <created>1776318033820</created>
+      <option name="number" value="00035" />
+      <option name="presentableId" value="LOCAL-00035" />
+      <option name="project" value="LOCAL" />
+      <updated>1776318033820</updated>
+    </task>
+    <option name="localTasksCounter" value="36" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -448,7 +439,8 @@
     <MESSAGE value="another input refactor" />
     <MESSAGE value="mail indicator and misc" />
     <MESSAGE value="unify aisling rendering&#10;- and eliminate closures" />
-    <option name="LAST_COMMIT_MESSAGE" value="unify aisling rendering&#10;- and eliminate closures" />
+    <MESSAGE value="fix allocation issues" />
+    <option name="LAST_COMMIT_MESSAGE" value="fix allocation issues" />
   </component>
   <component name="XDebuggerManager">
     <pin-to-top-manager>

@@ -36,14 +36,10 @@ public sealed partial class WorldScreen : IScreen
     //minimum interval between spacebar assail fires when held (os key-repeat rate varies)
     private const long SPACEBAR_INTERVAL_MS = 100;
 
-    //aisling body anchor within the padded composite canvas — matches aislingrenderer.canvas_center_x/y.
-    private const int BODY_CENTER_X = AislingRenderer.CANVAS_CENTER_X;
-    private const int BODY_CENTER_Y = AislingRenderer.CANVAS_CENTER_Y;
-
     //net display alpha for transparent (invisible/near-phantom) aislings. transparent players are drawn
     //exclusively via the silhouette pass (so the result is identical in the open or behind walls); the
     //stripe pass skips them entirely.
-    private const float TRANSPARENT_ALPHA = 0.33f;
+    private const float TRANSPARENT_ALPHA = 0.36f;
 
     //alpha used when drawing transparent entities into the silhouette RT — compounded with the silhouette
     //overlay's SILHOUETTE_ALPHA, this produces TRANSPARENT_ALPHA (0.33) net on screen.

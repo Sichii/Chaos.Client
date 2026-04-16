@@ -180,6 +180,15 @@ public sealed class LobbyLoginScreen : IScreen
         if (PendingWorldSwitch)
         {
             PendingWorldSwitch = false;
+
+            if (Game.Connection.State != ConnectionState.World)
+            {
+                //connection died before world screen could be created — restart login flow
+                Game.Screens.Switch(new LobbyLoginScreen());
+
+                return;
+            }
+
             Game.Screens.Switch(new WorldScreen());
 
             return;
