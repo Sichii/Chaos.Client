@@ -49,6 +49,45 @@ public abstract class RepositoryBase
             }) ?? throw new NullReferenceException();
     }
 
+    //zero-alloc cache hit path: callers pass TState as a struct and a static lambda, avoiding closure+Func allocation on every call
+    protected T GetOrCreate<T, TState>(int key, TState state, Func<TState, T> factory)
+    {
+        if (Cache.TryGetValue(key, out T? cached))
+            return cached!;
+
+        using var scope = CacheLock.EnterScope();
+
+        if (Cache.TryGetValue(key, out cached))
+            return cached!;
+
+        using var entry = Cache.CreateEntry(key);
+        ConfigureEntry(entry);
+
+        var value = factory(state);
+        entry.Value = value;
+
+        return value ?? throw new NullReferenceException();
+    }
+
+    protected T GetOrCreate<T, TState>(string key, TState state, Func<TState, T> factory)
+    {
+        if (Cache.TryGetValue(key, out T? cached))
+            return cached!;
+
+        using var scope = CacheLock.EnterScope();
+
+        if (Cache.TryGetValue(key, out cached))
+            return cached!;
+
+        using var entry = Cache.CreateEntry(key);
+        ConfigureEntry(entry);
+
+        var value = factory(state);
+        entry.Value = value;
+
+        return value ?? throw new NullReferenceException();
+    }
+
     protected static void HandleDisposableEntries(
         object key,
         object? value,

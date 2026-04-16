@@ -21,6 +21,17 @@ public static class DebugOverlay
     private const float GEN2_FLASH_DURATION_MS = 1000;
     private const int STATS_LINE_COUNT = 6;
 
+    //per-line change detection — only rebuild the interpolated string when its inputs actually changed
+    private static int StatsPrevFps = -1;
+    private static float StatsPrevMs = -1f;
+    private static long StatsPrevDrawCount = -1;
+    private static long StatsPrevDebugDrawCount = -1;
+    private static double StatsPrevHeapMb = -1;
+    private static int StatsPrevG0 = -1;
+    private static int StatsPrevG1 = -1;
+    private static int StatsPrevG2 = -1;
+    private static GCLatencyMode StatsPrevLatency = (GCLatencyMode)(-1);
+
     private static readonly float[] FrameTimeHistory = new float[FRAME_TIME_HISTORY];
     private static readonly Stopwatch FrameStopwatch = new();
     private static readonly Dictionary<UIElement, TextElement> TextElementCache = new();
@@ -68,6 +79,17 @@ public static class DebugOverlay
     {
         TextElementCache.Clear();
         StatsTextElement = null;
+
+        //reset change-detection sentinels so the next activation rebuilds every line exactly once
+        StatsPrevFps = -1;
+        StatsPrevMs = -1f;
+        StatsPrevDrawCount = -1;
+        StatsPrevDebugDrawCount = -1;
+        StatsPrevHeapMb = -1;
+        StatsPrevG0 = -1;
+        StatsPrevG1 = -1;
+        StatsPrevG2 = -1;
+        StatsPrevLatency = (GCLatencyMode)(-1);
     }
 
     /// <summary>
@@ -248,39 +270,93 @@ public static class DebugOverlay
 
     private static void DrawPerformanceStatsText(SpriteBatch spriteBatch)
     {
-        //text stats
+        if (StatsTextElement is null)
+        {
+            StatsTextElement = new TextElement[STATS_LINE_COUNT];
+
+            for (var i = 0; i < STATS_LINE_COUNT; i++)
+                StatsTextElement[i] = new TextElement();
+        }
+
         var heapMb = GC.GetTotalMemory(false) / (1024.0 * 1024.0);
         var gcMode = GCSettings.IsServerGC ? "Server" : "Workstation";
         var latencyMode = GCSettings.LatencyMode;
-
         var drawCount = SnappedDrawCount;
+        var debugDrawCount = DebugDrawCount;
+        var fps = DisplayFps;
+        var ms = LastFrameWorkMs;
 
-        var lines = new (string Text, Color Color)[]
+        //line 0 — FPS + frame time
+        if ((StatsPrevFps != fps) || (StatsPrevMs != ms))
         {
-            ($"{DisplayFps} FPS  {LastFrameWorkMs:F1}ms", LastFrameWorkMs > 20
-                ? Color.Red
-                : LastFrameWorkMs > 17
-                    ? Color.Yellow
-                    : Color.Lime),
-            ($"Draws: {drawCount} (excl. debug)", drawCount > 3000 ? Color.Yellow : Color.White),
-            ($"Debug draws: {DebugDrawCount}", Color.Gray),
-            ($"Heap: {heapMb:F1} MB  ({gcMode})", Color.White),
-            ($"GC: G0={LastGen0Count} G1={LastGen1Count} G2={LastGen2Count}", Gen2Delta > 0 ? Color.Red : Color.White),
-            ($"Latency: {latencyMode}", Color.Gray)
-        };
+            StatsPrevFps = fps;
+            StatsPrevMs = ms;
 
-        StatsTextElement ??= new TextElement[STATS_LINE_COUNT];
+            var color = ms > 20
+                ? Color.Red
+                : ms > 17
+                    ? Color.Yellow
+                    : Color.Lime;
+
+            StatsTextElement[0]
+                .Update($"{fps} FPS  {ms:F1}ms", color);
+        }
+
+        //line 1 — draw count
+        if (StatsPrevDrawCount != drawCount)
+        {
+            StatsPrevDrawCount = drawCount;
+
+            var color = drawCount > 3000 ? Color.Yellow : Color.White;
+
+            StatsTextElement[1]
+                .Update($"Draws: {drawCount} (excl. debug)", color);
+        }
+
+        //line 2 — debug draw count
+        if (StatsPrevDebugDrawCount != debugDrawCount)
+        {
+            StatsPrevDebugDrawCount = debugDrawCount;
+
+            StatsTextElement[2]
+                .Update($"Debug draws: {debugDrawCount}", Color.Gray);
+        }
+
+        //line 3 — heap + gc mode
+        if (StatsPrevHeapMb != heapMb)
+        {
+            StatsPrevHeapMb = heapMb;
+
+            StatsTextElement[3]
+                .Update($"Heap: {heapMb:F1} MB  ({gcMode})", Color.White);
+        }
+
+        //line 4 — gc collection counts
+        if ((StatsPrevG0 != LastGen0Count) || (StatsPrevG1 != LastGen1Count) || (StatsPrevG2 != LastGen2Count))
+        {
+            StatsPrevG0 = LastGen0Count;
+            StatsPrevG1 = LastGen1Count;
+            StatsPrevG2 = LastGen2Count;
+
+            var color = Gen2Delta > 0 ? Color.Red : Color.White;
+
+            StatsTextElement[4]
+                .Update($"GC: G0={LastGen0Count} G1={LastGen1Count} G2={LastGen2Count}", color);
+        }
+
+        //line 5 — latency mode
+        if (StatsPrevLatency != latencyMode)
+        {
+            StatsPrevLatency = latencyMode;
+
+            StatsTextElement[5]
+                .Update($"Latency: {latencyMode}", Color.Gray);
+        }
 
         var y = StatsY;
 
-        for (var i = 0; i < lines.Length; i++)
+        for (var i = 0; i < StatsTextElement.Length; i++)
         {
-            // ReSharper disable once NullCoalescingConditionIsAlwaysNotNullAccordingToAPIContract
-            StatsTextElement[i] ??= new TextElement();
-
-            StatsTextElement[i]
-                .Update(lines[i].Text, lines[i].Color);
-
             if (StatsTextElement[i].HasContent)
             {
                 StatsTextElement[i]

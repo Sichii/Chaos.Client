@@ -48,6 +48,12 @@ public sealed class LargeWorldHudControl : PrefabPanel, IWorldHud
     //ping indicator — _nping.spf has 4 frames mapped to latency tiers (frame 0 = best)
     private readonly UIImage? PingIcon;
     private readonly Texture2D?[] PingFrames = new Texture2D?[4];
+    private int Hp = int.MinValue;
+    private int Mp = int.MinValue;
+    private int WeightCurrent = int.MinValue;
+    private int WeightMax = int.MinValue;
+    private int CoordX = int.MinValue;
+    private int CoordY = int.MinValue;
     private bool Expanded;
     private Rectangle NormalChatBounds;
 
@@ -519,13 +525,23 @@ public sealed class LargeWorldHudControl : PrefabPanel, IWorldHud
     #region Public Methods
     public void UpdateHp(int current, int max)
     {
-        HpNumLabel.Text = $"{current}";
+        if (current != Hp)
+        {
+            Hp = current;
+            HpNumLabel.Text = current.ToString();
+        }
+
         HpOrb.UpdateValue(current, max);
     }
 
     public void UpdateMp(int current, int max)
     {
-        MpNumLabel.Text = $"{current}";
+        if (current != Mp)
+        {
+            Mp = current;
+            MpNumLabel.Text = current.ToString();
+        }
+
         MpOrb.UpdateValue(current, max);
     }
 
@@ -556,8 +572,25 @@ public sealed class LargeWorldHudControl : PrefabPanel, IWorldHud
     }
 
     public void SetZoneName(string zone) => ZoneNameLabel.Text = zone;
-    public void SetWeight(int current, int max) => WeightLabel.Text = $"{current}/{max}";
-    public void SetCoords(int x, int y) => CoordsLabel.Text = $"{x}, {y}";
+    public void SetWeight(int current, int max)
+    {
+        if ((current == WeightCurrent) && (max == WeightMax))
+            return;
+
+        WeightCurrent = current;
+        WeightMax = max;
+        WeightLabel.Text = $"{current}/{max}";
+    }
+
+    public void SetCoords(int x, int y)
+    {
+        if ((x == CoordX) && (y == CoordY))
+            return;
+
+        CoordX = x;
+        CoordY = y;
+        CoordsLabel.Text = $"{x}, {y}";
+    }
     public void SetServerName(string name) => ServerNameLabel?.Text = name;
 
     public void SetDescription(string? text)

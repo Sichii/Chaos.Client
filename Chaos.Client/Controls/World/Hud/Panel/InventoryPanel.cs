@@ -20,6 +20,7 @@ public sealed class InventoryPanel : PanelBase
     private const int EXPANDED_SLOTS = 5 * DEFAULT_COLUMNS;
 
     private readonly PanelSlot GoldSlot;
+    private long Gold = long.MinValue;
 
     public InventoryPanel(
         ControlPrefabSet hudPrefabSet,
@@ -83,7 +84,16 @@ public sealed class InventoryPanel : PanelBase
         }
     }
 
-    private void OnGoldChanged() => GoldSlot.SlotName = $"Gold( {WorldState.Inventory.Gold} )";
+    private void OnGoldChanged()
+    {
+        var gold = (long)WorldState.Inventory.Gold;
+
+        if (gold == Gold)
+            return;
+
+        Gold = gold;
+        GoldSlot.SlotName = $"Gold( {gold} )";
+    }
 
     private void OnSlotChanged(byte slot)
     {

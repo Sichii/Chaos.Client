@@ -20,62 +20,42 @@ public sealed partial class WorldScreen
         //sort once per frame — cached via dirty flag, reused by all draw sub-passes
         var sortedEntities = WorldState.GetSortedEntities();
 
-        //pre-composite transparent aislings into per-entity rts before world drawing
+        //pre-render silhouettes (blocked-entity outlines) before world drawing —
+        //transparent aislings draw inline via the stripe pass at uniform alpha, no pre-render needed
         if (MapFile is not null && MapPreloaded)
         {
             SilhouetteRenderer.Clear();
 
             var player = WorldState.GetPlayerEntity();
 
-            //collect silhouette entries (any entity type)
+            //silhouette the player unconditionally — when transparent, this is the only place the player is drawn
+            //(so the result is consistent in the open and behind walls); when not transparent, the silhouette just
+            //lets the player show through walls at SILHOUETTE_ALPHA.
             if (player is not null)
                 SilhouetteRenderer.AddSilhouette(player.Id);
 
-            //collect transparent aisling entries (need per-entity compositing for uniform alpha)
-            foreach (var entity in sortedEntities)
-                if (entity is { Type: ClientEntityType.Aisling, IsTransparent: true })
-                {
-                    if (entity.Appearance is null)
-                        continue;
-
-                    var appearance = entity.Appearance.Value;
-                    (var fIdx, var fFlip, var fAnimSuffix, var fIsFrontFacing) = AnimationSystem.GetAislingFrame(entity);
-                    var fEmotionFrame = entity.ActiveEmoteFrame;
-
-                    var drawData = Game.AislingRenderer.GetLayerFrames(
-                        in appearance,
-                        fIdx,
-                        fAnimSuffix,
-                        fFlip,
-                        fIsFrontFacing,
-                        fEmotionFrame);
-
-                    SilhouetteRenderer.AddTransparent(
-                        entity.Id,
-                        entity.TileX,
-                        entity.TileY,
-                        entity.VisualOffset,
-                        drawData,
-                        Highlight.ShowTintHighlight && (Highlight.HoveredEntityId == entity.Id));
-                }
-
-            SilhouetteRenderer.PreRenderTransparents(Game.AislingRenderer);
-
             //pre-render silhouettes into a screen-sized rt (must happen before main rt drawing starts,
-            //because rt switching discards the main rt's contents)
+            //because rt switching discards the main rt's contents). DrawingForSilhouette routes transparent
+            //aislings through a different alpha so their compounded display matches TRANSPARENT_ALPHA.
             SilhouetteRenderer.PreRenderSilhouettes(batch =>
             {
                 batch.Begin(SpriteSortMode.Immediate, BlendState.AlphaBlend, GlobalSettings.Sampler);
+                DrawingForSilhouette = true;
 
-                foreach (var entityId in SilhouetteRenderer.SilhouetteEntityIds)
+                try
                 {
-                    var silEntity = WorldState.GetEntity(entityId);
+                    foreach (var entityId in SilhouetteRenderer.SilhouetteEntityIds)
+                    {
+                        var silEntity = WorldState.GetEntity(entityId);
 
-                    if (silEntity is not null)
-                        DrawEntity(batch, silEntity);
+                        if (silEntity is not null)
+                            DrawEntity(batch, silEntity);
+                    }
+                } finally
+                {
+                    DrawingForSilhouette = false;
+                    batch.End();
                 }
-
-                batch.End();
             });
         }
 
@@ -643,33 +623,29 @@ public sealed partial class WorldScreen
         var emotionFrame = entity.ActiveEmoteFrame;
         var groundPaintHeight = entity.IsOnSwimmingTile ? 0 : entity.GroundPaintHeight;
 
-        //base position: composite canvas origin relative to tile center
-        var baseX = tileCenterX + entity.VisualOffset.X - BODY_CENTER_X;
-        var baseY = tileCenterY + entity.VisualOffset.Y - BODY_CENTER_Y;
-
-        //transparent aislings use the pre-composited render target for uniform alpha (no layer bleed-through)
-        if (entity.IsTransparent
-            && SilhouetteRenderer.DrawTransparentEntity(
-                spriteBatch,
-                entity.Id,
-                entity.TileX,
-                entity.TileY,
-                entity.VisualOffset,
-                Camera,
-                MapFile!.Height,
-                BODY_CENTER_X,
-                BODY_CENTER_Y))
-        {
-            var bodyScreenPos2 = Camera.WorldToScreen(new Vector2(baseX, baseY));
-
-            return (int)(bodyScreenPos2.Y + AislingRenderer.COMPOSITE_HEIGHT);
-        }
-
         var tint = Highlight.ShowTintHighlight && (Highlight.HoveredEntityId == entity.Id)
             ? EntityTintType.Highlight
             : GroupHighlightedIds.Contains(entity.Id)
                 ? EntityTintType.Group
                 : EntityTintType.None;
+
+        //transparent silhouette entities are drawn exclusively via the silhouette pass so their displayed alpha is
+        //identical in the open and behind walls (the stripe-pass draw would get occluded by foreground tiles,
+        //producing a disappearing act when walking past walls). currently only the local player is silhouetted,
+        //but this check works for any future silhouette entity too.
+        if (entity.IsTransparent && !DrawingForSilhouette && SilhouetteRenderer.SilhouetteEntityIds.Contains(entity.Id))
+            return 0;
+
+        //during the silhouette pass, transparent entities draw at TRANSPARENT_SILHOUETTE_ALPHA so the 0.50
+        //SILHOUETTE_ALPHA overlay compounds to TRANSPARENT_ALPHA (0.33) net on screen. non-transparent silhouetted
+        //entities draw opaque into the RT (→ 0.50 net through the overlay).
+        var alpha = entity.IsTransparent
+            ? DrawingForSilhouette ? TRANSPARENT_SILHOUETTE_ALPHA : TRANSPARENT_ALPHA
+            : 1f;
+
+        //transparent wins over dead — "invisible ghost" isn't a sensible visual state, and stacking both alpha
+        //modulations would produce an effectively-invisible result.
+        var isDead = entity.IsDead && !entity.IsTransparent;
 
         var drawParams = new AislingDrawParams(
             entity.Id,
@@ -685,7 +661,8 @@ public sealed partial class WorldScreen
             tileCenterY,
             entity.VisualOffset,
             tint,
-            entity.IsDead);
+            isDead,
+            alpha);
 
         return Game.AislingRenderer.Draw(spriteBatch, Camera, in drawParams);
     }

@@ -40,7 +40,7 @@ public sealed partial class WorldScreen
                 WeatherRenderer.OnMapChanged(CurrentMapFlags);
             }
 
-            UpdateHuds(h => h.SetZoneName(args.Name));
+            UpdateHuds(HudOps.SetZoneName, args.Name);
 
             return;
         }
@@ -74,15 +74,16 @@ public sealed partial class WorldScreen
         ClearTransientState();
         Game.CreatureRenderer.Clear();
         Game.AislingRenderer.ClearCache();
-        Game.AislingRenderer.ClearLayerCache();
+        Game.AislingRenderer.ClearTintedCache();
+        Game.AislingRenderer.ClearLayerImageCache();
         Game.ItemRenderer.Clear();
 
         //reset darkness state and load hea light map for the new map
         DarknessRenderer.OnMapChanged(args.MapId, CurrentMapFlags.HasFlag(MapFlags.Darkness));
         WeatherRenderer.OnMapChanged(CurrentMapFlags);
 
-        UpdateHuds(h => h.SetZoneName(args.Name));
-        UpdateHuds(h => h.ShowPersistentMessage(string.Empty));
+        UpdateHuds(HudOps.SetZoneName, args.Name);
+        UpdateHuds(HudOps.ShowPersistentMessage, string.Empty);
     }
 
     private void ClearTransientState()
@@ -343,7 +344,7 @@ public sealed partial class WorldScreen
 
     private void HandleLocationChanged(int x, int y)
     {
-        UpdateHuds(h => h.SetCoords(x, y));
+        UpdateHuds(HudOps.SetCoords, x, y);
 
         var player = WorldState.GetPlayerEntity();
 

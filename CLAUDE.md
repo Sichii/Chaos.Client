@@ -130,17 +130,17 @@ Chaos.Client/
 
 ### UI Control System
 
-**Component Primitives (`Controls/Components/`):** UIElement, UIPanel, UIButton, UITextBox, UIImage, UILabel, UIProgressBar, SliderControl, TextElement, PrefabPanel, ExpandablePanel.
+**Component Primitives (`Controls/Components/`):** UIElement, UIPanel, UIButton, UITextBox, UIImage, UILabel, UIProgressBar, TextElement, PrefabPanel.
 
 **Login Flow (`Controls/LobbyLogin/`):** LobbyLoginControl, LoginControl, ServerSelectControl, CharacterCreationControl, LoginNoticeControl, PasswordChangeControl, LogoImage.
 
-**Generic Controls (`Controls/Generic/`):** OkPopupMessageControl, TextPopupControl, ScrollBarControl, DebugOverlay.
+**Generic Controls (`Controls/Generic/`):** OkPopupMessageControl, TextPopupControl, ScrollBarControl, SliderControl, DebugOverlay.
 
-**World HUD (`Controls/World/Hud/`):** IWorldHud interface, WorldHudControl (classic compact HUD), LargeWorldHudControl (expanded HUD), OrangeBarControl, ChatInputControl, EffectBarControl/EffectSlotControl.
+**World HUD (`Controls/World/Hud/`):** IWorldHud interface, WorldHudControl (classic compact HUD), LargeWorldHudControl (expanded HUD), OrangeBarControl, ChatInputControl, EffectBarControl/EffectSlotControl, MailButton (unread-mail pulse indicator driven by `PlayerAttributes.HasUnreadMail`).
 
-**HUD Panels (`Hud/Panel/`):** PanelBase, InventoryPanel, SkillBookPanel, SpellBookPanel, ToolsPanel, ChatPanel, StatsPanel, ExtendedStatsPanel, SystemMessagePanel. Slots: PanelSlot, AbilitySlotBase, SkillSlot, SpellSlot.
+**HUD Panels (`Hud/Panel/`):** PanelBase, ExpandablePanel, InventoryPanel, SkillBookPanel, SpellBookPanel, ToolsPanel, ChatPanel, StatsPanel, ExtendedStatsPanel, SystemMessagePanel, StatButton. Slots: PanelSlot, AbilitySlotBase, SkillSlot, SpellSlot.
 
-**Self Profile (`Popups/Profile/`):** SelfProfileTabControl with Equipment/Legend/AbilityMetadata/Events/Family/Blank tabs, SelfProfileTextEditorControl, AbilityMetadataDetailsControl/AbilityMetadataEntryControl, EventMetadataDetailsControl/EventMetadataEntryControl, LegendMarkControl. **Other Profile:** OtherProfileTabControl (Equipment via _nui_eqa + Legend tabs), OtherProfileEquipmentTab.
+**Self Profile (`Popups/Profile/`):** SelfProfileTabControl with Equipment/Legend/AbilityMetadata/Events/Family/Blank tabs, SelfProfileTextEditorControl, AbilityMetadataDetailsControl/AbilityMetadataEntryControl, EventMetadataDetailsControl/EventMetadataEntryControl, LegendMarkControl. **Other Profile:** OtherProfileTabControl (Equipment via _nui_eqa + Legend tabs), OtherProfileEquipmentTab. (Legend tab reuses `SelfProfileLegendTab`.)
 
 **Options (`Popups/Options/`):** MainOptionsControl, MacrosListControl, SettingsControl, FriendsListControl.
 
@@ -264,7 +264,10 @@ When writing any implementation plan, each plan must include:
 
 - Do not introduce interactive prompts in scripts or commands
 - Do not add commentary inside code solely to explain actions
-- Prefer semantic code search over full directory scans
+- **Use Serena for C# code.** Prefer Serena's semantic tools over Read/Grep/Edit when navigating or editing C# code:
+    - **Navigate:** `find_symbol` (locate by name path), `get_symbols_overview` (file outline), `find_referencing_symbols` (callers), `search_for_pattern` (regex), `find_file` (filename glob)
+    - **Edit:** `replace_symbol_body` (rewrite bodies), `insert_before_symbol` / `insert_after_symbol` (add code), `rename_symbol` (cross-file rename), `safe_delete_symbol` (delete with reference check)
+    - Reserve Read/Grep/Edit for non-code files, full-file reads, markdown/config changes, and plain-text edits not tied to a specific symbol.
 - Avoid exception swallowing -- use guard checks (`TryGetValue`, bounds checks, null checks) instead of try-catch for control flow. Prefer `archive.TryGetValue` + `FromEntry` over `FromArchive` wrapped in try-catch, `lookup.Palettes.TryGetValue` over `lookup.GetPaletteForId` in try-catch, etc.
 - Every implementation plan must include review gates after each phase and a final review after full implementation. Do not proceed to the next phase without completing both bug/regression and architecture/design review of the current phase.
 - When an implementation plan is approved, send it to the project-lead agent for orchestration. Do not assign work to specialist agents directly -- the project lead coordinates all work assignment.

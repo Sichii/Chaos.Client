@@ -16,8 +16,17 @@ namespace Chaos.Client.Rendering;
 /// </summary>
 public sealed class WorldDebugRenderer
 {
-    private readonly Dictionary<uint, TextElement> LabelCache = new();
+    private readonly Dictionary<uint, DebugLabel> LabelCache = new();
     private readonly List<(TextElement Text, Vector2 Position)> PendingLabels = new();
+
+    //per-entity cached label — string is rebuilt only when the identity/position inputs actually change
+    private sealed class DebugLabel
+    {
+        public readonly TextElement Text = new();
+        public int LastTileX = int.MinValue;
+        public int LastTileY = int.MinValue;
+        public string LastName = string.Empty;
+    }
 
     /// <summary>
     ///     Clears all cached debug labels. Call on map change or unload.
@@ -125,20 +134,28 @@ public sealed class WorldDebugRenderer
             spriteBatch.Draw(pixel, tileRect, color * 0.15f);
 
             //entity name/info label (cached, deferred to draw after all pixel-texture geometry)
-            var label = $"{entity.Name} [{entity.Id}] ({entity.TileX},{entity.TileY})";
-
             if (!LabelCache.TryGetValue(entity.Id, out var cachedLabel))
             {
-                cachedLabel = new TextElement();
+                cachedLabel = new DebugLabel();
                 LabelCache[entity.Id] = cachedLabel;
             }
 
-            cachedLabel.Update(label, color);
-
-            if (cachedLabel.HasContent)
+            //only rebuild the interpolated string when one of its inputs actually changed
+            if ((cachedLabel.LastTileX != entity.TileX)
+                || (cachedLabel.LastTileY != entity.TileY)
+                || !ReferenceEquals(cachedLabel.LastName, entity.Name))
             {
-                var labelPos = camera.WorldToScreen(new Vector2(tileCenterX - cachedLabel.Width / 2f, tileWorld.Y - 12));
-                PendingLabels.Add((cachedLabel, labelPos));
+                cachedLabel.LastTileX = entity.TileX;
+                cachedLabel.LastTileY = entity.TileY;
+                cachedLabel.LastName = entity.Name;
+
+                cachedLabel.Text.Update($"{entity.Name} [{entity.Id}] ({entity.TileX},{entity.TileY})", color);
+            }
+
+            if (cachedLabel.Text.HasContent)
+            {
+                var labelPos = camera.WorldToScreen(new Vector2(tileCenterX - cachedLabel.Text.Width / 2f, tileWorld.Y - 12));
+                PendingLabels.Add((cachedLabel.Text, labelPos));
             }
         }
     }

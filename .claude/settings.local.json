@@ -20,7 +20,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "echo '{\"hookSpecificOutput\":{\"hookEventName\":\"SessionStart\",\"additionalContext\":\"Activate the Serena MCP project Chaos.Client using mcp__plugin_serena_serena__activate_project before doing any other work this session.\"}}'",
+            "command": "echo '{\"hookSpecificOutput\":{\"hookEventName\":\"SessionStart\",\"additionalContext\":\"Activate the Serena MCP project at D:/repos/Sichii/Chaos.Client using mcp__plugin_serena_serena__activate_project before doing any other work this session.\"}}'",
             "timeout": 5
           }
         ]

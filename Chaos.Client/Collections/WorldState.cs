@@ -388,6 +388,8 @@ public static class WorldState
         return SortBuffer;
     }
 
+    public static Dictionary<uint, WorldEntity>.ValueCollection GetEntities() => Entities.Values;
+
     /// <summary>
     ///     Updates a tracked entity's facing direction from a server CreatureTurn packet.
     /// </summary>

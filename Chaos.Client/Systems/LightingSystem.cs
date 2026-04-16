@@ -52,7 +52,7 @@ public sealed class LightingSystem
         if (mapFile is null || !flags.HasFlag(MapFlags.Darkness))
             return;
 
-        foreach (var entity in WorldState.GetSortedEntities())
+        foreach (var entity in WorldState.GetEntities())
         {
             if (entity.LanternSize == LanternSize.None)
                 continue;

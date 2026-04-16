@@ -85,14 +85,13 @@ DALib ──> Chaos.Client.Rendering ─┼─> Chaos.Client
 
 ### World state
 
-`WorldState` is a static class holding the ViewModel objects (`Inventory`, `SkillBook`, `SpellBook`, `Equipment`, `PlayerAttributes`, `Chat`, `Exchange`, `Board`, `GroupState`, `GroupInvite`, `NpcInteraction`, `UserOptions`, `WorldList`). Server packets write into these via `ConnectionManager` events wired in `WorldScreen.Wiring.cs`; controls read from them directly, no constructor injection. Treat `WorldState` as the single source of truth for anything shown in the world screen.
+`WorldState` is a static class holding the ViewModel objects (`Attributes`, `Inventory`, `Equipment`, `SkillBook`, `SpellBook`, `Chat`, `Exchange`, `Board`, `Group`, `GroupInvite`, `NpcInteraction`, `UserOptions`, `WorldList`). Server packets write into these via `ConnectionManager` events wired in `WorldScreen.Wiring.cs`; controls read from them directly, no constructor injection. Treat `WorldState` as the single source of truth for anything shown in the world screen.
 
 ### Draw order
 
 Each frame goes through three phases (see `WorldScreen.Draw.cs`):
 
 **1. Off-screen pre-pass** (only when a map is loaded):
-   - `SilhouetteRenderer` composites each transparent aisling into its own render target so its layers blend at uniform alpha.
    - Occluded-entity silhouettes are pre-rendered into a single viewport-sized render target.
 
 **2. World pass** — scissored to the HUD viewport, camera transform applied:
@@ -239,7 +238,7 @@ Handles palette shimmer — tiles whose palette entries cycle through a color ra
 
 Centralized owner of the per-frame `LightSource` buffer. Lives in `Chaos.Client/Systems/` (not `Chaos.Client.Rendering/`) because it walks `WorldState` to build the buffer, but its single consumer audience is the two renderers that read light sources — `DarknessRenderer` and `TabMapRenderer`. Both renderers treat the system as read-only and do **not** keep their own copy.
 
-`Gather(MapFile, MapFlags, Camera)` runs once per frame from `WorldScreen.Draw.cs`, short-circuiting to an empty span when the map is null or `MapFlags.Darkness` isn't set — so stale sources from a previous dark map can't leak across a transition to a lit one. When the map is dark, it walks `WorldState.GetSortedEntities()`, filters for `LanternSize != None`, pulls the pixel-space `LightMask` from `DataContext.LightMasks`, picks up the tile-space `TileOffsets` array from `GetTileOffsets`, and packs both together into a `LightSource` record. `Sources` then exposes the populated region as a `ReadOnlySpan<LightSource>` whose lifetime is bounded by the next `Gather` call.
+`Gather(MapFile, MapFlags, Camera)` runs once per frame from `WorldScreen.Update.cs`, short-circuiting to an empty span when the map is null or `MapFlags.Darkness` isn't set — so stale sources from a previous dark map can't leak across a transition to a lit one. When the map is dark, it walks `WorldState.GetEntities()`, filters for `LanternSize != None`, pulls the pixel-space `LightMask` from `DataContext.LightMasks`, picks up the tile-space `TileOffsets` array from `GetTileOffsets`, and packs both together into a `LightSource` record. `Sources` then exposes the populated region as a `ReadOnlySpan<LightSource>` whose lifetime is bounded by the next `Gather` call.
 
 `LightSource` carries **both** the pixel-space data used by `DarknessRenderer` (screen position + `LightMask`) and the tile-space data used by `TabMapRenderer` (`TileX`, `TileY`, `Direction`, `TileOffsets`). Doing the gather once and publishing a unified buffer means both renderers agree on the set of light sources every frame — there's no drift.
 
@@ -290,7 +289,7 @@ Two related effects composited through offscreen `RenderTarget2D`s.
 
 To give another entity the same treatment, add a call to `SilhouetteRenderer.AddSilhouette(entity.Id)` in that same pre-pass block, alongside the existing player registration. Pick whatever criterion you want — party members, every aisling on the map — the renderer doesn't care.
 
-**Transparent aislings.** Each aisling flagged `IsTransparent` is composited into its own per-entity render target via `AddTransparent` + `PreRenderTransparents`, then drawn inline during the stripe pass via `DrawTransparentEntity` so wall occlusion is preserved. This path is separate from the silhouette overlay — don't confuse the two.
+**Transparent aislings.** Aislings flagged `IsTransparent` are drawn by `AislingRenderer.Draw` at `TRANSPARENT_ALPHA` (0.33) through the same per-entity `CompositeCache` texture used for normal drawing. Because the composite is a single pre-blended image, modulating it at uniform alpha produces the correct result with no layer bleed-through. The local player is handled specially: it's routed **exclusively** through the silhouette pass (skipping the stripe-pass draw entirely in `DrawAisling`) so its displayed alpha is identical in the open and behind walls. During the silhouette pass, transparent entities draw at `TRANSPARENT_SILHOUETTE_ALPHA` (`TRANSPARENT_ALPHA / SILHOUETTE_ALPHA` = 0.66) so the silhouette RT overlay compounds to 0.33 net on screen.
 
 Call `Clear()` at the start of every frame before adding entries.
 

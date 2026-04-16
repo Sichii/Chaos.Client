@@ -8,6 +8,7 @@ using Chaos.Client.Extensions;
 using Chaos.Client.Systems;
 using Chaos.DarkAges.Definitions;
 using Microsoft.Xna.Framework;
+using Microsoft.Xna.Framework.Graphics;
 using Microsoft.Xna.Framework.Input;
 #endregion
 
@@ -974,10 +975,43 @@ public sealed partial class WorldScreen
     /// <summary>
     ///     Calls an action on all HUD instances so both stay in sync regardless of which is visible.
     /// </summary>
-    private void UpdateHuds(Action<IWorldHud> action)
+    private void UpdateHuds<T>(Action<IWorldHud, T> op, T arg)
     {
-        action(SmallHud);
-        action(LargeHud);
+        op(SmallHud, arg);
+        op(LargeHud, arg);
+    }
+
+    private void UpdateHuds<T1, T2>(Action<IWorldHud, T1, T2> op, T1 arg1, T2 arg2)
+    {
+        op(SmallHud, arg1, arg2);
+        op(LargeHud, arg1, arg2);
+    }
+
+    private static class HudOps
+    {
+        public static readonly Action<IWorldHud, int, int> SetCoords =
+            static (h, x, y) => h.SetCoords(x, y);
+
+        public static readonly Action<IWorldHud, string> SetZoneName =
+            static (h, name) => h.SetZoneName(name);
+
+        public static readonly Action<IWorldHud, string> SetPlayerName =
+            static (h, name) => h.SetPlayerName(name);
+
+        public static readonly Action<IWorldHud, string> SetServerName =
+            static (h, name) => h.SetServerName(name);
+
+        public static readonly Action<IWorldHud, string> ShowPersistentMessage =
+            static (h, msg) => h.ShowPersistentMessage(msg);
+
+        public static readonly Action<IWorldHud, Texture2D> SetEmoteIcon = static (h, icon) =>
+        {
+            if (h.EmoteButton is null)
+                return;
+
+            h.EmoteButton.NormalTexture = icon;
+            h.EmoteButton.SelectedTexture = icon;
+        };
     }
     #endregion
 

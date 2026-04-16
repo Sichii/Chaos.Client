@@ -87,6 +87,7 @@ public sealed class TabMapRenderer : IDisposable
     //precomputed: which tiles are walls, and their neighbor masks
     private bool[,]? IsWallTile;
     private bool[,]? VisibilityScratch;
+    private readonly Dictionary<(int, int), int> OccupiedByTile = new();
     private int MapHeight;
     private int MapWidth;
 
@@ -545,9 +546,10 @@ public sealed class TabMapRenderer : IDisposable
     ///     Removes duplicate entities sharing a tile, keeping the highest priority one. Compacts in-place.
     ///     Priority: player > creature > aisling > merchant.
     /// </summary>
-    private static int DeduplicateEntitiesByTile(TabMapEntity[] entities, int count, uint playerEntityId)
+    private int DeduplicateEntitiesByTile(TabMapEntity[] entities, int count, uint playerEntityId)
     {
-        var occupied = new Dictionary<(int, int), int>(count);
+        OccupiedByTile.Clear();
+        var occupied = OccupiedByTile;
         var writeIndex = 0;
 
         for (var i = 0; i < count; i++)

@@ -14,23 +14,32 @@
     <configurations />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="2cf40e53-e49e-4e2b-a433-eb4f57999662" name="Changes" comment="">
-      <change afterPath="$PROJECT_DIR$/Chaos.Client/Controls/LobbyLogin/LogoImage.cs" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/Chaos.Client/Controls/World/Hud/MailButton.cs" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/Chaos.Client/Controls/World/Hud/Panel/StatButton.cs" afterDir="false" />
+    <list default="true" id="2cf40e53-e49e-4e2b-a433-eb4f57999662" name="Changes" comment="mail indicator and misc">
+      <change afterPath="$PROJECT_DIR$/Chaos.Client/Extensions/ElementExtensions.cs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.claude/settings.local.json" beforeDir="false" afterPath="$PROJECT_DIR$/.claude/settings.local.json" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/.idea.Chaos.Client/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/.idea.Chaos.Client/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/CLAUDE.md" beforeDir="false" afterPath="$PROJECT_DIR$/CLAUDE.md" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Chaos.Client/Controls/Components/BlinkButton.cs" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/Chaos.Client/Controls/Components/ExpandablePanel.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client/Controls/World/Hud/Panel/ExpandablePanel.cs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Chaos.Client/Controls/Components/PrefabPanel.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client/Controls/Components/PrefabPanel.cs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Chaos.Client/Controls/Components/SliderControl.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client/Controls/Generic/SliderControl.cs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Chaos.Client/Controls/Components/UIAnimatedImage.cs" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/Chaos.Client/Controls/LobbyLogin/LobbyLoginControl.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client/Controls/LobbyLogin/LobbyLoginControl.cs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Chaos.Client/Controls/World/Hud/IWorldHud.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client/Controls/World/Hud/IWorldHud.cs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Chaos.Client.Data/Abstractions/RepositoryBase.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client.Data/Abstractions/RepositoryBase.cs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Chaos.Client.Data/Repositories/CreatureSpriteRepository.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client.Data/Repositories/CreatureSpriteRepository.cs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Chaos.Client.Rendering/AislingRenderer.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client.Rendering/AislingRenderer.cs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Chaos.Client.Rendering/Definitions/BlendStates.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client.Rendering/Definitions/BlendStates.cs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Chaos.Client.Rendering/SilhouetteRenderer.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client.Rendering/SilhouetteRenderer.cs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Chaos.Client.Rendering/TabMapRenderer.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client.Rendering/TabMapRenderer.cs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Chaos.Client/Collections/WorldState.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client/Collections/WorldState.cs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Chaos.Client/Controls/Generic/DebugOverlay.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client/Controls/Generic/DebugOverlay.cs" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/Chaos.Client/Controls/World/Hud/LargeWorldHudControl.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client/Controls/World/Hud/LargeWorldHudControl.cs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Chaos.Client/Controls/World/Hud/Panel/ExtendedStatsPanel.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client/Controls/World/Hud/Panel/ExtendedStatsPanel.cs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Chaos.Client/Controls/World/Hud/Panel/InventoryPanel.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client/Controls/World/Hud/Panel/InventoryPanel.cs" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/Chaos.Client/Controls/World/Hud/Panel/StatsPanel.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client/Controls/World/Hud/Panel/StatsPanel.cs" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/Chaos.Client/Controls/World/Hud/WorldHudControl.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client/Controls/World/Hud/WorldHudControl.cs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Chaos.Client/Controls/World/Popups/Options/MainOptionsControl.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client/Controls/World/Popups/Options/MainOptionsControl.cs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Chaos.Client/Extensions/DirectionExtensions.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client/Extensions/DirectionExtensions.cs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Chaos.Client/Rendering/WorldDebugRenderer.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client/Rendering/WorldDebugRenderer.cs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Chaos.Client/Screens/WorldScreen.Draw.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client/Screens/WorldScreen.Draw.cs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Chaos.Client/Screens/WorldScreen.Map.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client/Screens/WorldScreen.Map.cs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Chaos.Client/Screens/WorldScreen.ServerHandlers.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client/Screens/WorldScreen.ServerHandlers.cs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Chaos.Client/Screens/WorldScreen.Wiring.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client/Screens/WorldScreen.Wiring.cs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Chaos.Client/Screens/WorldScreen.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client/Screens/WorldScreen.cs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Chaos.Client/Systems/LightingSystem.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client/Systems/LightingSystem.cs" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/README.md" beforeDir="false" afterPath="$PROJECT_DIR$/README.md" afterDir="false" />
     </list>
     <list id="7231daaa-f0af-42dd-822b-aeab5364bc8b" name="AiStuff" comment="" />
@@ -53,7 +62,10 @@
   <component name="HighlightingSettingsPerFile">
     <setting file="file://$USER_HOME$/AppData/Local/JetBrains/Shared/vAny/DecompilerCache/decompiler/e3a3b5d33b164c3fba4211220b2073133609c8/da/e9a305f9/UserSettingsGroup.cs" root0="SKIP_HIGHLIGHTING" />
     <setting file="file://$USER_HOME$/AppData/Local/JetBrains/Shared/vAny/SourcesCache/228bff957d5b9f32cfbedd8bf82a5d3e862ec3e051593a67913b95ae288287/ThrowHelper.cs" root0="FORCE_HIGHLIGHTING" />
+    <setting file="file://$USER_HOME$/AppData/Local/JetBrains/Shared/vAny/SourcesCache/314163acf15a5c99c0172ffccfbd17201337371fd4ccc0643c55b256ea679c2d/Enums.cs" root0="FORCE_HIGHLIGHTING" />
     <setting file="file://$USER_HOME$/AppData/Local/JetBrains/Shared/vAny/SourcesCache/effb8f5a6e1b4a2f6b572595fad66070be446aa53e5cc35cf98ef5f56c55fde/Pathfinder.cs" root0="FORCE_HIGHLIGHTING" />
+    <setting file="file://$PROJECT_DIR$/.claude/settings.local.json" root0="FORCE_HIGHLIGHTING" />
+    <setting file="file://$PROJECT_DIR$/Chaos.Client/Extensions/ElementExtensions.cs" root0="FORCE_HIGHLIGHTING" />
   </component>
   <component name="McpProjectServerCommands">
     <commands />
@@ -135,7 +147,7 @@
       <workItem from="1775506872956" duration="138101000" />
       <workItem from="1775895595683" duration="105789000" />
       <workItem from="1776179281803" duration="29003000" />
-      <workItem from="1776251386478" duration="4083000" />
+      <workItem from="1776251386478" duration="27613000" />
     </task>
     <task id="LOCAL-00001" summary="safety">
       <option name="closed" value="true" />
@@ -393,7 +405,15 @@
       <option name="project" value="LOCAL" />
       <updated>1776238495615</updated>
     </task>
-    <option name="localTasksCounter" value="33" />
+    <task id="LOCAL-00033" summary="mail indicator and misc">
+      <option name="closed" value="true" />
+      <created>1776256272136</created>
+      <option name="number" value="00033" />
+      <option name="presentableId" value="LOCAL-00033" />
+      <option name="project" value="LOCAL" />
+      <updated>1776256272137</updated>
+    </task>
+    <option name="localTasksCounter" value="34" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -421,7 +441,8 @@
     <MESSAGE value="LightingSystem&#10;- dark maps reduce tab map visibility&#10;- light sources give more tab map visibility" />
     <MESSAGE value="readme" />
     <MESSAGE value="another input refactor" />
-    <option name="LAST_COMMIT_MESSAGE" value="another input refactor" />
+    <MESSAGE value="mail indicator and misc" />
+    <option name="LAST_COMMIT_MESSAGE" value="mail indicator and misc" />
   </component>
   <component name="XDebuggerManager">
     <pin-to-top-manager>

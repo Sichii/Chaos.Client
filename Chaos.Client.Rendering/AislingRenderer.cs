@@ -45,33 +45,6 @@ public record struct AislingAppearance
     internal KhanPalOverrideType OverrideType => IsMale ? KhanPalOverrideType.Male : KhanPalOverrideType.Female;
 }
 
-/// <summary>
-///     A cached per-layer texture tagged with its EPF type letter (e.g., 'u' for armor body, 'w' for weapon) for draw-time
-///     offset calculation via <see cref="AislingRenderer.GetLayerOffsetX" />.
-/// </summary>
-public readonly record struct AislingLayerTexture(Texture2D Texture, char TypeLetter);
-
-/// <summary>
-///     Cache key that uniquely identifies a single rendered layer texture.
-/// </summary>
-public readonly record struct LayerCacheKey(
-    char TypeLetter,
-    int SpriteId,
-    int FrameIndex,
-    bool IsMale,
-    int PaletteKey,
-    string AnimSuffix);
-
-/// <summary>
-///     All the draw data needed to render an aisling as individual layer SpriteBatch draws.
-/// </summary>
-public sealed class AislingDrawData
-{
-    public LayerSlot[] DrawOrder = [];
-    public bool FlipHorizontal;
-    public AislingLayerTexture?[] Layers = new AislingLayerTexture?[(int)LayerSlot.Count];
-}
-
 public readonly record struct AislingDrawParams(
     uint EntityId,
     AislingAppearance Appearance,
@@ -86,7 +59,8 @@ public readonly record struct AislingDrawParams(
     float TileCenterY,
     Vector2 VisualOffset,
     EntityTintType Tint,
-    bool IsDead);
+    bool IsDead,
+    float Alpha = 1f);
 
 /// <summary>
 ///     Renders aisling sprites by compositing body, equipment, and hair layers. All layers are positioned relative to body
@@ -186,13 +160,12 @@ public sealed class AislingRenderer : IDisposable
         LayerSlot.Acc3C
     ];
 
-    private const float GHOST_ALPHA = 0.15f;
+    private const float GHOST_ALPHA = 0.50f;
 
     private readonly Dictionary<uint, CompositeEntry> CompositeCache = new();
 
     private readonly AislingDrawDataRepository DrawData = DataContext.AislingDrawData;
     private readonly Dictionary<Texture2D, Texture2D> GroupTintCache = new();
-    private readonly Dictionary<LayerCacheKey, AislingLayerTexture> LayerTextureCache = new();
     private readonly LayerInfo?[] RenderLayers = new LayerInfo?[(int)LayerSlot.Count];
     private readonly Dictionary<int, Texture2D> RestFemaleEmoteFrameCache = new();
     private readonly Dictionary<int, Texture2D> RestFemaleFrameCache = new();
@@ -203,14 +176,21 @@ public sealed class AislingRenderer : IDisposable
     private readonly Dictionary<int, Texture2D> SwimMaleFrameCache = new();
     private readonly Dictionary<Texture2D, Texture2D> TintedTextureCache = new();
 
+    //bounded by sliding expiration + clear-on-map-change. no size cap: a fully packed 15x15 viewport of aislings
+    //can exceed any reasonable LRU limit (225 aislings * ~15 layers ≈ 3375 entries), and evicting during a frame
+    //would dispose entries still referenced by the current Render call's layers[] array.
+    private const long LAYER_IMAGE_CACHE_SLIDING_MS = 30_000;
+    private readonly Dictionary<LayerCacheKey, LayerCacheEntry> LayerImageCache = new();
+
     /// <inheritdoc />
     public void Dispose()
     {
         ClearCache();
-        ClearLayerCache();
         ClearRestCache();
         ClearSwimCache();
         ClearCompositeCache();
+        ClearTintedCache();
+        ClearLayerImageCache();
         ClearGroupTintCache();
     }
 
@@ -291,18 +271,6 @@ public sealed class AislingRenderer : IDisposable
     }
 
     /// <summary>
-    ///     Clears the cached per-layer textures. Call on map change to free GPU memory.
-    /// </summary>
-    public void ClearLayerCache()
-    {
-        foreach (var entry in LayerTextureCache.Values)
-            entry.Texture.Dispose();
-
-        LayerTextureCache.Clear();
-        ClearTintedCache();
-    }
-
-    /// <summary>
     ///     Disposes all cached hover-highlight tinted textures. Call when the highlighted entity changes.
     /// </summary>
     public void ClearTintedCache()
@@ -312,6 +280,47 @@ public sealed class AislingRenderer : IDisposable
 
         TintedTextureCache.Clear();
     }
+
+    /// <summary>
+    ///     Disposes all cached per-layer SKImages. Call on map change or renderer disposal.
+    /// </summary>
+    /// <summary>
+    ///     Disposes all cached per-layer SKImages. Call on map change or renderer disposal.
+    /// </summary>
+    public void ClearLayerImageCache()
+    {
+        foreach (var entry in LayerImageCache.Values)
+            entry.Image.Dispose();
+
+        LayerImageCache.Clear();
+    }
+
+    private SKImage? TryGetCachedLayerImage(in LayerCacheKey key)
+    {
+        if (!LayerImageCache.TryGetValue(key, out var entry))
+            return null;
+
+        var nowMs = Environment.TickCount64;
+
+        if ((nowMs - entry.LastAccessMs) > LAYER_IMAGE_CACHE_SLIDING_MS)
+        {
+            LayerImageCache.Remove(key);
+            entry.Image.Dispose();
+
+            return null;
+        }
+
+        entry.LastAccessMs = nowMs;
+
+        return entry.Image;
+    }
+
+    private void CacheLayerImage(in LayerCacheKey key, SKImage image)
+        => LayerImageCache[key] = new LayerCacheEntry
+        {
+            Image = image,
+            LastAccessMs = Environment.TickCount64
+        };
 
     /// <summary>
     ///     Draws an aisling at the given position. Handles composite caching, ground tinting, and highlight/group tinting.
@@ -376,14 +385,10 @@ public sealed class AislingRenderer : IDisposable
             _                        => drawTexture
         };
 
-        if (p.IsDead)
-        {
-            var device = finalTexture.GraphicsDevice;
-            device.BlendState = BlendStates.Ghost;
-            batch.Draw(finalTexture, screenPos, Color.White * GHOST_ALPHA);
-            device.BlendState = BlendState.AlphaBlend;
-        } else
-            batch.Draw(finalTexture, screenPos, Color.White);
+        //dead aislings render as translucent ghosts via uniform alpha; transparent wins over dead at the call site
+        //so we never stack both modulations here.
+        var effectiveAlpha = p.IsDead ? p.Alpha * GHOST_ALPHA : p.Alpha;
+        batch.Draw(finalTexture, screenPos, Color.White * effectiveAlpha);
 
         return (int)screenPos.Y + COMPOSITE_HEIGHT;
     }
@@ -477,7 +482,9 @@ public sealed class AislingRenderer : IDisposable
         public Texture2D? Texture { get; init; }
     }
 
-    private readonly record struct LayerInfo : IDisposable
+    //layer image is NOT owned by this struct — lifetime is managed by LayerImageCache (LRU + sliding expiration
+    //eviction disposes). Render's finally block no longer disposes per-layer images.
+    private readonly record struct LayerInfo
     {
         public SKImage Image { get; }
         public char TypeLetter { get; }
@@ -487,441 +494,23 @@ public sealed class AislingRenderer : IDisposable
             Image = image;
             TypeLetter = typeLetter;
         }
-
-        public void Dispose() => Image.Dispose();
     }
 
-    #region Per-Layer Rendering (GPU draw path)
-    /// <summary>
-    ///     Resolves all visible layers for an aisling into individually cached GPU textures with draw ordering. Use for world
-    ///     rendering where layers need to be drawn separately (e.g., transparent aisling compositing).
-    /// </summary>
-    public AislingDrawData GetLayerFrames(
-        in AislingAppearance appearance,
-        int frameIndex,
-        string animSuffix = WALK_ANIM,
-        bool flipHorizontal = false,
-        bool? isFrontFacing = null,
-        int emotionFrame = -1)
+    private readonly record struct LayerCacheKey(
+        char TypeLetter,
+        int SpriteId,
+        int ColorCode,
+        bool IsMale,
+        KhanPalOverrideType PaletteOverride,
+        string AnimSuffix,
+        int FrameIndex,
+        int IdleFallbackFrame);
+
+    private sealed class LayerCacheEntry
     {
-        var drawData = new AislingDrawData
-        {
-            FlipHorizontal = flipHorizontal
-        };
-        var isFront = isFrontFacing ?? IsFrontFacing(frameIndex, animSuffix);
-        drawData.DrawOrder = isFront ? FRONT_ORDER : BACK_ORDER;
-
-        var idleFallbackFrame = animSuffix == IDLE_ANIM ? isFront ? RIGHT_IDLE_FRAME : UP_IDLE_FRAME : -1;
-
-        ResolveAllLayers(
-            drawData.Layers,
-            in appearance,
-            frameIndex,
-            animSuffix,
-            idleFallbackFrame);
-
-        //emotion overlay — only on front-facing frames
-        var emotionsEpf = DrawData.EmotionsEpf;
-
-        if (isFront && (emotionFrame >= 0) && emotionsEpf is not null && (emotionFrame < emotionsEpf.Count))
-        {
-            var frame = emotionsEpf[emotionFrame];
-
-            if (DrawData.BodyPalettes.TryGetValue(appearance.BodyColor, out var palette))
-            {
-                var paletteKey = appearance.BodyColor;
-
-                var cacheKey = new LayerCacheKey(
-                    'o',
-                    0,
-                    emotionFrame,
-                    appearance.IsMale,
-                    paletteKey,
-                    "em");
-
-                drawData.Layers[(int)LayerSlot.Emotion] = GetOrCreateLayerTexture(
-                    cacheKey,
-                    frame,
-                    palette,
-                    'o');
-            }
-        }
-
-        return drawData;
+        public required SKImage Image { get; init; }
+        public long LastAccessMs { get; set; }
     }
-
-    private void ResolveAllLayers(
-        AislingLayerTexture?[] layers,
-        in AislingAppearance appearance,
-        int frameIndex,
-        string anim,
-        int idleFallbackFrame = -1)
-    {
-        var bodySpriteId = appearance.BodySpriteId > 0 ? appearance.BodySpriteId : BODY_ID;
-
-        //body base (type b) — uses non-standard sprite id for ghost/invis/jester
-        layers[(int)LayerSlot.BodyB] = ResolveEquipLayerTexture(
-            'b',
-            bodySpriteId,
-            DisplayColor.Default,
-            in appearance,
-            frameIndex,
-            anim,
-            idleFallbackFrame);
-
-        //body skin (type m) — only for standard body
-        if (bodySpriteId == BODY_ID)
-            layers[(int)LayerSlot.Body] = ResolveBodyPaletteLayerTexture(
-                'm',
-                BODY_ID,
-                in appearance,
-                frameIndex,
-                anim,
-                idleFallbackFrame);
-
-        //pants (type n, always id 1) — only if server sent a pants color
-
-        if (appearance.PantsColor.HasValue)
-            layers[(int)LayerSlot.Pants] = ResolveEquipLayerTexture(
-                'n',
-                PANTS_ID,
-                appearance.PantsColor.Value,
-                in appearance,
-                frameIndex,
-                anim,
-                idleFallbackFrame);
-
-        //face (type o, uses body palette)
-        if (appearance.FaceSprite > 0)
-            layers[(int)LayerSlot.Face] = ResolveBodyPaletteLayerTexture(
-                'o',
-                appearance.FaceSprite,
-                in appearance,
-                frameIndex,
-                anim,
-                idleFallbackFrame);
-
-        //boots
-        if (appearance.BootsSprite > 0)
-            layers[(int)LayerSlot.Boots] = ResolveEquipLayerTexture(
-                'l',
-                appearance.BootsSprite,
-                appearance.BootsColor,
-                in appearance,
-                frameIndex,
-                anim,
-                idleFallbackFrame);
-
-        //head layers (h, e, f)
-        if (appearance.HeadSprite > 0)
-        {
-            layers[(int)LayerSlot.HeadH] = ResolveEquipLayerTexture(
-                'h',
-                appearance.HeadSprite,
-                appearance.HeadColor,
-                in appearance,
-                frameIndex,
-                anim,
-                idleFallbackFrame);
-
-            layers[(int)LayerSlot.HeadE] = ResolveEquipLayerTexture(
-                'e',
-                appearance.HeadSprite,
-                appearance.HeadColor,
-                in appearance,
-                frameIndex,
-                anim,
-                idleFallbackFrame);
-
-            layers[(int)LayerSlot.HeadF] = ResolveEquipLayerTexture(
-                'f',
-                appearance.HeadSprite,
-                appearance.HeadColor,
-                in appearance,
-                frameIndex,
-                anim,
-                idleFallbackFrame);
-        }
-
-        //armor/overcoat
-        if (appearance.OvercoatSprite > 0)
-            ResolveArmorLayers(
-                layers,
-                appearance.OvercoatSprite,
-                appearance.OvercoatColor,
-                in appearance,
-                frameIndex,
-                anim,
-                idleFallbackFrame);
-        else if (appearance.ArmorSprite > 0)
-            ResolveArmorLayers(
-                layers,
-                appearance.ArmorSprite,
-                appearance.ArmorColor,
-                in appearance,
-                frameIndex,
-                anim,
-                idleFallbackFrame);
-
-        //weapon (w + p sub-layers)
-        if (appearance.WeaponSprite > 0)
-        {
-            layers[(int)LayerSlot.WeaponW] = ResolveEquipLayerTexture(
-                'w',
-                appearance.WeaponSprite,
-                DisplayColor.Default,
-                in appearance,
-                frameIndex,
-                anim,
-                idleFallbackFrame);
-
-            layers[(int)LayerSlot.WeaponP] = ResolveEquipLayerTexture(
-                'p',
-                appearance.WeaponSprite,
-                DisplayColor.Default,
-                in appearance,
-                frameIndex,
-                anim,
-                idleFallbackFrame);
-        }
-
-        //shield
-        if (appearance.ShieldSprite > 0)
-            layers[(int)LayerSlot.Shield] = ResolveEquipLayerTexture(
-                's',
-                appearance.ShieldSprite,
-                DisplayColor.Default,
-                in appearance,
-                frameIndex,
-                anim,
-                idleFallbackFrame);
-
-        //accessories (c + g sub-layers each)
-        if (appearance.Accessory1Sprite > 0)
-        {
-            layers[(int)LayerSlot.Acc1C] = ResolveEquipLayerTexture(
-                'c',
-                appearance.Accessory1Sprite,
-                appearance.Accessory1Color,
-                in appearance,
-                frameIndex,
-                anim,
-                idleFallbackFrame);
-
-            layers[(int)LayerSlot.Acc1G] = ResolveEquipLayerTexture(
-                'g',
-                appearance.Accessory1Sprite,
-                appearance.Accessory1Color,
-                in appearance,
-                frameIndex,
-                anim,
-                idleFallbackFrame);
-        }
-
-        if (appearance.Accessory2Sprite > 0)
-        {
-            layers[(int)LayerSlot.Acc2C] = ResolveEquipLayerTexture(
-                'c',
-                appearance.Accessory2Sprite,
-                appearance.Accessory2Color,
-                in appearance,
-                frameIndex,
-                anim,
-                idleFallbackFrame);
-
-            layers[(int)LayerSlot.Acc2G] = ResolveEquipLayerTexture(
-                'g',
-                appearance.Accessory2Sprite,
-                appearance.Accessory2Color,
-                in appearance,
-                frameIndex,
-                anim,
-                idleFallbackFrame);
-        }
-
-        if (appearance.Accessory3Sprite > 0)
-        {
-            layers[(int)LayerSlot.Acc3C] = ResolveEquipLayerTexture(
-                'c',
-                appearance.Accessory3Sprite,
-                appearance.Accessory3Color,
-                in appearance,
-                frameIndex,
-                anim,
-                idleFallbackFrame);
-
-            layers[(int)LayerSlot.Acc3G] = ResolveEquipLayerTexture(
-                'g',
-                appearance.Accessory3Sprite,
-                appearance.Accessory3Color,
-                in appearance,
-                frameIndex,
-                anim,
-                idleFallbackFrame);
-        }
-    }
-
-    private void ResolveArmorLayers(
-        AislingLayerTexture?[] layers,
-        int spriteId,
-        DisplayColor color,
-        in AislingAppearance appearance,
-        int frameIndex,
-        string anim,
-        int idleFallbackFrame = -1)
-    {
-        var isOverType = spriteId >= 1000;
-        var adjustedId = isOverType ? spriteId - 1000 : spriteId;
-        var bodyLetter = isOverType ? 'i' : 'u';
-        var armsLetter = isOverType ? 'j' : 'a';
-
-        layers[(int)LayerSlot.Armor] = ResolveEquipLayerTexture(
-            bodyLetter,
-            adjustedId,
-            color,
-            in appearance,
-            frameIndex,
-            anim,
-            idleFallbackFrame);
-
-        layers[(int)LayerSlot.Arms] = ResolveEquipLayerTexture(
-            armsLetter,
-            adjustedId,
-            color,
-            in appearance,
-            frameIndex,
-            anim,
-            idleFallbackFrame);
-    }
-
-    private AislingLayerTexture? ResolveBodyPaletteLayerTexture(
-        char typeLetter,
-        int spriteId,
-        in AislingAppearance appearance,
-        int frameIndex,
-        string anim,
-        int idleFallbackFrame = -1)
-    {
-        if (spriteId <= 0)
-            return null;
-
-        (var epf, var resolvedFrame) = ResolveLayerEpf(
-            typeLetter,
-            spriteId,
-            in appearance,
-            frameIndex,
-            anim,
-            idleFallbackFrame);
-
-        if (epf is null || (resolvedFrame < 0))
-            return null;
-
-        var frame = epf[resolvedFrame];
-
-        if (!DrawData.BodyPalettes.TryGetValue(appearance.BodyColor, out var palette))
-            return null;
-
-        var paletteKey = appearance.BodyColor;
-
-        var cacheKey = new LayerCacheKey(
-            typeLetter,
-            spriteId,
-            resolvedFrame,
-            appearance.IsMale,
-            paletteKey,
-            anim);
-
-        return GetOrCreateLayerTexture(
-            cacheKey,
-            frame,
-            palette,
-            typeLetter);
-    }
-
-    private AislingLayerTexture? ResolveEquipLayerTexture(
-        char typeLetter,
-        int spriteId,
-        DisplayColor dyeColor,
-        in AislingAppearance appearance,
-        int frameIndex,
-        string anim,
-        int idleFallbackFrame = -1)
-    {
-        if (spriteId <= 0)
-            return null;
-
-        (var epf, var resolvedFrame) = ResolveLayerEpf(
-            typeLetter,
-            spriteId,
-            in appearance,
-            frameIndex,
-            anim,
-            idleFallbackFrame);
-
-        if (epf is null || (resolvedFrame < 0))
-            return null;
-
-        var frame = epf[resolvedFrame];
-        var lookup = DrawData.GetPaletteLookup(typeLetter);
-
-        // Shields always use the male override since the EPF file is loaded from khanmns.
-        var paletteOverride = typeLetter == 's' ? KhanPalOverrideType.Male : appearance.OverrideType;
-        var effectiveIsMale = typeLetter == 's' || appearance.IsMale;
-
-        var palette = ResolvePalette(
-            lookup,
-            spriteId,
-            dyeColor,
-            paletteOverride);
-
-        if (palette is null)
-            return null;
-
-        var paletteNumber = lookup.Table.GetPaletteNumber(spriteId, paletteOverride);
-
-        if (paletteNumber >= 1000)
-            paletteNumber -= 1000;
-
-        var paletteKey = paletteNumber * 256 + (int)dyeColor;
-
-        var cacheKey = new LayerCacheKey(
-            typeLetter,
-            spriteId,
-            resolvedFrame,
-            effectiveIsMale,
-            paletteKey,
-            anim);
-
-        return GetOrCreateLayerTexture(
-            cacheKey,
-            frame,
-            palette,
-            typeLetter);
-    }
-
-    private AislingLayerTexture? GetOrCreateLayerTexture(
-        LayerCacheKey cacheKey,
-        EpfFrame frame,
-        Palette palette,
-        char typeLetter)
-    {
-        if (LayerTextureCache.TryGetValue(cacheKey, out var cached))
-            return cached;
-
-        using var image = Graphics.RenderImage(frame, palette);
-
-        // ReSharper disable once ConditionIsAlwaysTrueOrFalseAccordingToNullableAPIContract
-        if (image is null)
-            return null;
-
-        var texture = TextureConverter.ToTexture2D(image);
-
-        var entry = new AislingLayerTexture(texture, typeLetter);
-        LayerTextureCache[cacheKey] = entry;
-
-        return entry;
-    }
-    #endregion
 
     #region Composited Rendering (paperdoll/preview path)
     /// <summary>
@@ -959,8 +548,8 @@ public sealed class AislingRenderer : IDisposable
     }
 
     /// <summary>
-    ///     Renders a full aisling with all visible equipment layers into a single composited texture.
-    ///     Used for paperdoll and other non-world rendering. For world rendering, use GetLayerFrames() instead.
+    ///     Renders a full aisling with all visible equipment layers into a single composited texture. Used by both world
+    ///     rendering (via Draw, which caches the result per entity) and paperdoll/preview contexts.
     /// </summary>
     public Texture2D? Render(
         in AislingAppearance appearance,
@@ -986,20 +575,37 @@ public sealed class AislingRenderer : IDisposable
                 animSuffix,
                 idleFallbackFrame);
 
-            //emotion overlay — only on front-facing frames
             var emotionsEpf = DrawData.EmotionsEpf;
 
             if (isFront && (emotionFrame >= 0) && emotionsEpf is not null && (emotionFrame < emotionsEpf.Count))
             {
-                var frame = emotionsEpf[emotionFrame];
+                //sentinel typeLetter '!' prevents collision with the face layer ('o') which uses the same palette.
+                var emotionKey = new LayerCacheKey(
+                    '!',
+                    0,
+                    (int)appearance.BodyColor,
+                    false,
+                    KhanPalOverrideType.None,
+                    string.Empty,
+                    emotionFrame,
+                    -1);
 
-                if (DrawData.BodyPalettes.TryGetValue(appearance.BodyColor, out var palette))
+                var cachedEmotion = TryGetCachedLayerImage(in emotionKey);
+
+                if (cachedEmotion is not null)
                 {
+                    layers[(int)LayerSlot.Emotion] = new LayerInfo(cachedEmotion, 'o');
+                } else if (DrawData.BodyPalettes.TryGetValue(appearance.BodyColor, out var palette))
+                {
+                    var frame = emotionsEpf[emotionFrame];
                     var image = Graphics.RenderImage(frame, palette);
 
                     // ReSharper disable once ConditionIsAlwaysTrueOrFalseAccordingToNullableAPIContract
                     if (image is not null)
+                    {
+                        CacheLayerImage(in emotionKey, image);
                         layers[(int)LayerSlot.Emotion] = new LayerInfo(image, 'o');
+                    }
                 }
             }
 
@@ -1013,12 +619,8 @@ public sealed class AislingRenderer : IDisposable
             return composite is not null ? TextureConverter.ToTexture2D(composite) : null;
         } finally
         {
-            for (var i = 0; i < layers.Length; i++)
-            {
-                layers[i]
-                    ?.Dispose();
-                layers[i] = null;
-            }
+            //layer SKImages are owned by LayerImageCache — do not dispose them here, just release references.
+            Array.Clear(layers, 0, layers.Length);
         }
     }
 
@@ -1305,6 +907,21 @@ public sealed class AislingRenderer : IDisposable
         if (spriteId <= 0)
             return null;
 
+        var cacheKey = new LayerCacheKey(
+            typeLetter,
+            spriteId,
+            (int)appearance.BodyColor,
+            appearance.IsMale,
+            KhanPalOverrideType.None,
+            anim,
+            frameIndex,
+            idleFallbackFrame);
+
+        var cachedImage = TryGetCachedLayerImage(in cacheKey);
+
+        if (cachedImage is not null)
+            return new LayerInfo(cachedImage, typeLetter);
+
         (var epf, var resolvedFrame) = ResolveLayerEpf(
             typeLetter,
             spriteId,
@@ -1327,6 +944,8 @@ public sealed class AislingRenderer : IDisposable
         if (image is null)
             return null;
 
+        CacheLayerImage(in cacheKey, image);
+
         return new LayerInfo(image, typeLetter);
     }
 
@@ -1342,6 +961,24 @@ public sealed class AislingRenderer : IDisposable
         if (spriteId <= 0)
             return null;
 
+        // Shields always use the male override since the EPF file is loaded from khanmns.
+        var paletteOverride = typeLetter == 's' ? KhanPalOverrideType.Male : appearance.OverrideType;
+
+        var cacheKey = new LayerCacheKey(
+            typeLetter,
+            spriteId,
+            (int)dyeColor,
+            appearance.IsMale,
+            paletteOverride,
+            anim,
+            frameIndex,
+            idleFallbackFrame);
+
+        var cachedImage = TryGetCachedLayerImage(in cacheKey);
+
+        if (cachedImage is not null)
+            return new LayerInfo(cachedImage, typeLetter);
+
         (var epf, var resolvedFrame) = ResolveLayerEpf(
             typeLetter,
             spriteId,
@@ -1355,9 +992,6 @@ public sealed class AislingRenderer : IDisposable
 
         var frame = epf[resolvedFrame];
         var lookup = DrawData.GetPaletteLookup(typeLetter);
-
-        // Shields always use the male override since the EPF file is loaded from khanmns.
-        var paletteOverride = typeLetter == 's' ? KhanPalOverrideType.Male : appearance.OverrideType;
 
         var palette = ResolvePalette(
             lookup,
@@ -1373,6 +1007,8 @@ public sealed class AislingRenderer : IDisposable
         // ReSharper disable once ConditionIsAlwaysTrueOrFalseAccordingToNullableAPIContract
         if (image is null)
             return null;
+
+        CacheLayerImage(in cacheKey, image);
 
         return new LayerInfo(image, typeLetter);
     }

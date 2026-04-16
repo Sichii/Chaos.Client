@@ -1,6 +1,7 @@
 #region
 using Chaos.Client.Controls.Components;
 using Chaos.Client.Data.Models;
+using Chaos.Client.Extensions;
 using Chaos.DarkAges.Definitions;
 using Chaos.Networking.Entities.Server;
 using Microsoft.Xna.Framework;
@@ -33,7 +34,12 @@ public sealed class ExtendedStatsPanel : ExpandablePanel
         "e_HIT"
     ];
 
+    private static readonly string[] ElementNames = BuildElementNames();
+
     private readonly UILabel?[] Labels = new UILabel?[LABEL_COUNT];
+    private readonly long[] StatValues = new long[LABEL_COUNT];
+    private Element OffenseElement = (Element)byte.MaxValue;
+    private Element DefenseElement = (Element)byte.MaxValue;
 
     //expand repositioning — compact and expanded label layouts
     private LabelLayout[]? CompactLayouts;
@@ -74,6 +80,29 @@ public sealed class ExtendedStatsPanel : ExpandablePanel
                 LABEL_NAMES[i],
                 extraLeft,
                 extraTop);
+
+        Array.Fill(StatValues, long.MinValue);
+    }
+
+    private static string[] BuildElementNames()
+    {
+        var values = Enum.GetValues<Element>();
+        var max = 0;
+
+        foreach (var v in values)
+        {
+            var b = (int)v;
+
+            if (b > max)
+                max = b;
+        }
+
+        var names = new string[max + 1];
+
+        foreach (var v in values)
+            names[(int)v] = v.Name;
+
+        return names;
     }
 
     /// <summary>
@@ -173,13 +202,6 @@ public sealed class ExtendedStatsPanel : ExpandablePanel
         return label;
     }
 
-    private static string FormatElement(Element element)
-        => element switch
-        {
-            Element.None => "None",
-            _            => element.ToString()
-        };
-
     public override void SetExpanded(bool expanded)
     {
         base.SetExpanded(expanded);
@@ -218,14 +240,39 @@ public sealed class ExtendedStatsPanel : ExpandablePanel
             Labels[index]!.Text = text;
     }
 
+    private void TrySetLabel(int index, long value)
+    {
+        if (StatValues[index] == value)
+            return;
+
+        StatValues[index] = value;
+
+        if (Labels[index] is { } label)
+            label.Text = value.ToString();
+    }
+
     public void UpdateAttributes(AttributesArgs attrs)
     {
-        SetLabel(IDX_AC, $"{attrs.Ac}");
-        SetLabel(IDX_DMG, $"{attrs.Dmg}");
-        SetLabel(IDX_HIT, $"{attrs.Hit}");
-        SetLabel(IDX_MAGIC, $"{attrs.MagicResistance}");
-        SetLabel(IDX_ATTACK, FormatElement(attrs.OffenseElement));
-        SetLabel(IDX_DEFENSE, FormatElement(attrs.DefenseElement));
+        TrySetLabel(IDX_AC, attrs.Ac);
+        TrySetLabel(IDX_DMG, attrs.Dmg);
+        TrySetLabel(IDX_HIT, attrs.Hit);
+        TrySetLabel(IDX_MAGIC, attrs.MagicResistance);
+
+        if (OffenseElement != attrs.OffenseElement)
+        {
+            OffenseElement = attrs.OffenseElement;
+
+            if (Labels[IDX_ATTACK] is { } label)
+                label.Text = ElementNames[(int)attrs.OffenseElement];
+        }
+
+        if (DefenseElement != attrs.DefenseElement)
+        {
+            DefenseElement = attrs.DefenseElement;
+
+            if (Labels[IDX_DEFENSE] is { } label)
+                label.Text = ElementNames[(int)attrs.DefenseElement];
+        }
     }
 
     private record struct LabelLayout(

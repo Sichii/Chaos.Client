@@ -1,4 +1,5 @@
 #region
+using System.Collections.Concurrent;
 using System.Collections.Frozen;
 using Chaos.Client.Data.Abstractions;
 using DALib.Drawing;
@@ -13,20 +14,33 @@ public sealed class CreatureSpriteRepository : RepositoryBase
     private readonly IDictionary<int, Palette> Palettes = Palette.FromArchive("mns", DatArchives.Hades)
                                                                  .ToFrozenDictionary();
 
+    //direct strongly-typed cache avoids MemoryCache's object-key boxing on the per-frame hot path
+    //null entries are cached to suppress retries on corrupt/missing sprite ids
+    private readonly ConcurrentDictionary<int, Palettized<MpfView>?> SpriteCache = new();
+
     public Palettized<MpfView>? GetCreatureSprite(int spriteId)
     {
         if (spriteId == 0)
             return null;
 
+        if (SpriteCache.TryGetValue(spriteId, out var cached))
+            return cached;
+
+        Palettized<MpfView>? sprite;
+
         try
         {
-            return GetOrCreate(spriteId, () => LoadCreatureSprite(spriteId));
+            sprite = LoadCreatureSprite(spriteId);
         }
         //rule 6 exemption: corrupt asset -> graceful null fallback (no validate-before-parse path)
         catch
         {
-            return null;
+            sprite = null;
         }
+
+        SpriteCache.TryAdd(spriteId, sprite);
+
+        return sprite;
     }
 
     private Palettized<MpfView>? LoadCreatureSprite(int spriteId)

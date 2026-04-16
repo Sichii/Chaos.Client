@@ -40,6 +40,19 @@ public sealed partial class WorldScreen : IScreen
     private const int BODY_CENTER_X = AislingRenderer.CANVAS_CENTER_X;
     private const int BODY_CENTER_Y = AislingRenderer.CANVAS_CENTER_Y;
 
+    //net display alpha for transparent (invisible/near-phantom) aislings. transparent players are drawn
+    //exclusively via the silhouette pass (so the result is identical in the open or behind walls); the
+    //stripe pass skips them entirely.
+    private const float TRANSPARENT_ALPHA = 0.33f;
+
+    //alpha used when drawing transparent entities into the silhouette RT — compounded with the silhouette
+    //overlay's SILHOUETTE_ALPHA, this produces TRANSPARENT_ALPHA (0.33) net on screen.
+    private const float TRANSPARENT_SILHOUETTE_ALPHA = TRANSPARENT_ALPHA / SilhouetteRenderer.SILHOUETTE_ALPHA;
+
+    //set true while the silhouette pre-render callback is drawing entities into the silhouette RT.
+    //used by DrawAisling to route transparent players through the silhouette pass instead of the stripe pass.
+    private bool DrawingForSilhouette;
+
     //entity hitbox dimensions (screen pixels)
     private const int HITBOX_WIDTH = 28;
     private const int HITBOX_HEIGHT = 60;
@@ -509,14 +522,7 @@ public sealed partial class WorldScreen : IScreen
             var emoteIcon = UiRenderer.Instance?.GetEpfTexture("emot000.epf", (int)status * 3);
 
             if (emoteIcon is not null)
-                UpdateHuds(h =>
-                {
-                    if (h.EmoteButton is not null)
-                    {
-                        h.EmoteButton.NormalTexture = emoteIcon;
-                        h.EmoteButton.SelectedTexture = emoteIcon;
-                    }
-                });
+                UpdateHuds(HudOps.SetEmoteIcon, emoteIcon);
         };
 
         TextPopup = new TextPopupControl

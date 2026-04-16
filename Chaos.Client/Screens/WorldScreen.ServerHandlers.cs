@@ -33,8 +33,8 @@ public sealed partial class WorldScreen
         if (args.Id == Game.Connection.AislingId)
         {
             WorldState.PlayerName = args.Name;
-            UpdateHuds(h => h.SetPlayerName(args.Name));
-            UpdateHuds(h => h.SetServerName(Game.Connection.ServerName));
+            UpdateHuds(HudOps.SetPlayerName, args.Name);
+            UpdateHuds(HudOps.SetServerName, Game.Connection.ServerName);
             DataContext.LocalPlayerSettings.Initialize(args.Name);
             LoadPlayerFamilyList();
             LoadPlayerFriendList();
@@ -163,7 +163,7 @@ public sealed partial class WorldScreen
             player.UsesCreatureWalkTiming,
             true,
             walkFrames);
-        UpdateHuds(h => h.SetCoords(player.TileX, player.TileY));
+        UpdateHuds(HudOps.SetCoords, player.TileX, player.TileY);
     }
 
     private void HandleClientWalkResponse(Direction direction, int oldX, int oldY)
@@ -204,7 +204,7 @@ public sealed partial class WorldScreen
             true,
             walkFrames);
 
-        UpdateHuds(h => h.SetCoords(serverX, serverY));
+        UpdateHuds(HudOps.SetCoords, serverX, serverY);
         Pathfinding.Clear();
     }
 
@@ -288,7 +288,7 @@ public sealed partial class WorldScreen
                 break;
 
             case ServerMessageType.PersistentMessage:
-                UpdateHuds(h => h.ShowPersistentMessage(args.Message));
+                UpdateHuds(HudOps.ShowPersistentMessage, args.Message);
 
                 break;
 

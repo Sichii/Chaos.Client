@@ -72,6 +72,7 @@ public sealed class StatsPanel : ExpandablePanel
     ];
 
     private readonly UILabel?[] Labels = new UILabel?[LABEL_COUNT];
+    private readonly long[] StatValues = new long[LABEL_COUNT];
     private readonly StatButton?[] StatButtons = new StatButton?[STAT_BUTTON_COUNT];
     private bool HasUnspentPoints;
 
@@ -106,6 +107,8 @@ public sealed class StatsPanel : ExpandablePanel
                 label.X -= 10;
                 label.Width += 10;
             }
+
+        Array.Fill(StatValues, long.MinValue);
 
         //levelup stat raise buttons — load levelup.epf frames and create clickable arrows
         var cache = UiRenderer.Instance!;
@@ -276,6 +279,17 @@ public sealed class StatsPanel : ExpandablePanel
             Labels[index]!.Text = text;
     }
 
+    private void TrySetLabel(int index, long value)
+    {
+        if (StatValues[index] == value)
+            return;
+
+        StatValues[index] = value;
+
+        if (Labels[index] is { } label)
+            label.Text = value.ToString();
+    }
+
     public override void Update(GameTime gameTime)
     {
         if (!Visible)
@@ -286,23 +300,23 @@ public sealed class StatsPanel : ExpandablePanel
 
     public void UpdateAttributes(AttributesArgs attrs)
     {
-        SetLabel(IDX_STR, $"{attrs.Str}");
-        SetLabel(IDX_INT, $"{attrs.Int}");
-        SetLabel(IDX_WIS, $"{attrs.Wis}");
-        SetLabel(IDX_CON, $"{attrs.Con}");
-        SetLabel(IDX_DEX, $"{attrs.Dex}");
-        SetLabel(IDX_HP, $"{attrs.CurrentHp}");
-        SetLabel(IDX_HP_MAX, $"{attrs.MaximumHp}");
-        SetLabel(IDX_MP, $"{attrs.CurrentMp}");
-        SetLabel(IDX_MP_MAX, $"{attrs.MaximumMp}");
-        SetLabel(IDX_EXP, $"{attrs.TotalExp}");
-        SetLabel(IDX_AB_EXP, $"{attrs.TotalAbility}");
-        SetLabel(IDX_GOLD, $"{attrs.Gold}");
-        SetLabel(IDX_GP, $"{attrs.GamePoints}");
-        SetLabel(IDX_LEV, $"{attrs.Level}");
-        SetLabel(IDX_NEXT_LEV, $"{attrs.ToNextLevel}");
-        SetLabel(IDX_AB, $"{attrs.Ability}");
-        SetLabel(IDX_NEXT_AB, $"{attrs.ToNextAbility}");
+        TrySetLabel(IDX_STR, attrs.Str);
+        TrySetLabel(IDX_INT, attrs.Int);
+        TrySetLabel(IDX_WIS, attrs.Wis);
+        TrySetLabel(IDX_CON, attrs.Con);
+        TrySetLabel(IDX_DEX, attrs.Dex);
+        TrySetLabel(IDX_HP, attrs.CurrentHp);
+        TrySetLabel(IDX_HP_MAX, attrs.MaximumHp);
+        TrySetLabel(IDX_MP, attrs.CurrentMp);
+        TrySetLabel(IDX_MP_MAX, attrs.MaximumMp);
+        TrySetLabel(IDX_EXP, attrs.TotalExp);
+        TrySetLabel(IDX_AB_EXP, attrs.TotalAbility);
+        TrySetLabel(IDX_GOLD, attrs.Gold);
+        TrySetLabel(IDX_GP, attrs.GamePoints);
+        TrySetLabel(IDX_LEV, attrs.Level);
+        TrySetLabel(IDX_NEXT_LEV, attrs.ToNextLevel);
+        TrySetLabel(IDX_AB, attrs.Ability);
+        TrySetLabel(IDX_NEXT_AB, attrs.ToNextAbility);
 
         SetUnspentPoints(attrs.UnspentPoints > 0);
     }
