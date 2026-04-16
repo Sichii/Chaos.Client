@@ -29,7 +29,12 @@ public enum EntityTintType
     /// <summary>
     ///     Group member highlight tint.
     /// </summary>
-    Group
+    Group,
+
+    /// <summary>
+    ///     Projectile impact hit flash (red 50% blend).
+    /// </summary>
+    HitTint
 }
 
 /// <summary>

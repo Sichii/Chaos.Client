@@ -974,8 +974,24 @@ public sealed partial class WorldScreen
             Game.SoundSystem.PlaySound(args.Sound.Value);
     }
 
+    //TargetAnimation values in [PROJECTILE_ANIMATION_BASE, PROJECTILE_ANIMATION_MAX_EXCLUSIVE) are MEFC projectiles;
+    //the meffect id is recovered by subtracting the base.
+    private const int PROJECTILE_ANIMATION_BASE = 10000;
+    private const int PROJECTILE_ANIMATION_MAX_EXCLUSIVE = 12000;
+
     private void HandleAnimation(AnimationArgs args)
     {
+        if (args is { SourceId: > 0, TargetId: > 0, TargetAnimation: >= PROJECTILE_ANIMATION_BASE and < PROJECTILE_ANIMATION_MAX_EXCLUSIVE })
+        {
+            var meffectId = args.TargetAnimation - PROJECTILE_ANIMATION_BASE;
+            CreateProjectile(meffectId, args.SourceId.Value, args.TargetId.Value);
+
+            if (args is { SourceAnimation: > 0 })
+                CreateEffect(args.SourceAnimation, args.AnimationSpeed, args.SourceId.Value);
+
+            return;
+        }
+
         //ground-targeted effect
         if (args is { TargetPoint: not null, TargetAnimation: > 0 })
             CreateEffect(
@@ -991,6 +1007,62 @@ public sealed partial class WorldScreen
         //source-side effect (caster visual)
         if (args is { SourceId: > 0, SourceAnimation: > 0 })
             CreateEffect(args.SourceAnimation, args.AnimationSpeed, args.SourceId.Value);
+    }
+
+    private void CreateProjectile(int meffectId, uint sourceEntityId, uint targetEntityId)
+    {
+        var record = DataContext.Effects.GetMeffectRecord(meffectId);
+
+        if (record is null)
+            return;
+
+        var sourceEntity = WorldState.GetEntity(sourceEntityId);
+        var targetEntity = WorldState.GetEntity(targetEntityId);
+
+        if (sourceEntity is null || targetEntity is null)
+            return;
+
+        if (MapFile is null)
+            return;
+
+        var sourceWorld = Camera.TileToWorld(sourceEntity.TileX, sourceEntity.TileY, MapFile.Height);
+        var targetWorld = Camera.TileToWorld(targetEntity.TileX, targetEntity.TileY, MapFile.Height);
+
+        var srcX = sourceWorld.X + DaLibConstants.HALF_TILE_WIDTH;
+        var srcY = sourceWorld.Y + DaLibConstants.HALF_TILE_HEIGHT;
+        var tgtX = targetWorld.X + DaLibConstants.HALF_TILE_WIDTH;
+        var tgtY = targetWorld.Y + DaLibConstants.HALF_TILE_HEIGHT;
+
+        var dx = tgtX - srcX;
+        var dy = tgtY - srcY;
+        var distance = MathF.Sqrt(dx * dx + dy * dy);
+
+        if (distance < 1f)
+            return;
+
+        //direction matches server's DirectionalRelationTo (tile space): Up=0, Right=1, Down=2, Left=3
+        var direction = GetProjectileDirection(
+            targetEntity.TileX - sourceEntity.TileX,
+            targetEntity.TileY - sourceEntity.TileY);
+
+        WorldState.ActiveProjectiles.Add(
+            new Projectile
+            {
+                SourceEntityId = sourceEntityId,
+                TargetEntityId = targetEntityId,
+                MeffectId = meffectId,
+                CurrentX = srcX,
+                CurrentY = srcY,
+                LastKnownTargetX = tgtX,
+                LastKnownTargetY = tgtY,
+                Step = record.Step,
+                StepDelayMs = record.StepDelay,
+                InitialDistance = distance,
+                ArcRatioV = record.ArcRatioV,
+                ArcRatioH = record.ArcRatioH,
+                FramesPerDirection = record.FramesPerDirection,
+                Direction = direction
+            });
     }
 
     private void CreateEffect(
@@ -1172,4 +1244,19 @@ public sealed partial class WorldScreen
         return LegendColors.Get((int)color);
     }
     #endregion
+
+    //Up=0, Right=1, Down=2, Left=3 — matches server DirectionalRelationTo in tile space
+    private static int GetProjectileDirection(int dtx, int dty)
+    {
+        var absDtx = Math.Abs(dtx);
+        var absDty = Math.Abs(dty);
+
+        if (absDtx > absDty)
+            return dtx > 0 ? 1 : 3;
+
+        if (absDty > 0)
+            return dty < 0 ? 0 : 2;
+
+        return 0;
+    }
 }

@@ -354,11 +354,14 @@ public sealed partial class WorldScreen
             //5. ground-targeted effects
             DrawGroundEffectsAtDepth(spriteBatch, depth);
 
-            //5. entity-attached effects
+            //6. projectiles in flight
+            DrawProjectilesAtDepth(spriteBatch, depth);
+
+            //7. entity-attached effects
             for (var i = stripeStart; i < stripeEnd; i++)
                 DrawEntityEffects(spriteBatch, sortedEntities[i]);
 
-            //6. foreground tiles (on top — trees, buildings occlude entities behind them)
+            //8. foreground tiles (on top — trees, buildings occlude entities behind them)
             var tileXStart = Math.Max(fgMinX, depth - fgMaxY);
             var tileXEnd = Math.Min(fgMaxX, depth - fgMinY);
 
@@ -436,6 +439,48 @@ public sealed partial class WorldScreen
                 tileWorld.X + DaLibConstants.HALF_TILE_WIDTH,
                 tileWorld.Y + DaLibConstants.HALF_TILE_HEIGHT,
                 Vector2.Zero);
+        }
+    }
+
+    private EntityTintType ResolveEntityTint(WorldEntity entity)
+    {
+        if (entity.HitTintExpiryMs > 0)
+            return EntityTintType.HitTint;
+
+        if (Highlight.ShowTintHighlight && (Highlight.HoveredEntityId == entity.Id))
+            return EntityTintType.Highlight;
+
+        if (GroupHighlightedIds.Contains(entity.Id))
+            return EntityTintType.Group;
+
+        return EntityTintType.None;
+    }
+
+    private void DrawProjectilesAtDepth(SpriteBatch spriteBatch, int depth)
+    {
+        if (MapFile is null)
+            return;
+
+        foreach (var proj in WorldState.ActiveProjectiles)
+        {
+            if (proj.IsComplete)
+                continue;
+
+            var tile = Camera.WorldToTile(proj.CurrentX, proj.CurrentY, MapFile.Height);
+            var projDepth = tile.X + tile.Y;
+
+            if (projDepth != depth)
+                continue;
+
+            var frameIndex = proj.Direction * proj.FramesPerDirection + proj.CurrentFrameCycle;
+
+            Game.EffectRenderer.DrawProjectile(
+                spriteBatch,
+                Camera,
+                proj.MeffectId,
+                frameIndex,
+                proj.CurrentX + proj.ArcOffsetX,
+                proj.CurrentY + proj.ArcOffsetY);
         }
     }
 
@@ -545,11 +590,7 @@ public sealed partial class WorldScreen
         if (entity.IsTransparent && !DrawingForSilhouette && SilhouetteRenderer.SilhouetteEntityIds.Contains(entity.Id))
             alpha = 0f;
 
-        var tint = Highlight.ShowTintHighlight && (Highlight.HoveredEntityId == entity.Id)
-            ? EntityTintType.Highlight
-            : GroupHighlightedIds.Contains(entity.Id)
-                ? EntityTintType.Group
-                : EntityTintType.None;
+        var tint = ResolveEntityTint(entity);
 
         return creatureRenderer.Draw(
             spriteBatch,
@@ -646,11 +687,7 @@ public sealed partial class WorldScreen
         var emotionFrame = entity.ActiveEmoteFrame;
         var groundPaintHeight = entity.IsOnSwimmingTile ? 0 : entity.GroundPaintHeight;
 
-        var tint = Highlight.ShowTintHighlight && (Highlight.HoveredEntityId == entity.Id)
-            ? EntityTintType.Highlight
-            : GroupHighlightedIds.Contains(entity.Id)
-                ? EntityTintType.Group
-                : EntityTintType.None;
+        var tint = ResolveEntityTint(entity);
 
         //transparent silhouette entities are drawn exclusively via the silhouette pass so their displayed alpha is
         //identical in the open and behind walls (the stripe-pass draw would get occluded by foreground tiles,

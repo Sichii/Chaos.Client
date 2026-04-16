@@ -25,6 +25,7 @@ public sealed class EffectRenderer : IDisposable
 
     //null value = effect doesn't exist (negative cache)
     private readonly Dictionary<int, SpriteAnimation?> AnimationCache = [];
+    private readonly Dictionary<int, SpriteAnimation?> MefcCache = [];
 
     /// <inheritdoc />
     public void Dispose() => Clear();
@@ -38,6 +39,11 @@ public sealed class EffectRenderer : IDisposable
             animation?.Dispose();
 
         AnimationCache.Clear();
+
+        foreach (var animation in MefcCache.Values)
+            animation?.Dispose();
+
+        MefcCache.Clear();
     }
 
     /// <summary>
@@ -210,5 +216,75 @@ public sealed class EffectRenderer : IDisposable
         }
 
         return new SpriteAnimation(frames);
+    }
+
+    private SpriteAnimation? LoadMefcAnimation(int mefcId)
+    {
+        var spf = DataContext.Effects.GetMefcSprite(mefcId);
+
+        if (spf is null)
+            return null;
+
+        var frames = new SpriteFrame[spf.Count];
+
+        for (var i = 0; i < spf.Count; i++)
+        {
+            var spfFrame = spf[i];
+
+            using var skImage = spf.Format == SpfFormatType.Colorized
+                ? Graphics.RenderImage(spfFrame)
+                : Graphics.RenderImage(spfFrame, spf.PrimaryColors!);
+
+            var texture = TextureConverter.ToTexture2D(skImage);
+
+            var centerX = spfFrame.HasCenterPoint ? spfFrame.CenterX : (short)28;
+            var centerY = spfFrame.HasCenterPoint ? spfFrame.CenterY : (short)70;
+
+            frames[i] = new SpriteFrame(
+                texture,
+                centerX,
+                centerY,
+                (short)spfFrame.Left,
+                (short)spfFrame.Top);
+        }
+
+        return new SpriteAnimation(frames);
+    }
+
+    internal SpriteAnimation? GetOrLoadMefcAnimation(int mefcId)
+    {
+        if (MefcCache.TryGetValue(mefcId, out var cached))
+            return cached;
+
+        cached = LoadMefcAnimation(mefcId);
+        MefcCache[mefcId] = cached;
+
+        return cached;
+    }
+
+    public void DrawProjectile(
+        SpriteBatch batch,
+        Camera camera,
+        int mefcId,
+        int frameIndex,
+        float worldX,
+        float worldY)
+    {
+        var animation = GetOrLoadMefcAnimation(mefcId);
+
+        if (animation is null)
+            return;
+
+        var clampedFrame = Math.Clamp(frameIndex, 0, animation.FrameCount - 1);
+        var frame = animation.GetFrame(clampedFrame);
+
+        if (frame is null)
+            return;
+
+        var drawX = worldX - frame.Value.CenterX + Math.Min(0, (int)frame.Value.Left);
+        var drawY = worldY - frame.Value.CenterY + Math.Min(0, (int)frame.Value.Top);
+        var screenPos = camera.WorldToScreen(new Vector2(drawX, drawY));
+
+        batch.Draw(frame.Value.Texture, screenPos, Color.White);
     }
 }

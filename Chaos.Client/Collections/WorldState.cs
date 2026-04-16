@@ -52,6 +52,11 @@ public static class WorldState
     public static List<Animation> ActiveEffects { get; } = [];
 
     /// <summary>
+    ///     Active projectile animations currently in flight.
+    /// </summary>
+    public static List<Projectile> ActiveProjectiles { get; } = [];
+
+    /// <summary>
     ///     Authoritative player attributes (stats, HP/MP, exp, etc.).
     /// </summary>
     public static PlayerAttributes Attributes { get; } = new();
@@ -237,6 +242,7 @@ public static class WorldState
     {
         Entities.Clear();
         ActiveEffects.Clear();
+        ActiveProjectiles.Clear();
 
         foreach (var dying in DyingEffects)
             dying.Dispose();

@@ -14,13 +14,22 @@
     <configurations />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="2cf40e53-e49e-4e2b-a433-eb4f57999662" name="Changes" comment="screenshots">
+    <list default="true" id="2cf40e53-e49e-4e2b-a433-eb4f57999662" name="Changes" comment="projectiles">
+      <change afterPath="$PROJECT_DIR$/Chaos.Client.Data/Models/MeffectRecord.cs" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/Chaos.Client/Models/Projectile.cs" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/pyghidra_mcp_projects/my_project.rep/idata/00/~00000000.db/db.2.gbf" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/.idea.Chaos.Client/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/.idea.Chaos.Client/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Chaos.Client.Data/Repositories/EffectsRepository.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client.Data/Repositories/EffectsRepository.cs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Chaos.Client.Rendering/AislingRenderer.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client.Rendering/AislingRenderer.cs" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/Chaos.Client.Rendering/CreatureRenderer.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client.Rendering/CreatureRenderer.cs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Chaos.Client.Rendering/Definitions/Enums.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client.Rendering/Definitions/Enums.cs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Chaos.Client.Rendering/EffectRenderer.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client.Rendering/EffectRenderer.cs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Chaos.Client.Rendering/TextureConverter.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client.Rendering/TextureConverter.cs" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/Chaos.Client/Collections/WorldState.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client/Collections/WorldState.cs" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/Chaos.Client/Models/WorldEntity.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client/Models/WorldEntity.cs" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/Chaos.Client/Screens/WorldScreen.Draw.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client/Screens/WorldScreen.Draw.cs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Chaos.Client/Systems/SoundSystem.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client/Systems/SoundSystem.cs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Chaos.Client/Screens/WorldScreen.ServerHandlers.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client/Screens/WorldScreen.ServerHandlers.cs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Chaos.Client/Screens/WorldScreen.Update.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client/Screens/WorldScreen.Update.cs" afterDir="false" />
     </list>
     <list id="7231daaa-f0af-42dd-822b-aeab5364bc8b" name="AiStuff" comment="" />
     <option name="SHOW_DIALOG" value="false" />
@@ -70,28 +79,28 @@
     <option name="hideEmptyMiddlePackages" value="true" />
     <option name="showLibraryContents" value="true" />
   </component>
-  <component name="PropertiesComponent"><![CDATA[{
-  "keyToString": {
-    ".NET Project.Chaos.Client.executor": "Debug",
-    "Rider.SolutionAnalysis.ShowIgnored": "true",
-    "RunOnceActivity.MCP Project settings loaded": "true",
-    "RunOnceActivity.ShowReadmeOnStart": "true",
-    "RunOnceActivity.TerminalTabsStorage.copyFrom.TerminalArrangementManager.252": "true",
-    "RunOnceActivity.cidr.known.project.marker": "true",
-    "RunOnceActivity.readMode.enableVisualFormatting": "true",
-    "RunOnceActivity.typescript.service.memoryLimit.init": "true",
-    "cidr.known.project.marker": "true",
-    "codeWithMe.voiceChat.enabledByDefault": "false",
-    "git-widget-placeholder": "main",
-    "node.js.detected.package.eslint": "true",
-    "node.js.detected.package.tslint": "true",
-    "node.js.selected.package.eslint": "(autodetect)",
-    "node.js.selected.package.tslint": "(autodetect)",
-    "nodejs_package_manager_path": "npm",
-    "settings.editor.selected.configurable": "preferences.pluginManager",
-    "vue.rearranger.settings.migration": "true"
+  <component name="PropertiesComponent">{
+  &quot;keyToString&quot;: {
+    &quot;.NET Project.Chaos.Client.executor&quot;: &quot;Debug&quot;,
+    &quot;Rider.SolutionAnalysis.ShowIgnored&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.MCP Project settings loaded&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.TerminalTabsStorage.copyFrom.TerminalArrangementManager.252&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.cidr.known.project.marker&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.readMode.enableVisualFormatting&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.typescript.service.memoryLimit.init&quot;: &quot;true&quot;,
+    &quot;cidr.known.project.marker&quot;: &quot;true&quot;,
+    &quot;codeWithMe.voiceChat.enabledByDefault&quot;: &quot;false&quot;,
+    &quot;git-widget-placeholder&quot;: &quot;main&quot;,
+    &quot;node.js.detected.package.eslint&quot;: &quot;true&quot;,
+    &quot;node.js.detected.package.tslint&quot;: &quot;true&quot;,
+    &quot;node.js.selected.package.eslint&quot;: &quot;(autodetect)&quot;,
+    &quot;node.js.selected.package.tslint&quot;: &quot;(autodetect)&quot;,
+    &quot;nodejs_package_manager_path&quot;: &quot;npm&quot;,
+    &quot;settings.editor.selected.configurable&quot;: &quot;preferences.pluginManager&quot;,
+    &quot;vue.rearranger.settings.migration&quot;: &quot;true&quot;
   }
-}]]></component>
+}</component>
   <component name="RunManager">
     <configuration name="Chaos.Client" type="DotNetProject" factoryName=".NET Project">
       <option name="EXE_PATH" value="$PROJECT_DIR$/Chaos.Client/bin/Debug/net10.0/Chaos.Client.exe" />
@@ -130,7 +139,7 @@
       <workItem from="1775506872956" duration="138101000" />
       <workItem from="1775895595683" duration="105789000" />
       <workItem from="1776179281803" duration="29003000" />
-      <workItem from="1776251386478" duration="49087000" />
+      <workItem from="1776251386478" duration="68064000" />
     </task>
     <task id="LOCAL-00001" summary="safety">
       <option name="closed" value="true" />
@@ -428,7 +437,31 @@
       <option name="project" value="LOCAL" />
       <updated>1776349904999</updated>
     </task>
-    <option name="localTasksCounter" value="38" />
+    <task id="LOCAL-00038" summary="bugfixes and hidden flag&#10;- music now streams from file rather than sitting in memory">
+      <option name="closed" value="true" />
+      <created>1776355092032</created>
+      <option name="number" value="00038" />
+      <option name="presentableId" value="LOCAL-00038" />
+      <option name="project" value="LOCAL" />
+      <updated>1776355092032</updated>
+    </task>
+    <task id="LOCAL-00039" summary="new spf stuff&#10;- spf files can apparently have center points, only seems to be used for projectiles (mefct)">
+      <option name="closed" value="true" />
+      <created>1776375619837</created>
+      <option name="number" value="00039" />
+      <option name="presentableId" value="LOCAL-00039" />
+      <option name="project" value="LOCAL" />
+      <updated>1776375619837</updated>
+    </task>
+    <task id="LOCAL-00040" summary="projectiles">
+      <option name="closed" value="true" />
+      <created>1776375646775</created>
+      <option name="number" value="00040" />
+      <option name="presentableId" value="LOCAL-00040" />
+      <option name="project" value="LOCAL" />
+      <updated>1776375646775</updated>
+    </task>
+    <option name="localTasksCounter" value="41" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -437,8 +470,6 @@
   <component name="UnityCheckinConfiguration" checkUnsavedScenes="false" />
   <component name="UnityProjectConfiguration" hasMinimizedUI="false" />
   <component name="VcsManagerConfiguration">
-    <MESSAGE value="input system full rewrite" />
-    <MESSAGE value="bugfixes and renaming" />
     <MESSAGE value="style and minor features" />
     <MESSAGE value="input and misc" />
     <MESSAGE value="many bugfixes" />
@@ -461,7 +492,10 @@
     <MESSAGE value="fix allocation issues" />
     <MESSAGE value="fix login d/c" />
     <MESSAGE value="screenshots" />
-    <option name="LAST_COMMIT_MESSAGE" value="screenshots" />
+    <MESSAGE value="bugfixes and hidden flag&#10;- music now streams from file rather than sitting in memory" />
+    <MESSAGE value="new spf stuff&#10;- spf files can apparently have center points, only seems to be used for projectiles (mefct)" />
+    <MESSAGE value="projectiles" />
+    <option name="LAST_COMMIT_MESSAGE" value="projectiles" />
   </component>
   <component name="XDebuggerManager">
     <pin-to-top-manager>

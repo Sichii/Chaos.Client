@@ -168,6 +168,7 @@ public sealed class AislingRenderer : IDisposable
 
     private readonly AislingDrawDataRepository DrawData = DataContext.AislingDrawData;
     private readonly Dictionary<Texture2D, Texture2D> GroupTintCache = [];
+    private readonly Dictionary<Texture2D, Texture2D> HitTintCache = [];
     private readonly LayerInfo?[] RenderLayers = new LayerInfo?[(int)LayerSlot.Count];
     private readonly Dictionary<int, Texture2D> RestFemaleEmoteFrameCache = [];
     private readonly Dictionary<int, Texture2D> RestFemaleFrameCache = [];
@@ -191,6 +192,7 @@ public sealed class AislingRenderer : IDisposable
         ClearTintedCache();
         ClearLayerImageCache();
         ClearGroupTintCache();
+        ClearHitTintCache();
     }
 
     private static void ApplyGroundTint(Texture2D texture, int paintHeight, Color tintColor)
@@ -266,6 +268,9 @@ public sealed class AislingRenderer : IDisposable
         if (GroupTintCache.Remove(texture, out var groupTinted))
             groupTinted.Dispose();
 
+        if (HitTintCache.Remove(texture, out var hitTinted))
+            hitTinted.Dispose();
+
         texture.Dispose();
     }
 
@@ -278,6 +283,17 @@ public sealed class AislingRenderer : IDisposable
             texture.Dispose();
 
         GroupTintCache.Clear();
+    }
+
+    /// <summary>
+    ///     Disposes and clears the hit tint texture cache.
+    /// </summary>
+    public void ClearHitTintCache()
+    {
+        foreach (var texture in HitTintCache.Values)
+            texture.Dispose();
+
+        HitTintCache.Clear();
     }
 
     /// <summary>
@@ -377,6 +393,7 @@ public sealed class AislingRenderer : IDisposable
         {
             EntityTintType.Highlight => GetOrCreateTintedTexture(drawTexture),
             EntityTintType.Group     => GetOrCreateGroupTint(drawTexture),
+            EntityTintType.HitTint   => GetOrCreateHitTint(drawTexture),
             _                        => drawTexture
         };
 
@@ -401,6 +418,17 @@ public sealed class AislingRenderer : IDisposable
 
         cached = TextureConverter.CreateGroupTintedTexture(source);
         GroupTintCache[source] = cached;
+
+        return cached;
+    }
+
+    private Texture2D GetOrCreateHitTint(Texture2D source)
+    {
+        if (HitTintCache.TryGetValue(source, out var cached))
+            return cached;
+
+        cached = TextureConverter.CreateHitTintedTexture(source);
+        HitTintCache[source] = cached;
 
         return cached;
     }

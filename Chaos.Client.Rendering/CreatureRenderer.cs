@@ -18,6 +18,7 @@ public sealed class CreatureRenderer : IDisposable
     private readonly Dictionary<(int SpriteId, int FrameIndex), SpriteFrame> FrameCache = [];
     private readonly Dictionary<Texture2D, Texture2D> GroupTintCache = [];
     private readonly Dictionary<Texture2D, Texture2D> HighlightTintCache = [];
+    private readonly Dictionary<Texture2D, Texture2D> HitTintCache = [];
 
     //average of (CenterY - Top) across all frames, keyed by spriteId.
     //used by overlay positioning to derive a stable "sprite top" for each creature sprite.
@@ -54,6 +55,11 @@ public sealed class CreatureRenderer : IDisposable
             texture.Dispose();
 
         GroupTintCache.Clear();
+
+        foreach (var texture in HitTintCache.Values)
+            texture.Dispose();
+
+        HitTintCache.Clear();
     }
 
     /// <summary>
@@ -95,6 +101,7 @@ public sealed class CreatureRenderer : IDisposable
             {
                 EntityTintType.Highlight => GetOrCreateHighlightTint(frame.Texture),
                 EntityTintType.Group     => GetOrCreateGroupTint(frame.Texture),
+                EntityTintType.HitTint   => GetOrCreateHitTint(frame.Texture),
                 _                        => frame.Texture
             };
 
@@ -238,6 +245,17 @@ public sealed class CreatureRenderer : IDisposable
 
         cached = TextureConverter.CreateTintedTexture(source);
         HighlightTintCache[source] = cached;
+
+        return cached;
+    }
+
+    private Texture2D GetOrCreateHitTint(Texture2D source)
+    {
+        if (HitTintCache.TryGetValue(source, out var cached))
+            return cached;
+
+        cached = TextureConverter.CreateHitTintedTexture(source);
+        HitTintCache[source] = cached;
 
         return cached;
     }

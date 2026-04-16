@@ -1,5 +1,7 @@
 #region
+using System.Text;
 using Chaos.Client.Data.Abstractions;
+using Chaos.Client.Data.Models;
 using DALib.Drawing;
 using DALib.Drawing.Virtualized;
 using DALib.Utility;
@@ -13,6 +15,7 @@ public sealed class EffectsRepository : RepositoryBase
                                                                  .Freeze();
 
     private readonly EffectTable EffectTable;
+    private readonly MeffectRecord?[] MeffectRecords;
 
     public EffectsRepository()
     {
@@ -20,6 +23,8 @@ public sealed class EffectsRepository : RepositoryBase
             EffectTable = EffectTable.FromArchive(DatArchives.Roh);
         else
             EffectTable = new EffectTable();
+
+        MeffectRecords = ParseMeffectTable();
     }
 
     /// <summary>
@@ -119,4 +124,116 @@ public sealed class EffectsRepository : RepositoryBase
     ///     Returns true if the effect uses luminance-based alpha blending instead of standard palette rendering.
     /// </summary>
     public bool UsesLuminanceBlending(int effectId) => EffectPalettes.Table.GetPaletteNumber(effectId) >= 1000;
+
+    public MeffectRecord? GetMeffectRecord(int meffectId)
+    {
+        if ((meffectId < 0) || (meffectId >= MeffectRecords.Length))
+            return null;
+
+        return MeffectRecords[meffectId];
+    }
+
+    public SpfFile? GetMefcSprite(int mefcId)
+    {
+        var entryName = $"mefc{mefcId:D3}.spf";
+
+        if (!DatArchives.Roh.TryGetValue(entryName, out var entry))
+            return null;
+
+        return GetOrCreate($"mefc_spf_{mefcId}", () => SpfFile.FromEntry(entry));
+    }
+
+    private static MeffectRecord?[] ParseMeffectTable()
+    {
+        if (!DatArchives.Roh.TryGetValue("meffect.tbl", out var entry))
+            return [];
+
+        var text = Encoding.ASCII.GetString(entry.ToSpan());
+
+        var lines = text.Split(
+            [
+                '\r',
+                '\n'
+            ],
+            StringSplitOptions.RemoveEmptyEntries);
+
+        var records = new List<MeffectRecord>();
+        var maxId = -1;
+        var countLineSeen = false;
+
+        foreach (var line in lines)
+        {
+            var trimmed = line.Trim();
+
+            if (trimmed.StartsWith(';') || trimmed.StartsWith('#') || (trimmed.Length == 0))
+                continue;
+
+            //first non-comment line is the entry count -- skip it
+            if (!countLineSeen)
+            {
+                countLineSeen = true;
+
+                continue;
+            }
+
+            var tokens = trimmed.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+
+            //minimum: id type frames "distance" step step_delay
+            if (tokens.Length < 6)
+                continue;
+
+            //only "distance" mode is supported
+            if (!tokens[3].Equals("distance", StringComparison.OrdinalIgnoreCase))
+                continue;
+
+            if (!int.TryParse(tokens[0], out var id)
+                || !int.TryParse(tokens[1], out var type)
+                || !int.TryParse(tokens[2], out var frames)
+                || !int.TryParse(tokens[4], out var step)
+                || !int.TryParse(tokens[5], out var stepDelay))
+                continue;
+
+            int? arcV = null;
+            int? arcH = null;
+
+            if (tokens.Length > 6)
+            {
+                var arcParts = tokens[6].Split('/');
+
+                if ((arcParts.Length == 2)
+                    && int.TryParse(arcParts[0], out var v)
+                    && int.TryParse(arcParts[1], out var h))
+                {
+                    arcV = v;
+                    arcH = h;
+                }
+            }
+
+            var record = new MeffectRecord
+            {
+                Id = id,
+                Type = type,
+                FramesPerDirection = frames,
+                Step = step,
+                StepDelay = stepDelay,
+                ArcRatioV = arcV,
+                ArcRatioH = arcH
+            };
+
+            records.Add(record);
+
+            if (id > maxId)
+                maxId = id;
+        }
+
+        if (maxId < 0)
+            return [];
+
+        var result = new MeffectRecord?[maxId + 1];
+
+        foreach (var record in records)
+            result[record.Id] = record;
+
+        return result;
+    }
 }

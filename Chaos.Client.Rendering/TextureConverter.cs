@@ -12,6 +12,7 @@ public static class TextureConverter
 {
     //Warm gold 50/50 blend used by CreateGroupTintedTexture for group-member highlighting.
     private static readonly Color GroupTint = new(255, 231, 59);
+    private static readonly Color HitTint = new(255, 0, 0);
 
     public static GraphicsDevice Device { get; set; } = null!;
 
@@ -63,6 +64,29 @@ public static class TextureConverter
         {
             source.GetData(pixels, 0, count);
             Blend50Pixels(pixels, count, GroupTint);
+
+            var tinted = new Texture2D(Device, source.Width, source.Height);
+            tinted.SetData(pixels, 0, count);
+
+            return tinted;
+        } finally
+        {
+            ArrayPool<Color>.Shared.Return(pixels);
+        }
+    }
+
+    /// <summary>
+    ///     Creates a hit-tinted copy of a texture using a red 50/50 blend for the projectile impact flash.
+    /// </summary>
+    public static Texture2D CreateHitTintedTexture(Texture2D source)
+    {
+        var count = source.Width * source.Height;
+        var pixels = ArrayPool<Color>.Shared.Rent(count);
+
+        try
+        {
+            source.GetData(pixels, 0, count);
+            Blend50Pixels(pixels, count, HitTint);
 
             var tinted = new Texture2D(Device, source.Width, source.Height);
             tinted.SetData(pixels, 0, count);

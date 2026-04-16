@@ -2,6 +2,7 @@
 using Chaos.Client.Collections;
 using Chaos.Client.Controls.Components;
 using Chaos.Client.Data;
+using Chaos.Client.Models;
 using Chaos.Client.Systems;
 using Chaos.DarkAges.Definitions;
 using Chaos.Geometry.Abstractions.Definitions;
@@ -71,9 +72,13 @@ public sealed partial class WorldScreen
                     entity.ActiveEmoteFrame = entity.EmoteStartFrame + frameIndex;
                 }
             }
+
+            if (entity.HitTintExpiryMs > 0)
+                entity.HitTintExpiryMs = Math.Max(0, entity.HitTintExpiryMs - elapsedMs);
         }
 
         WorldState.UpdateEffects(elapsedMs);
+        AdvanceProjectiles(elapsedMs);
 
         //group highlight auto-expire (1000ms flash)
         if (GroupHighlightedIds.Count > 0)
@@ -279,6 +284,89 @@ public sealed partial class WorldScreen
 
         Root!.Update(gameTime);
     }
+
+    #region Projectile Advancement
+    private void AdvanceProjectiles(float elapsedMs)
+    {
+        if (MapFile is null)
+            return;
+
+        for (var i = WorldState.ActiveProjectiles.Count - 1; i >= 0; i--)
+        {
+            var proj = WorldState.ActiveProjectiles[i];
+            proj.ElapsedMs += elapsedMs;
+
+            while (proj.ElapsedMs >= proj.StepDelayMs && !proj.IsComplete)
+            {
+                proj.ElapsedMs -= proj.StepDelayMs;
+                AdvanceProjectileStep(proj);
+            }
+
+            if (proj.IsComplete)
+                WorldState.ActiveProjectiles.RemoveAt(i);
+        }
+    }
+
+    private const float HIT_TINT_FLASH_MS = 100f;
+
+    private void AdvanceProjectileStep(Projectile proj)
+    {
+        var targetEntity = WorldState.GetEntity(proj.TargetEntityId);
+
+        if (targetEntity is not null)
+        {
+            var targetWorld = Camera.TileToWorld(targetEntity.TileX, targetEntity.TileY, MapFile!.Height);
+            proj.LastKnownTargetX = targetWorld.X + DaLibConstants.HALF_TILE_WIDTH;
+            proj.LastKnownTargetY = targetWorld.Y + DaLibConstants.HALF_TILE_HEIGHT;
+        }
+
+        var dx = proj.LastKnownTargetX - proj.CurrentX;
+        var dy = proj.LastKnownTargetY - proj.CurrentY;
+        var distSq = dx * dx + dy * dy;
+        var stepSq = (float)proj.Step * proj.Step;
+
+        if (distSq <= stepSq)
+        {
+            proj.IsComplete = true;
+
+            if (targetEntity is not null)
+                targetEntity.HitTintExpiryMs = HIT_TINT_FLASH_MS;
+
+            return;
+        }
+
+        var remainingDistance = MathF.Sqrt(distSq);
+        var unitX = dx / remainingDistance;
+        var unitY = dy / remainingDistance;
+
+        proj.CurrentX += unitX * proj.Step;
+        proj.CurrentY += unitY * proj.Step;
+        proj.DistanceTraveled += proj.Step;
+
+        if (proj is { ArcRatioV: not null, ArcRatioH: not null, InitialDistance: > 0 })
+        {
+            var progress = Math.Clamp(proj.DistanceTraveled / proj.InitialDistance, 0f, 1f);
+            var arcHeight = proj.InitialDistance * proj.ArcRatioV.Value / (float)proj.ArcRatioH.Value / 2f;
+            var arcOffset = MathF.Sin(MathF.PI * progress) * arcHeight;
+
+            //perpendicular to heading (rotate 90°)
+            proj.ArcOffsetX = -unitY * arcOffset;
+            proj.ArcOffsetY = unitX * arcOffset;
+        }
+
+        if (targetEntity is not null)
+        {
+            var projTile = Camera.WorldToTile(proj.CurrentX, proj.CurrentY, MapFile!.Height);
+
+            proj.Direction = GetProjectileDirection(
+                targetEntity.TileX - projTile.X,
+                targetEntity.TileY - projTile.Y);
+        }
+
+        if (proj.FramesPerDirection > 1)
+            proj.CurrentFrameCycle = (proj.CurrentFrameCycle + 1) % proj.FramesPerDirection;
+    }
+    #endregion
 
     /// <summary>
     ///     Returns the first visible modal panel among Root's children (highest ZIndex first), or null.

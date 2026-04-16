@@ -52,6 +52,11 @@ public sealed class WorldEntity
     /// </summary>
     public Color GroundTintColor { get; set; }
 
+    /// <summary>
+    ///     Remaining duration in ms for the hit-flash tint. Ticked down each frame; the entity renders with HitTint while > 0.
+    /// </summary>
+    public float HitTintExpiryMs { get; set; }
+
     public string? GroupBoxText { get; set; }
     public uint Id { get; init; }
     public float IdleAnimElapsedMs { get; set; }
