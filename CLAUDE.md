@@ -34,7 +34,7 @@ Chaos.Client.slnx (.NET 10.0, C# 14)
 |---------------------------|--------------------------------------------------------------------|
 | `../Chaos-Server/`        | Chaos-Server source (Sichii). Protocol reference for compat work.  |
 | `../server/`              | Hybrasyl server source. Dev target (qa.hybrasyl.com:2610).         |
-| `../dalib-sichii/DALib/`  | DALib fork in use (Sichii staging; merges into Hybrasyl upstream). |
+| `../dalib/DALib/`         | DALib upstream (Hybrasyl-owned). Project reference.                |
 
 ## Key Dependencies
 
