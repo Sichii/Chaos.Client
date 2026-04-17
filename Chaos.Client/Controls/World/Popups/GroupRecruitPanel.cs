@@ -300,10 +300,8 @@ public sealed class GroupRecruitPanel : PrefabPanel
         MaxLevelField?.Text = "99";
 
         for (var i = 0; i < NUM_CLASSES; i++)
-        {
             if (ClassMaxFields[i] is not null)
                 ClassMaxFields[i]!.Text = "0";
-        }
     }
 
     /// <summary>

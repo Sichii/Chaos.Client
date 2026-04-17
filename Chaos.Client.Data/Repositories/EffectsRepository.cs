@@ -15,7 +15,7 @@ public sealed class EffectsRepository : RepositoryBase
                                                                  .Freeze();
 
     private readonly EffectTable EffectTable;
-    private readonly MeffectRecord?[] MeffectRecords;
+    private readonly ProjectileInfo?[] ProjectileDetails;
 
     public EffectsRepository()
     {
@@ -24,7 +24,7 @@ public sealed class EffectsRepository : RepositoryBase
         else
             EffectTable = new EffectTable();
 
-        MeffectRecords = ParseMeffectTable();
+        ProjectileDetails = ParseMeffectTable();
     }
 
     /// <summary>
@@ -125,12 +125,12 @@ public sealed class EffectsRepository : RepositoryBase
     /// </summary>
     public bool UsesLuminanceBlending(int effectId) => EffectPalettes.Table.GetPaletteNumber(effectId) >= 1000;
 
-    public MeffectRecord? GetMeffectRecord(int meffectId)
+    public ProjectileInfo? GetMeffectRecord(int meffectId)
     {
-        if ((meffectId < 0) || (meffectId >= MeffectRecords.Length))
+        if ((meffectId < 0) || (meffectId >= ProjectileDetails.Length))
             return null;
 
-        return MeffectRecords[meffectId];
+        return ProjectileDetails[meffectId];
     }
 
     public SpfFile? GetMefcSprite(int mefcId)
@@ -143,7 +143,7 @@ public sealed class EffectsRepository : RepositoryBase
         return GetOrCreate($"mefc_spf_{mefcId}", () => SpfFile.FromEntry(entry));
     }
 
-    private static MeffectRecord?[] ParseMeffectTable()
+    private static ProjectileInfo?[] ParseMeffectTable()
     {
         if (!DatArchives.Roh.TryGetValue("meffect.tbl", out var entry))
             return [];
@@ -157,7 +157,7 @@ public sealed class EffectsRepository : RepositoryBase
             ],
             StringSplitOptions.RemoveEmptyEntries);
 
-        var records = new List<MeffectRecord>();
+        var records = new List<ProjectileInfo>();
         var maxId = -1;
         var countLineSeen = false;
 
@@ -209,7 +209,7 @@ public sealed class EffectsRepository : RepositoryBase
                 }
             }
 
-            var record = new MeffectRecord
+            var record = new ProjectileInfo
             {
                 Id = id,
                 Type = type,
@@ -229,7 +229,7 @@ public sealed class EffectsRepository : RepositoryBase
         if (maxId < 0)
             return [];
 
-        var result = new MeffectRecord?[maxId + 1];
+        var result = new ProjectileInfo?[maxId + 1];
 
         foreach (var record in records)
             result[record.Id] = record;

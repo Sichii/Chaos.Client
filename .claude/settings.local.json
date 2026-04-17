@@ -34,6 +34,18 @@
           }
         ]
       }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "Read|Grep|Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python /d/repos/Sichii/Chaos.Client/.claude/hooks/require-serena.py",
+            "timeout": 10
+          }
+        ]
+      }
     ]
   },
   "prefersReducedMotion": true

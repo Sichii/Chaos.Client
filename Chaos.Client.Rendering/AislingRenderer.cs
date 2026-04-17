@@ -277,35 +277,17 @@ public sealed class AislingRenderer : IDisposable
     /// <summary>
     ///     Disposes all cached group-tinted composite textures. Call when group membership changes.
     /// </summary>
-    public void ClearGroupTintCache()
-    {
-        foreach (var texture in GroupTintCache.Values)
-            texture.Dispose();
-
-        GroupTintCache.Clear();
-    }
+    public void ClearGroupTintCache() => GroupTintCache.DisposeAndClear();
 
     /// <summary>
     ///     Disposes and clears the hit tint texture cache.
     /// </summary>
-    public void ClearHitTintCache()
-    {
-        foreach (var texture in HitTintCache.Values)
-            texture.Dispose();
-
-        HitTintCache.Clear();
-    }
+    public void ClearHitTintCache() => HitTintCache.DisposeAndClear();
 
     /// <summary>
     ///     Disposes all cached hover-highlight tinted textures. Call when the highlighted entity changes.
     /// </summary>
-    public void ClearTintedCache()
-    {
-        foreach (var texture in TintedTextureCache.Values)
-            texture.Dispose();
-
-        TintedTextureCache.Clear();
-    }
+    public void ClearTintedCache() => TintedTextureCache.DisposeAndClear();
 
     /// <summary>
     ///     Disposes all cached per-layer SKImages. Call on map change or renderer disposal.
@@ -391,9 +373,9 @@ public sealed class AislingRenderer : IDisposable
 
         var finalTexture = p.Tint switch
         {
-            EntityTintType.Highlight => GetOrCreateTintedTexture(drawTexture),
-            EntityTintType.Group     => GetOrCreateGroupTint(drawTexture),
-            EntityTintType.HitTint   => GetOrCreateHitTint(drawTexture),
+            EntityTintType.Highlight => TintedTextureCache.GetOrAdd(drawTexture, TextureConverter.CreateTintedTexture),
+            EntityTintType.Group     => GroupTintCache.GetOrAdd(drawTexture, TextureConverter.CreateGroupTintedTexture),
+            EntityTintType.HitTint   => HitTintCache.GetOrAdd(drawTexture, TextureConverter.CreateHitTintedTexture),
             _                        => drawTexture
         };
 
@@ -411,41 +393,14 @@ public sealed class AislingRenderer : IDisposable
     /// </summary>
     public static int GetLayerOffsetX(char typeLetter) => typeLetter is 'w' or 'p' or 'c' or 'g' ? -27 : 0;
 
-    private Texture2D GetOrCreateGroupTint(Texture2D source)
-    {
-        if (GroupTintCache.TryGetValue(source, out var cached))
-            return cached;
+    
 
-        cached = TextureConverter.CreateGroupTintedTexture(source);
-        GroupTintCache[source] = cached;
-
-        return cached;
-    }
-
-    private Texture2D GetOrCreateHitTint(Texture2D source)
-    {
-        if (HitTintCache.TryGetValue(source, out var cached))
-            return cached;
-
-        cached = TextureConverter.CreateHitTintedTexture(source);
-        HitTintCache[source] = cached;
-
-        return cached;
-    }
+    
 
     /// <summary>
     ///     Returns a tinted (blue-shifted) copy of a layer texture, caching it for reuse.
     /// </summary>
-    public Texture2D GetOrCreateTintedTexture(Texture2D source)
-    {
-        if (TintedTextureCache.TryGetValue(source, out var tinted))
-            return tinted;
-
-        tinted = TextureConverter.CreateTintedTexture(source);
-        TintedTextureCache[source] = tinted;
-
-        return tinted;
-    }
+    
 
     /// <summary>
     ///     Returns true if a frame index represents a front-facing direction for the given animation suffix.
@@ -602,7 +557,7 @@ public sealed class AislingRenderer : IDisposable
                 var emotionKey = new LayerCacheKey(
                     '!',
                     0,
-                    (int)appearance.BodyColor,
+                    appearance.BodyColor,
                     false,
                     KhanPalOverrideType.None,
                     string.Empty,
@@ -612,9 +567,8 @@ public sealed class AislingRenderer : IDisposable
                 var cachedEmotion = TryGetCachedLayerImage(in emotionKey);
 
                 if (cachedEmotion is not null)
-                {
                     layers[(int)LayerSlot.Emotion] = new LayerInfo(cachedEmotion, 'o');
-                } else if (DrawData.BodyPalettes.TryGetValue(appearance.BodyColor, out var palette))
+                else if (DrawData.BodyPalettes.TryGetValue(appearance.BodyColor, out var palette))
                 {
                     var frame = emotionsEpf[emotionFrame];
                     var image = Graphics.RenderImage(frame, palette);
@@ -929,7 +883,7 @@ public sealed class AislingRenderer : IDisposable
         var cacheKey = new LayerCacheKey(
             typeLetter,
             spriteId,
-            (int)appearance.BodyColor,
+            appearance.BodyColor,
             appearance.IsMale,
             KhanPalOverrideType.None,
             anim,
@@ -1010,6 +964,13 @@ public sealed class AislingRenderer : IDisposable
             return null;
 
         var frame = epf[resolvedFrame];
+
+        //empty-frame marker — equipment has no visual at this animation pose.
+        //Return null so the layer is skipped during composition; body and other layers still
+        //render normally so the body animation keeps its timing/progression.
+        if ((frame.PixelWidth == 0) || (frame.PixelHeight == 0))
+            return null;
+
         var lookup = DrawData.GetPaletteLookup(typeLetter);
 
         var palette = ResolvePalette(

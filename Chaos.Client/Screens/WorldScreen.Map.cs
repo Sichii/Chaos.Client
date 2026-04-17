@@ -154,7 +154,11 @@ public sealed partial class WorldScreen
 
         if (!MapPreloaded)
         {
-            MapRenderer.PreloadMapTiles(Device, MapFile, MapLoading.SetProgress);
+            MapRenderer.PreloadMapTiles(
+                Device,
+                MapFile,
+                MapLoading.SetProgress,
+                static id => DoorTable.GetVariants((short)id).Select(static v => (int)v));
             TabMapRenderer.Generate(Device, MapFile);
             (MapPathfinder, MapWaterTiles) = BuildPathfinder(MapFile);
             MapPreloaded = true;

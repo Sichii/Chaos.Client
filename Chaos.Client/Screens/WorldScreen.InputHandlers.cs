@@ -270,6 +270,25 @@ public sealed partial class WorldScreen
         BodyAnimation.Wave
     ];
 
+    //base BodyAnimation value for Ctrl+Alt+<key> emotes (e.g. key 0 -> bodyanim 23)
+    private const int CTRL_ALT_EMOTE_BASE = 23;
+
+    //base BodyAnimation value for Alt+<key> emotes (e.g. key 0 -> bodyanim 34)
+    private const int ALT_EMOTE_BASE = 34;
+
+    /// <summary>
+    ///     Returns true when no mutually-exclusive options panel is currently visible. Used by the F3/F4/F10 shortcuts so
+    ///     pressing one hotkey cannot overlap another options popup.
+    /// </summary>
+    private static bool CanShowOptionsPanel(params UIElement[] others)
+    {
+        foreach (var other in others)
+            if (other.Visible)
+                return false;
+
+        return true;
+    }
+
     private bool HandleEmoteHotkey(KeyDownEvent e)
     {
         if (e is { Ctrl: false, Alt: false })
@@ -285,9 +304,9 @@ public sealed partial class WorldScreen
         if (e is { Ctrl: true, Alt: false })
             bodyAnimation = CtrlEmotes[keyIndex];
         else if (e is { Ctrl: true, Alt: true })
-            bodyAnimation = (BodyAnimation)(23 + keyIndex);
+            bodyAnimation = (BodyAnimation)(CTRL_ALT_EMOTE_BASE + keyIndex);
         else
-            bodyAnimation = (BodyAnimation)(34 + keyIndex);
+            bodyAnimation = (BodyAnimation)(ALT_EMOTE_BASE + keyIndex);
 
         Game.Connection.SendEmote(bodyAnimation);
         e.Handled = true;
@@ -782,7 +801,7 @@ public sealed partial class WorldScreen
         //f3 — macro menu
         if (e.Key == Keys.F3)
         {
-            if (!SettingsDialog.Visible && !FriendsList.Visible)
+            if (CanShowOptionsPanel(SettingsDialog, FriendsList))
                 MacrosList.Show();
 
             e.Handled = true;
@@ -793,7 +812,7 @@ public sealed partial class WorldScreen
         //f4 — settings
         if (e.Key == Keys.F4)
         {
-            if (!MacrosList.Visible && !FriendsList.Visible)
+            if (CanShowOptionsPanel(MacrosList, FriendsList))
                 SettingsDialog.Show();
 
             e.Handled = true;
@@ -837,7 +856,7 @@ public sealed partial class WorldScreen
         //f10 — friends list
         if (e.Key == Keys.F10)
         {
-            if (!MacrosList.Visible && !SettingsDialog.Visible)
+            if (CanShowOptionsPanel(MacrosList, SettingsDialog))
                 FriendsList.Show();
 
             e.Handled = true;

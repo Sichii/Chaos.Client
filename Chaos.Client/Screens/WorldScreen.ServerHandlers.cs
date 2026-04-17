@@ -1048,7 +1048,6 @@ public sealed partial class WorldScreen
         WorldState.ActiveProjectiles.Add(
             new Projectile
             {
-                SourceEntityId = sourceEntityId,
                 TargetEntityId = targetEntityId,
                 MeffectId = meffectId,
                 CurrentX = srcX,

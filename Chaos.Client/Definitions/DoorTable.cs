@@ -108,4 +108,19 @@ public static class DoorTable
     ///     Gets the open tile ID for a closed tile. Returns null if the tile is not a recognized door.
     /// </summary>
     public static short? GetOpenTileId(short closedTileId) => ClosedToOpen.TryGetValue(closedTileId, out var open) ? open : null;
+
+
+    /// <summary>
+    ///     Enumerates door counterparts of a given tile id. If the tile is a known closed door, yields its open variant.
+    ///     If the tile is a known open door, yields its closed variant. Empty otherwise. Used by map preload to ensure
+    ///     both sides of every door end up in the foreground atlas.
+    /// </summary>
+    public static IEnumerable<short> GetVariants(short tileId)
+    {
+        if (ClosedToOpen.TryGetValue(tileId, out var open))
+            yield return open;
+
+        if (OpenToClosed.TryGetValue(tileId, out var closed))
+            yield return closed;
+    }
 }

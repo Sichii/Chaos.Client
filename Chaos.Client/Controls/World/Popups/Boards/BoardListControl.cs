@@ -16,7 +16,7 @@ namespace Chaos.Client.Controls.World.Popups.Boards;
 /// </summary>
 public sealed class BoardListControl : PrefabPanel
 {
-    private const int ROW_HEIGHT = 18;
+    private const int ROW_HEIGHT = Constants.BOARD_ROW_HEIGHT;
 
     private readonly Rectangle BoardListRect;
     private readonly int MaxVisibleRows;

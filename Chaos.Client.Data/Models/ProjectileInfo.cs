@@ -1,6 +1,6 @@
 namespace Chaos.Client.Data.Models;
 
-public sealed class MeffectRecord
+public sealed class ProjectileInfo
 {
     public required int Id { get; init; }
     public required int Type { get; init; }

@@ -234,12 +234,6 @@ public sealed class ExtendedStatsPanel : ExpandablePanel
         }
     }
 
-    private void SetLabel(int index, string text)
-    {
-        if (Labels[index] is not null)
-            Labels[index]!.Text = text;
-    }
-
     private void TrySetLabel(int index, long value)
     {
         if (StatValues[index] == value)

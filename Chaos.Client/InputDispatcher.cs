@@ -317,7 +317,6 @@ public sealed class InputDispatcher
         //SDL-captured modifiers and are dispatched (unless mouseBlocked) via the same
         //ProcessMouseButton path the old two-pass implementation used.
         foreach (var evt in events)
-        {
             switch (evt.Kind)
             {
                 case BufferedInputKind.MouseButton:
@@ -415,7 +414,6 @@ public sealed class InputDispatcher
                     break;
                 }
             }
-        }
     }
 
     private void ProcessMouseButton(
@@ -611,10 +609,9 @@ public sealed class InputDispatcher
                     return;
             }
         } else if (ExplicitFocusElement is not null)
-        {
+
             //explicit focus is no longer visible — clear it
             ClearExplicitFocus();
-        }
 
         //phase 2: stack dispatch with bubbling
         var target = TopControl ?? root;

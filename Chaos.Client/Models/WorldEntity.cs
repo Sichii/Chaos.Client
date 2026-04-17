@@ -29,9 +29,6 @@ public sealed class WorldEntity
     //appearance
     public AislingAppearance? Appearance { get; set; }
 
-    //draw ordering: monotonic counter incremented each time entity enters a tile.
-    //higher = arrived more recently = draws on top of entities in the same category at the same tile.
-    public uint ArrivalOrder { get; set; }
     public int BodyAnimRepeatsLeft { get; set; }
     public CreatureType CreatureType { get; set; }
     public Direction Direction { get; set; }

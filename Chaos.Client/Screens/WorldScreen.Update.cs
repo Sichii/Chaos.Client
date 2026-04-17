@@ -1,10 +1,8 @@
 #region
 using Chaos.Client.Collections;
 using Chaos.Client.Controls.Components;
-using Chaos.Client.Data;
 using Chaos.Client.Models;
 using Chaos.Client.Systems;
-using Chaos.DarkAges.Definitions;
 using Chaos.Geometry.Abstractions.Definitions;
 using Microsoft.Xna.Framework;
 using Pathfinder = Chaos.Client.Systems.Pathfinder;
@@ -346,7 +344,7 @@ public sealed partial class WorldScreen
         if (proj is { ArcRatioV: not null, ArcRatioH: not null, InitialDistance: > 0 })
         {
             var progress = Math.Clamp(proj.DistanceTraveled / proj.InitialDistance, 0f, 1f);
-            var arcHeight = proj.InitialDistance * proj.ArcRatioV.Value / (float)proj.ArcRatioH.Value / 2f;
+            var arcHeight = proj.InitialDistance * proj.ArcRatioV.Value / proj.ArcRatioH.Value / 2f;
             var arcOffset = MathF.Sin(MathF.PI * progress) * arcHeight;
 
             //perpendicular to heading (rotate 90°)

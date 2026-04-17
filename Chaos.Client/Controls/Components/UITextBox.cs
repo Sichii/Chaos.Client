@@ -840,10 +840,10 @@ public class UITextBox : UIElement
         var clickPos = HitTestFromScreenPos(e.ScreenX, e.ScreenY);
 
         if (e.Shift && IsFocused && IsSelectable)
-        {
+
             //shift+click extends selection to the click position
             CursorPosition = clickPos;
-        } else
+        else
         {
             CursorPosition = clickPos;
             SelectionAnchor = clickPos;

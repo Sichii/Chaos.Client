@@ -15,35 +15,6 @@ namespace Chaos.Client.Controls.World.Popups.Profile;
 /// </summary>
 public sealed class SelfProfileEquipmentTab : PrefabPanel
 {
-    /// <summary>
-    ///     Maps control names from the _nui_eq prefab to their corresponding <see cref="EquipmentSlot" /> values. The control
-    ///     names match those defined in the _nui_eq.txt control file: WEAPON=1, ARMOR=2, SHIELD=3, HEAD=Helmet(4),
-    ///     EAR=Earrings(5), NECK=Necklace(6), LHAND=LeftRing(7), RHAND=RightRing(8), LARM=LeftGaunt(9), RARM=RightGaunt(10),
-    ///     BELT=11, LEG=Greaves(12), FOOT=Boots(13), CAPE=Accessory1(14), ARMOR2=Overcoat(15), HEAD2=OverHelm(16),
-    ///     CAPE2=Accessory2(17), CAPE3=Accessory3(18).
-    /// </summary>
-    private static readonly (string ControlName, EquipmentSlot Slot)[] SlotMappings =
-    [
-        ("WEAPON", EquipmentSlot.Weapon),
-        ("ARMOR", EquipmentSlot.Armor),
-        ("SHIELD", EquipmentSlot.Shield),
-        ("HEAD", EquipmentSlot.Helmet),
-        ("EAR", EquipmentSlot.Earrings),
-        ("NECK", EquipmentSlot.Necklace),
-        ("LHAND", EquipmentSlot.LeftRing),
-        ("RHAND", EquipmentSlot.RightRing),
-        ("LARM", EquipmentSlot.LeftGaunt),
-        ("RARM", EquipmentSlot.RightGaunt),
-        ("BELT", EquipmentSlot.Belt),
-        ("LEG", EquipmentSlot.Greaves),
-        ("FOOT", EquipmentSlot.Boots),
-        ("CAPE", EquipmentSlot.Accessory1),
-        ("ARMOR2", EquipmentSlot.Overcoat),
-        ("HEAD2", EquipmentSlot.OverHelm),
-        ("CAPE2", EquipmentSlot.Accessory2),
-        ("CAPE3", EquipmentSlot.Accessory3)
-    ];
-
     //emoticon status icon frame index → _nemots.spf frame
     private const int EMOTICON_FRAME_COUNT = 8;
 
@@ -107,7 +78,7 @@ public sealed class SelfProfileEquipmentTab : PrefabPanel
         //build slot visuals from prefab-created image elements.
         //createimage creates uiimage elements for controls that have images.
         //each slot image initially shows its _nui_eqi placeholder icon.
-        foreach ((var controlName, var slot) in SlotMappings)
+        foreach ((var controlName, var slot) in Constants.EquipmentSlotsByControlName)
         {
             if (CreateImage(controlName) is not { } slotImage)
                 continue;
@@ -452,7 +423,6 @@ public sealed class SelfProfileEquipmentTab : PrefabPanel
         string? foundName = null;
 
         foreach ((var slot, var visual) in SlotVisuals)
-        {
             if (visual.Image.ContainsPoint(e.ScreenX, e.ScreenY) && (visual.ItemTexture is not null))
             {
                 foundSlot = slot;
@@ -460,7 +430,6 @@ public sealed class SelfProfileEquipmentTab : PrefabPanel
 
                 break;
             }
-        }
 
         if (foundSlot is not null && !string.IsNullOrEmpty(foundName))
         {
@@ -485,7 +454,6 @@ public sealed class SelfProfileEquipmentTab : PrefabPanel
             return;
 
         foreach ((var slot, var visual) in SlotVisuals)
-        {
             if (visual.Image.ContainsPoint(e.ScreenX, e.ScreenY) && (visual.ItemTexture is not null))
             {
                 OnUnequip?.Invoke(slot);
@@ -493,7 +461,6 @@ public sealed class SelfProfileEquipmentTab : PrefabPanel
 
                 return;
             }
-        }
 
         //check if portrait text area was clicked
         if (PortraitTextLabel is not null && PortraitTextLabel.ContainsPoint(e.ScreenX, e.ScreenY))

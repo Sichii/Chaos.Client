@@ -333,11 +333,6 @@ public static class WorldState
     }
 
     /// <summary>
-    ///     Returns the display name of an entity, or null if not tracked.
-    /// </summary>
-    public static string? GetEntityName(uint id) => Entities.TryGetValue(id, out var entity) ? entity.Name : null;
-
-    /// <summary>
     ///     Returns the first ground item at the specified tile, or null.
     /// </summary>
     public static WorldEntity? GetGroundItemAt(int tileX, int tileY)

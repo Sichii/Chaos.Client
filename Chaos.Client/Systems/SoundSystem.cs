@@ -219,7 +219,7 @@ public sealed class SoundSystem : IDisposable
 
     private static float[]? ConvertToCanonical(Mp3FileReader reader)
     {
-        ISampleProvider source = reader.ToSampleProvider();
+        var source = reader.ToSampleProvider();
 
         if (source.WaveFormat.SampleRate != CANONICAL_SAMPLE_RATE)
             source = new WdlResamplingSampleProvider(source, CANONICAL_SAMPLE_RATE);
@@ -471,7 +471,6 @@ public sealed class SoundSystem : IDisposable
     {
         private readonly string FilePath;
         private readonly int TargetSampleRate;
-        private readonly int TargetChannels;
         private FileStream? Stream;
         private Mp3FileReader? Reader;
         private ISampleProvider? Source;
@@ -482,7 +481,6 @@ public sealed class SoundSystem : IDisposable
         {
             FilePath = filePath;
             TargetSampleRate = sampleRate;
-            TargetChannels = channels;
             WaveFormat = WaveFormat.CreateIeeeFloatWaveFormat(sampleRate, channels);
 
             OpenPipeline();
@@ -522,7 +520,7 @@ public sealed class SoundSystem : IDisposable
             Stream = File.OpenRead(FilePath);
             Reader = new Mp3FileReader(Stream);
 
-            ISampleProvider source = Reader.ToSampleProvider();
+            var source = Reader.ToSampleProvider();
 
             if (source.WaveFormat.SampleRate != TargetSampleRate)
                 source = new WdlResamplingSampleProvider(source, TargetSampleRate);

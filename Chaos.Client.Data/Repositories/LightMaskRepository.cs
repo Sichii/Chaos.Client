@@ -20,19 +20,20 @@ public sealed class LightMaskRepository : RepositoryBase
             _                 => null
         };
 
-    public LightMask Get(string epfName)
-        => GetOrCreate(
+    public LightMask? Get(string epfName)
+    {
+        if (!DatArchives.Legend.TryGetValue($"{epfName}.epf", out var entry))
+            return null;
+
+        var epf = EpfFile.FromEntry(entry);
+
+        if (epf.Count == 0)
+            return null;
+
+        return GetOrCreate(
             epfName,
             () =>
             {
-                if (!DatArchives.Legend.TryGetValue($"{epfName}.epf", out var entry))
-                    return null!;
-
-                var epf = EpfFile.FromEntry(entry);
-
-                if (epf.Count == 0)
-                    return null!;
-
                 var frame = epf[0];
 
                 return new LightMask
@@ -42,4 +43,5 @@ public sealed class LightMaskRepository : RepositoryBase
                     Height = frame.PixelHeight
                 };
             });
+    }
 }

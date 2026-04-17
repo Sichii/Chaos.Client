@@ -134,9 +134,7 @@ public sealed class MailSendControl : PrefabPanel
         if (ReceiverEditBox is not null && string.IsNullOrEmpty(recipient))
             ReceiverEditBox.IsFocused = true;
         else
-        {
             TitleBox?.IsFocused = true;
-        }
     }
 
     public override void OnKeyDown(KeyDownEvent e)

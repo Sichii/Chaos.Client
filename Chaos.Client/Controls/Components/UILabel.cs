@@ -579,9 +579,8 @@ public class UILabel : UIElement
             SelectionAnchor = FindWordBoundaryLeft(clickPos);
             CursorPosition = FindWordBoundaryRight(clickPos);
         } else if (e.Shift)
-        {
             CursorPosition = clickPos;
-        } else
+        else
         {
             CursorPosition = clickPos;
             SelectionAnchor = clickPos;
