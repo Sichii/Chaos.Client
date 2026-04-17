@@ -352,10 +352,8 @@ public sealed class PaletteCyclingManager : IDisposable
                 continue;
 
             foreach (var tileId in slot.TileIds)
-            {
                 if (BgVariantRegions.TryGetValue(tileId, out var regions))
                     BgOverrides[tileId] = regions[slot.CurrentStep];
-            }
         }
 
         //fg path: swap atlas region pointers — zero gpu work
@@ -365,10 +363,8 @@ public sealed class PaletteCyclingManager : IDisposable
                 continue;
 
             foreach (var tileId in slot.TileIds)
-            {
                 if (FgVariantRegions.TryGetValue(tileId, out var regions))
                     FgOverrides[tileId] = regions[slot.CurrentStep];
-            }
         }
     }
 

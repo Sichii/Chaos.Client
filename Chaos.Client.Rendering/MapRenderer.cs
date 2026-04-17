@@ -389,7 +389,11 @@ public sealed class MapRenderer : IDisposable
     ///     Archive reads are sequential (not thread-safe), but tile rendering is parallelized on the CPU. The resulting
     ///     images are packed into atlas pages (one GPU upload per page).
     /// </remarks>
-    public void PreloadMapTiles(GraphicsDevice device, MapFile mapFile, Action<float>? onProgress = null)
+    public void PreloadMapTiles(
+        GraphicsDevice device,
+        MapFile mapFile,
+        Action<float>? onProgress = null,
+        Func<int, IEnumerable<int>>? expandFgVariants = null)
     {
         var uniqueBgTileIds = new HashSet<int>();
         var uniqueFgTileIds = new HashSet<int>();
@@ -411,6 +415,15 @@ public sealed class MapRenderer : IDisposable
                     uniqueFgTileIds.Add(tile.RightForeground);
             }
         }
+
+        //expand caller-provided variants (e.g. door open/closed counterparts that can appear at runtime via
+        //server DoorArgs packets but are not in the initial map). without this, those variants fall through to
+        //GetOrCreateFgTexture, producing standalone Texture2Ds that some gpu drivers transiently display with
+        //undefined contents.
+        if (expandFgVariants is not null)
+            foreach (var fgId in uniqueFgTileIds.ToArray())
+                foreach (var variant in expandFgVariants(fgId))
+                    uniqueFgTileIds.Add(variant);
 
         //expand animated bg tiles: add all animation frame ids to the set
         var bgAnimEntries = new HashSet<TileAnimationEntry>(ReferenceEqualityComparer.Instance);
@@ -536,4 +549,5 @@ public sealed class MapRenderer : IDisposable
     }
 
     public void UpdatePaletteCycling(int animationTick) => CyclingManager?.Update(animationTick);
+
 }

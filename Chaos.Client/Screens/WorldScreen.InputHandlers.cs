@@ -270,6 +270,25 @@ public sealed partial class WorldScreen
         BodyAnimation.Wave
     ];
 
+    //base BodyAnimation value for Ctrl+Alt+<key> emotes (e.g. key 0 -> bodyanim 23)
+    private const int CTRL_ALT_EMOTE_BASE = 23;
+
+    //base BodyAnimation value for Alt+<key> emotes (e.g. key 0 -> bodyanim 34)
+    private const int ALT_EMOTE_BASE = 34;
+
+    /// <summary>
+    ///     Returns true when no mutually-exclusive options panel is currently visible. Used by the F3/F4/F10 shortcuts so
+    ///     pressing one hotkey cannot overlap another options popup.
+    /// </summary>
+    private static bool CanShowOptionsPanel(params UIElement[] others)
+    {
+        foreach (var other in others)
+            if (other.Visible)
+                return false;
+
+        return true;
+    }
+
     private bool HandleEmoteHotkey(KeyDownEvent e)
     {
         if (e is { Ctrl: false, Alt: false })
@@ -285,9 +304,9 @@ public sealed partial class WorldScreen
         if (e is { Ctrl: true, Alt: false })
             bodyAnimation = CtrlEmotes[keyIndex];
         else if (e is { Ctrl: true, Alt: true })
-            bodyAnimation = (BodyAnimation)(23 + keyIndex);
+            bodyAnimation = (BodyAnimation)(CTRL_ALT_EMOTE_BASE + keyIndex);
         else
-            bodyAnimation = (BodyAnimation)(34 + keyIndex);
+            bodyAnimation = (BodyAnimation)(ALT_EMOTE_BASE + keyIndex);
 
         Game.Connection.SendEmote(bodyAnimation);
         e.Handled = true;
@@ -782,7 +801,7 @@ public sealed partial class WorldScreen
         //f3 — macro menu
         if (e.Key == Keys.F3)
         {
-            if (!SettingsDialog.Visible && !FriendsList.Visible)
+            if (CanShowOptionsPanel(SettingsDialog, FriendsList))
                 MacrosList.Show();
 
             e.Handled = true;
@@ -793,7 +812,7 @@ public sealed partial class WorldScreen
         //f4 — settings
         if (e.Key == Keys.F4)
         {
-            if (!MacrosList.Visible && !FriendsList.Visible)
+            if (CanShowOptionsPanel(MacrosList, FriendsList))
                 SettingsDialog.Show();
 
             e.Handled = true;
@@ -837,7 +856,7 @@ public sealed partial class WorldScreen
         //f10 — friends list
         if (e.Key == Keys.F10)
         {
-            if (!MacrosList.Visible && !SettingsDialog.Visible)
+            if (CanShowOptionsPanel(MacrosList, SettingsDialog))
                 FriendsList.Show();
 
             e.Handled = true;
@@ -1247,12 +1266,18 @@ public sealed partial class WorldScreen
         if (MapFile is null)
             return null;
 
+        //hitbox rects are stored in viewport-relative coords (the world spriteBatch applies a
+        //viewport-origin translation at draw time), so mouse coords must be rebased to match.
+        var viewport = WorldHud.ViewportBounds;
+        var viewportMouseX = mouseX - viewport.X;
+        var viewportMouseY = mouseY - viewport.Y;
+
         //iterate hitboxes back-to-front (last drawn = closest to camera = highest priority)
         for (var i = EntityHitBoxes.Count - 1; i >= 0; i--)
         {
             var hitbox = EntityHitBoxes[i];
 
-            if (hitbox.ScreenRect.Contains(mouseX, mouseY))
+            if (hitbox.ScreenRect.Contains(viewportMouseX, viewportMouseY))
                 return WorldState.GetEntity(hitbox.EntityId);
         }
 
@@ -1318,8 +1343,10 @@ public sealed partial class WorldScreen
         //track tile for same-tile guard used by onrootdoubleclick
         LeftClickTracker.Click(tileX, tileY);
 
-        //check group box text overlays first — they sit above entity hitboxes
-        var groupBoxHit = Overlays.GetGroupBoxAtScreen(mouseX, mouseY);
+        //check group box text overlays first — they sit above entity hitboxes.
+        //rects are viewport-relative, rebase mouse coords to match.
+        var groupBoxViewport = WorldHud.ViewportBounds;
+        var groupBoxHit = Overlays.GetGroupBoxAtScreen(mouseX - groupBoxViewport.X, mouseY - groupBoxViewport.Y);
 
         if (groupBoxHit.HasValue)
         {

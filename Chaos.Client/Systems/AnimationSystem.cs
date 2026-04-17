@@ -423,7 +423,7 @@ public static class AnimationSystem
     public static (string Suffix, int FramesPerDirection, int UpStart, int RightStart) ResolveBodyAnimParams(BodyAnimation anim)
     {
         if (DataUtilities.IsEmote(anim))
-        {
+
             //blowkiss and wave are emotes with body animations from "03"
             return anim switch
             {
@@ -431,7 +431,6 @@ public static class AnimationSystem
                 BodyAnimation.Wave     => ("03", 2, 6, 8),
                 _                      => ("01", 0, 0, 0)
             };
-        }
 
         //reference: chaosassetmanager animationdefinitions
         return anim switch

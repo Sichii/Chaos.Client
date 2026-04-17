@@ -453,6 +453,7 @@ public sealed class TextureAtlas : IDisposable
     /// </summary>
     public AtlasRegion? TryGetRegion(int key) => IntRegions.TryGetValue(key, out var region) ? region : null;
 
+
     private readonly record struct PendingEntry(
         string? StringKey,
         int? IntKey,

@@ -23,9 +23,9 @@ public sealed class WorldDebugRenderer
     private sealed class DebugLabel
     {
         public readonly TextElement Text = new();
-        public int LastTileX = int.MinValue;
-        public int LastTileY = int.MinValue;
-        public string LastName = string.Empty;
+        public int TileX = int.MinValue;
+        public int TileY = int.MinValue;
+        public string Name = string.Empty;
     }
 
     /// <summary>
@@ -44,9 +44,7 @@ public sealed class WorldDebugRenderer
         IReadOnlyList<WorldEntity> sortedEntities,
         WorldEntity? player,
         IReadOnlyList<EntityHitBox> entityHitBoxes,
-        int mouseX,
-        int mouseY,
-        Rectangle viewportBounds)
+        Point? hoveredTile)
     {
         PendingLabels.Clear();
 
@@ -73,14 +71,14 @@ public sealed class WorldDebugRenderer
             mapFile,
             player);
 
-        DrawMouseHoverTile(
-            spriteBatch,
-            pixel,
-            camera,
-            mapFile,
-            mouseX,
-            mouseY,
-            viewportBounds);
+        if (hoveredTile is { } tile)
+            DrawMouseHoverTile(
+                spriteBatch,
+                pixel,
+                camera,
+                mapFile,
+                tile);
+
         DrawEntityClickHitboxes(spriteBatch, pixel, entityHitBoxes);
 
         //deferred entity debug labels — drawn after all pixel-texture geometry to minimize batch breaks
@@ -141,13 +139,13 @@ public sealed class WorldDebugRenderer
             }
 
             //only rebuild the interpolated string when one of its inputs actually changed
-            if ((cachedLabel.LastTileX != entity.TileX)
-                || (cachedLabel.LastTileY != entity.TileY)
-                || !ReferenceEquals(cachedLabel.LastName, entity.Name))
+            if ((cachedLabel.TileX != entity.TileX)
+                || (cachedLabel.TileY != entity.TileY)
+                || !ReferenceEquals(cachedLabel.Name, entity.Name))
             {
-                cachedLabel.LastTileX = entity.TileX;
-                cachedLabel.LastTileY = entity.TileY;
-                cachedLabel.LastName = entity.Name;
+                cachedLabel.TileX = entity.TileX;
+                cachedLabel.TileY = entity.TileY;
+                cachedLabel.Name = entity.Name;
 
                 cachedLabel.Text.Update($"{entity.Name} [{entity.Id}] ({entity.TileX},{entity.TileY})", color);
             }
@@ -202,19 +200,9 @@ public sealed class WorldDebugRenderer
         Texture2D pixel,
         Camera camera,
         MapFile mapFile,
-        int mouseX,
-        int mouseY,
-        Rectangle viewportBounds)
+        Point hoveredTile)
     {
-        var worldPos = camera.ScreenToWorld(new Vector2(mouseX - viewportBounds.X, mouseY - viewportBounds.Y));
-        var tile = Camera.WorldToTile(worldPos.X, worldPos.Y, mapFile.Height);
-        var hoverTileX = tile.X;
-        var hoverTileY = tile.Y;
-
-        if ((hoverTileX < 0) || (hoverTileX >= mapFile.Width) || (hoverTileY < 0) || (hoverTileY >= mapFile.Height))
-            return;
-
-        var hoverWorld = Camera.TileToWorld(hoverTileX, hoverTileY, mapFile.Height);
+        var hoverWorld = Camera.TileToWorld(hoveredTile.X, hoveredTile.Y, mapFile.Height);
         var hoverScreen = camera.WorldToScreen(new Vector2(hoverWorld.X, hoverWorld.Y));
 
         var hoverRect = new Rectangle(

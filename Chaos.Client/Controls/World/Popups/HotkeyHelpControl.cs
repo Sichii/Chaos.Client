@@ -174,10 +174,9 @@ public sealed class HotkeyHelpControl : PrefabPanel
         var group = KeyGroups[index];
 
         if (group.SubElements is not null && group.SubTextures is not null)
-        {
             for (var i = 0; i < group.SubElements.Length; i++)
                 group.SubElements[i].Texture = highlighted ? group.SubTextures[i] : null;
-        } else if (group.Primary is not null)
+        else if (group.Primary is not null)
             group.Primary.Texture = highlighted ? group.PrimaryTexture : null;
     }
 

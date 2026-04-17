@@ -2,7 +2,6 @@ namespace Chaos.Client.Models;
 
 public sealed class Projectile
 {
-    public uint SourceEntityId { get; init; }
     public uint TargetEntityId { get; init; }
     public int MeffectId { get; init; }
 

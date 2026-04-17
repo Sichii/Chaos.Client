@@ -283,7 +283,7 @@ public sealed class ChaosGame : Game
         //IDAT — zlib-compressed scanlines with no-filter bytes
         using var idatBuffer = new MemoryStream();
 
-        using (var zlib = new ZLibStream(idatBuffer, CompressionLevel.Optimal, leaveOpen: true))
+        using (var zlib = new ZLibStream(idatBuffer, CompressionLevel.Optimal, true))
             for (var y = 0; y < height; y++)
             {
                 zlib.WriteByte(0); //filter: none

@@ -273,12 +273,6 @@ public sealed class StatsPanel : ExpandablePanel
                 StatButtons[i]!.Visible = expanded && HasUnspentPoints;
     }
 
-    private void SetLabel(int index, string text)
-    {
-        if (Labels[index] is not null)
-            Labels[index]!.Text = text;
-    }
-
     private void TrySetLabel(int index, long value)
     {
         if (StatValues[index] == value)

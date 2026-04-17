@@ -23,9 +23,7 @@ Chaos.Client.slnx (.NET 10.0, C# 14)
 ├── Chaos.Client.Data           — Asset repositories, DALib integration, archive loading, caching
 ├── Chaos.Client.Rendering      — Texture conversion, sprite renderers, map rendering, text, camera
 ├── Chaos.Client.Networking     — TCP client, crypto, packet framing, connection state machine
-├── DALib (project ref)         — Local fork at ../dalib/DALib/ — Dark Ages file format support
-├── docs/                       — Non-code reference: `re_notes/` (reverse-engineering notes, referenced inline by code e.g. `map_flags.md`), `re/` raw RE artifacts, `bug-plans/`, `ping_frames/`, `superpowers/plans|specs/`
-└── tools/                      — Standalone utility projects: `ExtractDialogTextures`, `ExtractLine001`
+└── DALib (project ref)         — Local fork at ../dalib/DALib/ — Dark Ages file format support
 ```
 
 **Dependency flow:** Data <- Rendering <- Client, Networking <- Client
@@ -75,7 +73,7 @@ Centralized in `Directory.Build.props`: C# 14, net10.0, nullable enabled, implic
 - **`UiRenderer`** -- UI panel rendering utilities.
 - **`DarknessRenderer`** -- Light/darkness overlay. Consumes light sources from `LightingSystem`.
 - **`TabMapRenderer`** -- Mini-map rendering. Also consumes from `LightingSystem` for fog-of-war.
-- **`WeatherRenderer`** -- Snow/rain overlay driven by the low nibble of `MapFlags` (1=Snow, 2=Rain, 3=Darkness handled by `DarknessRenderer`). Retail treats case 2 as a no-op; this renderer intentionally diverges. See `docs/re_notes/map_flags.md` for the flag encoding.
+- **`WeatherRenderer`** -- Snow/rain overlay driven by the low nibble of `MapFlags` (1=Snow, 2=Rain, 3=Darkness handled by `DarknessRenderer`). Retail treats case 2 as a no-op; this renderer intentionally diverges.
 - **`SilhouetteRenderer`** -- Silhouette effect for blocked entities.
 - **`PaletteCyclingManager`** -- Animated palette shimmer effects.
 - **`FontAtlas`** -- Font glyph atlas management.
@@ -83,6 +81,7 @@ Centralized in `Directory.Build.props`: C# 14, net10.0, nullable enabled, implic
 - **`LegendColors`** -- Named color constants for UI text. Initialized at startup.
 - **`LightSource`** -- Light source model for darkness system.
 - **`RenderHelper`** -- Shared rendering utility methods.
+- **`CacheExtensions`** -- Extension methods for consistent dictionary cache management across renderers.
 - **`TextureAtlas`/`AtlasHelper`/`CachedTexture2D`** -- Grid/Shelf packing for performance optimization.
 - **`SpriteAnimation`/`SpriteFrame`** -- Frame array with `GetFrame(index)`, timing, additive blending.
 - **`EntityHitBox`** -- Hit testing geometry for clickable entities.
@@ -105,7 +104,7 @@ Chaos.Client/
 ├── InputDispatcher.cs        — UI event dispatch: hit-test, bubble, drag, click synthesis, control stack
 ├── Sdl.cs                    — Centralized SDL2 P/Invoke declarations (keyboard, text, mouse button, mouse wheel event constants consumed by InputBuffer)
 ├── Collections/              — WorldState, CircularBuffer
-├── Models/                   — WorldEntity, Animation, EntityRemovalAnimation, EntityHighlight, SlotDragPayload, PathfindingState, etc.
+├── Models/                   — WorldEntity, Animation, EntityRemovalAnimation, WorldFrameState, SlotDragPayload, PathfindingState, etc.
 ├── ViewModel/                — Authoritative state classes owned by WorldState
 ├── Systems/                  — AnimationSystem, CastingSystem, SoundSystem, Pathfinder, LightingSystem, LatencyMonitor, ClientSettings, MachineIdentity
 ├── Screens/                  — IScreen, ScreenManager, LobbyLoginScreen, WorldScreen (7 partial files)
@@ -162,7 +161,7 @@ Chaos.Client/
 ### World State & Models
 - **`WorldState`** (`Collections/`) -- Static class. Entity tracking, sorted rendering, active effects, all ViewModel state. Access via `WorldState.Inventory`, `WorldState.Attributes`, etc.
 - **`WorldEntity`** (`Models/`) -- Full entity data bag: position, direction, appearance, animation state, emotes.
-- **Other models:** `Animation`, `EntityRemovalAnimation`, `EntityHighlight`, `SlotDragPayload`, `PathfindingState`, `TileClickTracker`, `MailEntry`, `FriendEntry`, `LegendMarkEntry`, `WorldListEntry`.
+- **Other models:** `Animation`, `EntityRemovalAnimation`, `WorldFrameState`, `SlotDragPayload`, `PathfindingState`, `TileClickTracker`, `Projectile`, `MailEntry`, `FriendEntry`, `LegendMarkEntry`, `WorldListEntry`.
 
 ### ViewModel (`Chaos.Client/ViewModel/`)
 Authoritative state objects exposed as static properties on WorldState, updated by server packets:

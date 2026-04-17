@@ -107,10 +107,8 @@ public sealed class LobbyLoginScreen : IScreen
                      StartPanel.CreditButton,
                      StartPanel.HomepageButton
                  ])
-        {
             if (btn is not null)
                 btn.Clicked += () => LastClickedButton = btn;
-        }
 
         LoginControl.OkButton?.Clicked += OnLoginOkClicked;
         LoginControl.CancelButton?.Clicked += OnLoginCancelClicked;
@@ -310,10 +308,9 @@ public sealed class LobbyLoginScreen : IScreen
     private void OnHomepageClicked()
     {
         if (string.IsNullOrWhiteSpace(HomepageUrl))
-        {
+
             //homepage url not yet received
             return;
-        }
 
         try
         {
@@ -334,10 +331,9 @@ public sealed class LobbyLoginScreen : IScreen
         var password = LoginControl.PasswordField?.Text ?? string.Empty;
 
         if (string.IsNullOrWhiteSpace(username) || string.IsNullOrWhiteSpace(password))
-        {
+
             //username and password are required
             return;
-        }
 
         Connecting = true;
         LoginControl.Visible = false;
@@ -454,10 +450,9 @@ public sealed class LobbyLoginScreen : IScreen
         }
 
         if (args.LoginMessageType == LoginMessageType.Confirm)
-        {
+
             //login accepted. waiting for redirect...
             return;
-        }
 
         //login failed — show login again for retry, clear password
         Connecting = false;

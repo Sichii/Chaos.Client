@@ -104,9 +104,7 @@ public sealed class OkPopupMessageControl : UIPanel
 
             okX = CancelButton.X - okWidth - BUTTON_MARGIN;
         } else
-        {
             okX = rightButtonX - okWidth;
-        }
 
         //ok button — left of cancel, or slides right when cancel absent
         OkButton = new UIButton

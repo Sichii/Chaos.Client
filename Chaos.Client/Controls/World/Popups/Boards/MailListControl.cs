@@ -17,7 +17,7 @@ public sealed class MailListControl : PrefabPanel
 {
     //server caps board responses at sbyte.maxvalue posts per page
     private const int MAX_POSTS_PER_PAGE = 127;
-    private const int ROW_HEIGHT = 18;
+    private const int ROW_HEIGHT = Constants.BOARD_ROW_HEIGHT;
     private const int TEXT_INDENT = 24;
     private const int POSTID_CHARS = 6;
     private const int AUTHOR_CHARS = 17;

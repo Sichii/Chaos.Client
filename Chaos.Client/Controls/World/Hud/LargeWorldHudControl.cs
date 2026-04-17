@@ -696,9 +696,7 @@ public sealed class LargeWorldHudControl : PrefabPanel, IWorldHud
     private void ShiftCompanionElements(int yShift)
     {
         foreach (var btn in InventoryTabButtons)
-        {
             btn?.Y += yShift;
-        }
 
         ExtendedTabFrame?.Y += yShift;
 

@@ -87,6 +87,12 @@ public static class WorldState
     public static Exchange Exchange { get; } = new();
 
     /// <summary>
+    ///     Derived per-frame state (sort order, hover, tile under cursor) populated only by
+    ///     <see cref="Chaos.Client.Screens.WorldScreen" />.Update; NOT authoritative game state like Inventory/Equipment.
+    /// </summary>
+    public static DrawState CurrentFrame { get; } = new();
+
+    /// <summary>
     ///     Authoritative group/party membership state.
     /// </summary>
     public static GroupState Group { get; } = new();
@@ -331,11 +337,6 @@ public static class WorldState
 
         return groundItem;
     }
-
-    /// <summary>
-    ///     Returns the display name of an entity, or null if not tracked.
-    /// </summary>
-    public static string? GetEntityName(uint id) => Entities.TryGetValue(id, out var entity) ? entity.Name : null;
 
     /// <summary>
     ///     Returns the first ground item at the specified tile, or null.

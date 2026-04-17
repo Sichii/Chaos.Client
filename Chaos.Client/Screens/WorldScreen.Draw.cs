@@ -18,25 +18,26 @@ public sealed partial class WorldScreen
     public void Draw(SpriteBatch spriteBatch, GameTime gameTime)
     {
         //sort once per frame — cached via dirty flag, reused by all draw sub-passes
-        var sortedEntities = WorldState.GetSortedEntities();
+        var sortedEntities = WorldState.CurrentFrame.SortedEntities;
 
-        //pre-render silhouettes (blocked-entity outlines) before world drawing —
-        //transparent aislings draw inline via the stripe pass at uniform alpha, no pre-render needed
+        //pre-render silhouettes (local-player overdraw) before world drawing —
+        //matches retail's FUN_005d4360 which redraws the local player at 50% alpha after foregrounds.
         if (MapFile is not null && MapPreloaded)
         {
             SilhouetteRenderer.Clear();
 
             var player = WorldState.GetPlayerEntity();
 
-            //silhouette the player unconditionally — when transparent, this is the only place the player is drawn
-            //(so the result is consistent in the open and behind walls); when not transparent, the silhouette just
-            //lets the player show through walls at SILHOUETTE_ALPHA.
+            //silhouette the player unconditionally. when non-transparent and in the open, the overdraw
+            //blends with the identical stripe-pass pixel (no visible change). behind foregrounds, the
+            //overdraw shows the player through walls at 50%. transparent players compound multiplicatively:
+            //~50% visible in the open, ~25% visible behind walls.
             if (player is not null)
                 SilhouetteRenderer.AddSilhouette(player.Id);
 
             //pre-render silhouettes into a screen-sized rt (must happen before main rt drawing starts,
             //because rt switching discards the main rt's contents). DrawingForSilhouette routes transparent
-            //aislings through a different alpha so their compounded display matches TRANSPARENT_ALPHA.
+            //entities through TRANSPARENT_SILHOUETTE_ALPHA so they compound correctly with the overlay.
             SilhouetteRenderer.PreRenderSilhouettes(batch =>
             {
                 batch.Begin(SpriteSortMode.Immediate, BlendState.AlphaBlend, GlobalSettings.Sampler);
@@ -156,14 +157,7 @@ public sealed partial class WorldScreen
                 null,
                 transform);
 
-            Overlays.Draw(
-                spriteBatch,
-                Camera,
-                MapFile.Height,
-                sortedEntities,
-                Highlight.ShowTintHighlight,
-                Highlight.HoveredEntityId,
-                WorldState.PlayerEntityId);
+            Overlays.Draw(spriteBatch, Camera, MapFile.Height);
             spriteBatch.End();
 
             //snapshot draw count before debug draws so the reported count excludes debug visualizations
@@ -189,9 +183,7 @@ public sealed partial class WorldScreen
                     sortedEntities,
                     WorldState.GetPlayerEntity(),
                     EntityHitBoxes,
-                    InputBuffer.MouseX,
-                    InputBuffer.MouseY,
-                    WorldHud.ViewportBounds);
+                    WorldState.CurrentFrame.HoveredTile);
                 spriteBatch.End();
             }
         }
@@ -447,7 +439,7 @@ public sealed partial class WorldScreen
         if (entity.HitTintExpiryMs > 0)
             return EntityTintType.HitTint;
 
-        if (Highlight.ShowTintHighlight && (Highlight.HoveredEntityId == entity.Id))
+        if (WorldState.CurrentFrame.ShowTintHighlight && (WorldState.CurrentFrame.HoveredEntityId == entity.Id))
             return EntityTintType.Highlight;
 
         if (GroupHighlightedIds.Contains(entity.Id))
@@ -580,15 +572,14 @@ public sealed partial class WorldScreen
         var info = animInfo.Value;
         (var frameIndex, var flip) = AnimationSystem.GetCreatureFrame(entity, in info);
 
+        //transparent entities draw faded in both passes so they compound multiplicatively with occlusion:
+        //stripe at TRANSPARENT_ALPHA + silhouette RT at TRANSPARENT_SILHOUETTE_ALPHA → ~50% open, ~25% behind FG.
+        //non-transparent entities draw opaque in both passes → 100% open, ~50% behind FG.
         var alpha = entity.IsHidden
             ? 0f
             : entity.IsTransparent
                 ? DrawingForSilhouette ? TRANSPARENT_SILHOUETTE_ALPHA : TRANSPARENT_ALPHA
                 : 1f;
-
-        //transparent silhouette creatures skip the stripe-pass draw (drawn in silhouette pass instead)
-        if (entity.IsTransparent && !DrawingForSilhouette && SilhouetteRenderer.SilhouetteEntityIds.Contains(entity.Id))
-            alpha = 0f;
 
         var tint = ResolveEntityTint(entity);
 
@@ -612,15 +603,12 @@ public sealed partial class WorldScreen
         float tileCenterY)
     {
         //hidden aislings have no visual (body sprite 0, all equipment 0) but are still present for
-        //hit-testing — skip the draw and return the real texture bottom for hitbox placement.
+        //hit-testing — skip the draw and anchor the hitbox bottom to the tile center (feet position).
         if (entity.IsHidden)
         {
-            var hiddenPos = Camera.WorldToScreen(
-                new Vector2(
-                    tileCenterX + entity.VisualOffset.X - AislingRenderer.CANVAS_CENTER_X,
-                    tileCenterY + entity.VisualOffset.Y - AislingRenderer.CANVAS_CENTER_Y));
+            var tileScreenPos = Camera.WorldToScreen(new Vector2(tileCenterX + entity.VisualOffset.X, tileCenterY + entity.VisualOffset.Y));
 
-            return (int)hiddenPos.Y + AislingRenderer.COMPOSITE_HEIGHT;
+            return (int)tileScreenPos.Y;
         }
 
         //morphed aislings (creature form) render as creatures — swimming overrides morphs too
@@ -689,24 +677,9 @@ public sealed partial class WorldScreen
 
         var tint = ResolveEntityTint(entity);
 
-        //transparent silhouette entities are drawn exclusively via the silhouette pass so their displayed alpha is
-        //identical in the open and behind walls (the stripe-pass draw would get occluded by foreground tiles,
-        //producing a disappearing act when walking past walls). currently only the local player is silhouetted,
-        //but this check works for any future silhouette entity too.
-        if (entity.IsTransparent && !DrawingForSilhouette && SilhouetteRenderer.SilhouetteEntityIds.Contains(entity.Id))
-        {
-            //skip the draw but return the real texture bottom so the caller can still place a hitbox
-            var skippedPos = Camera.WorldToScreen(
-                new Vector2(
-                    tileCenterX + entity.VisualOffset.X - AislingRenderer.CANVAS_CENTER_X,
-                    tileCenterY + entity.VisualOffset.Y - AislingRenderer.CANVAS_CENTER_Y));
-
-            return (int)skippedPos.Y + AislingRenderer.COMPOSITE_HEIGHT;
-        }
-
-        //during the silhouette pass, transparent entities draw at TRANSPARENT_SILHOUETTE_ALPHA so the 0.50
-        //SILHOUETTE_ALPHA overlay compounds to TRANSPARENT_ALPHA (0.33) net on screen. non-transparent silhouetted
-        //entities draw opaque into the RT (→ 0.50 net through the overlay).
+        //transparent aislings draw faded in both passes so they compound multiplicatively with occlusion:
+        //stripe at TRANSPARENT_ALPHA + silhouette RT at TRANSPARENT_SILHOUETTE_ALPHA → ~50% open, ~25% behind FG.
+        //non-transparent aislings draw opaque in both passes → 100% open, ~50% behind FG.
         var alpha = entity.IsTransparent
             ? DrawingForSilhouette ? TRANSPARENT_SILHOUETTE_ALPHA : TRANSPARENT_ALPHA
             : 1f;
@@ -733,13 +706,6 @@ public sealed partial class WorldScreen
             alpha);
 
         return Game.AislingRenderer.Draw(spriteBatch, Camera, in drawParams);
-    }
-
-    private void ClearHighlightCache()
-    {
-        Highlight.ClearTint();
-        Game.AislingRenderer.ClearTintedCache();
-        Game.CreatureRenderer.ClearTintCaches();
     }
 
     private void DrawEntityEffects(SpriteBatch spriteBatch, WorldEntity entity)
@@ -925,24 +891,13 @@ public sealed partial class WorldScreen
         if (MapFile is null || TileCursorTexture is null)
             return;
 
-        var viewport = WorldHud.ViewportBounds;
-
-        //only draw when mouse is within the world viewport
-        if ((InputBuffer.MouseX < viewport.X)
-            || (InputBuffer.MouseX >= (viewport.X + viewport.Width))
-            || (InputBuffer.MouseY < viewport.Y)
-            || (InputBuffer.MouseY >= (viewport.Y + viewport.Height)))
+        if (WorldState.CurrentFrame.HoveredTile is not { } hoverTile)
             return;
 
-        (var tileX, var tileY) = ScreenToTile(InputBuffer.MouseX, InputBuffer.MouseY);
-
-        if ((tileX < 0) || (tileX >= MapFile.Width) || (tileY < 0) || (tileY >= MapFile.Height))
-            return;
-
-        var tileWorld = Camera.TileToWorld(tileX, tileY, MapFile.Height);
+        var tileWorld = Camera.TileToWorld(hoverTile.X, hoverTile.Y, MapFile.Height);
         var tileScreen = Camera.WorldToScreen(new Vector2(tileWorld.X, tileWorld.Y));
 
-        var cursorTexture = Game.Dispatcher.IsDragging ? TileCursorDragTexture : TileCursorTexture;
+        var cursorTexture = WorldState.CurrentFrame.UseDragCursor ? TileCursorDragTexture : TileCursorTexture;
         spriteBatch.Draw(cursorTexture!, new Vector2((int)tileScreen.X, (int)tileScreen.Y), Color.White);
     }
     #endregion

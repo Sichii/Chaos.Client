@@ -36,14 +36,15 @@ public sealed partial class WorldScreen : IScreen
     //minimum interval between spacebar assail fires when held (os key-repeat rate varies)
     private const long SPACEBAR_INTERVAL_MS = 100;
 
-    //net display alpha for transparent (invisible/near-phantom) aislings. transparent players are drawn
-    //exclusively via the silhouette pass (so the result is identical in the open or behind walls); the
-    //stripe pass skips them entirely.
-    private const float TRANSPARENT_ALPHA = 0.36f;
+    //stripe-pass alpha for transparent (invisible) aislings. 1/3 is chosen so that for the silhouetted
+    //local player, the stripe draw compounds with the silhouette overdraw to produce the target visibility:
+    //    TRANSPARENT_ALPHA + TRANSPARENT_SILHOUETTE_ALPHA * SILHOUETTE_ALPHA * (1 - TRANSPARENT_ALPHA) = 0.5
+    //i.e., ~50% in the open and ~25% behind foregrounds (occlusion × transparency = 50% × 50%).
+    private const float TRANSPARENT_ALPHA = 1f / 3f;
 
-    //alpha used when drawing transparent entities into the silhouette RT — compounded with the silhouette
-    //overlay's SILHOUETTE_ALPHA, this produces TRANSPARENT_ALPHA (0.33) net on screen.
-    private const float TRANSPARENT_SILHOUETTE_ALPHA = TRANSPARENT_ALPHA / SilhouetteRenderer.SILHOUETTE_ALPHA;
+    //silhouette-RT alpha for transparent entities. 0.5 makes the overlay's effective contribution
+    //TRANSPARENT_SILHOUETTE_ALPHA * SILHOUETTE_ALPHA = 0.25, matching the behind-foreground target.
+    private const float TRANSPARENT_SILHOUETTE_ALPHA = 0.5f;
 
     //set true while the silhouette pre-render callback is drawing entities into the silhouette RT.
     //used by DrawAisling to route transparent players through the silhouette pass instead of the stripe pass.
@@ -69,7 +70,6 @@ public sealed partial class WorldScreen : IScreen
 
     //set of entity ids currently highlighted as group members (auto-expires after 1000ms)
     private readonly HashSet<uint> GroupHighlightedIds = [];
-    private readonly EntityHighlight Highlight = new();
     private readonly EntityOverlayManager Overlays = new();
     private readonly PathfindingState Pathfinding = new();
     private readonly Queue<PendingWalk> PendingWalks = new();
@@ -188,6 +188,8 @@ public sealed partial class WorldScreen : IScreen
         Game = game;
         WireServerEvents();
     }
+
+
 
     /// <inheritdoc />
     public void LoadContent(GraphicsDevice graphicsDevice)

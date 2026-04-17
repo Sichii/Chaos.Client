@@ -33,10 +33,7 @@ public sealed class CreatureRenderer : IDisposable
     /// </summary>
     public void Clear()
     {
-        foreach (var frame in FrameCache.Values)
-            frame.Dispose();
-
-        FrameCache.Clear();
+        FrameCache.DisposeAndClear();
         AverageTopOffsetCache.Clear();
         ClearTintCaches();
     }
@@ -46,20 +43,9 @@ public sealed class CreatureRenderer : IDisposable
     /// </summary>
     public void ClearTintCaches()
     {
-        foreach (var texture in HighlightTintCache.Values)
-            texture.Dispose();
-
-        HighlightTintCache.Clear();
-
-        foreach (var texture in GroupTintCache.Values)
-            texture.Dispose();
-
-        GroupTintCache.Clear();
-
-        foreach (var texture in HitTintCache.Values)
-            texture.Dispose();
-
-        HitTintCache.Clear();
+        HighlightTintCache.DisposeAndClear();
+        GroupTintCache.DisposeAndClear();
+        HitTintCache.DisposeAndClear();
     }
 
     /// <summary>
@@ -99,9 +85,9 @@ public sealed class CreatureRenderer : IDisposable
 
             var drawTexture = tint switch
             {
-                EntityTintType.Highlight => GetOrCreateHighlightTint(frame.Texture),
-                EntityTintType.Group     => GetOrCreateGroupTint(frame.Texture),
-                EntityTintType.HitTint   => GetOrCreateHitTint(frame.Texture),
+                EntityTintType.Highlight => HighlightTintCache.GetOrAdd(frame.Texture, TextureConverter.CreateTintedTexture),
+                EntityTintType.Group     => GroupTintCache.GetOrAdd(frame.Texture, TextureConverter.CreateGroupTintedTexture),
+                EntityTintType.HitTint   => HitTintCache.GetOrAdd(frame.Texture, TextureConverter.CreateHitTintedTexture),
                 _                        => frame.Texture
             };
 
@@ -227,38 +213,11 @@ public sealed class CreatureRenderer : IDisposable
         return spriteFrame;
     }
 
-    private Texture2D GetOrCreateGroupTint(Texture2D source)
-    {
-        if (GroupTintCache.TryGetValue(source, out var cached))
-            return cached;
+    
 
-        cached = TextureConverter.CreateGroupTintedTexture(source);
-        GroupTintCache[source] = cached;
+    
 
-        return cached;
-    }
-
-    private Texture2D GetOrCreateHighlightTint(Texture2D source)
-    {
-        if (HighlightTintCache.TryGetValue(source, out var cached))
-            return cached;
-
-        cached = TextureConverter.CreateTintedTexture(source);
-        HighlightTintCache[source] = cached;
-
-        return cached;
-    }
-
-    private Texture2D GetOrCreateHitTint(Texture2D source)
-    {
-        if (HitTintCache.TryGetValue(source, out var cached))
-            return cached;
-
-        cached = TextureConverter.CreateHitTintedTexture(source);
-        HitTintCache[source] = cached;
-
-        return cached;
-    }
+    
 
     /// <summary>
     ///     Returns the walk frame count for a creature sprite, or null if the sprite cannot be loaded.

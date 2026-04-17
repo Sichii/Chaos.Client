@@ -353,10 +353,8 @@ public sealed class TownMapControl : UIPanel
 
         //null out textures before clearing so uiimage.dispose doesn't try to release cached textures
         foreach (var child in Children)
-        {
             if (child is UIImage image)
                 image.Texture = null;
-        }
 
         Children.Clear();
     }

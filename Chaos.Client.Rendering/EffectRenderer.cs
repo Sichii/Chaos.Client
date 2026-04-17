@@ -35,15 +35,8 @@ public sealed class EffectRenderer : IDisposable
     /// </summary>
     public void Clear()
     {
-        foreach (var animation in AnimationCache.Values)
-            animation?.Dispose();
-
-        AnimationCache.Clear();
-
-        foreach (var animation in MefcCache.Values)
-            animation?.Dispose();
-
-        MefcCache.Clear();
+        AnimationCache.DisposeAndClear();
+        MefcCache.DisposeAndClear();
     }
 
     /// <summary>

@@ -1,5 +1,4 @@
 #region
-using Chaos.Client.Controls.Components;
 using Chaos.Client.Controls.World.Hud.Panel.Slots;
 using Chaos.Client.Data.Models;
 using Microsoft.Xna.Framework;

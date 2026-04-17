@@ -199,9 +199,8 @@ public sealed class WorldListControl : PrefabPanel
     private void ApplyFilter()
     {
         if (ActiveTab == 0)
-        {
             FilteredEntries = AllEntries;
-        } else
+        else
         {
             FilterBuffer.Clear();
 
@@ -318,10 +317,8 @@ public sealed class WorldListControl : PrefabPanel
                      family.Brother5,
                      family.Brother6
                  })
-        {
             if (!string.IsNullOrWhiteSpace(name))
                 FamilyNames.Add(name);
-        }
     }
 
     public void SetFriendNames(IReadOnlyList<string> friends)
@@ -329,10 +326,8 @@ public sealed class WorldListControl : PrefabPanel
         FriendNames.Clear();
 
         foreach (var name in friends)
-        {
             if (!string.IsNullOrWhiteSpace(name))
                 FriendNames.Add(name);
-        }
     }
 
     private void OnWorldListChanged() => Show(WorldState.WorldList.Entries, WorldState.WorldList.TotalOnline);

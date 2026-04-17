@@ -173,12 +173,10 @@ public class UIPanel : UIElement
         List<UITextBox>? tabStops = null;
 
         foreach (var child in Children)
-        {
             if (child is UITextBox { Visible: true, Enabled: true, IsTabStop: true } textBox)
                 (tabStops ??= []).Add(textBox);
             else if (child is UIPanel childPanel)
                 CollectTabStops(childPanel, ref tabStops);
-        }
 
         if (tabStops is null || (tabStops.Count < 2))
             return;
@@ -216,12 +214,10 @@ public class UIPanel : UIElement
             return;
 
         foreach (var child in panel.Children)
-        {
             if (child is UITextBox { Visible: true, Enabled: true, IsTabStop: true } textBox)
                 (tabStops ??= []).Add(textBox);
             else if (child is UIPanel childPanel)
                 CollectTabStops(childPanel, ref tabStops);
-        }
     }
 
     public override void Update(GameTime gameTime)

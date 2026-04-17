@@ -17,28 +17,6 @@ namespace Chaos.Client.Controls.World.Popups.Profile;
 /// </summary>
 public sealed class OtherProfileEquipmentTab : PrefabPanel
 {
-    private static readonly (string ControlName, EquipmentSlot Slot)[] SlotMappings =
-    [
-        ("WEAPON", EquipmentSlot.Weapon),
-        ("ARMOR", EquipmentSlot.Armor),
-        ("SHIELD", EquipmentSlot.Shield),
-        ("HEAD", EquipmentSlot.Helmet),
-        ("EAR", EquipmentSlot.Earrings),
-        ("NECK", EquipmentSlot.Necklace),
-        ("LHAND", EquipmentSlot.LeftRing),
-        ("RHAND", EquipmentSlot.RightRing),
-        ("LARM", EquipmentSlot.LeftGaunt),
-        ("RARM", EquipmentSlot.RightGaunt),
-        ("BELT", EquipmentSlot.Belt),
-        ("LEG", EquipmentSlot.Greaves),
-        ("FOOT", EquipmentSlot.Boots),
-        ("CAPE", EquipmentSlot.Accessory1),
-        ("ARMOR2", EquipmentSlot.Overcoat),
-        ("HEAD2", EquipmentSlot.OverHelm),
-        ("CAPE2", EquipmentSlot.Accessory2),
-        ("CAPE3", EquipmentSlot.Accessory3)
-    ];
-
     private const int EMOTICON_FRAME_COUNT = 8;
     private const int PAPERDOLL_IDLE_FRAME = 5;
 
@@ -71,7 +49,7 @@ public sealed class OtherProfileEquipmentTab : PrefabPanel
         Name = prefabName;
         Visible = false;
 
-        foreach ((var controlName, var slot) in SlotMappings)
+        foreach ((var controlName, var slot) in Constants.EquipmentSlotsByControlName)
         {
             if (CreateImage(controlName) is not { } slotImage)
                 continue;
@@ -365,14 +343,12 @@ public sealed class OtherProfileEquipmentTab : PrefabPanel
         string? foundName = null;
 
         foreach ((_, var visual) in SlotVisuals)
-        {
             if (visual.Image.ContainsPoint(e.ScreenX, e.ScreenY) && (visual.ItemTexture is not null))
             {
                 foundName = visual.ItemName;
 
                 break;
             }
-        }
 
         if (!string.IsNullOrEmpty(foundName))
         {

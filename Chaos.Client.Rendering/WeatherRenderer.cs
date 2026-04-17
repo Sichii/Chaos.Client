@@ -73,8 +73,6 @@ public sealed class WeatherRenderer : IDisposable
     /// </summary>
     public bool IsActive => WeatherNibble is 0x01 or 0x02;
 
-    public WeatherRenderer() { }
-
     /// <summary>
     ///     Call on map change. Compares nibbles; if the weather mode changed, releases old textures
     ///     and loads new ones.
@@ -166,11 +164,8 @@ public sealed class WeatherRenderer : IDisposable
             {
                 var frames = SnowTypeFrames[t];
 
-                if (frames is null)
-                    continue;
-
                 for (var f = 0; f < frames.Length; f++)
-                    frames[f]?.Dispose();
+                    frames[f].Dispose();
             }
 
             SnowTypeFrames = null;
@@ -258,7 +253,7 @@ public sealed class WeatherRenderer : IDisposable
         if ((viewport.Width != LastViewportWidth) || (viewport.Height != LastViewportHeight))
         {
             for (var i = 0; i < SnowParticles.Length; i++)
-                SnowParticles[i] = RandomSnowParticle(viewport, spawnAbove: false);
+                SnowParticles[i] = RandomSnowParticle(viewport, false);
 
             LastViewportWidth = viewport.Width;
             LastViewportHeight = viewport.Height;
@@ -287,7 +282,7 @@ public sealed class WeatherRenderer : IDisposable
             }
 
             if (p.Position.Y > viewport.Bottom)
-                p = RandomSnowParticle(viewport, spawnAbove: true);
+                p = RandomSnowParticle(viewport, true);
         }
     }
 
@@ -412,7 +407,6 @@ public sealed class WeatherRenderer : IDisposable
         //as the topmost row's top edge falls below the top of the viewport, insert a fresh randomized
         //row above it so its bottom sits flush with the old topmost's top. while-loop handles large dt.
         while ((RainRows.Count > 0) && (RainRows[0].Y > viewport.Y))
-        {
             RainRows.Insert(
                 0,
                 new RainRow
@@ -420,7 +414,6 @@ public sealed class WeatherRenderer : IDisposable
                     Y = RainRows[0].Y - texH,
                     Permutation = GenerateColumnPermutation()
                 });
-        }
 
         //drop rows whose top has passed the bottom of the viewport
         var viewportBottom = viewport.Y + viewport.Height;

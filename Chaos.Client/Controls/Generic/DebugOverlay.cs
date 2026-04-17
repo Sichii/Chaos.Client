@@ -286,8 +286,8 @@ public static class DebugOverlay
         var fps = DisplayFps;
         var ms = LastFrameWorkMs;
 
-        //line 0 — FPS + frame time
-        if ((StatsPrevFps != fps) || (StatsPrevMs != ms))
+        //line 0 — FPS + frame time (0.05ms tolerance matches {ms:F1} display precision)
+        if ((StatsPrevFps != fps) || (MathF.Abs(StatsPrevMs - ms) >= 0.05f))
         {
             StatsPrevFps = fps;
             StatsPrevMs = ms;
@@ -322,8 +322,8 @@ public static class DebugOverlay
                 .Update($"Debug draws: {debugDrawCount}", Color.Gray);
         }
 
-        //line 3 — heap + gc mode
-        if (StatsPrevHeapMb != heapMb)
+        //line 3 — heap + gc mode (0.05 MB tolerance matches {heapMb:F1} display precision)
+        if (Math.Abs(StatsPrevHeapMb - heapMb) >= 0.05)
         {
             StatsPrevHeapMb = heapMb;
 
@@ -356,14 +356,12 @@ public static class DebugOverlay
         var y = StatsY;
 
         for (var i = 0; i < StatsTextElement.Length; i++)
-        {
             if (StatsTextElement[i].HasContent)
             {
                 StatsTextElement[i]
                     .Draw(spriteBatch, new Vector2(StatsX, y));
                 y += StatsTextElement[i].Height + 1;
             }
-        }
     }
 
     /// <summary>

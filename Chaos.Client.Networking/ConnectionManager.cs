@@ -9,6 +9,7 @@ using Chaos.Networking.Abstractions.Definitions;
 using Chaos.Networking.Entities.Client;
 using Chaos.Networking.Entities.Server;
 using Chaos.Packets;
+using Chaos.Packets.Abstractions;
 #endregion
 
 namespace Chaos.Client.Networking;
@@ -89,6 +90,14 @@ public sealed class ConnectionManager : IDisposable
         IndexHandlers();
     }
 
+    private void SendIfWorld<T>(T args) where T : IPacketSerializable
+    {
+        if (State != ConnectionState.World)
+            return;
+
+        Client.Send(args);
+    }
+
     /// <inheritdoc />
     public void Dispose() => Client.Dispose();
 
@@ -116,33 +125,23 @@ public sealed class ConnectionManager : IDisposable
     ///     Sends a click on an entity (NPC, creature, aisling, ground item).
     /// </summary>
     public void ClickEntity(uint targetId)
-    {
-        if (State != ConnectionState.World)
-            return;
-
-        Client.Send(
+        => SendIfWorld(
             new ClickArgs
             {
                 ClickType = ClickType.TargetId,
                 TargetId = targetId
             });
-    }
 
     /// <summary>
     ///     Sends a click on a map tile.
     /// </summary>
     public void ClickTile(int x, int y)
-    {
-        if (State != ConnectionState.World)
-            return;
-
-        Client.Send(
+        => SendIfWorld(
             new ClickArgs
             {
                 ClickType = ClickType.TargetPoint,
                 TargetPoint = new Point(x, y)
             });
-    }
 
     /// <summary>
     ///     Sends a world map node click.
@@ -152,18 +151,13 @@ public sealed class ConnectionManager : IDisposable
         int x,
         int y,
         ushort checkSum)
-    {
-        if (State != ConnectionState.World)
-            return;
-
-        Client.Send(
+        => SendIfWorld(
             new WorldMapClickArgs
             {
                 MapId = mapId,
                 Point = new Point(x, y),
                 CheckSum = checkSum
             });
-    }
 
     /// <summary>
     ///     Connects to the lobby server, performs the Version/ConnectionInfo handshake.
@@ -245,17 +239,12 @@ public sealed class ConnectionManager : IDisposable
     /// <param name="x">The destination tile X coordinate.</param>
     /// <param name="y">The destination tile Y coordinate.</param>
     public void DropGold(int amount, int x, int y)
-    {
-        if (State != ConnectionState.World)
-            return;
-
-        Client.Send(
+        => SendIfWorld(
             new GoldDropArgs
             {
                 Amount = amount,
                 DestinationPoint = new Point(x, y)
             });
-    }
 
     /// <summary>
     ///     Sends a gold give request to a creature/NPC.
@@ -263,17 +252,12 @@ public sealed class ConnectionManager : IDisposable
     /// <param name="amount">The amount of gold to give.</param>
     /// <param name="targetId">The target entity ID.</param>
     public void DropGoldOnCreature(int amount, uint targetId)
-    {
-        if (State != ConnectionState.World)
-            return;
-
-        Client.Send(
+        => SendIfWorld(
             new GoldDroppedOnCreatureArgs
             {
                 Amount = amount,
                 TargetId = targetId
             });
-    }
 
     /// <summary>
     ///     Sends an item drop request onto the ground.
@@ -287,18 +271,13 @@ public sealed class ConnectionManager : IDisposable
         int x,
         int y,
         int count = 1)
-    {
-        if (State != ConnectionState.World)
-            return;
-
-        Client.Send(
+        => SendIfWorld(
             new ItemDropArgs
             {
                 SourceSlot = sourceSlot,
                 DestinationPoint = new Point(x, y),
                 Count = count
             });
-    }
 
     /// <summary>
     ///     Sends an item give request to a creature/NPC.
@@ -307,18 +286,13 @@ public sealed class ConnectionManager : IDisposable
     /// <param name="targetId">The target entity ID.</param>
     /// <param name="count">The number of items to give (for stackable items).</param>
     public void DropItemOnCreature(byte sourceSlot, uint targetId, byte count = 1)
-    {
-        if (State != ConnectionState.World)
-            return;
-
-        Client.Send(
+        => SendIfWorld(
             new ItemDroppedOnCreatureArgs
             {
                 SourceSlot = sourceSlot,
                 TargetId = targetId,
                 Count = count
             });
-    }
 
     private void FollowPendingRedirect()
     {
@@ -685,17 +659,12 @@ public sealed class ConnectionManager : IDisposable
     /// <param name="y">The source tile Y coordinate.</param>
     /// <param name="destinationSlot">The inventory slot to place the item in.</param>
     public void PickupItem(int x, int y, byte destinationSlot)
-    {
-        if (State != ConnectionState.World)
-            return;
-
-        Client.Send(
+        => SendIfWorld(
             new PickupArgs
             {
                 SourcePoint = new Point(x, y),
                 DestinationSlot = destinationSlot
             });
-    }
 
     /// <summary>
     ///     Processes queued inbound packets, driving state transitions. Call this from the game loop's Update method.
@@ -729,32 +698,22 @@ public sealed class ConnectionManager : IDisposable
     /// </summary>
     /// <param name="stat">The stat to raise.</param>
     public void RaiseStat(Stat stat)
-    {
-        if (State != ConnectionState.World)
-            return;
-
-        Client.Send(
+        => SendIfWorld(
             new RaiseStatArgs
             {
                 Stat = stat
             });
-    }
 
     /// <summary>
     ///     Sends an exit/logout request.
     /// </summary>
     /// <param name="isRequest"><see langword="true" /> to request the logout dialog; <see langword="false" /> to confirm logout.</param>
     public void RequestExit(bool isRequest = true)
-    {
-        if (State != ConnectionState.World)
-            return;
-
-        Client.Send(
+        => SendIfWorld(
             new ExitRequestArgs
             {
                 IsRequest = isRequest
             });
-    }
 
     /// <summary>
     ///     Requests the homepage URL from the login server.
@@ -770,13 +729,7 @@ public sealed class ConnectionManager : IDisposable
     /// <summary>
     ///     Requests tile data for the current map from the server.
     /// </summary>
-    public void RequestMapData()
-    {
-        if (State != ConnectionState.World)
-            return;
-
-        Client.Send(new MapDataRequestArgs());
-    }
+    public void RequestMapData() => SendIfWorld(new MapDataRequestArgs());
 
     /// <summary>
     ///     Requests the full login notice (EULA) from the login server.
@@ -792,24 +745,12 @@ public sealed class ConnectionManager : IDisposable
     /// <summary>
     ///     Sends a refresh request (F5).
     /// </summary>
-    public void RequestRefresh()
-    {
-        if (State != ConnectionState.World)
-            return;
-
-        Client.Send(new RefreshRequestArgs());
-    }
+    public void RequestRefresh() => SendIfWorld(new RefreshRequestArgs());
 
     /// <summary>
     ///     Sends a self profile request.
     /// </summary>
-    public void RequestSelfProfile()
-    {
-        if (State != ConnectionState.World)
-            return;
-
-        Client.Send(new SelfProfileRequestArgs());
-    }
+    public void RequestSelfProfile() => SendIfWorld(new SelfProfileRequestArgs());
 
     /// <summary>
     ///     Requests the server table from the lobby.
@@ -829,13 +770,7 @@ public sealed class ConnectionManager : IDisposable
     /// <summary>
     ///     Sends a world list request.
     /// </summary>
-    public void RequestWorldList()
-    {
-        if (State != ConnectionState.World)
-            return;
-
-        Client.Send(new WorldListRequestArgs());
-    }
+    public void RequestWorldList() => SendIfWorld(new WorldListRequestArgs());
 
     /// <summary>
     ///     Selects a server from the server table by ID, triggering a redirect.
@@ -859,33 +794,23 @@ public sealed class ConnectionManager : IDisposable
     /// </summary>
     /// <param name="targetName">The name of the player to ignore.</param>
     public void SendAddIgnore(string targetName)
-    {
-        if (State != ConnectionState.World)
-            return;
-
-        Client.Send(
+        => SendIfWorld(
             new IgnoreArgs
             {
                 IgnoreType = IgnoreType.AddUser,
                 TargetName = targetName
             });
-    }
 
     /// <summary>
     ///     Sends a begin chant packet to start spell casting.
     /// </summary>
     /// <param name="castLineCount">The number of chant lines for this spell.</param>
     public void SendBeginChant(byte castLineCount)
-    {
-        if (State != ConnectionState.World)
-            return;
-
-        Client.Send(
+        => SendIfWorld(
             new BeginChantArgs
             {
                 CastLineCount = castLineCount
             });
-    }
 
     /// <summary>
     ///     Sends a board/mail interaction (view board, read post, send mail, delete, etc.).
@@ -907,11 +832,7 @@ public sealed class ConnectionManager : IDisposable
         string? to = null,
         string? subject = null,
         string? message = null)
-    {
-        if (State != ConnectionState.World)
-            return;
-
-        Client.Send(
+        => SendIfWorld(
             new BoardInteractionArgs
             {
                 BoardRequestType = requestType,
@@ -923,23 +844,17 @@ public sealed class ConnectionManager : IDisposable
                 Subject = subject,
                 Message = message
             });
-    }
 
     /// <summary>
     ///     Sends a chant line message.
     /// </summary>
     /// <param name="message">The chant text to display.</param>
     public void SendChant(string message)
-    {
-        if (State != ConnectionState.World)
-            return;
-
-        Client.Send(
+        => SendIfWorld(
             new ChantArgs
             {
                 ChantMessage = message
             });
-    }
 
     /// <summary>
     ///     Sends a CreateGroupbox request with recruitment configuration.
@@ -963,11 +878,7 @@ public sealed class ConnectionManager : IDisposable
         byte maxRogues,
         byte maxPriests,
         byte maxMonks)
-    {
-        if (State != ConnectionState.World)
-            return;
-
-        Client.Send(
+        => SendIfWorld(
             new GroupInviteArgs
             {
                 ClientGroupSwitch = ClientGroupSwitch.CreateGroupbox,
@@ -985,7 +896,6 @@ public sealed class ConnectionManager : IDisposable
                     MaxMonks = maxMonks
                 }
             });
-    }
 
     /// <summary>
     ///     Sends a dialog interaction response (Next, Close, option select, text input).
@@ -1005,11 +915,7 @@ public sealed class ConnectionManager : IDisposable
         DialogArgsType argsType = DialogArgsType.None,
         byte? option = null,
         List<string>? args = null)
-    {
-        if (State != ConnectionState.World)
-            return;
-
-        Client.Send(
+        => SendIfWorld(
             new DialogInteractionArgs
             {
                 EntityType = entityType,
@@ -1020,7 +926,6 @@ public sealed class ConnectionManager : IDisposable
                 Option = option,
                 Args = args
             });
-    }
 
     /// <summary>
     ///     Sends the player's portrait and profile text to the server.
@@ -1028,33 +933,23 @@ public sealed class ConnectionManager : IDisposable
     /// <param name="portraitData">The raw portrait image bytes.</param>
     /// <param name="profileMessage">The profile text.</param>
     public void SendEditableProfile(byte[] portraitData, string profileMessage)
-    {
-        if (State != ConnectionState.World)
-            return;
-
-        Client.Send(
+        => SendIfWorld(
             new EditableProfileArgs
             {
                 PortraitData = portraitData,
                 ProfileMessage = profileMessage
             });
-    }
 
     /// <summary>
     ///     Sends an emote request (body animation 9-44).
     /// </summary>
     /// <param name="bodyAnimation">The emote body animation to play.</param>
     public void SendEmote(BodyAnimation bodyAnimation)
-    {
-        if (State != ConnectionState.World)
-            return;
-
-        Client.Send(
+        => SendIfWorld(
             new EmoteArgs
             {
                 BodyAnimation = bodyAnimation
             });
-    }
 
     /// <summary>
     ///     Sends an exchange interaction.
@@ -1070,11 +965,7 @@ public sealed class ConnectionManager : IDisposable
         byte? sourceSlot = null,
         byte? itemCount = null,
         int? goldAmount = null)
-    {
-        if (State != ConnectionState.World)
-            return;
-
-        Client.Send(
+        => SendIfWorld(
             new ExchangeInteractionArgs
             {
                 ExchangeRequestType = type,
@@ -1083,7 +974,6 @@ public sealed class ConnectionManager : IDisposable
                 ItemCount = itemCount,
                 GoldAmount = goldAmount
             });
-    }
 
     /// <summary>
     ///     Sends a group invite or group management action.
@@ -1091,32 +981,22 @@ public sealed class ConnectionManager : IDisposable
     /// <param name="action">The group action to perform.</param>
     /// <param name="targetName">The target player name, if applicable.</param>
     public void SendGroupInvite(ClientGroupSwitch action, string? targetName = null)
-    {
-        if (State != ConnectionState.World)
-            return;
-
-        Client.Send(
+        => SendIfWorld(
             new GroupInviteArgs
             {
                 ClientGroupSwitch = action,
                 TargetName = targetName ?? string.Empty
             });
-    }
 
     /// <summary>
     ///     Requests the current ignore list from the server.
     /// </summary>
     public void SendIgnoreRequest()
-    {
-        if (State != ConnectionState.World)
-            return;
-
-        Client.Send(
+        => SendIfWorld(
             new IgnoreArgs
             {
                 IgnoreType = IgnoreType.Request
             });
-    }
 
     /// <summary>
     ///     Sends a menu interaction response (pursuit selection).
@@ -1132,11 +1012,7 @@ public sealed class ConnectionManager : IDisposable
         ushort pursuitId,
         byte? slot = null,
         string[]? args = null)
-    {
-        if (State != ConnectionState.World)
-            return;
-
-        Client.Send(
+        => SendIfWorld(
             new MenuInteractionArgs
             {
                 EntityType = entityType,
@@ -1145,7 +1021,6 @@ public sealed class ConnectionManager : IDisposable
                 Slot = slot,
                 Args = args
             });
-    }
 
     /// <summary>
     ///     Sends a metadata request to the server (checksums or specific file data).
@@ -1165,50 +1040,35 @@ public sealed class ConnectionManager : IDisposable
     /// </summary>
     /// <param name="option">The user option to toggle.</param>
     public void SendOptionToggle(UserOption option)
-    {
-        if (State != ConnectionState.World)
-            return;
-
-        Client.Send(
+        => SendIfWorld(
             new OptionToggleArgs
             {
                 UserOption = option
             });
-    }
 
     /// <summary>
     ///     Sends a public (normal) chat message visible to nearby players.
     /// </summary>
     /// <param name="message">The chat message text.</param>
     public void SendPublicMessage(string message)
-    {
-        if (State != ConnectionState.World)
-            return;
-
-        Client.Send(
+        => SendIfWorld(
             new PublicMessageArgs
             {
                 Message = message,
                 PublicMessageType = PublicMessageType.Normal
             });
-    }
 
     /// <summary>
     ///     Removes a player from the ignore list.
     /// </summary>
     /// <param name="targetName">The name of the player to un-ignore.</param>
     public void SendRemoveIgnore(string targetName)
-    {
-        if (State != ConnectionState.World)
-            return;
-
-        Client.Send(
+        => SendIfWorld(
             new IgnoreArgs
             {
                 IgnoreType = IgnoreType.RemoveUser,
                 TargetName = targetName
             });
-    }
 
     /// <summary>
     ///     Sends notepad text for an editable notepad slot.
@@ -1216,50 +1076,35 @@ public sealed class ConnectionManager : IDisposable
     /// <param name="slot">The notepad slot index.</param>
     /// <param name="message">The notepad text content.</param>
     public void SendSetNotepad(byte slot, string message)
-    {
-        if (State != ConnectionState.World)
-            return;
-
-        Client.Send(
+        => SendIfWorld(
             new SetNotepadArgs
             {
                 Slot = slot,
                 Message = message
             });
-    }
 
     /// <summary>
     ///     Sends a shout message (! prefix) visible to all players on the map.
     /// </summary>
     /// <param name="message">The shout message text.</param>
     public void SendShout(string message)
-    {
-        if (State != ConnectionState.World)
-            return;
-
-        Client.Send(
+        => SendIfWorld(
             new PublicMessageArgs
             {
                 Message = message,
                 PublicMessageType = PublicMessageType.Shout
             });
-    }
 
     /// <summary>
     ///     Sends a social status change to the server.
     /// </summary>
     /// <param name="status">The new social status.</param>
     public void SendSocialStatus(SocialStatus status)
-    {
-        if (State != ConnectionState.World)
-            return;
-
-        Client.Send(
+        => SendIfWorld(
             new SocialStatusArgs
             {
                 SocialStatus = status
             });
-    }
 
     /// <summary>
     ///     Sends a whisper to a specific player.
@@ -1267,28 +1112,17 @@ public sealed class ConnectionManager : IDisposable
     /// <param name="targetName">The recipient player name.</param>
     /// <param name="message">The whisper message text.</param>
     public void SendWhisper(string targetName, string message)
-    {
-        if (State != ConnectionState.World)
-            return;
-
-        Client.Send(
+        => SendIfWorld(
             new WhisperArgs
             {
                 TargetName = targetName,
                 Message = message
             });
-    }
 
     /// <summary>
     ///     Sends a spacebar (assail) request.
     /// </summary>
-    public void Spacebar()
-    {
-        if (State != ConnectionState.World)
-            return;
-
-        Client.Send(new SpacebarArgs());
-    }
+    public void Spacebar() => SendIfWorld(new SpacebarArgs());
 
     /// <summary>
     ///     Fired when the connection state changes. Args: (oldState, newState).
@@ -1302,93 +1136,62 @@ public sealed class ConnectionManager : IDisposable
     /// <param name="slot1">The first slot position.</param>
     /// <param name="slot2">The second slot position.</param>
     public void SwapSlot(PanelType panelType, byte slot1, byte slot2)
-    {
-        if (State != ConnectionState.World)
-            return;
-
-        Client.Send(
+        => SendIfWorld(
             new SwapSlotArgs
             {
                 PanelType = panelType,
                 Slot1 = slot1,
                 Slot2 = slot2
             });
-    }
 
     /// <summary>
     ///     Toggles group membership (join/leave the current group).
     /// </summary>
-    public void ToggleGroup()
-    {
-        if (State != ConnectionState.World)
-            return;
-
-        Client.Send(new ToggleGroupArgs());
-    }
+    public void ToggleGroup() => SendIfWorld(new ToggleGroupArgs());
 
     /// <summary>
     ///     Sends a turn request to face the specified direction.
     /// </summary>
     /// <param name="direction">The direction to face.</param>
     public void Turn(Direction direction)
-    {
-        if (State != ConnectionState.World)
-            return;
-
-        Client.Send(
+        => SendIfWorld(
             new TurnArgs
             {
                 Direction = direction
             });
-    }
 
     /// <summary>
     ///     Sends an unequip request for the specified equipment slot.
     /// </summary>
     /// <param name="slot">The equipment slot to unequip.</param>
     public void Unequip(EquipmentSlot slot)
-    {
-        if (State != ConnectionState.World)
-            return;
-
-        Client.Send(
+        => SendIfWorld(
             new UnequipArgs
             {
                 EquipmentSlot = slot
             });
-    }
 
     /// <summary>
     ///     Sends an item use request (equip, consume).
     /// </summary>
     /// <param name="slot">The inventory slot of the item to use.</param>
     public void UseItem(byte slot)
-    {
-        if (State != ConnectionState.World)
-            return;
-
-        Client.Send(
+        => SendIfWorld(
             new ItemUseArgs
             {
                 SourceSlot = slot
             });
-    }
 
     /// <summary>
     ///     Sends a skill use request.
     /// </summary>
     /// <param name="slot">The skill book slot to use.</param>
     public void UseSkill(byte slot)
-    {
-        if (State != ConnectionState.World)
-            return;
-
-        Client.Send(
+        => SendIfWorld(
             new SkillUseArgs
             {
                 SourceSlot = slot
             });
-    }
 
     /// <summary>
     ///     Sends a spell use request.
@@ -1396,17 +1199,12 @@ public sealed class ConnectionManager : IDisposable
     /// <param name="slot">The spell book slot to use.</param>
     /// <param name="argsData">Optional targeting data for targeted spells.</param>
     public void UseSpell(byte slot, byte[]? argsData = null)
-    {
-        if (State != ConnectionState.World)
-            return;
-
-        Client.Send(
+        => SendIfWorld(
             new SpellUseArgs
             {
                 SourceSlot = slot,
                 ArgsData = argsData ?? []
             });
-    }
 
     /// <summary>
     ///     Sends a targeted spell cast at a specific entity and position.

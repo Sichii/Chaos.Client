@@ -60,13 +60,12 @@ public sealed class SystemMessagePaneControl : UIPanel
 
         //shift existing messages up, dropping oldest
         if (Count >= MAX_LINES)
-        {
             for (var i = 0; i < (MAX_LINES - 1); i++)
             {
                 Lines[i].Text = Lines[i + 1].Text;
                 BaseColors[i] = BaseColors[i + 1];
             }
-        } else
+        else
             Count++;
 
         //newest at bottom
@@ -108,10 +107,9 @@ public sealed class SystemMessagePaneControl : UIPanel
         ElapsedMs += (float)gameTime.ElapsedGameTime.TotalMilliseconds;
 
         if (ElapsedMs >= TOTAL_DURATION_MS)
-        {
             for (var i = 0; i < Count; i++)
                 Lines[i].Visible = false;
-        } else if (ElapsedMs > DISPLAY_DURATION_MS)
+        else if (ElapsedMs > DISPLAY_DURATION_MS)
         {
             var alpha = 1f - (ElapsedMs - DISPLAY_DURATION_MS) / FADE_DURATION_MS;
 

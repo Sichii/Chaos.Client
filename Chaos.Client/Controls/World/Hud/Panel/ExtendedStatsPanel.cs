@@ -234,12 +234,6 @@ public sealed class ExtendedStatsPanel : ExpandablePanel
         }
     }
 
-    private void SetLabel(int index, string text)
-    {
-        if (Labels[index] is not null)
-            Labels[index]!.Text = text;
-    }
-
     private void TrySetLabel(int index, long value)
     {
         if (StatValues[index] == value)
@@ -256,7 +250,7 @@ public sealed class ExtendedStatsPanel : ExpandablePanel
         TrySetLabel(IDX_AC, attrs.Ac);
         TrySetLabel(IDX_DMG, attrs.Dmg);
         TrySetLabel(IDX_HIT, attrs.Hit);
-        TrySetLabel(IDX_MAGIC, attrs.MagicResistance);
+        TrySetLabel(IDX_MAGIC, attrs.MagicResistance * 10);
 
         if (OffenseElement != attrs.OffenseElement)
         {
