@@ -334,6 +334,7 @@ public sealed class AislingRenderer : IDisposable
             var texture = Render(
                 in appearance,
                 p.FrameIndex,
+                out var contentBottomY,
                 p.AnimSuffix,
                 p.Flip,
                 p.IsFrontFacing,
@@ -357,7 +358,8 @@ public sealed class AislingRenderer : IDisposable
                 AnimSuffix = p.AnimSuffix,
                 EmotionFrame = p.EmotionFrame,
                 GroundPaintHeight = p.GroundPaintHeight,
-                Texture = texture
+                Texture = texture,
+                ContentBottomY = contentBottomY
             };
             CompositeCache[p.EntityId] = cached;
         }
@@ -384,7 +386,7 @@ public sealed class AislingRenderer : IDisposable
         var effectiveAlpha = p.IsDead ? p.Alpha * GHOST_ALPHA : p.Alpha;
         batch.Draw(finalTexture, screenPos, Color.White * effectiveAlpha);
 
-        return (int)screenPos.Y + COMPOSITE_HEIGHT;
+        return (int)screenPos.Y + cached.ContentBottomY;
     }
 
     /// <summary>
@@ -458,6 +460,7 @@ public sealed class AislingRenderer : IDisposable
         public int EmotionFrame { get; init; }
         public int GroundPaintHeight { get; init; }
         public Texture2D? Texture { get; init; }
+        public int ContentBottomY { get; init; }
     }
 
     //layer image is NOT owned by this struct — lifetime is managed by LayerImageCache (LRU + sliding expiration
@@ -490,10 +493,11 @@ public sealed class AislingRenderer : IDisposable
     /// <summary>
     ///     Composites all layers into a single image. Used for paperdoll and character creation preview.
     /// </summary>
-    private static SKImage? Composite(LayerInfo?[] layers, LayerSlot[] order, bool flipHorizontal)
+    private static SKImage? Composite(LayerInfo?[] layers, LayerSlot[] order, bool flipHorizontal, out int contentBottomY)
     {
         var width = COMPOSITE_WIDTH;
         var height = COMPOSITE_HEIGHT;
+        contentBottomY = 0;
 
         using var bitmap = new SKBitmap(width, height);
 
@@ -508,6 +512,9 @@ public sealed class AislingRenderer : IDisposable
                     BODY_CENTER_X + LAYER_OFFSET_PADDING,
                     0);
 
+            //layers are all drawn at Y=0, so each layer's bottom row is its image height. the deepest layer
+            //defines the content bottom — equipment extending below the feet anchor pushes the hitbox down,
+            //nothing below the feet leaves the hitbox at the feet.
             foreach (var slot in order)
             {
                 if (layers[(int)slot] is not { } info)
@@ -515,6 +522,9 @@ public sealed class AislingRenderer : IDisposable
 
                 var offsetX = GetLayerOffsetX(info.TypeLetter) + LAYER_OFFSET_PADDING;
                 canvas.DrawImage(info.Image, offsetX, 0);
+
+                if (info.Image.Height > contentBottomY)
+                    contentBottomY = info.Image.Height;
             }
         }
 
@@ -532,7 +542,25 @@ public sealed class AislingRenderer : IDisposable
         bool flipHorizontal = false,
         bool? isFrontFacing = null,
         int emotionFrame = -1)
+        => Render(
+            in appearance,
+            frameIndex,
+            out _,
+            animSuffix,
+            flipHorizontal,
+            isFrontFacing,
+            emotionFrame);
+
+    public Texture2D? Render(
+        in AislingAppearance appearance,
+        int frameIndex,
+        out int contentBottomY,
+        string animSuffix = WALK_ANIM,
+        bool flipHorizontal = false,
+        bool? isFrontFacing = null,
+        int emotionFrame = -1)
     {
+        contentBottomY = 0;
         var layers = RenderLayers;
         Array.Clear(layers, 0, layers.Length);
 
@@ -587,7 +615,7 @@ public sealed class AislingRenderer : IDisposable
 
             var order = isFront ? FRONT_ORDER : BACK_ORDER;
 
-            using var composite = Composite(layers, order, flipHorizontal);
+            using var composite = Composite(layers, order, flipHorizontal, out contentBottomY);
 
             return composite is not null ? TextureConverter.ToTexture2D(composite) : null;
         } finally

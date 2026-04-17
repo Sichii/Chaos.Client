@@ -106,15 +106,11 @@ public sealed class EntityOverlayManager
     ///     Draws all overlays. Call within a SpriteBatch Begin/End block with camera transform applied. Draw order: chant
     ///     overlays → health bars → name tags → group box texts → chat bubbles (top-most last).
     /// </summary>
-    public void Draw(
-        SpriteBatch spriteBatch,
-        Camera camera,
-        int mapHeight,
-        IReadOnlyList<WorldEntity> sortedEntities,
-        bool showTintHighlight,
-        uint? hoveredEntityId,
-        uint playerEntityId)
+    public void Draw(SpriteBatch spriteBatch, Camera camera, int mapHeight)
     {
+        //read the authoritative per-frame snapshot once; sub-methods reuse it
+        var sortedEntities = WorldState.CurrentFrame.SortedEntities;
+
         foreach (var overlay in ChantOverlays.Values)
             overlay.Draw(spriteBatch);
 
@@ -125,10 +121,7 @@ public sealed class EntityOverlayManager
             spriteBatch,
             camera,
             mapHeight,
-            sortedEntities,
-            showTintHighlight,
-            hoveredEntityId,
-            playerEntityId);
+            sortedEntities);
 
         DrawGroupBoxTexts(
             spriteBatch,
@@ -146,11 +139,7 @@ public sealed class EntityOverlayManager
         int mapHeight,
         IReadOnlyList<WorldEntity> sortedEntities)
     {
-        //determine which group box (if any) the mouse is over — read the live cursor
-        //position from the static InputBuffer rather than threading coordinates through
-        //every draw call
-        var hoveredGroupBoxId = GetGroupBoxAtScreen(InputBuffer.MouseX, InputBuffer.MouseY)
-            ?.EntityId;
+        var hoveredGroupBoxId = WorldState.CurrentFrame.HoveredGroupBoxId;
 
         for (var i = 0; i < sortedEntities.Count; i++)
         {
@@ -189,11 +178,12 @@ public sealed class EntityOverlayManager
         SpriteBatch spriteBatch,
         Camera camera,
         int mapHeight,
-        IReadOnlyList<WorldEntity> sortedEntities,
-        bool showTintHighlight,
-        uint? hoveredEntityId,
-        uint playerEntityId)
+        IReadOnlyList<WorldEntity> sortedEntities)
     {
+        var showTintHighlight = WorldState.CurrentFrame.ShowTintHighlight;
+        var hoveredEntityId = WorldState.CurrentFrame.HoveredEntityId;
+        var playerEntityId = WorldState.PlayerEntityId;
+
         for (var i = 0; i < sortedEntities.Count; i++)
         {
             var entity = sortedEntities[i];
@@ -244,7 +234,12 @@ public sealed class EntityOverlayManager
     /// <summary>
     ///     Returns the entity ID and name if the given screen point hits a group box overlay. Used for click-to-view.
     /// </summary>
-    public (uint EntityId, string EntityName)? GetGroupBoxAtScreen(int screenX, int screenY)
+    /// <summary>
+    ///     Returns the entity ID and name if the given viewport-relative point hits a group box overlay. Group box rects
+    ///     are stored in the same coordinate space the world spriteBatch renders in (rebased by the viewport origin at
+    ///     draw time), so callers with window-relative mouse coords must subtract the viewport origin before calling.
+    /// </summary>
+    public (uint EntityId, string EntityName)? GetGroupBoxAtScreen(int viewportX, int viewportY)
     {
         foreach ((var entityId, var groupBox) in GroupBoxes)
         {
@@ -254,13 +249,15 @@ public sealed class EntityOverlayManager
                 GroupBox.PANEL_WIDTH,
                 GroupBox.PANEL_HEIGHT);
 
-            if (!rect.Contains(screenX, screenY))
+            if (!rect.Contains(viewportX, viewportY))
                 continue;
 
             var entity = WorldState.GetEntity(entityId);
 
-            if (entity is not null && !string.IsNullOrEmpty(entity.Name))
-                return (entityId, entity.Name);
+            if (entity is null)
+                continue;
+
+            return (entityId, entity.Name);
         }
 
         return null;

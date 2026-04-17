@@ -32,7 +32,9 @@ public sealed partial class WorldScreen
         var smoothScroll = ClientSettings.ScrollLevel > 0;
         var player = WorldState.GetPlayerEntity();
 
-        foreach (var entity in WorldState.GetSortedEntities())
+        //animation advancement doesn't depend on sort order — iterate unordered to avoid a stale sort
+        //(SortDepth is position-derived; movement later in Update would invalidate any sort taken here).
+        foreach (var entity in WorldState.GetEntities())
         {
             //update water tile state before animation so swimming idle tick advances
             UpdateEntityWaterState(entity);
@@ -234,14 +236,7 @@ public sealed partial class WorldScreen
             ? hoverEntity.Id
             : (uint?)null;
 
-        if (newHoveredId != Highlight.HoveredEntityId)
-            ClearHighlightCache();
-
-        Highlight.HoveredEntityId = newHoveredId;
         Game.UseHandCursor = newHoveredId.HasValue;
-
-        //tint highlight only shows during spell targeting or item dragging
-        Highlight.ShowTintHighlight = CastingSystem.IsTargeting || Game.Dispatcher.IsDragging;
 
         //tick casting timer (chant lines are sent on a 1-second interval)
         CastingSystem.Update(elapsedMs, Game.Connection);
@@ -280,7 +275,58 @@ public sealed partial class WorldScreen
         if (!skipDispatch)
             Game.Dispatcher.ProcessInput(Root!, gameTime);
 
+        //all movement has been processed at this point — sort once and publish the frame state.
+        PopulateFrameState(newHoveredId);
+
         Root!.Update(gameTime);
+    }
+
+    /// <summary>
+    ///     Publishes derived per-frame state (sort order, hover, tile under cursor) to <see cref="WorldState.CurrentFrame" /> after
+    ///     all movement has been processed for the frame. Called once at the end of Update; Draw and overlay systems read
+    ///     from <c>WorldState.Frame</c> rather than recomputing.
+    /// </summary>
+    private void PopulateFrameState(uint? newHoveredId)
+    {
+        //capture prev before Clear wipes it so the dirty-check still has last frame's value.
+        var prevHoveredId = WorldState.CurrentFrame.HoveredEntityId;
+        WorldState.CurrentFrame.Reset();
+
+        if (newHoveredId != prevHoveredId)
+        {
+            Game.AislingRenderer.ClearTintedCache();
+            Game.CreatureRenderer.ClearTintCaches();
+        }
+
+        //GetSortedEntities is self-caching via dirty flag, so this call is free when the sort is still valid.
+        WorldState.CurrentFrame.SortedEntities = WorldState.GetSortedEntities();
+        WorldState.CurrentFrame.HoveredEntityId = newHoveredId;
+        WorldState.CurrentFrame.ShowTintHighlight = CastingSystem.IsTargeting || Game.Dispatcher.IsDragging;
+        WorldState.CurrentFrame.UseDragCursor = Game.Dispatcher.IsDragging;
+
+        var worldViewport = WorldHud.ViewportBounds;
+
+        WorldState.CurrentFrame.HoveredGroupBoxId = Overlays
+                                             .GetGroupBoxAtScreen(
+                                                 InputBuffer.MouseX - worldViewport.X,
+                                                 InputBuffer.MouseY - worldViewport.Y)
+                                             ?.EntityId;
+
+        //mirror DrawTileCursor bounds-check logic exactly: viewport rect, then ScreenToTile, then map bounds.
+        //HoveredTile is already null from Clear() — we only assign when all checks pass.
+        if (MapFile is null
+            || (InputBuffer.MouseX < worldViewport.X)
+            || (InputBuffer.MouseX >= (worldViewport.X + worldViewport.Width))
+            || (InputBuffer.MouseY < worldViewport.Y)
+            || (InputBuffer.MouseY >= (worldViewport.Y + worldViewport.Height)))
+            return;
+
+        (var tileX, var tileY) = ScreenToTile(InputBuffer.MouseX, InputBuffer.MouseY);
+
+        if ((tileX < 0) || (tileX >= MapFile.Width) || (tileY < 0) || (tileY >= MapFile.Height))
+            return;
+
+        WorldState.CurrentFrame.HoveredTile = new Point(tileX, tileY);
     }
 
     #region Projectile Advancement

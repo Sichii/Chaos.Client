@@ -70,7 +70,6 @@ public sealed partial class WorldScreen : IScreen
 
     //set of entity ids currently highlighted as group members (auto-expires after 1000ms)
     private readonly HashSet<uint> GroupHighlightedIds = [];
-    private readonly EntityHighlight Highlight = new();
     private readonly EntityOverlayManager Overlays = new();
     private readonly PathfindingState Pathfinding = new();
     private readonly Queue<PendingWalk> PendingWalks = new();

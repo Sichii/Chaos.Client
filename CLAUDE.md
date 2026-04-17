@@ -104,7 +104,7 @@ Chaos.Client/
 ├── InputDispatcher.cs        — UI event dispatch: hit-test, bubble, drag, click synthesis, control stack
 ├── Sdl.cs                    — Centralized SDL2 P/Invoke declarations (keyboard, text, mouse button, mouse wheel event constants consumed by InputBuffer)
 ├── Collections/              — WorldState, CircularBuffer
-├── Models/                   — WorldEntity, Animation, EntityRemovalAnimation, EntityHighlight, SlotDragPayload, PathfindingState, etc.
+├── Models/                   — WorldEntity, Animation, EntityRemovalAnimation, WorldFrameState, SlotDragPayload, PathfindingState, etc.
 ├── ViewModel/                — Authoritative state classes owned by WorldState
 ├── Systems/                  — AnimationSystem, CastingSystem, SoundSystem, Pathfinder, LightingSystem, LatencyMonitor, ClientSettings, MachineIdentity
 ├── Screens/                  — IScreen, ScreenManager, LobbyLoginScreen, WorldScreen (7 partial files)
@@ -161,7 +161,7 @@ Chaos.Client/
 ### World State & Models
 - **`WorldState`** (`Collections/`) -- Static class. Entity tracking, sorted rendering, active effects, all ViewModel state. Access via `WorldState.Inventory`, `WorldState.Attributes`, etc.
 - **`WorldEntity`** (`Models/`) -- Full entity data bag: position, direction, appearance, animation state, emotes.
-- **Other models:** `Animation`, `EntityRemovalAnimation`, `EntityHighlight`, `SlotDragPayload`, `PathfindingState`, `TileClickTracker`, `Projectile`, `MailEntry`, `FriendEntry`, `LegendMarkEntry`, `WorldListEntry`.
+- **Other models:** `Animation`, `EntityRemovalAnimation`, `WorldFrameState`, `SlotDragPayload`, `PathfindingState`, `TileClickTracker`, `Projectile`, `MailEntry`, `FriendEntry`, `LegendMarkEntry`, `WorldListEntry`.
 
 ### ViewModel (`Chaos.Client/ViewModel/`)
 Authoritative state objects exposed as static properties on WorldState, updated by server packets:

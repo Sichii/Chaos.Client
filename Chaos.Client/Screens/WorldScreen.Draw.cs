@@ -18,7 +18,7 @@ public sealed partial class WorldScreen
     public void Draw(SpriteBatch spriteBatch, GameTime gameTime)
     {
         //sort once per frame — cached via dirty flag, reused by all draw sub-passes
-        var sortedEntities = WorldState.GetSortedEntities();
+        var sortedEntities = WorldState.CurrentFrame.SortedEntities;
 
         //pre-render silhouettes (local-player overdraw) before world drawing —
         //matches retail's FUN_005d4360 which redraws the local player at 50% alpha after foregrounds.
@@ -157,14 +157,7 @@ public sealed partial class WorldScreen
                 null,
                 transform);
 
-            Overlays.Draw(
-                spriteBatch,
-                Camera,
-                MapFile.Height,
-                sortedEntities,
-                Highlight.ShowTintHighlight,
-                Highlight.HoveredEntityId,
-                WorldState.PlayerEntityId);
+            Overlays.Draw(spriteBatch, Camera, MapFile.Height);
             spriteBatch.End();
 
             //snapshot draw count before debug draws so the reported count excludes debug visualizations
@@ -190,9 +183,7 @@ public sealed partial class WorldScreen
                     sortedEntities,
                     WorldState.GetPlayerEntity(),
                     EntityHitBoxes,
-                    InputBuffer.MouseX,
-                    InputBuffer.MouseY,
-                    WorldHud.ViewportBounds);
+                    WorldState.CurrentFrame.HoveredTile);
                 spriteBatch.End();
             }
         }
@@ -448,7 +439,7 @@ public sealed partial class WorldScreen
         if (entity.HitTintExpiryMs > 0)
             return EntityTintType.HitTint;
 
-        if (Highlight.ShowTintHighlight && (Highlight.HoveredEntityId == entity.Id))
+        if (WorldState.CurrentFrame.ShowTintHighlight && (WorldState.CurrentFrame.HoveredEntityId == entity.Id))
             return EntityTintType.Highlight;
 
         if (GroupHighlightedIds.Contains(entity.Id))
@@ -612,15 +603,12 @@ public sealed partial class WorldScreen
         float tileCenterY)
     {
         //hidden aislings have no visual (body sprite 0, all equipment 0) but are still present for
-        //hit-testing — skip the draw and return the real texture bottom for hitbox placement.
+        //hit-testing — skip the draw and anchor the hitbox bottom to the tile center (feet position).
         if (entity.IsHidden)
         {
-            var hiddenPos = Camera.WorldToScreen(
-                new Vector2(
-                    tileCenterX + entity.VisualOffset.X - AislingRenderer.CANVAS_CENTER_X,
-                    tileCenterY + entity.VisualOffset.Y - AislingRenderer.CANVAS_CENTER_Y));
+            var tileScreenPos = Camera.WorldToScreen(new Vector2(tileCenterX + entity.VisualOffset.X, tileCenterY + entity.VisualOffset.Y));
 
-            return (int)hiddenPos.Y + AislingRenderer.COMPOSITE_HEIGHT;
+            return (int)tileScreenPos.Y;
         }
 
         //morphed aislings (creature form) render as creatures — swimming overrides morphs too
@@ -718,13 +706,6 @@ public sealed partial class WorldScreen
             alpha);
 
         return Game.AislingRenderer.Draw(spriteBatch, Camera, in drawParams);
-    }
-
-    private void ClearHighlightCache()
-    {
-        Highlight.ClearTint();
-        Game.AislingRenderer.ClearTintedCache();
-        Game.CreatureRenderer.ClearTintCaches();
     }
 
     private void DrawEntityEffects(SpriteBatch spriteBatch, WorldEntity entity)
@@ -910,24 +891,13 @@ public sealed partial class WorldScreen
         if (MapFile is null || TileCursorTexture is null)
             return;
 
-        var viewport = WorldHud.ViewportBounds;
-
-        //only draw when mouse is within the world viewport
-        if ((InputBuffer.MouseX < viewport.X)
-            || (InputBuffer.MouseX >= (viewport.X + viewport.Width))
-            || (InputBuffer.MouseY < viewport.Y)
-            || (InputBuffer.MouseY >= (viewport.Y + viewport.Height)))
+        if (WorldState.CurrentFrame.HoveredTile is not { } hoverTile)
             return;
 
-        (var tileX, var tileY) = ScreenToTile(InputBuffer.MouseX, InputBuffer.MouseY);
-
-        if ((tileX < 0) || (tileX >= MapFile.Width) || (tileY < 0) || (tileY >= MapFile.Height))
-            return;
-
-        var tileWorld = Camera.TileToWorld(tileX, tileY, MapFile.Height);
+        var tileWorld = Camera.TileToWorld(hoverTile.X, hoverTile.Y, MapFile.Height);
         var tileScreen = Camera.WorldToScreen(new Vector2(tileWorld.X, tileWorld.Y));
 
-        var cursorTexture = Game.Dispatcher.IsDragging ? TileCursorDragTexture : TileCursorTexture;
+        var cursorTexture = WorldState.CurrentFrame.UseDragCursor ? TileCursorDragTexture : TileCursorTexture;
         spriteBatch.Draw(cursorTexture!, new Vector2((int)tileScreen.X, (int)tileScreen.Y), Color.White);
     }
     #endregion
