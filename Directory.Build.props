@@ -16,10 +16,9 @@
         <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     </PropertyGroup>
     <PropertyGroup>
-        <Company>Chaotic Minds</Company>
         <NeutralLanguage>en</NeutralLanguage>
         <Copyright>Copyright @ Sichi 2018-2023</Copyright>
-        <PackageProjectUrl>https://docs.chaos-server.net/</PackageProjectUrl>
+        <PackageProjectUrl>https://www.hybrasyl.com/</PackageProjectUrl>
         <RepositoryUrl>https://github.com/Sichii/Chaos-Server</RepositoryUrl>
         <IncludeSymbols>true</IncludeSymbols>
         <SymbolPackageFormat>snupkg</SymbolPackageFormat>

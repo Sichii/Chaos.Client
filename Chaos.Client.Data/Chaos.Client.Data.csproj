@@ -7,6 +7,6 @@
     </ItemGroup>
 
     <ItemGroup>
-        <ProjectReference Include="..\..\dalib\DALib\DALib.csproj"/>
+        <ProjectReference Include="..\..\dalib-sichii\DALib\DALib.csproj"/>
     </ItemGroup>
 </Project>

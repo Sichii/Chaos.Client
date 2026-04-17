@@ -32,11 +32,11 @@ Chaos.Client.slnx (.NET 10.0, C# 14)
 
 ## Related Repositories
 
-| Path                                | Description                                                                                             |
-|-------------------------------------|---------------------------------------------------------------------------------------------------------|
-| `D:\repos\Sichii\Chaos-Server`      | Chaos-Server private server. Contains all `Chaos.*` namespaces (Chaos.Networking, Chaos.DarkAges, etc.) |
-| `D:\repos\Sichii\ChaosAssetManager` | Asset rendering reference app                                                                           |
-| `../dalib/DALib/`                   | Local DALib fork (project ref)                                                                          |
+| Path                      | Description                                                        |
+|---------------------------|--------------------------------------------------------------------|
+| `../Chaos-Server/`        | Chaos-Server source (Sichii). Protocol reference for compat work.  |
+| `../server/`              | Hybrasyl server source. Dev target (qa.hybrasyl.com:2610).         |
+| `../dalib-sichii/DALib/`  | DALib fork in use (Sichii staging; merges into Hybrasyl upstream). |
 
 ## Key Dependencies
 
@@ -264,10 +264,6 @@ When writing any implementation plan, each plan must include:
 
 - Do not introduce interactive prompts in scripts or commands
 - Do not add commentary inside code solely to explain actions
-- **Use Serena for C# code.** Prefer Serena's semantic tools over Read/Grep/Edit when navigating or editing C# code:
-    - **Navigate:** `find_symbol` (locate by name path), `get_symbols_overview` (file outline), `find_referencing_symbols` (callers), `search_for_pattern` (regex), `find_file` (filename glob)
-    - **Edit:** `replace_symbol_body` (rewrite bodies), `insert_before_symbol` / `insert_after_symbol` (add code), `rename_symbol` (cross-file rename), `safe_delete_symbol` (delete with reference check)
-    - Reserve Read/Grep/Edit for non-code files, full-file reads, markdown/config changes, and plain-text edits not tied to a specific symbol.
 - Avoid exception swallowing -- use guard checks (`TryGetValue`, bounds checks, null checks) instead of try-catch for control flow. Prefer `archive.TryGetValue` + `FromEntry` over `FromArchive` wrapped in try-catch, `lookup.Palettes.TryGetValue` over `lookup.GetPaletteForId` in try-catch, etc.
 - Every implementation plan must include review gates after each phase and a final review after full implementation. Do not proceed to the next phase without completing both bug/regression and architecture/design review of the current phase.
 - When an implementation plan is approved, send it to the project-lead agent for orchestration. Do not assign work to specialist agents directly -- the project lead coordinates all work assignment.

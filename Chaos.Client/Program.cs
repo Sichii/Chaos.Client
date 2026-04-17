@@ -2,11 +2,34 @@
 using System.Runtime;
 using System.Runtime.CompilerServices;
 using Chaos.Client;
+using Chaos.Client.Networking;
 #endregion
+
+NoticeDebugLog.Reset();
+NoticeDebugLog.Write("Program.Main entered");
+
+AppDomain.CurrentDomain.UnhandledException += (_, e) =>
+{
+    var ex = e.ExceptionObject as Exception;
+    NoticeDebugLog.Write($"!!! UNHANDLED {ex?.GetType().Name}: {ex?.Message}");
+    NoticeDebugLog.Write($"stack: {ex?.StackTrace}");
+    if (ex?.InnerException is { } inner)
+    {
+        NoticeDebugLog.Write($"inner {inner.GetType().Name}: {inner.Message}");
+        NoticeDebugLog.Write($"inner stack: {inner.StackTrace}");
+    }
+};
+
+System.Threading.Tasks.TaskScheduler.UnobservedTaskException += (_, e) =>
+{
+    NoticeDebugLog.Write($"!!! UNOBSERVED TASK {e.Exception.GetType().Name}: {e.Exception.Message}");
+    NoticeDebugLog.Write($"stack: {e.Exception.StackTrace}");
+};
 
 GCSettings.LatencyMode = GCLatencyMode.SustainedLowLatency;
 
 RuntimeHelpers.RunClassConstructor(typeof(GlobalSettings).TypeHandle);
+NoticeDebugLog.Write("GlobalSettings initialized");
 
 using var game = new ChaosGame();
 game.Run();

@@ -21,19 +21,17 @@ public static class GlobalSettings
     private static ushort ClientVersion => 741;
 
     public static string DataPath
-        => @"C:\Users\Despe\Desktop\Unora\Unora";
+        => @"E:\Games\Dark Ages";
             //Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, ".."));
-            //@"C:\Users\Despe\Desktop\Dark Ages";
 
     public static string LobbyHost
-        => "chaotic-minds.dynu.net";
+        => "qa.hybrasyl.com";
             //"127.0.0.1";
             //"da0.kru.com";
 
     public static int LobbyPort
-        => 6900;
+        => 2610;
             //4200;
-            //2610;
 
     /// <summary>
     ///     When true, walking onto a water tile requires either the GM flag or the "Swimming" skill (retail behavior).

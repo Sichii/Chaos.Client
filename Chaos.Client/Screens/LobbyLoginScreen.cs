@@ -544,6 +544,8 @@ public sealed class LobbyLoginScreen : IScreen
 
     private void OnLoginNotice(LoginNoticeArgs args)
     {
+        NoticeDebugLog.Write($"OnLoginNotice IsFull={args.IsFullResponse} CRC={args.CheckSum:X8} DataLen={args.Data?.Length} Returning={ReturningFromWorld}");
+
         //returning from world — already accepted the eula this session, skip entirely
         if (ReturningFromWorld)
         {
@@ -558,11 +560,13 @@ public sealed class LobbyLoginScreen : IScreen
             if (CachedNoticeCheckSum.HasValue && (CachedNoticeCheckSum.Value == args.CheckSum))
             {
                 //already accepted this notice, skip display and enable buttons
+                NoticeDebugLog.Write("  checksum cache hit, enabling buttons");
                 StartPanel.EnableButtons();
 
                 return;
             }
 
+            NoticeDebugLog.Write("  probe received, calling RequestNotice()");
             Game.Connection.RequestNotice();
 
             return;
@@ -570,11 +574,26 @@ public sealed class LobbyLoginScreen : IScreen
 
         //full response — decompress and display
         if (args.Data is null or { Length: 0 })
+        {
+            NoticeDebugLog.Write("  !!! full response with empty data — UI would be soft-locked");
             return;
+        }
 
-        var noticeText = DecompressNotice(args.Data);
+        string noticeText;
+        try
+        {
+            noticeText = DecompressNotice(args.Data);
+            NoticeDebugLog.Write($"  decompressed ok, text length={noticeText.Length}");
+        }
+        catch (Exception ex)
+        {
+            NoticeDebugLog.Write($"  !!! DecompressNotice threw {ex.GetType().Name}: {ex.Message}");
+            throw;
+        }
 
+        NoticeDebugLog.Write($"  calling Show, prior Visible={LoginNoticeControl.Visible}");
         LoginNoticeControl.Show(noticeText);
+        NoticeDebugLog.Write($"  after Show, Visible={LoginNoticeControl.Visible}");
     }
 
     private void OnLoginAccepted()
@@ -587,8 +606,11 @@ public sealed class LobbyLoginScreen : IScreen
 
     private string DecompressNotice(byte[] compressedData)
     {
-        using var compressed = new MemoryStream(compressedData);
-        using var decompressor = new ZLibStream(compressed, CompressionMode.Decompress);
+        // Hybrasyl-compatible path: skip 2-byte zlib header and 4-byte Adler32 trailer,
+        // decompress the raw deflate body.
+        var deflateLength = compressedData.Length - 6;
+        using var compressed = new MemoryStream(compressedData, 2, deflateLength);
+        using var decompressor = new DeflateStream(compressed, CompressionMode.Decompress);
         using var decompressed = new MemoryStream();
         decompressor.CopyTo(decompressed);
 

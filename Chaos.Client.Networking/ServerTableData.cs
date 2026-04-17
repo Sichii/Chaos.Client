@@ -34,11 +34,15 @@ public sealed class ServerTableData
 
     private static byte[] Decompress(byte[] compressedData)
     {
-        using var compressedStream = new MemoryStream(compressedData);
-        using var zlibStream = new ZLibStream(compressedStream, CompressionMode.Decompress);
+        // Hybrasyl writes a zlib wrapper (0x78 0x9C header + deflate + Adler32) but produces
+        // an Adler32 that .NET's strict ZLibStream rejects. Strip the 2-byte header and 4-byte
+        // trailer and decompress the raw deflate body directly.
+        var deflateLength = compressedData.Length - 6;
+        using var compressedStream = new MemoryStream(compressedData, 2, deflateLength);
+        using var deflateStream = new DeflateStream(compressedStream, CompressionMode.Decompress);
         using var decompressedStream = new MemoryStream();
 
-        zlibStream.CopyTo(decompressedStream);
+        deflateStream.CopyTo(decompressedStream);
 
         return decompressedStream.ToArray();
     }

@@ -5,7 +5,7 @@
         <File Path="Directory.Packages.props" />
         <File Path="README.md" />
     </Folder>
-    <Project Path="../dalib/DALib/DALib.csproj" />
+    <Project Path="../dalib-sichii/DALib/DALib.csproj" />
     <Project Path="Chaos.Client.Data/Chaos.Client.Data.csproj" />
     <Project Path="Chaos.Client.Networking/Chaos.Client.Networking.csproj" />
     <Project Path="Chaos.Client.Rendering/Chaos.Client.Rendering.csproj" />

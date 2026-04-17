@@ -72,6 +72,7 @@ public sealed class ConnectionManager : IDisposable
 
             var old = field;
             field = value;
+            NoticeDebugLog.Write($"ConnectionState {old} -> {value}");
             StateChanged?.Invoke(old, value);
         }
     } = ConnectionState.Disconnected;
@@ -1546,6 +1547,7 @@ public sealed class ConnectionManager : IDisposable
     private void HandlePacket(ServerPacket pkt)
     {
         var handler = PacketHandlers[pkt.OpCode];
+        NoticeDebugLog.Write($"inbound opcode=0x{pkt.OpCode:X2} len={pkt.Length} handled={handler is not null} state={State}");
         handler?.Invoke(pkt);
     }
 
@@ -1570,23 +1572,53 @@ public sealed class ConnectionManager : IDisposable
 
     private void HandleConnectionInfo(ServerPacket pkt)
     {
-        var args = Client.Deserialize<ConnectionInfoArgs>(in pkt);
+        NoticeDebugLog.Write($"HandleConnectionInfo enter state={State}");
+        try
+        {
+            var args = Client.Deserialize<ConnectionInfoArgs>(in pkt);
+            NoticeDebugLog.Write($"  deserialized Seed={args.Seed} Key.Length={args.Key?.Length}");
 
-        //lobby always uses empty keysaltseed (crypto falls back to "default")
-        //must explicitly pass keysaltseed to avoid binding to the 2-arg constructor
-        //crypto(byte seed, string keysaltseed) which generates a random key
-        Client.Crypto = new Crypto(args.Seed, args.Key, null);
+            //lobby always uses empty keysaltseed (crypto falls back to "default")
+            //must explicitly pass keysaltseed to avoid binding to the 2-arg constructor
+            //crypto(byte seed, string keysaltseed) which generates a random key
+            Client.Crypto = new Crypto(args.Seed, args.Key, null);
+            NoticeDebugLog.Write("  crypto set");
 
-        //crypto is now configured — safe to request the server table
-        if (State == ConnectionState.Lobby)
-            RequestServerTable();
+            //crypto is now configured — safe to request the server table
+            if (State == ConnectionState.Lobby)
+            {
+                NoticeDebugLog.Write("  calling RequestServerTable");
+                RequestServerTable();
+            }
+        }
+        catch (Exception ex)
+        {
+            NoticeDebugLog.Write($"  !!! HandleConnectionInfo threw {ex.GetType().Name}: {ex.Message}");
+            throw;
+        }
     }
 
     private void HandleServerTableResponse(ServerPacket pkt)
     {
-        var args = Client.Deserialize<ServerTableResponseArgs>(in pkt);
-        var serverTableData = ServerTableData.Parse(args.ServerTable);
-        OnServerTableReceived?.Invoke(serverTableData);
+        NoticeDebugLog.Write("HandleServerTableResponse enter");
+        try
+        {
+            var rawHex = Convert.ToHexString(pkt.Data, 0, Math.Min(pkt.Length, 64));
+            NoticeDebugLog.Write($"  full packet hex (first 64): {rawHex}");
+            var args = Client.Deserialize<ServerTableResponseArgs>(in pkt);
+            NoticeDebugLog.Write($"  raw ServerTable bytes={args.ServerTable?.Length}");
+            if (args.ServerTable is { Length: > 0 })
+                NoticeDebugLog.Write($"  ServerTable hex (first 32): {Convert.ToHexString(args.ServerTable, 0, Math.Min(args.ServerTable.Length, 32))}");
+            var serverTableData = ServerTableData.Parse(args.ServerTable);
+            NoticeDebugLog.Write($"  parsed {serverTableData.Servers?.Count ?? 0} servers, ShowServerList={serverTableData.ShowServerList}");
+            OnServerTableReceived?.Invoke(serverTableData);
+        }
+        catch (Exception ex)
+        {
+            NoticeDebugLog.Write($"  !!! HandleServerTableResponse threw {ex.GetType().Name}: {ex.Message}");
+            NoticeDebugLog.Write($"  stack: {ex.StackTrace}");
+            throw;
+        }
     }
 
     private void HandleRedirect(ServerPacket pkt)
@@ -1624,7 +1656,9 @@ public sealed class ConnectionManager : IDisposable
 
     private void HandleLoginNotice(ServerPacket pkt)
     {
+        NoticeDebugLog.Write($"HandleLoginNotice raw Length={pkt.Length} DataLen={pkt.Data?.Length}");
         var args = Client.Deserialize<LoginNoticeArgs>(in pkt);
+        NoticeDebugLog.Write($"  parsed IsFullResponse={args.IsFullResponse} CheckSum={args.CheckSum:X8} Data?.Length={args.Data?.Length}");
         OnLoginNotice?.Invoke(args);
     }
 
@@ -1645,10 +1679,20 @@ public sealed class ConnectionManager : IDisposable
 
     private void HandleMapInfo(ServerPacket pkt)
     {
+        // Hybrasyl does not send MapChangePending, MapLoadComplete, or MapChangeComplete.
+        // Synthesize the full lifecycle around the single MapInfo packet: fire pending first so
+        // UI (world map, town map, pathfinding) is torn down, then the normal MapInfo event, then
+        // the implicit load/change completion so OnWorldEntryComplete can fire.
+        SynthesizeMapChangePending();
+
         var args = Client.Deserialize<MapInfoArgs>(in pkt);
         MapInfo = args;
         EntryState |= WorldEntryState.MapInfo;
         OnMapInfo?.Invoke(args);
+
+        EntryState |= WorldEntryState.MapLoaded | WorldEntryState.MapChangeComplete;
+        OnMapLoadComplete?.Invoke();
+        CheckWorldEntryComplete();
     }
 
     private void HandleMapData(ServerPacket pkt)
@@ -1944,6 +1988,10 @@ public sealed class ConnectionManager : IDisposable
     private void HandleRefreshResponse(ServerPacket _) => OnRefreshResponse?.Invoke();
 
     private void HandleMapChangePending(ServerPacket _) => OnMapChangePending?.Invoke();
+
+    // Synthesize a MapChangePending signal for Hybrasyl: fire it before HandleMapInfo's
+    // implicit completion so UI cleanup (world-map hide, pathfinding clear) runs first.
+    private void SynthesizeMapChangePending() => OnMapChangePending?.Invoke();
 
     //--- npc interaction ---
 
