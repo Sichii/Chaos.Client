@@ -5,6 +5,7 @@
     <PackageVersion Include="Chaos.Geometry" Version="1.11.0-preview-0007-g1c0297d942" />
     <PackageVersion Include="Chaos.Networking" Version="1.11.0-preview-0007-g1c0297d942" />
     <PackageVersion Include="Chaos.Pathfinding" Version="1.11.0-preview-0007-g1c0297d942" />
+    <PackageVersion Include="DALib" Version="0.7.0" />
     <PackageVersion Include="Microsoft.Extensions.Caching.Memory" Version="10.0.5" />
     <PackageVersion Include="NAudio" Version="2.3.0" />
     <PackageVersion Include="TextCopy" Version="6.2.1" />

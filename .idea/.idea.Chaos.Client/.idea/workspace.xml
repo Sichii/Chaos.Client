@@ -14,19 +14,10 @@
     <configurations />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="2cf40e53-e49e-4e2b-a433-eb4f57999662" name="Changes" comment="magic resistance and misc">
-      <change afterPath="$PROJECT_DIR$/Chaos.Client/Models/DrawState.cs" afterDir="false" />
+    <list default="true" id="2cf40e53-e49e-4e2b-a433-eb4f57999662" name="Changes" comment="fix 3px/3px offset issue&#10;- cleaned up Draw() and state stuff">
       <change beforePath="$PROJECT_DIR$/.idea/.idea.Chaos.Client/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/.idea.Chaos.Client/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/CLAUDE.md" beforeDir="false" afterPath="$PROJECT_DIR$/CLAUDE.md" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Chaos.Client.Rendering/AislingRenderer.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client.Rendering/AislingRenderer.cs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Chaos.Client/Collections/WorldState.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client/Collections/WorldState.cs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Chaos.Client/Models/EntityHighlight.cs" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/Chaos.Client/Rendering/EntityOverlayManager.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client/Rendering/EntityOverlayManager.cs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Chaos.Client/Rendering/WorldDebugRenderer.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client/Rendering/WorldDebugRenderer.cs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Chaos.Client/Screens/WorldScreen.Draw.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client/Screens/WorldScreen.Draw.cs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Chaos.Client/Screens/WorldScreen.InputHandlers.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client/Screens/WorldScreen.InputHandlers.cs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Chaos.Client/Screens/WorldScreen.Update.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client/Screens/WorldScreen.Update.cs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Chaos.Client/Screens/WorldScreen.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client/Screens/WorldScreen.cs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Chaos.Client.Data/Chaos.Client.Data.csproj" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client.Data/Chaos.Client.Data.csproj" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Chaos.Client.slnx" beforeDir="false" afterPath="$PROJECT_DIR$/Chaos.Client.slnx" afterDir="false" />
     </list>
     <list id="7231daaa-f0af-42dd-822b-aeab5364bc8b" name="AiStuff" comment="" />
     <option name="SHOW_DIALOG" value="false" />
@@ -140,7 +131,7 @@
       <workItem from="1776375736672" duration="1458000" />
       <workItem from="1776413134882" duration="20027000" />
       <workItem from="1776433602365" duration="3983000" />
-      <workItem from="1776442761638" duration="7142000" />
+      <workItem from="1776442761638" duration="9359000" />
     </task>
     <task id="LOCAL-00001" summary="safety">
       <option name="closed" value="true" />
@@ -502,7 +493,15 @@
       <option name="project" value="LOCAL" />
       <updated>1776437418335</updated>
     </task>
-    <option name="localTasksCounter" value="46" />
+    <task id="LOCAL-00046" summary="fix 3px/3px offset issue&#10;- cleaned up Draw() and state stuff">
+      <option name="closed" value="true" />
+      <created>1776450740320</created>
+      <option name="number" value="00046" />
+      <option name="presentableId" value="LOCAL-00046" />
+      <option name="project" value="LOCAL" />
+      <updated>1776450740320</updated>
+    </task>
+    <option name="localTasksCounter" value="47" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -511,7 +510,6 @@
   <component name="UnityCheckinConfiguration" checkUnsavedScenes="false" />
   <component name="UnityProjectConfiguration" hasMinimizedUI="false" />
   <component name="VcsManagerConfiguration">
-    <MESSAGE value="safety" />
     <MESSAGE value="auto clipping" />
     <MESSAGE value="bugfixes" />
     <MESSAGE value="mpf stuff" />
@@ -536,7 +534,8 @@
     <MESSAGE value="move epf empty frame guard&#10;- moved to simpleRender so it returns a valid transparent image" />
     <MESSAGE value="formatting and bugfixes" />
     <MESSAGE value="magic resistance and misc" />
-    <option name="LAST_COMMIT_MESSAGE" value="magic resistance and misc" />
+    <MESSAGE value="fix 3px/3px offset issue&#10;- cleaned up Draw() and state stuff" />
+    <option name="LAST_COMMIT_MESSAGE" value="fix 3px/3px offset issue&#10;- cleaned up Draw() and state stuff" />
   </component>
   <component name="XDebuggerManager">
     <pin-to-top-manager>
