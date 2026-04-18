@@ -54,10 +54,10 @@ public sealed class GroupRecruitPanel : PrefabPanel
         UsesControlStack = true;
 
         //text fields from prefab
-        TitleField = CreateTextBox("TITLE", 24);
+        TitleField = CreateTextBox("TITLE", 18);
         ExtraField = CreateTextBox("EXTRA", 60);
-        MinLevelField = CreateTextBox("N_LEVEL_MIN", 3);
-        MaxLevelField = CreateTextBox("N_LEVEL_MAX", 3);
+        MinLevelField = CreateTextBox("N_LEVEL_MIN", 2);
+        MaxLevelField = CreateTextBox("N_LEVEL_MAX", 2);
 
         TitleField?.ForegroundColor = LegendColors.White;
 
@@ -84,7 +84,7 @@ public sealed class GroupRecruitPanel : PrefabPanel
             var rowY = CLASS_LABEL_START_Y + i * CLASS_ROW_SPACING;
 
             //owner mode: wanted (max) count as text box
-            ClassMaxFields[i] = CreateTextBox(wantedName, 3);
+            ClassMaxFields[i] = CreateTextBox(wantedName, 2);
 
             if (ClassMaxFields[i] is null)
             {
@@ -152,10 +152,10 @@ public sealed class GroupRecruitPanel : PrefabPanel
 
         //button events
         if (BeginButton is not null)
-            BeginButton.Clicked += HandleCreate;
+            BeginButton.Clicked += HandleBegin;
 
         if (ModifyButton is not null)
-            ModifyButton.Clicked += HandleCreate;
+            ModifyButton.Clicked += HandleModify;
 
         if (ResetButton is not null)
             ResetButton.Clicked += HandleReset;
@@ -184,13 +184,25 @@ public sealed class GroupRecruitPanel : PrefabPanel
         OnClose?.Invoke();
     }
 
-    private void HandleCreate()
+    private void HandleBegin()
+    {
+        SendCreateOrModify();
+        Hide();
+        OnClose?.Invoke();
+    }
+
+    private void HandleModify()
+    {
+        SendCreateOrModify();
+        // Retail behavior: dialog stays open after MODIFY so the owner sees
+        // the server-authoritative values echo back via ShowGroupBox(self).
+        // Ref: docs/research/group-ui-original-re.md §2.2.
+    }
+
+    private void SendCreateOrModify()
     {
         var name = TitleField?.Text ?? string.Empty;
         var note = ExtraField?.Text ?? string.Empty;
-
-        if (string.IsNullOrWhiteSpace(name))
-            return;
 
         OnCreateGroupBox?.Invoke(
             name,
@@ -202,9 +214,6 @@ public sealed class GroupRecruitPanel : PrefabPanel
             ParseByte(ClassMaxFields[2]),
             ParseByte(ClassMaxFields[3]),
             ParseByte(ClassMaxFields[4]));
-
-        Hide();
-        OnClose?.Invoke();
     }
 
     private void HandleQueryJoin()
@@ -278,6 +287,10 @@ public sealed class GroupRecruitPanel : PrefabPanel
 
             if (ClassMaxLabels[i] is not null)
                 ClassMaxLabels[i]!.Text = maxCounts[i]
+                    .ToString();
+
+            if (ClassMaxFields[i] is not null)
+                ClassMaxFields[i]!.Text = maxCounts[i]
                     .ToString();
 
             totalCurrent += currentCounts[i];

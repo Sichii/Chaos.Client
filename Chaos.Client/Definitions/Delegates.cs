@@ -340,7 +340,6 @@ public delegate void GroupKickHandler(string name);
 /// <summary>
 ///     A group leave was requested.
 /// </summary>
-public delegate void GroupLeaveHandler();
 
 /// <summary>
 ///     A closed event was fired (for overlapping OnClose semantics).

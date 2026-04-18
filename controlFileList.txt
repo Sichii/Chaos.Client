@@ -237,12 +237,45 @@ _nmails.txt
     _nbtn.epf/.spf       — Send/Cancel button frames
 
 _ngcdlg0.txt
-  Class:    GroupControl : PrefabPanel
-  File:     Controls/World/Popups/GroupControl.cs
-  Purpose:  Group/party dialog — 13 member slots (USER0-USER12), invite button, OK
+  Class:    GroupTab : PrefabPanel
+  File:     Controls/World/Popups/GroupTab.cs
+  Purpose:  Group member list tab — 13 member slots computed from USER0 and USER1 anchor rects (stride 22), each with a per-row kick button. OK closes the parent tab container.
   Images referenced by controls:
     _ngcdlg0.epf/.spf    — Anchor background
-    _nbtn.epf/.spf       — Invite/OK button frames
+    _nbtn.epf/.spf       — OK button frames (shared)
+    B_BTN0 (prefab entry) — 3-frame kick button texture set: 0=normal, 1=pressed, 2=disabled
+
+_ngcmain.txt
+  Class:    GroupTabControl : PrefabPanel
+  File:     Controls/World/Popups/GroupTabControl.cs
+  Purpose:  Tabbed container for the group window. Hosts GroupTab (members, TAB0) and GroupRecruitPanel (recruit, TAB1). Close button on the header.
+  Images referenced by controls:
+    _ngcdlg0.epf/.spf    — Anchor background (shared — _ngcmain.spf does not exist)
+    _ngcbtnb.epf/.spf    — Big (selected) tab button frames (2 frames at 72×27)
+    _ngcbtns.epf/.spf    — Small (normal) tab button frames (2 frames at 69×20)
+
+_ngcdlg1.txt
+  Class:    GroupRecruitPanel : PrefabPanel
+  File:     Controls/World/Popups/GroupRecruitPanel.cs
+  Purpose:  Group recruitment dialog with three modes — OwnerNew / OwnerEdit / Viewer. Mode governs which of BTN_BEGIN / BTN_MODIFY / BTN_RESET / BTN_QUERY_JOIN / BTN_CANCEL is visible. All action buttons share the same screen coordinates and are toggled via visibility.
+  Controls referenced by prefab:
+    TITLE                — group box title (editable in owner modes, locked in viewer; max 18 chars)
+    EXTRA                — note / description (multiline, 60 chars)
+    N_LEVEL_MIN, N_LEVEL_MAX — level range (2 chars each, 0-99)
+    N_CLASS0..4_W        — per-class max wanted count (owner modes, 2 chars each)
+    N_CLASS0..4_O        — per-class current count (viewer mode labels)
+    N_TOTAL_O, N_TOTAL_W — summary totals (viewer mode)
+    BTN_BEGIN / BTN_MODIFY / BTN_RESET / BTN_CANCEL / BTN_QUERY_JOIN
+  Images referenced by controls:
+    _ngcdlg1.epf/.spf    — Anchor background
+    _ngcbtn.epf/.spf     — 15-frame button set: 5 buttons × 3 states (indices 0-2 Modify, 3-5 Reset, 6-8 Begin, 9-11 QueryJoin, 12-14 Cancel)
+
+lgcpane.txt
+  Class:    GroupBox : UIPanel (world-space overhead banner, not a popup)
+  File:     Controls/World/ViewPort/GroupBox.cs
+  Purpose:  103×19 recruitment banner drawn above an Aisling with a non-empty GroupBoxText. Rendered via EntityOverlayManager at -74 px above the entity sprite anchor. Hover state tints the title rect blue (retail blit-mode 0x7a); click sends 0x2E/5 ViewGroupBox to the server.
+  Images referenced by controls:
+    gc_pane2.epf/.spf    — 103×19 wooden-frame pane image
 
 lnpcd.txt
   Class:    NpcDialogControl : PrefabPanel
@@ -567,7 +600,7 @@ msg.tbl
 #   Login flow:              _nstart, _nlogin, _nsvr, _ncreate, _nagree, _npw
 #   Main HUD:                _nbk_s, _nstatus
 #   Self-profile tabs:       _nui, _nui_eq, _nui_sk, _nui_dr, _nui_ev, _nui_al, _nui_fm
-#   Popups/dialogs:          _nexch, _nmoney, _nmaill, _nmailr, _nmails, _ngcdlg0, lnpcd, lssbook, _nhotkem, _nhotkey
+#   Popups/dialogs:          _nexch, _nmoney, _nmaill, _nmailr, _nmails, _ngcmain, _ngcdlg0, _ngcdlg1, lgcpane, lnpcd, lssbook, _nhotkem, _nhotkey
 #   Options/settings:        _noptdlg, _nmacro, _nsett, _nfriend
 #   HUD sub-controls:        lback, lemot, _nusers
 #   Loading:                 _nload, _nloadm

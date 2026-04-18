@@ -666,16 +666,11 @@ public sealed partial class WorldScreen
 
             case ServerGroupSwitch.RequestToJoin:
             {
+                // Retail behavior: the leader's client silently auto-forwards as TryInvite
+                // with no UI prompt. Ref: docs/research/group-ui-original-re.md §5.1 / §7.1
+                // (verified round-2). The orange-bar notice is a QoL addition retail omits.
                 WorldState.Chat.AddOrangeBarMessage($"{sourceName} wants to join your group.");
-
-                if (!ClientSettings.UseGroupWindow)
-                {
-                    Game.Connection.SendGroupInvite(ClientGroupSwitch.AcceptInvite, sourceName);
-
-                    break;
-                }
-
-                ShowGroupInvitePopup($"{sourceName} wants to join your group.", sourceName);
+                Game.Connection.SendGroupInvite(ClientGroupSwitch.TryInvite, sourceName);
 
                 break;
             }
@@ -690,8 +685,10 @@ public sealed partial class WorldScreen
                 }
 
                 if (sourceName.EqualsI(WorldState.PlayerName))
+                {
+                    WorldState.Group.MarkGroupBoxActive();
                     GroupPanel.ShowRecruitOwnerEdit(groupBoxInfo);
-                else
+                } else
                     GroupBoxViewer.ShowAsViewer(sourceName, groupBoxInfo);
 
                 break;

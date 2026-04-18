@@ -273,7 +273,7 @@ public static class WorldState
         Attributes.Clear();
         Chat.Clear();
         Board.CloseSession();
-        Group.Clear();
+        Group.ResetAll();
         GroupInvite.Clear();
         NpcInteraction.Close();
         Exchange.Close();

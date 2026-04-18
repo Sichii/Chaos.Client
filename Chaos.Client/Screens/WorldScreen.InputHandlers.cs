@@ -927,6 +927,7 @@ public sealed partial class WorldScreen
         //y — group panel (members tab)
         if (e.Key == Keys.Y)
         {
+            Game.Connection.RequestSelfProfile();
             GroupPanel.ShowMembers();
             e.Handled = true;
 

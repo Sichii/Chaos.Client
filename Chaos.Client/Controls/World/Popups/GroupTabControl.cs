@@ -49,15 +49,28 @@ public sealed class GroupTabControl : PrefabPanel
             Tab1Button.CenterTexture = true;
             Tab1Button.SelectedTexture = Tab1Button.NormalTexture;
             Tab1Button.NormalTexture = cache.GetPrefabTexture("_ngcmain", "TAB1_S", 0);
-            Tab1Button.Clicked += () => SwitchTab(1);
+            Tab1Button.Clicked += () =>
+            {
+                SwitchTab(1);
+                OnRecruitTabOpened?.Invoke();
+            };
         }
 
-        //create child panels — positioned at dlgframe rect (0,0 within the main container)
+        //create child panels — positioned at dlgframe rect (0,0 within the main container).
+        //UsesControlStack is forced false for these nested instances: they're always wrapped
+        //by GroupTabControl and must not push independently. If they did, SwitchTab(0)'s
+        //MembersPanel.Show() call would push MembersPanel onto the InputDispatcher control
+        //stack at construction time, which permanently trips the WorldScreen stack guard
+        //in OnRootKeyDown and disables game hotkeys (Y, T, J, B, F1-F10, A/S/D/F/G/H, etc.)
+        //until the user opens-and-closes the group window once. Only the top-level
+        //GroupTabControl participates in the control stack.
         MembersPanel = new GroupTab();
         MembersPanel.Visible = true;
+        MembersPanel.UsesControlStack = false;
 
         RecruitPanel = new GroupRecruitPanel();
         RecruitPanel.Visible = false;
+        RecruitPanel.UsesControlStack = false;
 
         AddChild(MembersPanel);
         AddChild(RecruitPanel);
@@ -97,21 +110,25 @@ public sealed class GroupTabControl : PrefabPanel
     public event CloseHandler? OnClose;
 
     /// <summary>
+    ///     Fired when the user clicks the recruit tab button. Subscribers decide whether to send
+    ///     a self-ViewGroupBox query (when HasActiveGroupBox is true) so the panel populates from
+    ///     the authoritative server state instead of showing a stale OwnerNew blank form.
+    /// </summary>
+    public event Action? OnRecruitTabOpened;
+
+    /// <summary>
     ///     Shows the window on the members tab.
     /// </summary>
     public void ShowMembers()
     {
-        SwitchTab(0);
-        Show();
-    }
-
-    /// <summary>
-    ///     Shows the window on the recruit tab in owner mode.
-    /// </summary>
-    public void ShowRecruitOwner()
-    {
-        SwitchTab(1);
+        //prime the recruit panel to OwnerNew defaults once per panel-open. If the
+        //user later switches to TAB1 with HasActiveGroupBox==true, the
+        //OnRecruitTabOpened handler sends ViewGroupBox(self) and the server's
+        //ShowGroupBox(self) response overrides to OwnerEdit via ShowRecruitOwnerEdit.
+        //Priming here (not on every TAB1 click) preserves in-progress typing when
+        //the user toggles between tabs within a single panel session.
         RecruitPanel.ShowAsOwner();
+        SwitchTab(0);
         Show();
     }
 
@@ -137,8 +154,18 @@ public sealed class GroupTabControl : PrefabPanel
 
     private void SwitchTab(int tab)
     {
-        MembersPanel.Visible = tab == 0;
-        RecruitPanel.Visible = tab == 1;
+        if (tab == 0)
+        {
+            //reset interaction state on the outgoing panel to clear any focused textbox
+            RecruitPanel.ResetInteractionState();
+            RecruitPanel.Hide();
+            MembersPanel.Show();
+        } else
+        {
+            MembersPanel.ResetInteractionState();
+            MembersPanel.Hide();
+            RecruitPanel.Show();
+        }
 
         if (Tab0Button is not null)
         {
@@ -161,5 +188,16 @@ public sealed class GroupTabControl : PrefabPanel
             OnClose?.Invoke();
             e.Handled = true;
         }
+    }
+
+    public override void Hide()
+    {
+        //ensure both children are also removed from the control stack so they don't
+        //orphan above a hidden parent — SwitchTab only pushes one child at a time,
+        //but closing the window should clear both regardless of which tab was active.
+        MembersPanel.Hide();
+        RecruitPanel.Hide();
+
+        base.Hide();
     }
 }

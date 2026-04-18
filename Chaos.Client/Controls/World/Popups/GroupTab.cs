@@ -131,9 +131,6 @@ public sealed class GroupTab : PrefabPanel
 
     public event CloseHandler? OnClose;
     public event GroupKickHandler? OnKick;
-    #pragma warning disable CS0067 //not yet wired
-    public event GroupLeaveHandler? OnLeave;
-    #pragma warning restore CS0067
 
     private void Refresh()
     {
@@ -153,10 +150,8 @@ public sealed class GroupTab : PrefabPanel
             {
                 if (i < members.Count)
                 {
-                    var isMemberLeader = leaderName is not null
-                                         && members[i]
-                                             .EqualsI(leaderName);
-                    MemberLabels[i]!.ForegroundColor = isMemberLeader ? LegendColors.White : Color.LightGray;
+                    var isMemberLeader = leaderName is not null && members[i].EqualsI(leaderName);
+                    MemberLabels[i]!.ForegroundColor = isMemberLeader ? LegendColors.White : TextColors.Default;
                     MemberLabels[i]!.Text = members[i];
                 } else
                     MemberLabels[i]!.Text = string.Empty;

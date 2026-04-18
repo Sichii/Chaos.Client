@@ -149,7 +149,15 @@ public sealed class EntityOverlayManager
                 continue;
 
             if (string.IsNullOrEmpty(entity.GroupBoxText))
+            {
+                //Entity previously had a groupbox that was cleared (server sent a
+                //DisplayAisling with empty GroupBoxText). Drop the cached panel
+                //so it stops rendering and also falls out of hit-testing via
+                //GetGroupBoxAtScreen.
+                GroupBoxes.Remove(entity.Id);
+
                 continue;
+            }
 
             if (!GroupBoxes.TryGetValue(entity.Id, out var groupBox))
             {

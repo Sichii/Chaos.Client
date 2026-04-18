@@ -115,6 +115,15 @@ public sealed class InputDispatcher
     {
         ControlStack.Remove(panel);
         ControlStack.Add(panel);
+
+        //focus follows the stack top. clear any stale focus sitting in a panel below
+        //the new top so keys don't leak to it (e.g. escape hitting a login textbox
+        //behind an error popup). panels that want a specific child focused on open
+        //can assign IsFocused themselves during their Show() override.
+        if (ExplicitFocusElement is not null
+            && (ExplicitFocusElement != panel)
+            && !IsDescendantOf(panel, ExplicitFocusElement))
+            ClearExplicitFocus();
     }
 
     /// <summary>
@@ -127,6 +136,12 @@ public sealed class InputDispatcher
 
         if (ExplicitFocusElement is not null && IsDescendantOf(panel, ExplicitFocusElement))
             ClearExplicitFocus();
+
+        //focus follows the stack top: after removal, the new top becomes the focus
+        //target so keys route into it via Phase 1/1.5 before Phase 2 stack dispatch.
+        //when the stack is now empty, leave focus clear (root-level hotkeys take over).
+        if (TopControl is { } newTop && IsEffectivelyVisible(newTop))
+            SetExplicitFocus(newTop);
     }
 
     /// <summary>

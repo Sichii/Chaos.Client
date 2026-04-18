@@ -941,7 +941,7 @@ public class UITextBox : UIElement
 
     public override void OnKeyDown(KeyDownEvent e)
     {
-        if (!IsFocused)
+        if (!IsFocused || !Enabled)
             return;
 
         var shift = e.Shift;
@@ -1142,7 +1142,7 @@ public class UITextBox : UIElement
 
     public override void OnTextInput(TextInputEvent e)
     {
-        if (!IsFocused || IsReadOnly)
+        if (!IsFocused || IsReadOnly || !Enabled)
             return;
 
         var c = e.Character;
