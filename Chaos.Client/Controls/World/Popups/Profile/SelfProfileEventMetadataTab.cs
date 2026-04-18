@@ -132,6 +132,7 @@ public sealed class SelfProfileEventMetadataTab : PrefabPanel
                     CurrentPage++;
                     LeftScrollOffset = 0;
                     RightScrollOffset = 0;
+                    SetBackgroundFrame(CurrentPage);
                     Dirty = true;
                 }
             };
@@ -144,6 +145,7 @@ public sealed class SelfProfileEventMetadataTab : PrefabPanel
                     CurrentPage--;
                     LeftScrollOffset = 0;
                     RightScrollOffset = 0;
+                    SetBackgroundFrame(CurrentPage);
                     Dirty = true;
                 }
             };
@@ -167,6 +169,7 @@ public sealed class SelfProfileEventMetadataTab : PrefabPanel
         RightScrollBar.TotalItems = 0;
         RightScrollBar.MaxValue = 0;
         RightScrollBar.Value = 0;
+        SetBackgroundFrame(0);
         Dirty = true;
     }
 
@@ -334,6 +337,7 @@ public sealed class SelfProfileEventMetadataTab : PrefabPanel
         CurrentPage = 0;
         LeftScrollOffset = 0;
         RightScrollOffset = 0;
+        SetBackgroundFrame(0);
         UpdateScrollBars();
         Dirty = true;
     }

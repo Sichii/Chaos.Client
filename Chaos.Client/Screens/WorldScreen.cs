@@ -12,6 +12,7 @@ using Chaos.Client.Controls.World.Popups.Options;
 using Chaos.Client.Controls.World.Popups.Profile;
 using Chaos.Client.Controls.World.Popups.WorldList;
 using Chaos.Client.Controls.World.ViewPort;
+using Chaos.Client.Data.Repositories;
 using Chaos.Client.Extensions;
 using Chaos.Client.Models;
 using Chaos.Client.Rendering.Models;
@@ -515,7 +516,7 @@ public sealed partial class WorldScreen : IScreen
         SocialStatusPicker.OnStatusSelected += status =>
         {
             Game.Connection.SendSocialStatus(status);
-            StatusBook.SetEmoticonState((byte)status, status.ToString());
+            StatusBook.SetEmoticonState((byte)status, UiComponentRepository.GetSocialStatusName(status));
 
             var emoteIcon = UiRenderer.Instance?.GetEpfTexture("emot000.epf", (int)status * 3);
 

@@ -2,6 +2,7 @@
 using Chaos.Client.Collections;
 using Chaos.Client.Controls.Components;
 using Chaos.Client.Data;
+using Chaos.Client.Data.Repositories;
 using Chaos.Client.Models;
 using Chaos.Networking.Entities.Server;
 using Microsoft.Xna.Framework;
@@ -179,7 +180,7 @@ public sealed class OtherProfileTabControl : PrefabPanel
             equipPage.SetEquipment(args.Equipment);
             equipPage.SetGroupOpen(args.GroupOpen);
             equipPage.SetNation((byte)args.Nation);
-            equipPage.SetEmoticonState((byte)args.SocialStatus, args.SocialStatus.ToString());
+            equipPage.SetEmoticonState((byte)args.SocialStatus, UiComponentRepository.GetSocialStatusName(args.SocialStatus));
 
             equipPage.SetProfileText(args.ProfileText ?? string.Empty);
             equipPage.SetPortrait(args.Portrait);

@@ -498,7 +498,7 @@ public sealed class MenuListPanel : FramedDialogPanelBase
             IconImage.Texture = icon;
             IconImage.Visible = icon is not null;
             NameLabel.Text = name;
-            NameLabel.ForegroundColor = selected ? SELECTED_TEXT_COLOR : TextColors.Default;
+            NameLabel.ForegroundColor = selected ? SELECTED_TEXT_COLOR : LegendColors.White;
         }
 
     }

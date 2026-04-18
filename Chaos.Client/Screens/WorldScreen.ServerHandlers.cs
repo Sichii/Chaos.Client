@@ -2,6 +2,7 @@
 using Chaos.Client.Collections;
 using Chaos.Client.Controls.Generic;
 using Chaos.Client.Data;
+using Chaos.Client.Data.Repositories;
 using Chaos.Client.Data.Utilities;
 using Chaos.Client.Extensions;
 using Chaos.Client.Models;
@@ -772,7 +773,7 @@ public sealed partial class WorldScreen
 
         //social status display
         var status = SocialStatusPicker.CurrentStatus;
-        StatusBook.SetEmoticonState((byte)status, status.ToString());
+        StatusBook.SetEmoticonState((byte)status, UiComponentRepository.GetSocialStatusName(status));
 
         //populate and show the status book
         StatusBook.SetPlayerInfo(

@@ -82,7 +82,11 @@ public sealed class AbilityMetadataEntryControl : PrefabPanel
 
         if (LevelLabel is not null)
         {
-            LevelLabel.Text = $"level {entry.Level}";
+            LevelLabel.Text = entry.RequiresMaster
+                ? "master"
+                : entry.AbilityLevel > 0
+                    ? $"ability {entry.AbilityLevel}"
+                    : $"level {entry.Level}";
             LevelLabel.ForegroundColor = LegendColors.White;
         }
 

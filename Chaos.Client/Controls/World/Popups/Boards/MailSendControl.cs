@@ -62,7 +62,7 @@ public sealed class MailSendControl : PrefabPanel
         {
             X = contentRect.X,
             Y = contentRect.Y,
-            Width = contentRect.Width,
+            Width = contentRect.Width - 2,
             Height = contentRect.Height,
             IsMultiLine = true,
             IsSelectable = true,
@@ -117,10 +117,15 @@ public sealed class MailSendControl : PrefabPanel
     /// </summary>
     public void ShowCompose(string? recipient = null)
     {
+        var isReply = !string.IsNullOrEmpty(recipient);
+
         if (ReceiverEditBox is not null)
         {
             ReceiverEditBox.Text = recipient ?? string.Empty;
-            ReceiverEditBox.IsFocused = recipient is null;
+            ReceiverEditBox.IsReadOnly = isReply;
+            ReceiverEditBox.ForegroundColor = isReply ? TextColors.Default : LegendColors.White;
+            ReceiverEditBox.IsTabStop = !isReply;
+            ReceiverEditBox.IsFocused = !isReply;
         }
 
         TitleBox?.Text = string.Empty;
@@ -131,10 +136,10 @@ public sealed class MailSendControl : PrefabPanel
 
         Show();
 
-        if (ReceiverEditBox is not null && string.IsNullOrEmpty(recipient))
-            ReceiverEditBox.IsFocused = true;
-        else
+        if (isReply)
             TitleBox?.IsFocused = true;
+        else if (ReceiverEditBox is not null)
+            ReceiverEditBox.IsFocused = true;
     }
 
     public override void OnKeyDown(KeyDownEvent e)

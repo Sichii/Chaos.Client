@@ -89,9 +89,11 @@ public sealed class MailReadControl : PrefabPanel
             Width = contentRect.Width - ScrollBarControl.DEFAULT_WIDTH,
             Height = contentRect.Height,
             PaddingLeft = 0,
+            PaddingRight = 2,
             PaddingTop = 0,
             WordWrap = true,
-            ForegroundColor = TextColors.Default
+            ForegroundColor = TextColors.Default,
+            IsSelectable = true
         };
 
         AddChild(BodyLabel);

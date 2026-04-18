@@ -1,7 +1,7 @@
 #region
 using System.Collections.Frozen;
-using System.Text;
 using Chaos.Client.Data.Abstractions;
+using Chaos.DarkAges.Definitions;
 using Chaos.Client.Data.Models;
 using Chaos.Extensions.Common;
 using DALib.Data;
@@ -18,6 +18,29 @@ namespace Chaos.Client.Data.Repositories;
 public sealed class UiComponentRepository : RepositoryBase
 {
     private readonly IDictionary<int, Palette> GuiPalettes = LoadGuiPalettes();
+
+    /// <summary>
+    ///     Localized display names for <see cref="SocialStatus"/>, mirroring the original client's msg.tbl entries
+    ///     (setoa.dat/msg.tbl, lines 36+). Indexed by the enum's byte value.
+    /// </summary>
+    public static readonly string[] SocialStatusNames =
+    [
+        "Awake",
+        "DoNotDisturb",
+        "DayDreaming",
+        "Need Group",
+        "Grouped",
+        "Lone Hunter",
+        "GroupHunting",
+        "Need Help"
+    ];
+
+    public static string GetSocialStatusName(SocialStatus status)
+    {
+        var index = (byte)status;
+
+        return index < SocialStatusNames.Length ? SocialStatusNames[index] : status.ToString();
+    }
 
     public UiComponentRepository()
     {
@@ -207,25 +230,6 @@ public sealed class UiComponentRepository : RepositoryBase
         return GuiPalettes.TryGetValue(palNum, out var palette) ? palette : null;
     }
 
-    /// <summary>
-    ///     Reads the msg.tbl localization text file from setoa.dat and returns its lines (EUC-KR decoded). Returns null if
-    ///     msg.tbl is not found.
-    /// </summary>
-    public string[]? GetMessageTableLines()
-    {
-        if (!DatArchives.Setoa.TryGetValue("msg.tbl", out var entry))
-            return null;
-
-        using var ms = new MemoryStream();
-
-        using (var s = entry.ToStreamSegment())
-            s.CopyTo(ms);
-
-        var text = Encoding.GetEncoding(949)
-                           .GetString(ms.ToArray());
-
-        return text.Split('\n');
-    }
 
     /// <summary>
     ///     Loads a single frame from an EPF file in national.dat rendered with legend.pal.

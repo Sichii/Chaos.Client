@@ -2,6 +2,7 @@
 using Chaos.Client.Collections;
 using Chaos.Client.Controls.Components;
 using Chaos.Client.Controls.World.Hud.Panel;
+using Chaos.Client.Controls.World.Hud.Panel.Slots;
 using Chaos.Client.Controls.World.ViewPort;
 using Chaos.Client.Data;
 using Chaos.Client.Systems;
@@ -400,6 +401,63 @@ public sealed class LargeWorldHudControl : PrefabPanel, IWorldHud
     }
 
     private void HideTooltip() => TooltipLabel.Visible = false;
+
+    private PanelSlot? TooltipSlot;
+
+    /// <summary>
+    ///     Shows the shared tooltip label anchored to the cursor for the given panel slot. Used for skill/spell slot hovers so
+    ///     the user can see the full ability name + level details (e.g. "Ioc (Lev:50/100)") without clipping in the
+    ///     description area. The tooltip follows the cursor via <see cref="Update"/> until <see cref="HideSlotTooltip"/>.
+    /// </summary>
+    public void ShowSlotTooltip(PanelSlot slot)
+    {
+        TooltipSlot = slot;
+        RefreshSlotTooltip();
+    }
+
+    public void HideSlotTooltip()
+    {
+        TooltipSlot = null;
+        TooltipLabel.Visible = false;
+    }
+
+    private void RefreshSlotTooltip()
+    {
+        if (TooltipSlot is not { SlotName: { Length: > 0 } text })
+        {
+            TooltipLabel.Visible = false;
+
+            return;
+        }
+
+        TooltipLabel.Text = text;
+        TooltipLabel.Width = TextRenderer.MeasureWidth(text) + 4;
+        TooltipLabel.Height = TextRenderer.CHAR_HEIGHT + 4;
+
+        //anchor bottom-left at cursor, shifted down 3px, clamping right edge to screen
+        var cursorX = InputBuffer.MouseX;
+        var cursorY = InputBuffer.MouseY;
+
+        var absoluteRight = cursorX + TooltipLabel.Width;
+
+        if (absoluteRight > ChaosGame.VIRTUAL_WIDTH)
+            cursorX -= absoluteRight - ChaosGame.VIRTUAL_WIDTH;
+
+        if (cursorX < 0)
+            cursorX = 0;
+
+        TooltipLabel.X = cursorX - ScreenX;
+        TooltipLabel.Y = cursorY - ScreenY - TooltipLabel.Height + 3;
+        TooltipLabel.Visible = true;
+    }
+
+    public override void Update(GameTime gameTime)
+    {
+        base.Update(gameTime);
+
+        if (TooltipSlot is not null)
+            RefreshSlotTooltip();
+    }
 
     private void CreateTabPanels(
         Texture2D? invBgTexture,

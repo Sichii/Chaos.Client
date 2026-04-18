@@ -75,6 +75,8 @@ public sealed class StatsPanel : ExpandablePanel
     private readonly long[] StatValues = new long[LABEL_COUNT];
     private readonly StatButton?[] StatButtons = new StatButton?[STAT_BUTTON_COUNT];
     private bool HasUnspentPoints;
+    private int UnspentPointsCount;
+    private bool IsHovered;
 
     //expand repositioning — compact and expanded label layouts
     private LabelLayout[]? CompactLayouts;
@@ -312,22 +314,60 @@ public sealed class StatsPanel : ExpandablePanel
         TrySetLabel(IDX_AB, attrs.Ability);
         TrySetLabel(IDX_NEXT_AB, attrs.ToNextAbility);
 
-        SetUnspentPoints(attrs.UnspentPoints > 0);
+        SetUnspentPoints(attrs.UnspentPoints);
     }
 
-    private void SetUnspentPoints(bool hasPoints)
+    public event Action<int>? OnHoverEnter;
+    public event Action? OnHoverExit;
+
+    public override void OnMouseEnter()
     {
-        if (HasUnspentPoints == hasPoints)
+        IsHovered = true;
+
+        if (UnspentPointsCount > 0)
+            OnHoverEnter?.Invoke(UnspentPointsCount);
+    }
+
+    public override void OnMouseLeave()
+    {
+        if (!IsHovered)
             return;
 
-        HasUnspentPoints = hasPoints;
+        IsHovered = false;
+        OnHoverExit?.Invoke();
+    }
 
-        for (var i = 0; i < STAT_BUTTON_COUNT; i++)
-            if (StatButtons[i] is not null)
-            {
-                StatButtons[i]!.Visible = hasPoints && (!CanExpand || IsExpanded);
-                StatButtons[i]!.SetAnimating(hasPoints);
-            }
+    private void SetUnspentPoints(int count)
+    {
+        var prevCount = UnspentPointsCount;
+
+        if (prevCount == count)
+            return;
+
+        UnspentPointsCount = count;
+        var hasPoints = count > 0;
+        var prevHad = prevCount > 0;
+
+        if (prevHad != hasPoints)
+        {
+            HasUnspentPoints = hasPoints;
+
+            for (var i = 0; i < STAT_BUTTON_COUNT; i++)
+                if (StatButtons[i] is not null)
+                {
+                    StatButtons[i]!.Visible = hasPoints && (!CanExpand || IsExpanded);
+                    StatButtons[i]!.SetAnimating(hasPoints);
+                }
+        }
+
+        //refresh the hover description live if the player is currently hovering the panel
+        if (IsHovered)
+        {
+            if (hasPoints)
+                OnHoverEnter?.Invoke(count);
+            else
+                OnHoverExit?.Invoke();
+        }
     }
 
     private record struct LabelLayout(

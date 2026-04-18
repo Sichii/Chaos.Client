@@ -609,9 +609,13 @@ public sealed class MenuShopPanel : PrefabPanel
         var entry = Entries[absoluteIndex];
         var hasDetails = entry.Class is not null || entry.Level is not null || entry.Weight is not null;
 
-        DescClassLabel?.Text = entry.Class is { } cls ? ((BaseClass)cls).ToString() : string.Empty;
+        DescClassLabel?.Text = entry.Class is { } cls
+            ? ((BaseClass)cls == BaseClass.Peasant ? "all class" : ((BaseClass)cls).ToString())
+            : string.Empty;
 
-        DescLevelLabel?.Text = entry.Level?.ToString() ?? string.Empty;
+        DescLevelLabel?.Text = entry.Level is { } lvl
+            ? (lvl == 0 ? "no limit" : lvl.ToString())
+            : string.Empty;
 
         DescWeightLabel?.Text = entry.Weight?.ToString() ?? string.Empty;
 

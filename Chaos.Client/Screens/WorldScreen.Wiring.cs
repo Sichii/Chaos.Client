@@ -552,13 +552,11 @@ public sealed partial class WorldScreen
             DeleteConfirm.Show("Delete this post?");
         };
 
-        MailList.OnReplyPost += postId =>
+        MailList.OnReplyPost += _ =>
         {
-            Game.Connection.SendBoardInteraction(
-                BoardRequestType.ViewPost,
-                MailList.BoardId,
-                postId,
-                controls: BoardControls.RequestPost);
+            MailSend.BoardId = MailList.BoardId;
+            MailList.Hide();
+            MailSend.ShowCompose(MailList.CurrentAuthor);
         };
 
         MailList.OnLoadMorePosts += lastPostId =>
@@ -911,6 +909,9 @@ public sealed partial class WorldScreen
 
         hud.StatsPanel.OnRaiseStat += stat => Game.Connection.RaiseStat(stat);
 
+        hud.StatsPanel.OnHoverEnter += count => WorldHud.SetDescription($"Level Up Point: {count}");
+        hud.StatsPanel.OnHoverExit += () => WorldHud.SetDescription(null);
+
         hud.Inventory.OnSlotHoverEnter += HandleInventoryHoverEnter;
         hud.Inventory.OnSlotHoverExit += HandleInventoryHoverExit;
 
@@ -928,6 +929,23 @@ public sealed partial class WorldScreen
             panel.OnSlotHoverEnter += slot => WorldHud.SetDescription(slot.SlotName);
             panel.OnSlotHoverExit += () => WorldHud.SetDescription(null);
         }
+
+        //large hud: show a tooltip popup (matching the equipment tab's style) when hovering skill/spell slots so the
+        //full ability name + level details are visible above the slot
+        if (hud is LargeWorldHudControl largeHud)
+            foreach (var panel in new PanelBase[]
+                     {
+                         hud.SkillBook,
+                         hud.SkillBookAlt,
+                         hud.SpellBook,
+                         hud.SpellBookAlt,
+                         hud.Tools.WorldSkills,
+                         hud.Tools.WorldSpells
+                     })
+            {
+                panel.OnSlotHoverEnter += largeHud.ShowSlotTooltip;
+                panel.OnSlotHoverExit += largeHud.HideSlotTooltip;
+            }
     }
 
     private void ResetBulletinButtonSelection() => WorldHud.BulletinButton?.IsSelected = false;

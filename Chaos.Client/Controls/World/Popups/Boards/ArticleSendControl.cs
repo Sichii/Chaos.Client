@@ -53,7 +53,7 @@ public sealed class ArticleSendControl : PrefabPanel
         {
             X = contentRect.X,
             Y = contentRect.Y,
-            Width = contentRect.Width,
+            Width = contentRect.Width - 2,
             Height = contentRect.Height,
             IsMultiLine = true,
             IsSelectable = true,
