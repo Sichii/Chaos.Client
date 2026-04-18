@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-Chaos.Client is a Dark Ages MMORPG client built in C# (.NET 10.0) using MonoGame for windowing/graphics and a local DALib fork for Dark Ages file format handling. Targets the Chaos-Server private server. Licensed under AGPL-3.0-or-later. v0.1.0.
+Chaos.Client is a Dark Ages MMORPG client built in C# (.NET 10.0) using MonoGame for windowing/graphics and DALib for Dark Ages file format handling. Targets Chaos-Server. Licensed under AGPL-3.0-or-later. v0.1.0.
 
 ## Build & Run
 
@@ -12,6 +12,8 @@ Chaos.Client is a Dark Ages MMORPG client built in C# (.NET 10.0) using MonoGame
 dotnet build Chaos.Client.slnx
 dotnet run --project Chaos.Client/Chaos.Client.csproj
 ```
+
+The client requires a Dark Ages game-data directory (the folder containing `*.dat` archives). Point `GlobalSettings.DataPath` at that directory before running; `LobbyHost`/`LobbyPort` and `ClientVersion` also live in `GlobalSettings`.
 
 No test projects exist currently.
 
@@ -23,7 +25,7 @@ Chaos.Client.slnx (.NET 10.0, C# 14)
 ├── Chaos.Client.Data           — Asset repositories, DALib integration, archive loading, caching
 ├── Chaos.Client.Rendering      — Texture conversion, sprite renderers, map rendering, text, camera
 ├── Chaos.Client.Networking     — TCP client, crypto, packet framing, connection state machine
-└── DALib (project ref)         — Local fork at ../dalib/DALib/ — Dark Ages file format support
+└── DALib                       — Dark Ages file format support
 ```
 
 **Dependency flow:** Data <- Rendering <- Client, Networking <- Client
@@ -32,7 +34,7 @@ Chaos.Client.slnx (.NET 10.0, C# 14)
 
 | Package                                    | Purpose                                                                   |
 |--------------------------------------------|---------------------------------------------------------------------------|
-| DALib (project ref, ../dalib/)             | Dark Ages file format support, SkiaSharp rendering                        |
+| DALib                                      | Dark Ages file format support, SkiaSharp rendering                        |
 | MonoGame.Framework.DesktopGL 3.8.4.1       | Cross-platform graphics/windowing                                         |
 | Chaos.Networking 1.11.0-preview            | Complete protocol library: packet converters, crypto, opcodes, args types |
 | Chaos.Common 1.11.0-preview                | Shared extension methods (NuGet)                                          |
@@ -65,7 +67,7 @@ Centralized in `Directory.Build.props`: C# 14, net10.0, nullable enabled, implic
 - **`UiRenderer`** -- UI panel rendering utilities.
 - **`DarknessRenderer`** -- Light/darkness overlay. Consumes light sources from `LightingSystem`.
 - **`TabMapRenderer`** -- Mini-map rendering. Also consumes from `LightingSystem` for fog-of-war.
-- **`WeatherRenderer`** -- Snow/rain overlay driven by the low nibble of `MapFlags` (1=Snow, 2=Rain, 3=Darkness handled by `DarknessRenderer`). Retail treats case 2 as a no-op; this renderer intentionally diverges.
+- **`WeatherRenderer`** -- Snow/rain overlay driven by the low nibble of `MapFlags` (1=Snow, 2=Rain, 3=Darkness handled by `DarknessRenderer`).
 - **`SilhouetteRenderer`** -- Silhouette effect for blocked entities.
 - **`PaletteCyclingManager`** -- Animated palette shimmer effects.
 - **`FontAtlas`** -- Font glyph atlas management.
@@ -148,7 +150,6 @@ Chaos.Client/
 - **`LatencyMonitor`** -- Static class. Background ICMP ping loop (15s interval) against the connected server endpoint. Exposes `LatencyMs` and fires `LatencyChanged` for the HUD ping indicator. Started/stopped by `ChaosGame` on connect/disconnect. Events fire on thread-pool threads — consumers must poll from the game-loop thread.
 - **`MachineIdentity`** -- Machine-specific identification for the client.
 - **`ClientSettings`** -- Static class. Persistent user settings. Access via `ClientSettings.SoundVolume`, etc.
-- **`GlobalSettings`** -- Static config: ClientVersion (741), DataPath, LobbyHost/Port, `RequireSwimmingSkill` toggle (default false — when true, water tiles require GM flag or Swimming skill, retail behavior).
 
 ### World State & Models
 - **`WorldState`** (`Collections/`) -- Static class. Entity tracking, sorted rendering, active effects, all ViewModel state. Access via `WorldState.Inventory`, `WorldState.Attributes`, etc.
@@ -189,6 +190,7 @@ Per-frame processor that reads `InputBuffer` state and produces UI events. Key c
 ### Packet Dispatch
 - Use array-indexed handler dispatch (not switch-case) for opcode routing, matching Chaos-Server's pattern
 - Delegate arrays sized `byte.MaxValue + 1`, indexed by opcode byte, registered via `IndexHandlers()`
+- **Adding a handler:** write `private void OnXxx(ref ServerPacket packet)` in `ConnectionManager`, register it in `IndexHandlers()` as `Handlers[(byte)ServerOpCode.Xxx] = OnXxx`, deserialize via the appropriate `Chaos.Networking` converter, then raise an event on the manager for `WorldScreen` to subscribe to.
 
 ### UI Patterns
 - All UI panels derive from `PrefabPanel` (for prefab-based layouts) or `UIPanel` (for manual layouts)
@@ -269,7 +271,7 @@ Draw order (painter's algorithm -- diagonal stripe, see WorldScreen.Draw.cs):
   11. Drag icon -- always topmost
 ```
 
-## DALib Key Types (local fork at ../dalib/DALib/)
+## DALib Key Types
 
 - **`MapFile`** -- `Tiles[x,y]` returns `MapTile` with `.Background`, `.LeftForeground`, `.RightForeground`
 - **`Tileset`** -- `Collection<Tile>`, indexed by background tile ID

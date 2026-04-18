@@ -36,7 +36,7 @@ public static class GlobalSettings
             //2610;
 
     /// <summary>
-    ///     When true, walking onto a water tile requires either the GM flag or the "Swimming" skill (retail behavior).
+    ///     When true, walking onto a water tile requires either the GM flag or the "Swimming" skill.
     ///     When false (default), any character can swim freely and pathfinding routes through water tiles.
     /// </summary>
     public static bool RequireSwimmingSkill => false;
