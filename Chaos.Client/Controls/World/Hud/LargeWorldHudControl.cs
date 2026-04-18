@@ -104,12 +104,19 @@ public sealed class LargeWorldHudControl : PrefabPanel, IWorldHud
         if (ViewportBounds == Rectangle.Empty)
             ViewportBounds = GetRect("EMPTY");
 
-        //chat input control (say)
-        ChatInput = new ChatInputControl(PrefabSet);
+        //chat input control (say) — overlays the world; clicks must pass through to the game
+        ChatInput = new ChatInputControl(PrefabSet)
+        {
+            IsHitTestVisible = false
+        };
         AddChild(ChatInput);
 
         ChatInput.FocusChanged += focused =>
         {
+            //gate hit-testing on focus: clicks pass through to the world when idle,
+            //but drag-select works normally once the box is focused via hotkey.
+            ChatInput.IsHitTestVisible = focused;
+
             if (focused)
                 DescriptionLabel?.Text = string.Empty;
         };

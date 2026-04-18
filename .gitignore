@@ -396,3 +396,11 @@ FodyWeavers.xsd
 
 # JetBrains Rider
 *.sln.iml
+.idea/workspace.xml
+
+# ai stuff
+.ai
+.claude
+.scratch
+.serena
+.superpowers
