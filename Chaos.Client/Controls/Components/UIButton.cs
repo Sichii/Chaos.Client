@@ -24,6 +24,13 @@ public class UIButton : UIElement
     public Texture2D? PressedTexture { get; set; }
     public Texture2D? SelectedTexture { get; set; }
 
+    /// <summary>
+    ///     Pixel offset applied to all of the button's texture draw positions. Used for ability icon slots that may
+    ///     host a modern 32x32 icon needing -1/-1 alignment into a legacy 31x31 slot. Default <see cref="Vector2.Zero" />
+    ///     preserves legacy layout exactly.
+    /// </summary>
+    public Vector2 TextureOffset { get; set; }
+
     private Texture2D? ActiveTexture
     {
         get
@@ -89,7 +96,7 @@ public class UIButton : UIElement
         DrawTexture(
             spriteBatch,
             texture,
-            new Vector2(drawX, drawY),
+            new Vector2(drawX, drawY) + TextureOffset,
             Color.White);
     }
 

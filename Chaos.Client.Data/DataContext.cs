@@ -1,4 +1,5 @@
 ﻿#region
+using Chaos.Client.Data.AssetPacks;
 using Chaos.Client.Data.Repositories;
 #endregion
 
@@ -55,6 +56,9 @@ public static class DataContext
         LobbyPort = lobbyPort;
 
         LegendPalette.Initialize();
+
+        //scan for .datf asset packs before building repositories so renderer paths can query the registry at first use
+        AssetPackRegistry.Initialize();
 
         AislingDrawData = new AislingDrawDataRepository();
         CreatureSprites = new CreatureSpriteRepository();

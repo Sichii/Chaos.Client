@@ -73,8 +73,21 @@ Four cooperating components:
 - `pack_id` — unique identifier; used for logging and deduplication if two packs claim the same id.
 - `pack_version` — semver; shown in client debug overlay for support.
 - `content_type` — enum discriminator, known values for pilot: `ability_icons`. Future: `tiles`, `creatures`, `ui_sprites`, `effects`, `bundle` (for multi-type packs).
-- `priority` — integer; higher wins when multiple packs cover the same asset. Default 100. For the pilot, at most one icon pack is expected.
-- `covers` — typed record per asset category the pack provides. For icons, declares the expected dimensions so the client knows what offset to apply.
+- `priority` — integer; higher wins when multiple packs cover the same asset ID. Default 100. For the pilot, at most one icon pack is expected.
+- `covers` — capability declaration: which asset categories the pack participates in, plus per-category metadata the renderer needs (e.g., `dimensions` drives the offset calculation). It's not a range declaration — the pack's file contents are its actual coverage.
+
+**Emergent coverage, not declared coverage.** The manifest deliberately has no `mode` field (replace vs. additive) and no `id_range` field. Legacy sheets already have unpopulated slots (e.g., `skill001.epf` has content in slots 1-97 and blanks in 98-266), so the replace-vs-additive distinction is emergent from which IDs the pack ships:
+
+| Pack contains | Legacy has content at this ID? | Effective behavior |
+| --- | --- | --- |
+| `skill_0001.png` | Yes | Modern replaces legacy for slot 1 |
+| `skill_0050.png` | Yes | Modern replaces legacy for slot 50 |
+| `skill_0097.png` | No (slot 97+ blank in legacy) | Modern adds new content at slot 97 |
+| Nothing at slot 42 | Yes | Falls back to legacy for slot 42 |
+
+Both patterns — "full modern replacement for slots 1-97" and "additive expansion pack at slot 97+" — use the same runtime resolution (modern-first, legacy-fallback per ID). The only difference is which PNGs the artist shipped in the pack. Nothing about the manifest, the client, or the loader needs to change between the two.
+
+This keeps the runtime logic simple and lets pack authors mix strategies within a single pack if they want (e.g., modernize the first 50 icons *and* add 20 new ones at previously-blank IDs).
 
 ## Phases
 

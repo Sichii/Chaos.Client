@@ -107,7 +107,8 @@ public class PanelSlot : UIButton
         if (icon is null)
             return;
 
-        var pos = new Vector2(ScreenX, ScreenY);
+        //apply icon offset (e.g. -1/-1 for modern 32x32 icons into legacy 31x31 slots)
+        var pos = new Vector2(ScreenX, ScreenY) + TextureOffset;
 
         if ((CooldownPercent > 0) && CooldownTexture is not null)
             switch (CooldownStyle)

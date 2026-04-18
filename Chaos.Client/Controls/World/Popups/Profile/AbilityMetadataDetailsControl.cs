@@ -3,6 +3,7 @@ using Chaos.Client.Collections;
 using Chaos.Client.Controls.Components;
 using Chaos.Client.Data.Models;
 using Chaos.Client.Extensions;
+using Chaos.Client.Rendering;
 using Chaos.Client.ViewModel;
 using Chaos.Extensions.Common;
 using Microsoft.Xna.Framework;
@@ -109,21 +110,23 @@ public sealed class AbilityMetadataDetailsControl : PrefabPanel
         return false;
     }
 
-    private static Texture2D ResolveIcon(AbilityMetadataEntry entry)
+    private static IconTexture ResolveIcon(AbilityMetadataEntry entry)
     {
         var renderer = UiRenderer.Instance!;
         var state = ResolveIconState(entry);
+        var baseIcon = entry.IsSpell ? renderer.GetSpellIcon(entry.IconSprite) : renderer.GetSkillIcon(entry.IconSprite);
 
-        return (entry.IsSpell, state) switch
-        {
-            (true, AbilityIconState.Known)      => renderer.GetSpellIcon(entry.IconSprite),
-            (true, AbilityIconState.Learnable)  => renderer.GetSpellLearnableIcon(entry.IconSprite),
-            (true, AbilityIconState.Locked)     => renderer.GetSpellLockedIcon(entry.IconSprite),
-            (false, AbilityIconState.Known)     => renderer.GetSkillIcon(entry.IconSprite),
-            (false, AbilityIconState.Learnable) => renderer.GetSkillLearnableIcon(entry.IconSprite),
-            (false, AbilityIconState.Locked)    => renderer.GetSkillLockedIcon(entry.IconSprite),
-            _                                   => renderer.GetSkillIcon(entry.IconSprite)
-        };
+        if (state == AbilityIconState.Known)
+            return baseIcon;
+
+        //duotone treatment: luminance × tint. Replaces hue entirely while preserving shape/detail — much more
+        //identifiable as a state overlay than a 50/50 blend on colorful modern icons.
+        var tint = state == AbilityIconState.Learnable ? LegendColors.CornflowerBlue : LegendColors.DimGray;
+        var prefix = entry.IsSpell ? "spell" : "skill";
+        var tintedKey = $"{state}:{prefix}:{entry.IconSprite}";
+        var tintedTexture = renderer.GetDuotoneTintedTexture(tintedKey, baseIcon.Texture, tint);
+
+        return new IconTexture(tintedTexture, baseIcon.OffsetX, baseIcon.OffsetY);
     }
 
     private static AbilityIconState ResolveIconState(AbilityMetadataEntry entry)
@@ -235,7 +238,11 @@ public sealed class AbilityMetadataDetailsControl : PrefabPanel
         DescLabel?.Text = entry.Description;
 
         if (IconImage is not null)
-            IconImage.Texture = ResolveIcon(entry);
+        {
+            var icon = ResolveIcon(entry);
+            IconImage.Texture = icon.Texture;
+            IconImage.TextureOffset = new Vector2(icon.OffsetX, icon.OffsetY);
+        }
 
         Show();
     }

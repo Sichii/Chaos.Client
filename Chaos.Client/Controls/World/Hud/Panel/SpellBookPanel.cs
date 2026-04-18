@@ -109,7 +109,9 @@ public sealed class SpellBookPanel : PanelBase
         if (data.IsOccupied)
         {
             control.NormalTexture?.Dispose();
-            control.NormalTexture = RenderIcon(data.Sprite);
+            var icon = RenderIcon(data.Sprite);
+            control.NormalTexture = icon.Texture;
+            control.TextureOffset = new Vector2(icon.OffsetX, icon.OffsetY);
 
             if (control is SpellSlot spellSlot)
             {
@@ -133,13 +135,13 @@ public sealed class SpellBookPanel : PanelBase
         }
     }
 
-    protected override Texture2D RenderIcon(ushort spriteId) => UiRenderer.Instance!.GetSpellIcon(spriteId);
+    protected override IconTexture RenderIcon(ushort spriteId) => UiRenderer.Instance!.GetSpellIcon(spriteId);
 
     private Texture2D RenderTintedIcon(ushort spriteId)
     {
         var cache = UiRenderer.Instance!;
 
-        return cache.GetCooldownTintedTexture($"spell:{spriteId}", cache.GetSpellIcon(spriteId), LegendColors.CornflowerBlue);
+        return cache.GetCooldownTintedTexture($"spell:{spriteId}", cache.GetSpellIcon(spriteId).Texture, LegendColors.CornflowerBlue);
     }
 
     public override void Update(GameTime gameTime)

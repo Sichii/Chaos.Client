@@ -46,7 +46,7 @@ public sealed class InventoryPanel : PanelBase
             Slot = 0,
             Width = ICON_SIZE,
             Height = ICON_SIZE,
-            NormalTexture = RenderIcon(GOLD_SPRITE),
+            NormalTexture = RenderIcon(GOLD_SPRITE).Texture,
             ZIndex = 1
         };
 
@@ -148,7 +148,8 @@ public sealed class InventoryPanel : PanelBase
             Slots[gridIndex].Visible = false;
     }
 
-    protected override Texture2D RenderIcon(ushort spriteId) => UiRenderer.Instance!.GetItemIcon(spriteId);
+    //Item icons are legacy-sourced (ItemXXX.epf). No modern pack path exists for items yet, so always legacy offset.
+    protected override IconTexture RenderIcon(ushort spriteId) => IconTexture.Legacy(UiRenderer.Instance!.GetItemIcon(spriteId));
 
     public override void SetExpanded(bool expanded)
     {

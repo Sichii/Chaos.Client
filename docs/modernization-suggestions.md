@@ -109,6 +109,8 @@ Combined:
 | **Dev total (asset pipeline + dimensions + density)** | **13-21** |
 | Artist migration (re-authoring at 64×32, 2× density) | Open-ended, artist-months |
 
+**Status: ability-icon pilot shipped (April 2026).** The first production slice of Track 1 is in place — `.datf` pack format, `AssetPackRegistry` discovery, `IconPack` ZIP loader, `IconTexture` offset-aware rendering, and modern-first/legacy-fallback dispatch for skill/spell icons. The legacy `skill002/003.epf` and `spell002/003.epf` "learnable/locked" sheets have been retired; those states now render as tints on the base icon. See [ability-icons-pilot-plan.md](ability-icons-pilot-plan.md) for the implementation record and [asset-pack-format.md](asset-pack-format.md) for the artist-facing format spec. Remaining Track 1 work extends this scaffolding to tiles, creatures, UI sprites, and effects — each new `content_type` reuses the existing `.datf`/manifest/registry plumbing rather than building new.
+
 **Strategic value.** Highest of any item in this doc. Three compounding wins:
 
 1. **Dye model** — strictly more expressive than the 6-slot palette ceiling, supports HSL shift / saturation / additive / per-region coloring for free.
@@ -249,6 +251,38 @@ Threat meter and DPS readout are derived client-side from the structured combat 
 | **Total** | **4-6** |
 
 **Strategic value.** Medium-high. Combat feel. Depends on track 5 being in flight or done — can run in parallel with its later phases. All client-side once the combat event stream exists.
+
+#### Sub-item: smooth buff-duration bar
+
+Concrete design decision for the "Buff bar improvements" row above. The current buff bar is **server-driven and step-based** — server sends `EffectArgs(iconId, EffectColor)` where `EffectColor` is an enum (White/Red/Orange/Yellow/Green/Blue) that maps to fixed fill levels (7/7 down to 2/7). As the buff ages, the server pushes discrete color updates. The client doesn't know remaining duration and can't animate smoothly.
+
+**Desired behavior:** bar stays blue and full until 30 seconds remain; last 30 seconds deplete smoothly with a green-to-red gradient. Solid "safe" signal for the bulk of the duration, escalating visual warning as it runs out.
+
+**Required protocol extension.** Either extend `EffectArgs` or add a new opcode that carries `totalDurationMs` and `remainingMs` (or `expiresAt` timestamp). Client stores expiry per effect, ticks locally each frame:
+
+```csharp
+var remainingSec = Math.Max(0, expiresAt - Environment.TickCount) / 1000f;
+
+if (remainingSec > 30f)
+{
+    Bar.Percent = 1f;
+    Bar.FillColor = Color.Blue;
+}
+else
+{
+    var t = 1f - (remainingSec / 30f);                   // 0 at 30s, 1 at 0s
+    Bar.Percent = remainingSec / 30f;
+    Bar.FillColor = Color.Lerp(Color.Green, Color.Red, t);
+}
+```
+
+Server continues emitting the old `EffectColor` step updates for legacy clients (additive-layer pattern). Modern client receives the richer duration payload and ignores the color enum when present.
+
+**Effort:** ~1.5-2 FTE-weeks, within the 1-2 week "Buff bar improvements" line above. Breakdown: 2-3 days protocol + Hybrasyl-side duration plumbing, 3-4 days client local-tick + gradient math, 2-3 hours smooth-arrival logic for mid-countdown buff refreshes, 1-2 days edge-case testing (short/long buffs, stacking, reconnection, time skew).
+
+**Free adjacent wins once duration is client-side:** hover tooltip showing "2:47 remaining" on buff icons; flash animation at 10s/5s/1s thresholds; optional audio cue before a critical buff drops; Godot port gets all of this identically since it's data-driven.
+
+**Cheap alternative (not recommended):** client-side approximation by repurposing the existing color-enum updates as time-bucket markers (Green means "30s remaining", start local timer from there). Works for typical durations but desyncs on buff refreshes, atypical durations, and reconnection. Listed for completeness; path A is the right choice.
 
 ---
 

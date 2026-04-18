@@ -115,7 +115,9 @@ public sealed class SkillBookPanel : PanelBase
         if (data.IsOccupied)
         {
             control.NormalTexture?.Dispose();
-            control.NormalTexture = RenderIcon(data.Sprite);
+            var icon = RenderIcon(data.Sprite);
+            control.NormalTexture = icon.Texture;
+            control.TextureOffset = new Vector2(icon.OffsetX, icon.OffsetY);
 
             if (control is SkillSlot skillSlot)
                 skillSlot.Chant = data.Chant ?? string.Empty;
@@ -136,16 +138,16 @@ public sealed class SkillBookPanel : PanelBase
     {
         var cache = UiRenderer.Instance!;
 
-        return cache.GetCooldownTintedTexture($"skill:{spriteId}", cache.GetSkillIcon(spriteId), LegendColors.DimGray);
+        return cache.GetCooldownTintedTexture($"skill:{spriteId}", cache.GetSkillIcon(spriteId).Texture, LegendColors.DimGray);
     }
 
-    protected override Texture2D RenderIcon(ushort spriteId) => UiRenderer.Instance!.GetSkillIcon(spriteId);
+    protected override IconTexture RenderIcon(ushort spriteId) => UiRenderer.Instance!.GetSkillIcon(spriteId);
 
     private Texture2D RenderTintedIcon(ushort spriteId)
     {
         var cache = UiRenderer.Instance!;
 
-        return cache.GetCooldownTintedTexture($"skill:{spriteId}", cache.GetSkillIcon(spriteId), LegendColors.CornflowerBlue);
+        return cache.GetCooldownTintedTexture($"skill:{spriteId}", cache.GetSkillIcon(spriteId).Texture, LegendColors.CornflowerBlue);
     }
 
     public override void Update(GameTime gameTime)

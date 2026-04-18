@@ -57,9 +57,8 @@ public sealed class PanelSpriteRepository : RepositoryBase
         => GetOrCreate(ConstructKeyForItemSpriteSheet(fileId), () => EpfView.FromArchive($"item{fileId:D3}", DatArchives.Legend));
 
     public Palettized<EpfFrame>? GetSkillIcon(int spriteId) => GetIconFrame(spriteId, "skill001");
-    public Palettized<EpfFrame>? GetSkillLearnableIcon(int spriteId) => GetIconFrame(spriteId, "skill002");
-    public Palettized<EpfFrame>? GetSkillLockedIcon(int spriteId) => GetIconFrame(spriteId, "skill003");
     public Palettized<EpfFrame>? GetSpellIcon(int spriteId) => GetIconFrame(spriteId, "spell001");
-    public Palettized<EpfFrame>? GetSpellLearnableIcon(int spriteId) => GetIconFrame(spriteId, "spell002");
-    public Palettized<EpfFrame>? GetSpellLockedIcon(int spriteId) => GetIconFrame(spriteId, "spell003");
+
+    //Learnable (skill002/spell002) and Locked (skill003/spell003) are no longer separate sheets — those visual
+    //states are now produced by tinting the base icon at draw time. Artists ship a single source icon per sprite ID.
 }

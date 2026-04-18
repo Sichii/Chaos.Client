@@ -1,6 +1,7 @@
 #region
 using System.Buffers;
 using Chaos.Client.Data;
+using Chaos.Client.Data.AssetPacks;
 using Chaos.DarkAges.Definitions;
 using DALib.Drawing;
 using DALib.Utility;
@@ -26,6 +27,12 @@ public sealed class UiRenderer : IDisposable
     private const int MAX_ATLAS_ENTRY_SIZE = 512;
 
     private readonly Dictionary<string, CachedTexture2D> Cache = new(StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>
+    ///     Cache keys for which the stored texture was sourced from a modern .datf asset pack (not legacy EPF). Used to
+    ///     tag icons with the <see cref="IconTexture.Modern" /> offset on retrieval.
+    /// </summary>
+    private readonly HashSet<string> ModernIconKeys = new(StringComparer.OrdinalIgnoreCase);
     private readonly GraphicsDevice Device;
     private readonly Dictionary<string, int> EpfFrameCounts = new(StringComparer.OrdinalIgnoreCase);
     private CachedTexture2D? MissingTextureField;
@@ -142,6 +149,26 @@ public sealed class UiRenderer : IDisposable
         }
     }
 
+    private CachedTexture2D CreateDuotoneTintedTexture(Texture2D source, Color tint)
+    {
+        var count = source.Width * source.Height;
+        var pixels = ArrayPool<Color>.Shared.Rent(count);
+
+        try
+        {
+            source.GetData(pixels, 0, count);
+            TextureConverter.LuminanceTintPixels(pixels, count, tint);
+
+            var tinted = new CachedTexture2D(Device, source.Width, source.Height);
+            tinted.SetData(pixels, 0, count);
+
+            return tinted;
+        } finally
+        {
+            ArrayPool<Color>.Shared.Return(pixels);
+        }
+    }
+
     /// <summary>
     ///     Returns the number of frames in an EPF file. Triggers a bulk-cache load if not yet loaded.
     /// </summary>
@@ -207,7 +234,9 @@ public sealed class UiRenderer : IDisposable
     }
 
     /// <summary>
-    ///     Renders and caches a half-size (15x15) spell icon for the effect bar.
+    ///     Renders and caches a half-size (15x15) spell icon for the effect bar. Tries the modern .datf pack first,
+    ///     falls back to the legacy EPF sheet. The 15x15 downscale happens on whichever source is used — no 1px offset
+    ///     math needed at this size since the icon is being rescaled anyway.
     /// </summary>
     public Texture2D GetHalfSizeSpellIcon(byte iconId)
     {
@@ -216,44 +245,70 @@ public sealed class UiRenderer : IDisposable
         if (Cache.TryGetValue(key, out var cached))
             return cached;
 
-        var palettized = DataContext.PanelSprites.GetSpellIcon(iconId);
-
-        if (palettized is null)
-            return MissingTexture;
-
-        using var fullImage = Graphics.RenderImage(palettized.Entity, palettized.Palette);
-
-        // ReSharper disable once ConditionIsAlwaysTrueOrFalseAccordingToNullableAPIContract
-        if (fullImage is null)
-            return MissingTexture;
-
         const int HALF_ICON_SIZE = 15;
 
-        var info = new SKImageInfo(
-            HALF_ICON_SIZE,
-            HALF_ICON_SIZE,
-            SKColorType.Rgba8888,
-            SKAlphaType.Premul);
-        using var surface = SKSurface.Create(info);
+        SKImage? sourceImage = null;
+        var ownedSource = false;
 
-        surface.Canvas.DrawImage(
-            fullImage,
-            new SKRect(
-                0,
-                0,
-                fullImage.Width,
-                fullImage.Height),
-            new SKRect(
-                0,
-                0,
+        //modern path: pack PNG decoded via SkiaSharp
+        var pack = AssetPackRegistry.GetIconPack();
+
+        if ((pack is not null) && pack.TryGetIconImage("spell", iconId, out var modern) && (modern is not null))
+        {
+            sourceImage = modern;
+            ownedSource = true;
+        }
+
+        //legacy path: palettized EPF rendered to SKImage
+        if (sourceImage is null)
+        {
+            var palettized = DataContext.PanelSprites.GetSpellIcon(iconId);
+
+            if (palettized is null)
+                return MissingTexture;
+
+            sourceImage = Graphics.RenderImage(palettized.Entity, palettized.Palette);
+
+            // ReSharper disable once ConditionIsAlwaysTrueOrFalseAccordingToNullableAPIContract
+            if (sourceImage is null)
+                return MissingTexture;
+
+            ownedSource = true;
+        }
+
+        try
+        {
+            var info = new SKImageInfo(
                 HALF_ICON_SIZE,
-                HALF_ICON_SIZE));
+                HALF_ICON_SIZE,
+                SKColorType.Rgba8888,
+                SKAlphaType.Premul);
+            using var surface = SKSurface.Create(info);
 
-        using var halfImage = surface.Snapshot();
-        var texture = Convert(halfImage);
-        Cache[key] = texture;
+            surface.Canvas.DrawImage(
+                sourceImage,
+                new SKRect(
+                    0,
+                    0,
+                    sourceImage.Width,
+                    sourceImage.Height),
+                new SKRect(
+                    0,
+                    0,
+                    HALF_ICON_SIZE,
+                    HALF_ICON_SIZE));
 
-        return texture;
+            using var halfImage = surface.Snapshot();
+            var texture = Convert(halfImage);
+            Cache[key] = texture;
+
+            return texture;
+        }
+        finally
+        {
+            if (ownedSource)
+                sourceImage.Dispose();
+        }
     }
 
     /// <summary>
@@ -359,6 +414,47 @@ public sealed class UiRenderer : IDisposable
     }
 
     /// <summary>
+    ///     Returns a cached nation badge texture for the given nation ID. Tries the modern .datf nation-badge pack
+    ///     first, falls back to frame (<c>nationId - 1</c>) of the legacy <c>_nui_nat.spf</c>. Callers assign the
+    ///     result to a <see cref="UIImage" />; the image scales to fit its placed bounds regardless of source
+    ///     dimensions.
+    /// </summary>
+    public Texture2D GetNationBadge(byte nationId)
+    {
+        var key = $"nation:{nationId}";
+
+        if (Cache.TryGetValue(key, out var cached))
+            return cached;
+
+        //modern path: pack PNG decoded via SkiaSharp
+        var pack = AssetPackRegistry.GetNationBadgePack();
+
+        if ((pack is not null) && pack.TryGetBadgeImage(nationId, out var modernImage) && (modernImage is not null))
+            try
+            {
+                var modernTex = Convert(modernImage);
+                Cache[key] = modernTex;
+
+                return modernTex;
+            }
+            finally
+            {
+                modernImage.Dispose();
+            }
+
+        //legacy path: frame (nationId - 1) of _nui_nat.spf
+        using var legacyImage = DataContext.UserControls.GetSpfImage("_nui_nat.spf", nationId - 1);
+
+        if (legacyImage is null)
+            return MissingTexture;
+
+        var legacyTex = Convert(legacyImage);
+        Cache[key] = legacyTex;
+
+        return legacyTex;
+    }
+
+    /// <summary>
     ///     Returns a cached copy of <paramref name="source" /> with a 50/50 blend of
     ///     <paramref name="tint" /> applied, used for cooldown overlays on skill/spell icons.
     ///     Retail parity: <see cref="LegendColors.DimGray" /> (<c>legend.pal[0x18]</c>) is the
@@ -382,124 +478,74 @@ public sealed class UiRenderer : IDisposable
     }
 
     /// <summary>
-    ///     Renders and caches a skill icon.
+    ///     Returns a duotone (luminance-tinted) copy of a source texture, cached by (tint, sourceKey). The duotone
+    ///     treatment converts each pixel to its Rec. 601 luminance and multiplies by the tint color — producing a
+    ///     strong, recognizable state overlay (used for learnable/locked ability icons). Preserves alpha.
     /// </summary>
-    public Texture2D GetSkillIcon(ushort spriteId)
+    public Texture2D GetDuotoneTintedTexture(string sourceKey, Texture2D source, Color tint)
     {
-        var key = $"skill:{spriteId}";
+        var key = $"duo_{tint.PackedValue:X8}:{sourceKey}";
 
         if (Cache.TryGetValue(key, out var cached))
             return cached;
 
-        var texture = RenderSprite(DataContext.PanelSprites.GetSkillIcon(spriteId));
-
-        if (texture is null)
-            return MissingTexture;
-
+        var texture = CreateDuotoneTintedTexture(source, tint);
         Cache[key] = texture;
 
         return texture;
     }
 
     /// <summary>
-    ///     Renders and caches a skill icon (learnable/002 variant).
+    ///     Renders and caches a skill icon. Tries the modern .datf pack first (32x32 PNG, drawn with -1/-1 offset); on
+    ///     miss, falls back to the legacy EPF sheet (31x31, zero offset). Callers should draw via
+    ///     <see cref="IconTexture.Draw" /> so the offset is applied correctly regardless of source. Learnable and
+    ///     Locked visual states are produced by tinting the result at draw time — there are no longer separate
+    ///     accessors.
     /// </summary>
-    public Texture2D GetSkillLearnableIcon(ushort spriteId)
-    {
-        var key = $"skill_learnable:{spriteId}";
-
-        if (Cache.TryGetValue(key, out var cached))
-            return cached;
-
-        var texture = RenderSprite(DataContext.PanelSprites.GetSkillLearnableIcon(spriteId));
-
-        if (texture is null)
-            return MissingTexture;
-
-        Cache[key] = texture;
-
-        return texture;
-    }
+    public IconTexture GetSkillIcon(ushort spriteId) => GetAbilityIcon("skill", spriteId, DataContext.PanelSprites.GetSkillIcon);
 
     /// <summary>
-    ///     Renders and caches a skill icon (locked/003 variant).
+    ///     Renders and caches a spell icon. See <see cref="GetSkillIcon" /> for the modern-first dispatch behavior.
     /// </summary>
-    public Texture2D GetSkillLockedIcon(ushort spriteId)
-    {
-        var key = $"skill_locked:{spriteId}";
-
-        if (Cache.TryGetValue(key, out var cached))
-            return cached;
-
-        var texture = RenderSprite(DataContext.PanelSprites.GetSkillLockedIcon(spriteId));
-
-        if (texture is null)
-            return MissingTexture;
-
-        Cache[key] = texture;
-
-        return texture;
-    }
+    public IconTexture GetSpellIcon(ushort spriteId) => GetAbilityIcon("spell", spriteId, DataContext.PanelSprites.GetSpellIcon);
 
     /// <summary>
-    ///     Renders and caches a spell icon.
+    ///     Shared modern-first dispatch for skill and spell icons. Legacy EPF lookup goes through the provided
+    ///     delegate; modern PNG lookup goes through <see cref="AssetPackRegistry.GetIconPack" />.
     /// </summary>
-    public Texture2D GetSpellIcon(ushort spriteId)
+    private IconTexture GetAbilityIcon(string prefix, ushort spriteId, Func<int, Palettized<EpfFrame>?> legacyLookup)
     {
-        var key = $"spell:{spriteId}";
+        var key = $"{prefix}:{spriteId}";
 
         if (Cache.TryGetValue(key, out var cached))
-            return cached;
+            return ModernIconKeys.Contains(key) ? IconTexture.Modern(cached) : IconTexture.Legacy(cached);
 
-        var texture = RenderSprite(DataContext.PanelSprites.GetSpellIcon(spriteId));
+        var pack = AssetPackRegistry.GetIconPack();
 
-        if (texture is null)
-            return MissingTexture;
+        if ((pack is not null) && pack.TryGetIconImage(prefix, spriteId, out var skImage) && (skImage is not null))
+            try
+            {
+                var modernTex = Convert(skImage);
+                Cache[key] = modernTex;
+                ModernIconKeys.Add(key);
 
-        Cache[key] = texture;
+                return IconTexture.Modern(modernTex);
+            }
+            finally
+            {
+                skImage.Dispose();
+            }
 
-        return texture;
+        var legacyTex = RenderSprite(legacyLookup(spriteId));
+
+        if (legacyTex is null)
+            return IconTexture.Legacy(MissingTexture);
+
+        Cache[key] = legacyTex;
+
+        return IconTexture.Legacy(legacyTex);
     }
 
-    /// <summary>
-    ///     Renders and caches a spell icon (learnable/002 variant).
-    /// </summary>
-    public Texture2D GetSpellLearnableIcon(ushort spriteId)
-    {
-        var key = $"spell_learnable:{spriteId}";
-
-        if (Cache.TryGetValue(key, out var cached))
-            return cached;
-
-        var texture = RenderSprite(DataContext.PanelSprites.GetSpellLearnableIcon(spriteId));
-
-        if (texture is null)
-            return MissingTexture;
-
-        Cache[key] = texture;
-
-        return texture;
-    }
-
-    /// <summary>
-    ///     Renders and caches a spell icon (locked/003 variant).
-    /// </summary>
-    public Texture2D GetSpellLockedIcon(ushort spriteId)
-    {
-        var key = $"spell_locked:{spriteId}";
-
-        if (Cache.TryGetValue(key, out var cached))
-            return cached;
-
-        var texture = RenderSprite(DataContext.PanelSprites.GetSpellLockedIcon(spriteId));
-
-        if (texture is null)
-            return MissingTexture;
-
-        Cache[key] = texture;
-
-        return texture;
-    }
 
     /// <summary>
     ///     Loads a single SPF frame from setoa.dat and caches the resulting texture.

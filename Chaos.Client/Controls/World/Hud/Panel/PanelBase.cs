@@ -1,6 +1,7 @@
 #region
 using Chaos.Client.Controls.World.Hud.Panel.Slots;
 using Chaos.Client.Data.Models;
+using Chaos.Client.Rendering;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 #endregion
@@ -350,7 +351,7 @@ public abstract class PanelBase : ExpandablePanel
     /// </summary>
     public event PanelSlotSwappedHandler? OnSlotSwapped;
 
-    protected abstract Texture2D RenderIcon(ushort spriteId);
+    protected abstract IconTexture RenderIcon(ushort spriteId);
 
     /// <summary>
     ///     Sets the expand state. Adjusts slot visibility and Y positions for the expanded grid.
@@ -384,7 +385,9 @@ public abstract class PanelBase : ExpandablePanel
             return;
 
         control.NormalTexture?.Dispose();
-        control.NormalTexture = RenderIcon(sprite);
+        var icon = RenderIcon(sprite);
+        control.NormalTexture = icon.Texture;
+        control.TextureOffset = new Vector2(icon.OffsetX, icon.OffsetY);
     }
 
     public void SetSlotName(byte slot, string? name)

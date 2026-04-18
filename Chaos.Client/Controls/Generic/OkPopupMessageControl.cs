@@ -32,6 +32,7 @@ public sealed class OkPopupMessageControl : UIPanel
     private readonly int ContentY;
 
     private readonly UILabel MessageLabel;
+    private UIElement? PreviousFocus;
 
     public UIButton? CancelButton { get; }
     public UIButton OkButton { get; }
@@ -138,6 +139,13 @@ public sealed class OkPopupMessageControl : UIPanel
         InputDispatcher.Instance!.RemoveControl(this);
         Visible = false;
         MessageLabel.Text = string.Empty;
+
+        //restore focus to whatever had it before the popup stole it (e.g. the login password box)
+        if (PreviousFocus is not null)
+        {
+            InputDispatcher.Instance!.SetExplicitFocus(PreviousFocus);
+            PreviousFocus = null;
+        }
     }
 
     public event CancelHandler? OnCancel;
@@ -147,6 +155,12 @@ public sealed class OkPopupMessageControl : UIPanel
     public void Show(string message)
     {
         MessageLabel.Text = message;
+
+        //remember who had focus so we can restore it on dismiss, then clear focus so
+        //keyboard input routes to this popup via the control stack instead of being
+        //eaten by the previously-focused textbox.
+        PreviousFocus = InputDispatcher.Instance!.ExplicitFocus;
+        InputDispatcher.Instance!.ClearExplicitFocus();
         InputDispatcher.Instance!.PushControl(this);
         Visible = true;
     }

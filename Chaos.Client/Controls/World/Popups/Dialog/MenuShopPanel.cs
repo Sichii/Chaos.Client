@@ -530,7 +530,7 @@ public sealed class MenuShopPanel : PrefabPanel
             if (!slotData.IsOccupied)
                 continue;
 
-            var icon = UiRenderer.Instance!.GetSkillIcon(slotData.Sprite);
+            var icon = UiRenderer.Instance!.GetSkillIcon(slotData.Sprite).Texture;
 
             Entries.Add(
                 new MerchantEntry(
@@ -550,7 +550,7 @@ public sealed class MenuShopPanel : PrefabPanel
             if (!slotData.IsOccupied)
                 continue;
 
-            var icon = UiRenderer.Instance!.GetSpellIcon(slotData.Sprite);
+            var icon = UiRenderer.Instance!.GetSpellIcon(slotData.Sprite).Texture;
 
             Entries.Add(
                 new MerchantEntry(
@@ -568,7 +568,7 @@ public sealed class MenuShopPanel : PrefabPanel
 
         foreach (var skill in args.Skills)
         {
-            var icon = UiRenderer.Instance!.GetSkillIcon(skill.Sprite);
+            var icon = UiRenderer.Instance!.GetSkillIcon(skill.Sprite).Texture;
 
             Entries.Add(
                 new MerchantEntry(
@@ -586,7 +586,7 @@ public sealed class MenuShopPanel : PrefabPanel
 
         foreach (var spell in args.Spells)
         {
-            var icon = UiRenderer.Instance!.GetSpellIcon(spell.Sprite);
+            var icon = UiRenderer.Instance!.GetSpellIcon(spell.Sprite).Texture;
 
             Entries.Add(
                 new MerchantEntry(

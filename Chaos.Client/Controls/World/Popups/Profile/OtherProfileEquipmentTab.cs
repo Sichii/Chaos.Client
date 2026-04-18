@@ -104,6 +104,10 @@ public sealed class OtherProfileEquipmentTab : PrefabPanel
 
         //nation icon and text
         NationImage = CreateImage("Nation");
+
+        if (NationImage is not null)
+            NationImage.ScaleToFit = true;
+
         NationTextLabel = CreateLabel("NationText");
         NationTextLabel?.VerticalAlignment = VerticalAlignment.Top;
         NationTextLabel?.ForegroundColor = LegendColors.White;
@@ -264,7 +268,8 @@ public sealed class OtherProfileEquipmentTab : PrefabPanel
     }
 
     /// <summary>
-    ///     Sets the nation icon.
+    ///     Sets the nation icon. Modern badges are centered within the slot; a negative offset overflows the slot
+    ///     bounds when the texture is larger than the slot.
     /// </summary>
     public void SetNation(byte nationId)
     {
@@ -272,9 +277,10 @@ public sealed class OtherProfileEquipmentTab : PrefabPanel
         NationIconTexture = null;
 
         if (nationId > 0)
-            NationIconTexture = UiRenderer.Instance!.GetSpfTexture("_nui_nat.spf", nationId - 1);
+            NationIconTexture = UiRenderer.Instance!.GetNationBadge(nationId);
 
-        NationImage?.Texture = NationIconTexture;
+        if (NationImage is not null)
+            NationImage.Texture = NationIconTexture;
 
         if (NationTextLabel is not null)
         {

@@ -64,6 +64,8 @@ Centralized in `Directory.Build.props`: C# 14, net10.0, nullable enabled, implic
 - **11 repositories:** AislingDrawData, CreatureSprite, Effects, Font, LightMask, LocalPlayerSettings, MapFile, MetaFile, PanelSprite, Tile, UiComponent.
 - **`ControlPrefab`/`ControlPrefabSet`** -- Wraps DALib Control definitions + pre-rendered SKImage arrays. First control (Anchor) defines panel bounds.
 - Control file catalog in `controlFileList.txt` at solution root.
+- **`AssetPackRegistry`** (`AssetPacks/`) -- Static registry. On `Initialize()`, scans `DataContext.DataPath` for `*.datf` files (ZIP archives with modern PNG asset overrides), reads each one's `_manifest.json`, validates `schema_version`, and registers by `content_type`. Typed accessors like `GetIconPack() : IconPack?`. Lookups return null when no pack is registered; renderer falls through to legacy. See [docs/asset-pack-format.md](docs/asset-pack-format.md) for the artist-facing format spec.
+- **`IconPack`** (`AssetPacks/`) -- Wraps a ZipArchive of `{prefix}_{id:D4}.png` entries. `TryGetIconImage(prefix, spriteId, out SKImage?)` case-insensitive lookup; decode failures treated as "not present" so renderer falls back cleanly to legacy.
 
 ### Rendering Layer (`Chaos.Client.Rendering`)
 - **`TextureConverter`** -- DALib `SKImage` -> MonoGame `Texture2D` (RGBA8888 premul). Also `LoadSpfTexture()`, `LoadEpfTextures()`, `RenderSprite()`.
@@ -85,6 +87,7 @@ Centralized in `Directory.Build.props`: C# 14, net10.0, nullable enabled, implic
 - **`TextureAtlas`/`AtlasHelper`/`CachedTexture2D`** -- Grid/Shelf packing for performance optimization.
 - **`SpriteAnimation`/`SpriteFrame`** -- Frame array with `GetFrame(index)`, timing, additive blending.
 - **`EntityHitBox`** -- Hit testing geometry for clickable entities.
+- **`IconTexture`** -- Record struct `(Texture2D Texture, int OffsetX, int OffsetY)` with `Legacy(t)`/`Modern(t)` factories and a `Draw(sb, pos, tint?)` helper. Wraps ability-icon returns from `UiRenderer.GetSkillIcon`/`GetSpellIcon` so modern 32×32 icons from `.datf` packs (offset -1/-1) can coexist with legacy 31×31 EPF icons (offset 0/0) in the same pipeline. Offset propagates through `UIImage.TextureOffset` and `UIButton.TextureOffset`.
 - **Asset pipeline:** `DatArchives -> Repository -> Palettized<T> -> DALib Graphics.RenderXxx() -> SKImage -> TextureConverter.ToTexture2D() -> Texture2D -> SpriteBatch.Draw()`
 
 ### Networking Layer (`Chaos.Client.Networking`)

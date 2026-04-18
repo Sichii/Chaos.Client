@@ -144,6 +144,33 @@ public static class TextureConverter
     }
 
     /// <summary>
+    ///     Converts each pixel to Rec. 601 luminance and multiplies by <paramref name="tint" />, producing a duotone
+    ///     result where the tint color replaces the hue while original luminance preserves shape and detail. Bright
+    ///     pixels become full-saturation tint; dark pixels become dark tint; alpha is preserved. Stronger and more
+    ///     visually identifiable than <see cref="Blend50Pixels" /> for state overlays like learnable/locked ability
+    ///     icons, which otherwise retain too much of the source art's color.
+    /// </summary>
+    internal static void LuminanceTintPixels(Color[] pixels, int count, Color tint)
+    {
+        //Rec. 601 luminance weights × 1000 for integer-only math (byte-accurate result without float conversion).
+        for (var i = 0; i < count; i++)
+        {
+            var p = pixels[i];
+
+            if (p.A == 0)
+                continue;
+
+            var lumen = ((299 * p.R) + (587 * p.G) + (114 * p.B)) / 1000;
+
+            pixels[i] = new Color(
+                (byte)((lumen * tint.R) / 255),
+                (byte)((lumen * tint.G) / 255),
+                (byte)((lumen * tint.B) / 255),
+                p.A);
+        }
+    }
+
+    /// <summary>
     ///     Applies a blue-shift tint to a pixel array in-place. Used for entity hover highlights.
     /// </summary>
     internal static void TintPixels(Color[] pixels, int count)
