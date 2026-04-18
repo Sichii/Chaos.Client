@@ -28,14 +28,6 @@ Chaos.Client.slnx (.NET 10.0, C# 14)
 
 **Dependency flow:** Data <- Rendering <- Client, Networking <- Client
 
-## Related Repositories
-
-| Path                                | Description                                                                                             |
-|-------------------------------------|---------------------------------------------------------------------------------------------------------|
-| `D:\repos\Sichii\Chaos-Server`      | Chaos-Server private server. Contains all `Chaos.*` namespaces (Chaos.Networking, Chaos.DarkAges, etc.) |
-| `D:\repos\Sichii\ChaosAssetManager` | Asset rendering reference app                                                                           |
-| `../dalib/DALib/`                   | Local DALib fork (project ref)                                                                          |
-
 ## Key Dependencies
 
 | Package                                    | Purpose                                                                   |
@@ -189,26 +181,10 @@ Per-frame processor that reads `InputBuffer` state and produces UI events. Key c
 - **Control stack:** popups push themselves via `InputDispatcher.Instance.PushControl(this)` — the topmost entry receives keyboard events in Phase 2 of dispatch. Explicit focus (textboxes) intercepts Phase 1.
 - **Drag:** initiated when the mouse moves ≥4px from the mousedown position while an element is captured. `OnDragStart` lets the source populate a payload; `DragMove`/`DragDrop` bubble to the element under the cursor.
 
-## C# Coding Standards
-
-- Target: .NET 10.0, C# 14 language version
-- Nullable reference types enabled, implicit usings enabled
-- Write high-verbosity code: descriptive names, explicit types, early returns
-- Handle edge cases first
-- Keep comments concise, explain "why" not "what"
-- Follow existing patterns in neighboring code
-- Respect package versions pinned in `Directory.Packages.props`
-
 ## Conventions
 
-### Naming
-- **Private fields:** PascalCase, no prefix -- e.g. `private readonly Lock SendLock = new();`
-- **No backing fields:** Use auto-properties with `field` keyword, `private set`, or `init` instead of manual backing fields
-- **Constants:** UPPER_SNAKE_CASE -- e.g. `private const int RECEIVE_BUFFER_SIZE = ...;`
-- Fields may share a name with their type -- e.g. `private Tileset Tileset`, `private Socket? Socket`
-
 ### Concurrency
-- Use `Lock` with `EnterScope()` instead of the `lock` keyword -- e.g. `using var scope = SendLock.EnterScope();`
+- Use `Lock` with `EnterScope()` instead of the `lock` keyword -- e.g. `using var scope = SendLock.EnterScope();`. This is the new .NET 9+ lock primitive with better usage semantics and performance.
 
 ### Packet Dispatch
 - Use array-indexed handler dispatch (not switch-case) for opcode routing, matching Chaos-Server's pattern
@@ -238,38 +214,6 @@ Per-frame processor that reads `InputBuffer` state and produces UI events. Key c
 - **Global entity wiring:** ChaosGame wires entity tracking events at construction (before WorldScreen exists)
 - **Pathfinding:** Right-click A* to tile/entity, entity following with auto-assail, arrow/spacebar cancels
 - **Casting flow:** CastingSystem coordinates targeting -> UseSpellOnTarget and chant progress
-
-### Other
-- Case-insensitive string operations: `StartsWithI`, `ContainsI`, `EqualsI`, `ReplaceI`
-- Thread-safe cache access via `RepositoryBase.GetOrCreate<T>` (per-instance Lock)
-- Repository `Get` methods return null on failure (try-catch pattern)
-- UI controls use `NeverRemove` cache priority; other assets use sliding expiration
-- Disposable cached objects are disposed via post-eviction callbacks
-
-## Review Policy
-
-Notable refactors or changes must have at minimum:
-1. **Bug/regression review** -- A team member reviews the changes for correctness, edge cases, and regressions.
-2. **Architecture/design review** -- A separate team member reviews for consistency with the current architecture, adherence to established patterns, and reasonable optimizations.
-
-### Plan Workflow
-
-When writing any implementation plan, each plan must include:
-- **Phase-level review gates** -- After each phase/milestone, include a review step that performs both bug/regression review and architecture/design review of the changes made in that phase before proceeding to the next.
-- **Final review** -- After full implementation is complete, include a comprehensive review step covering the entire changeset for correctness, regressions, architectural consistency, and adherence to established patterns.
-- **Execution via project lead** -- When an implementation plan is approved, send the full plan to the project-lead agent for orchestration. The project lead breaks the plan into tasks and assigns work to the appropriate specialist agents.
-
-## Guardrails
-
-- Do not introduce interactive prompts in scripts or commands
-- Do not add commentary inside code solely to explain actions
-- **Use Serena for C# code.** Prefer Serena's semantic tools over Read/Grep/Edit when navigating or editing C# code:
-    - **Navigate:** `find_symbol` (locate by name path), `get_symbols_overview` (file outline), `find_referencing_symbols` (callers), `search_for_pattern` (regex), `find_file` (filename glob)
-    - **Edit:** `replace_symbol_body` (rewrite bodies), `insert_before_symbol` / `insert_after_symbol` (add code), `rename_symbol` (cross-file rename), `safe_delete_symbol` (delete with reference check)
-    - Reserve Read/Grep/Edit for non-code files, full-file reads, markdown/config changes, and plain-text edits not tied to a specific symbol.
-- Avoid exception swallowing -- use guard checks (`TryGetValue`, bounds checks, null checks) instead of try-catch for control flow. Prefer `archive.TryGetValue` + `FromEntry` over `FromArchive` wrapped in try-catch, `lookup.Palettes.TryGetValue` over `lookup.GetPaletteForId` in try-catch, etc.
-- Every implementation plan must include review gates after each phase and a final review after full implementation. Do not proceed to the next phase without completing both bug/regression and architecture/design review of the current phase.
-- When an implementation plan is approved, send it to the project-lead agent for orchestration. Do not assign work to specialist agents directly -- the project lead coordinates all work assignment.
 
 ## Control File Reference
 
