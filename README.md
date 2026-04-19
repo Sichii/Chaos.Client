@@ -546,6 +546,19 @@ dotnet run --project Chaos.Client/Chaos.Client.csproj
 > The client also needs a retail Dark Ages data folder to load its archives from. Point `GlobalSettings.DataPath` at
 > yours before the first run, or the game will fail to start.
 
+> [!NOTE]
+> **Linux users:** install SDL2_mixer's runtime deps via your package manager — the bundled `libSDL2_mixer.so` relies on
+> system-provided codec libraries (`libmpg123`, `libvorbisfile`, `libFLAC`, `libfluidsynth`, etc.) that come free with
+> the distro package:
+>
+> ```bash
+> sudo apt install libsdl2-mixer-2.0-0       # Debian/Ubuntu
+> sudo dnf install SDL2_mixer                # Fedora/RHEL
+> sudo pacman -S sdl2_mixer                  # Arch
+> ```
+>
+> Windows and macOS ship fully self-contained binaries — no extra install step.
+
 ## Configuration
 
 Almost everything a fork needs to change is in `Chaos.Client/GlobalSettings.cs`:

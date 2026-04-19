@@ -42,7 +42,6 @@ Chaos.Client.slnx (.NET 10.0, C# 14)
 | Chaos.Geometry 1.11.0-preview              | Geometry types -- rectangles, points (NuGet)                              |
 | Chaos.Pathfinding 1.11.0-preview           | A* pathfinding (NuGet)                                                    |
 | Microsoft.Extensions.Caching.Memory 10.0.5 | MemoryCache infrastructure                                                |
-| NAudio 2.3.0                               | MP3 decoding for sound playback                                           |
 | TextCopy 6.2.1                             | Cross-platform clipboard access (used by `Utilities/Clipboard`)           |
 
 ## Build Configuration
@@ -96,7 +95,8 @@ Chaos.Client/
 ├── GlobalSettings.cs         — Static config (ClientVersion, DataPath, LobbyHost/Port)
 ├── InputBuffer.cs            — Event-driven input capture and buffering
 ├── InputDispatcher.cs        — UI event dispatch: hit-test, bubble, drag, click synthesis, control stack
-├── Sdl.cs                    — Centralized SDL2 P/Invoke declarations (keyboard, text, mouse button, mouse wheel event constants consumed by InputBuffer)
+├── Sdl.cs                    — Centralized SDL2 P/Invoke declarations (keyboard, text, mouse button, mouse wheel event constants consumed by InputBuffer; audio subsystem init/quit, SDL_GetError, SDL_RWFromConstMem consumed by SoundSystem)
+├── SdlMixer.cs               — SDL2_mixer P/Invoke wrapper (Mix_* functions and constants, consumed by SoundSystem)
 ├── Collections/              — WorldState, CircularBuffer
 ├── Models/                   — WorldEntity, Animation, EntityRemovalAnimation, WorldFrameState, SlotDragPayload, PathfindingState, etc.
 ├── ViewModel/                — Authoritative state classes owned by WorldState
@@ -144,7 +144,7 @@ Chaos.Client/
 ### Game Systems (`Chaos.Client/Systems/`)
 - **`AnimationSystem`** -- Pure methods for walk/body/creature animations, frame calculation, walk offset lerp.
 - **`CastingSystem`** -- Spell targeting + chant management.
-- **`SoundSystem`** -- NAudio MP3->PCM, cached playback, music looping.
+- **`SoundSystem`** -- SDL2_mixer-based audio. MP3s decoded to PCM once via `Mix_LoadWAV_RW` and cached as `Mix_Chunk` pointers; playback uses the mixer's channel pool with per-channel volume. Music streams via `Mix_LoadMUS` with `Mix_FadeOutMusic`/`Mix_FadeInMusic` for map transitions. Same-sound overlap ducks prior instances by -3 dB (equal-power) instead of voice-stealing.
 - **`Pathfinder`** -- A* pathfinding algorithm.
 - **`LightingSystem`** -- Owns the per-frame light source buffer. Walks world entities, reads `LanternSize`, and gathers into a span consumed read-only by `DarknessRenderer` and `TabMapRenderer` (neither stores its own copy). Caches Euclidean circle offset arrays (radius 3/5) and exposes `BaselineVisibilityOffsets` for the unconditional player-tile reveal on darkness maps.
 - **`LatencyMonitor`** -- Static class. Background ICMP ping loop (15s interval) against the connected server endpoint. Exposes `LatencyMs` and fires `LatencyChanged` for the HUD ping indicator. Started/stopped by `ChaosGame` on connect/disconnect. Events fire on thread-pool threads — consumers must poll from the game-loop thread.

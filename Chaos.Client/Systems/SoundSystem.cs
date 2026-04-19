@@ -1,56 +1,68 @@
 #region
 using System.Collections.Concurrent;
+using System.Runtime.InteropServices;
 using Chaos.Client.Data;
-using NAudio.CoreAudioApi;
-using NAudio.CoreAudioApi.Interfaces;
-using NAudio.Wave;
-using NAudio.Wave.SampleProviders;
 #endregion
 
 namespace Chaos.Client.Systems;
 
 /// <summary>
-///     Manages sound effect and music playback via NAudio. Decoded PCM is normalized to a canonical 44.1kHz stereo
-///     float format and fed through a single <see cref="MixingSampleProvider" /> routed to a <see cref="WasapiOut" />
-///     on the current default audio render endpoint. Listens for Windows default-device changes via
-///     <see cref="MMDeviceEnumerator" /> and recreates the output on the next <see cref="Update" /> so audio follows
-///     the user's default device swap while the client is running.
+///     Manages sound-effect and background-music playback via SDL2_mixer (with minimp3 compiled directly into the
+///     mixer DLL). SFX are loaded from legend.dat as MP3 bytes, decoded to PCM once via <c>Mix_LoadWAV_RW</c> and
+///     cached as <c>Mix_Chunk</c> pointers; playback uses the mixer's channel pool with per-channel volume. Music
+///     is streamed from disk via <c>Mix_LoadMUS</c>, with cross-map transitions driven by SDL_mixer's built-in
+///     <c>Mix_FadeOutMusic</c>/<c>Mix_FadeInMusic</c>. When the same sound id is triggered while an earlier
+///     instance is still audible, the prior live instances have their channel volume halved so the new play stands
+///     out (overlap ducking instead of voice-stealing like the original Miles-based client).
 /// </summary>
 public sealed class SoundSystem : IDisposable
 {
-    private const int CANONICAL_SAMPLE_RATE = 44100;
-    private const int CANONICAL_CHANNELS = 2;
+    //the original client opens its Miles driver at 22050 Hz / stereo; we match that rate and let Windows do
+    //the single resample to the output device rate rather than stacking our own
+    private const int MIX_FREQUENCY = 22050;
+    private const int MIX_CHANNELS = 2;
+    //sample chunk size fed to the audio callback; ~93ms at 22050Hz, good balance of latency vs callback overhead
+    private const int MIX_CHUNK_SIZE = 2048;
+    //default Mix_AllocateChannels is 8; we bump to 32 so overlap-heavy situations (AOE effects, crowds of mobs)
+    //don't run out of voices and return -1 from Mix_PlayChannel
+    private const int CHANNEL_COUNT = 32;
+    //fade duration for map-transition music swaps, matched to the feel of the original client's ramp
+    private const int MUSIC_FADE_MS = 500;
     private const int MAX_CACHED_SOUNDS = 64;
     private const int VOLUME_STEPS = 10;
-    private const int OUTPUT_LATENCY_MS = 50;
-    private const int FALLBACK_LATENCY_MS = 100;
+    //volume scale multiplier mapping our 0..10 slider to SDL_mixer's 0..128 range; at tick=10 we reach MAX_VOLUME
+    private const int VOLUME_SCALE = SdlMixer.MIX_MAX_VOLUME / VOLUME_STEPS;
+    //duck prior live instances of the same sound id on every new play; -3 dB (equal-power) preserves perceived loudness when two copies overlap
+    private const float OVERLAP_EQUAL_POWER_MULTIPLIER = 0.7071068f;
 
-    private static readonly WaveFormat CanonicalFormat
-        = WaveFormat.CreateIeeeFloatWaveFormat(CANONICAL_SAMPLE_RATE, CANONICAL_CHANNELS);
-
-    private readonly MixingSampleProvider Mixer = new(CanonicalFormat) { ReadFully = true };
-    private readonly ConcurrentQueue<PendingDecode> PendingDecodedSounds = new();
-    private readonly HashSet<int> PendingDecodes = [];
+    //delegate instance kept as a field so the GC doesn't collect the callback SDL holds a native pointer to
+    private readonly SdlMixer.ChannelFinishedCallback ChannelFinishedDelegate;
+    //populated on SDL's audio thread when a channel naturally finishes; drained in Update() on the game thread
+    private readonly ConcurrentQueue<int> FinishedChannels = new();
+    //channel → sound id mapping for ducking + completion; only touched on the game thread
+    private readonly Dictionary<int, int> ChannelToSoundId = [];
+    //inverse lookup: sound id → currently-playing channels (for per-id ducking on new plays)
+    private readonly Dictionary<int, List<int>> SoundIdToChannels = [];
+    //decoded Mix_Chunk pointers indexed by sound id, with a monotonic timestamp for LRU eviction
+    private readonly Dictionary<int, (nint Chunk, long Timestamp)> SoundCache = [];
+    //same-frame dedup (e.g. AOE hitting multiple targets in one tick trying to play the same sound N times)
     private readonly HashSet<int> PlayedThisFrame = [];
-    private readonly Dictionary<int, (float[] Samples, long Timestamp)> SoundCache = [];
 
     private int CurrentMusicId = -1;
-    private StreamingMusicProvider? CurrentMusicSource;
-    private MMDeviceEnumerator? DeviceEnumerator;
-    private volatile bool DeviceChangePending;
+    private nint CurrentMusicPtr;
+    private bool Initialized;
     private bool IsDisposed;
-    private float MusicVolume = 0.75f;
-    private VolumeSampleProvider? MusicVolumeWrapper;
-    private DefaultDeviceNotificationClient? NotificationClient;
-    private IWavePlayer? Output;
+    private bool MusicFadingOut;
+    private int MusicVolumeValue = SdlMixer.MIX_MAX_VOLUME;
+    //music id queued to start once the current music's fade-out completes; 0 means "stop music"
+    private int PendingMusicId;
+    private int SfxVolume = SdlMixer.MIX_MAX_VOLUME;
     private long SoundCacheTimestamp;
-    private float Volume = 0.75f;
 
     public SoundSystem()
     {
-        Mixer.MixerInputEnded += OnMixerInputEnded;
-        RegisterDeviceNotifications();
-        InitializeDevice();
+        ChannelFinishedDelegate = OnChannelFinished;
+        InitializeMixer();
     }
 
     /// <inheritdoc />
@@ -61,107 +73,133 @@ public sealed class SoundSystem : IDisposable
 
         IsDisposed = true;
 
-        UnregisterDeviceNotifications();
-        StopMusic();
+        if (!Initialized)
+            return;
 
-        try
+        //clear the callback BEFORE halting so the audio thread can't fire OnChannelFinished while we tear down
+        SdlMixer.Mix_ChannelFinished(nint.Zero);
+        SdlMixer.Mix_HaltChannel(SdlMixer.MIX_DEFAULT_CHANNEL);
+        SdlMixer.Mix_HaltMusic();
+
+        if (CurrentMusicPtr != nint.Zero)
         {
-            Output?.Stop();
-        } catch
-        {
-            //ignore: output may already be in a faulted state
+            SdlMixer.Mix_FreeMusic(CurrentMusicPtr);
+            CurrentMusicPtr = nint.Zero;
         }
 
-        try
-        {
-            Output?.Dispose();
-        } catch
-        {
-            //ignore
-        }
-
-        Output = null;
-
-        Mixer.MixerInputEnded -= OnMixerInputEnded;
-        Mixer.RemoveAllMixerInputs();
+        foreach (var entry in SoundCache.Values)
+            if (entry.Chunk != nint.Zero)
+                SdlMixer.Mix_FreeChunk(entry.Chunk);
 
         SoundCache.Clear();
+
+        SdlMixer.Mix_CloseAudio();
+        SdlMixer.Mix_Quit();
+        Sdl.SDL_QuitSubSystem(Sdl.SDL_INIT_AUDIO);
+
+        Initialized = false;
     }
 
     /// <summary>
-    ///     Plays background music by ID. Kicks off async MP3 decode — call <see cref="Update" /> each frame to start
-    ///     playback when ready. musicId 0 stops playback.
+    ///     Plays background music by id. Triggers a fade-out of the current track (if any) and a fade-in of the new
+    ///     track once the fade-out completes. musicId 0 stops playback with a fade-out and leaves no pending track.
     /// </summary>
     public void PlayMusic(int musicId)
     {
-        if (IsDisposed)
+        if (IsDisposed || !Initialized)
             return;
 
-        if (musicId == CurrentMusicId)
-            return;
-
-        StopMusic();
-
-        if (musicId == 0)
-            return;
-
-        var path = Path.Combine(DataContext.DataPath, "music", $"{musicId}.mus");
-
-        if (!File.Exists(path))
-            return;
-
-        if (Output is null)
-            return;
-
-        try
+        //already mid-fade-out — just update what plays next once the fade completes
+        if (MusicFadingOut)
         {
-            CurrentMusicSource = new StreamingMusicProvider(path, CANONICAL_SAMPLE_RATE, CANONICAL_CHANNELS);
-        } catch
-        {
+            PendingMusicId = musicId;
+
             return;
         }
 
-        MusicVolumeWrapper = new VolumeSampleProvider(CurrentMusicSource)
-        {
-            Volume = MusicVolume
-        };
+        //already playing the requested track — nothing to do
+        if (musicId == CurrentMusicId)
+            return;
 
-        Mixer.AddMixerInput(MusicVolumeWrapper);
-        CurrentMusicId = musicId;
+        //stop request when nothing is currently playing: no fade needed
+        if ((musicId == 0) && (CurrentMusicPtr == nint.Zero))
+            return;
+
+        //nothing currently playing — skip the fade-out phase and start the new track directly
+        if (CurrentMusicPtr == nint.Zero)
+        {
+            StartMusic(musicId);
+
+            return;
+        }
+
+        //kick off the async fade-out; Update() will pick up the completion and start PendingMusicId
+        SdlMixer.Mix_FadeOutMusic(MUSIC_FADE_MS);
+        MusicFadingOut = true;
+        PendingMusicId = musicId;
     }
 
     /// <summary>
-    ///     Plays a sound effect by ID. Decoded PCM is cached per sound on first use; subsequent calls create a
-    ///     lightweight provider and hand it straight to the mixer.
+    ///     Plays a sound effect by id. First-time plays decode the MP3 synchronously (minimp3 is fast on short
+    ///     files); subsequent plays grab the cached <c>Mix_Chunk</c>. If a previous instance of the same id is
+    ///     still playing, its channel volume is halved so the new play is more audible.
     /// </summary>
     public void PlaySound(int soundId)
     {
-        if (IsDisposed || (Volume <= 0f))
+        if (IsDisposed || !Initialized || (SfxVolume <= 0))
             return;
 
         //collapse same-frame duplicate triggers (e.g. AOE hitting multiple targets in a single tick)
         if (!PlayedThisFrame.Add(soundId))
             return;
 
+        nint chunk;
+
         if (SoundCache.TryGetValue(soundId, out var cached))
         {
-            SoundCache[soundId] = (cached.Samples, SoundCacheTimestamp++);
-            PlayCachedSamples(cached.Samples, Volume);
+            chunk = cached.Chunk;
+            SoundCache[soundId] = (chunk, SoundCacheTimestamp++);
+        } else
+        {
+            chunk = LoadChunk(soundId);
 
-            return;
+            if (chunk == nint.Zero)
+                return;
+
+            SoundCache[soundId] = (chunk, SoundCacheTimestamp++);
+
+            if (SoundCache.Count > MAX_CACHED_SOUNDS)
+                EvictOldest();
         }
 
-        //avoid dispatching a duplicate decode for a sound that's already being decoded
-        if (!PendingDecodes.Add(soundId))
+        //duck any currently-playing instances of this sound so the new play is more prominent
+        if (SoundIdToChannels.TryGetValue(soundId, out var existing))
+            foreach (var ch in existing)
+            {
+                //Mix_Volume with volume < 0 queries the current volume without setting it
+                var currentVolume = SdlMixer.Mix_Volume(ch, -1);
+                SdlMixer.Mix_Volume(ch, (int)(currentVolume * OVERLAP_EQUAL_POWER_MULTIPLIER));
+            }
+
+        //-1 asks the mixer to pick any free channel; returns the selected channel or -1 if none are available
+        var channel = SdlMixer.Mix_PlayChannel(SdlMixer.MIX_DEFAULT_CHANNEL, chunk, 0);
+
+        if (channel < 0)
             return;
 
-        var volumeSnapshot = Volume;
+        //SDL_mixer preserves a channel's last volume across plays, so a previously-ducked channel would start the
+        //new sound at the reduced level — reset to the current slider value here
+        SdlMixer.Mix_Volume(channel, SfxVolume);
 
-        Task.Run(() =>
+        ChannelToSoundId[channel] = soundId;
+
+        if (!SoundIdToChannels.TryGetValue(soundId, out var list))
         {
-            var samples = LoadAndDecodeSoundEffect(soundId);
-            PendingDecodedSounds.Enqueue(new PendingDecode(soundId, samples, volumeSnapshot));
-        });
+            list = [];
+            SoundIdToChannels[soundId] = list;
+        }
+
+        list.Add(channel);
     }
 
     /// <summary>
@@ -169,124 +207,62 @@ public sealed class SoundSystem : IDisposable
     /// </summary>
     public void SetMusicVolume(int volume)
     {
-        MusicVolume = Math.Clamp(volume, 0, VOLUME_STEPS) / (float)VOLUME_STEPS;
+        MusicVolumeValue = Math.Clamp(volume, 0, VOLUME_STEPS) * VOLUME_SCALE;
 
-        if (MusicVolumeWrapper is not null)
-            MusicVolumeWrapper.Volume = MusicVolume;
+        if (Initialized)
+            SdlMixer.Mix_VolumeMusic(MusicVolumeValue);
     }
 
     /// <summary>
-    ///     Sets the sound effect volume. Range: 0 (mute) to 10 (max). Future plays use the new volume; sounds already
-    ///     in flight are not retroactively scaled.
+    ///     Sets the sound effect volume. Range: 0 (mute) to 10 (max). Future plays use the new volume; sounds
+    ///     already in flight keep their current channel volume (matching the prior NAudio-based behavior).
     /// </summary>
-    public void SetSoundVolume(int volume) => Volume = Math.Clamp(volume, 0, VOLUME_STEPS) / (float)VOLUME_STEPS;
+    public void SetSoundVolume(int volume) => SfxVolume = Math.Clamp(volume, 0, VOLUME_STEPS) * VOLUME_SCALE;
 
     /// <summary>
-    ///     Pumps pending sound/music decodes and processes any deferred audio device swap. Call once per frame from
-    ///     the game loop.
+    ///     Pumps deferred audio-thread work back into the game state. Call once per frame from the game loop.
     /// </summary>
     public void Update()
     {
-        if (IsDisposed)
+        if (IsDisposed || !Initialized)
             return;
 
         //reset same-frame dedup window; any PlaySound later this frame starts from a clean set
         PlayedThisFrame.Clear();
 
-        if (DeviceChangePending)
+        //reap channels that finished naturally on the audio thread so their tracking entries don't leak
+        while (FinishedChannels.TryDequeue(out var channel))
         {
-            DeviceChangePending = false;
-            InitializeDevice();
-        }
-
-        while (PendingDecodedSounds.TryDequeue(out var pending))
-        {
-            PendingDecodes.Remove(pending.SoundId);
-
-            if (pending.Samples is null)
+            if (!ChannelToSoundId.Remove(channel, out var soundId))
                 continue;
 
-            SoundCache[pending.SoundId] = (pending.Samples, SoundCacheTimestamp++);
+            if (!SoundIdToChannels.TryGetValue(soundId, out var list))
+                continue;
 
-            if (SoundCache.Count > MAX_CACHED_SOUNDS)
-                EvictOldest();
+            list.Remove(channel);
 
-            //deferred decode counts as this frame's play — block any PlaySound(soundId) later this frame
-            PlayedThisFrame.Add(pending.SoundId);
-            PlayCachedSamples(pending.Samples, pending.Volume);
+            if (list.Count == 0)
+                SoundIdToChannels.Remove(soundId);
         }
-    }
 
-    private static float[]? ConvertToCanonical(Mp3FileReader reader)
-    {
-        var source = reader.ToSampleProvider();
-
-        if (source.WaveFormat.SampleRate != CANONICAL_SAMPLE_RATE)
-            source = new WdlResamplingSampleProvider(source, CANONICAL_SAMPLE_RATE);
-
-        if (source.WaveFormat.Channels == 1)
-            source = new MonoToStereoSampleProvider(source);
-
-        var readBuffer = new float[4096];
-        var result = new float[CANONICAL_SAMPLE_RATE * CANONICAL_CHANNELS];
-        var total = 0;
-        int read;
-
-        while ((read = source.Read(readBuffer, 0, readBuffer.Length)) > 0)
+        //detect fade-out completion and start the queued track (if any)
+        if (MusicFadingOut && (SdlMixer.Mix_PlayingMusic() == 0))
         {
-            if (total + read > result.Length)
+            MusicFadingOut = false;
+
+            if (CurrentMusicPtr != nint.Zero)
             {
-                var newLen = Math.Max(result.Length * 2, total + read);
-                Array.Resize(ref result, newLen);
+                SdlMixer.Mix_FreeMusic(CurrentMusicPtr);
+                CurrentMusicPtr = nint.Zero;
             }
 
-            Array.Copy(readBuffer, 0, result, total, read);
-            total += read;
+            CurrentMusicId = -1;
+
+            if (PendingMusicId > 0)
+                StartMusic(PendingMusicId);
+
+            PendingMusicId = 0;
         }
-
-        if (total == 0)
-            return null;
-
-        if (total < result.Length)
-            Array.Resize(ref result, total);
-
-        return result;
-    }
-
-    private static float[]? DecodeMp3Bytes(byte[] compressed)
-    {
-        try
-        {
-            using var ms = new MemoryStream(compressed);
-            using var reader = new Mp3FileReader(ms);
-
-            return ConvertToCanonical(reader);
-        } catch
-        {
-            return null;
-        }
-    }
-
-
-    private static float[]? LoadAndDecodeSoundEffect(int soundId)
-    {
-        if (!DatArchives.Legend.TryGetValue($"{soundId}.mp3", out var entry))
-            return null;
-
-        byte[] compressed;
-
-        try
-        {
-            using var archiveStream = entry.ToStreamSegment();
-            using var ms = new MemoryStream();
-            archiveStream.CopyTo(ms);
-            compressed = ms.ToArray();
-        } catch
-        {
-            return null;
-        }
-
-        return DecodeMp3Bytes(compressed);
     }
 
     private void EvictOldest()
@@ -297,289 +273,122 @@ public sealed class SoundSystem : IDisposable
             var oldestTime = long.MaxValue;
 
             foreach ((var key, var entry) in SoundCache)
+            {
+                //skip anything that's still audibly playing — Mix_FreeChunk on a live chunk corrupts the mixer
+                if (SoundIdToChannels.ContainsKey(key))
+                    continue;
+
                 if (entry.Timestamp < oldestTime)
                 {
                     oldestTime = entry.Timestamp;
                     oldestKey = key;
                 }
+            }
 
+            //every cached sound is currently playing; defer eviction rather than risk crashing the mixer
             if (oldestKey < 0)
                 break;
 
+            var chunk = SoundCache[oldestKey].Chunk;
             SoundCache.Remove(oldestKey);
+
+            if (chunk != nint.Zero)
+                SdlMixer.Mix_FreeChunk(chunk);
         }
     }
 
-    private void InitializeDevice()
+    private void InitializeMixer()
     {
-        if (IsDisposed)
+        if (Sdl.SDL_InitSubSystem(Sdl.SDL_INIT_AUDIO) != 0)
             return;
 
-        try
-        {
-            Output?.Stop();
-        } catch
-        {
-            //ignore
-        }
+        //Mix_Init is effectively a no-op for minimp3 (statically linked since SDL_mixer 2.6) but is still part of
+        //the official init sequence — safe to call unconditionally
+        SdlMixer.Mix_Init(SdlMixer.MIX_INIT_MP3);
 
-        try
+        if (SdlMixer.Mix_OpenAudio(MIX_FREQUENCY, SdlMixer.AUDIO_S16LSB, MIX_CHANNELS, MIX_CHUNK_SIZE) != 0)
         {
-            Output?.Dispose();
-        } catch
-        {
-            //ignore
-        }
-
-        Output = null;
-
-        //wrap the mixer so WasapiOut/WaveOutEvent can consume it: IWavePlayer.Init takes IWaveProvider,
-        //and SampleToWaveProvider adapts our float-sample mixer chain to that interface
-        var waveProvider = new SampleToWaveProvider(Mixer);
-
-        try
-        {
-            var wasapi = new WasapiOut(AudioClientShareMode.Shared, OUTPUT_LATENCY_MS);
-            wasapi.Init(waveProvider);
-            wasapi.Play();
-            Output = wasapi;
+            SdlMixer.Mix_Quit();
+            Sdl.SDL_QuitSubSystem(Sdl.SDL_INIT_AUDIO);
 
             return;
-        } catch
-        {
-            //fall through to the WinMM-based fallback
         }
+
+        SdlMixer.Mix_AllocateChannels(CHANNEL_COUNT);
+        SdlMixer.Mix_VolumeMusic(MusicVolumeValue);
+
+        var cb = Marshal.GetFunctionPointerForDelegate(ChannelFinishedDelegate);
+        SdlMixer.Mix_ChannelFinished(cb);
+
+        Initialized = true;
+    }
+
+    private static nint LoadChunk(int soundId)
+    {
+        if (!DatArchives.Legend.TryGetValue($"{soundId}.mp3", out var entry))
+            return nint.Zero;
+
+        byte[] bytes;
 
         try
         {
-            var waveOut = new WaveOutEvent
-            {
-                DesiredLatency = FALLBACK_LATENCY_MS
-            };
-            waveOut.Init(waveProvider);
-            waveOut.Play();
-            Output = waveOut;
+            using var archiveStream = entry.ToStreamSegment();
+            using var ms = new MemoryStream();
+            archiveStream.CopyTo(ms);
+            bytes = ms.ToArray();
         } catch
         {
-            Output = null;
+            return nint.Zero;
+        }
+
+        return LoadChunkFromBytes(bytes);
+    }
+
+    private static nint LoadChunkFromBytes(byte[] bytes)
+    {
+        //pin the managed byte[] so SDL can read it during Mix_LoadWAV_RW; Mix_LoadWAV_RW decodes the whole file
+        //to PCM synchronously before returning, after which the buffer can be unpinned and freed
+        var handle = GCHandle.Alloc(bytes, GCHandleType.Pinned);
+
+        try
+        {
+            var rw = Sdl.SDL_RWFromConstMem(handle.AddrOfPinnedObject(), bytes.Length);
+
+            if (rw == nint.Zero)
+                return nint.Zero;
+
+            //freesrc=1 asks SDL to close the RWops for us after the load completes
+            return SdlMixer.Mix_LoadWAV_RW(rw, 1);
+        } finally
+        {
+            handle.Free();
         }
     }
 
-    private void OnMixerInputEnded(object? sender, SampleProviderEventArgs e)
-    {
-        //sfx samples live in SoundCache and are reused on future plays; nothing to release here
-    }
+    private void OnChannelFinished(int channel)
+        //called on the SDL audio thread — keep this to a lock-free enqueue so we never touch the tracking dicts
+        //from anywhere except the game-loop Update
+        => FinishedChannels.Enqueue(channel);
 
-    private void PlayCachedSamples(float[] samples, float volume)
+    private void StartMusic(int musicId)
     {
-        if (Output is null)
+        if (musicId == 0)
             return;
 
-        var provider = new CachedSoundSampleProvider(samples, CanonicalFormat);
+        var path = Path.Combine(DataContext.DataPath, "music", $"{musicId}.mus");
 
-        var wrapped = new VolumeSampleProvider(provider)
-        {
-            Volume = volume
-        };
+        if (!File.Exists(path))
+            return;
 
-        Mixer.AddMixerInput(wrapped);
-    }
+        var handle = SdlMixer.Mix_LoadMUS(path);
 
-    private void RegisterDeviceNotifications()
-    {
-        try
-        {
-            DeviceEnumerator = new MMDeviceEnumerator();
-            NotificationClient = new DefaultDeviceNotificationClient(() => DeviceChangePending = true);
-            DeviceEnumerator.RegisterEndpointNotificationCallback(NotificationClient);
-        } catch
-        {
-            DeviceEnumerator = null;
-            NotificationClient = null;
-        }
-    }
+        if (handle == nint.Zero)
+            return;
 
-    private void StopMusic()
-    {
-        CurrentMusicId = -1;
+        CurrentMusicPtr = handle;
+        CurrentMusicId = musicId;
 
-        if (MusicVolumeWrapper is not null)
-        {
-            Mixer.RemoveMixerInput(MusicVolumeWrapper);
-            MusicVolumeWrapper = null;
-        }
-
-        CurrentMusicSource?.Dispose();
-        CurrentMusicSource = null;
-    }
-
-    private void UnregisterDeviceNotifications()
-    {
-        if (DeviceEnumerator is not null && NotificationClient is not null)
-        {
-            try
-            {
-                DeviceEnumerator.UnregisterEndpointNotificationCallback(NotificationClient);
-            } catch
-            {
-                //ignore
-            }
-        }
-
-        try
-        {
-            DeviceEnumerator?.Dispose();
-        } catch
-        {
-            //ignore
-        }
-
-        DeviceEnumerator = null;
-        NotificationClient = null;
-    }
-
-    private readonly record struct PendingDecode(int SoundId, float[]? Samples, float Volume);
-
-    private sealed class CachedSoundSampleProvider : ISampleProvider
-    {
-        private readonly float[] Samples;
-        private int Position;
-        public WaveFormat WaveFormat { get; }
-
-        public CachedSoundSampleProvider(float[] samples, WaveFormat waveFormat)
-        {
-            Samples = samples;
-            WaveFormat = waveFormat;
-        }
-
-        public int Read(float[] buffer, int offset, int count)
-        {
-            var available = Samples.Length - Position;
-
-            if (available <= 0)
-                return 0;
-
-            var toRead = Math.Min(available, count);
-            Array.Copy(Samples, Position, buffer, offset, toRead);
-            Position += toRead;
-
-            return toRead;
-        }
-    }
-
-    private sealed class StreamingMusicProvider : ISampleProvider, IDisposable
-    {
-        private readonly string FilePath;
-        private readonly int TargetSampleRate;
-        private FileStream? Stream;
-        private Mp3FileReader? Reader;
-        private ISampleProvider? Source;
-
-        public WaveFormat WaveFormat { get; }
-
-        public StreamingMusicProvider(string filePath, int sampleRate, int channels)
-        {
-            FilePath = filePath;
-            TargetSampleRate = sampleRate;
-            WaveFormat = WaveFormat.CreateIeeeFloatWaveFormat(sampleRate, channels);
-
-            OpenPipeline();
-        }
-
-        public int Read(float[] buffer, int offset, int count)
-        {
-            if (Source is null)
-                return 0;
-
-            var totalRead = 0;
-
-            while (totalRead < count)
-            {
-                var read = Source.Read(buffer, offset + totalRead, count - totalRead);
-
-                if (read > 0)
-                {
-                    totalRead += read;
-
-                    continue;
-                }
-
-                //end of track — loop by rebuilding the decode pipeline from the same file
-                ClosePipeline();
-                OpenPipeline();
-
-                if (Source is null)
-                    break;
-            }
-
-            return totalRead;
-        }
-
-        private void OpenPipeline()
-        {
-            Stream = File.OpenRead(FilePath);
-            Reader = new Mp3FileReader(Stream);
-
-            var source = Reader.ToSampleProvider();
-
-            if (source.WaveFormat.SampleRate != TargetSampleRate)
-                source = new WdlResamplingSampleProvider(source, TargetSampleRate);
-
-            if (source.WaveFormat.Channels == 1)
-                source = new MonoToStereoSampleProvider(source);
-
-            Source = source;
-        }
-
-        private void ClosePipeline()
-        {
-            Source = null;
-            Reader?.Dispose();
-            Reader = null;
-            Stream?.Dispose();
-            Stream = null;
-        }
-
-        public void Dispose() => ClosePipeline();
-    }
-
-    private sealed class DefaultDeviceNotificationClient : IMMNotificationClient
-    {
-        private readonly Action OnChange;
-
-        public DefaultDeviceNotificationClient(Action onChange) => OnChange = onChange;
-
-        public void OnDefaultDeviceChanged(DataFlow flow, Role role, string defaultDeviceId)
-        {
-            if (flow != DataFlow.Render)
-                return;
-
-            //both Multimedia and Console typically fire when the user swaps their default device in Windows;
-            //we coalesce via the DeviceChangePending flag so a double-fire is idempotent
-            if (role is not Role.Multimedia and not Role.Console)
-                return;
-
-            OnChange();
-        }
-
-        public void OnDeviceAdded(string pwstrDeviceId)
-        {
-            //unused
-        }
-
-        public void OnDeviceRemoved(string deviceId)
-        {
-            //unused
-        }
-
-        public void OnDeviceStateChanged(string deviceId, DeviceState newState)
-        {
-            //unused
-        }
-
-        public void OnPropertyValueChanged(string pwstrDeviceId, PropertyKey key)
-        {
-            //unused
-        }
+        //Mix_FadeInMusic ramps from silence up to the current Mix_VolumeMusic over ms milliseconds
+        SdlMixer.Mix_FadeInMusic(handle, -1, MUSIC_FADE_MS);
     }
 }
