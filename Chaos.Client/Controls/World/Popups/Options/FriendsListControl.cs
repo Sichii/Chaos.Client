@@ -3,7 +3,6 @@ using Chaos.Client.Controls.Components;
 using Chaos.Client.Extensions;
 using Chaos.Client.Models;
 using Chaos.Client.Utilities;
-using Chaos.Extensions.Common;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using Microsoft.Xna.Framework.Input;
@@ -12,19 +11,23 @@ using Microsoft.Xna.Framework.Input;
 namespace Chaos.Client.Controls.World.Popups.Options;
 
 /// <summary>
-///     Friends list popup using _nfriend prefab. Two-column layout: left column (online friends), right column (offline
-///     friends). Row height 16px. OK/Cancel buttons at bottom.
+///     Friends list popup using _nfriend prefab. Two columns of 10 editable textboxes (20 total slots), filled
+///     sequentially — slots 1-10 populate the left column, slots 11-20 the right. OK saves, Cancel discards.
 /// </summary>
 public sealed class FriendsListControl : PrefabPanel
 {
-    private const int ROW_HEIGHT = 16;
-    private const int MAX_VISIBLE_ROWS = 12;
+    //row stride matches the _nfriend prefab's wooden slot lines. must stay in sync with the
+    //background graphic — if the prefab is ever replaced with a different vertical cadence,
+    //update this.
+    private const int ROW_HEIGHT = 21;
+    private const int ROWS_PER_COLUMN = 10;
+    private const int MAX_FRIENDS = ROWS_PER_COLUMN * 2;
+    private const int NAME_MAX_LENGTH = 12;
 
     private readonly Rectangle LeftColumnRect;
-
-    private readonly UILabel[] NamesColumn1 = new UILabel[MAX_VISIBLE_ROWS];
-    private readonly UILabel[] NamesColumn2 = new UILabel[MAX_VISIBLE_ROWS];
+    private readonly UITextBox[] NameSlots = new UITextBox[MAX_FRIENDS];
     private readonly Rectangle RightColumnRect;
+
     private bool ClosedWithOk;
     private int DataVersion;
 
@@ -64,41 +67,37 @@ public sealed class FriendsListControl : PrefabPanel
                 40,
                 40,
                 175,
-                MAX_VISIBLE_ROWS * ROW_HEIGHT);
+                ROWS_PER_COLUMN * ROW_HEIGHT);
 
         if (RightColumnRect == Rectangle.Empty)
             RightColumnRect = new Rectangle(
                 251,
                 40,
                 175,
-                MAX_VISIBLE_ROWS * ROW_HEIGHT);
+                ROWS_PER_COLUMN * ROW_HEIGHT);
 
-        for (var i = 0; i < MAX_VISIBLE_ROWS; i++)
+        //20 slots total — first 10 fill left column top-to-bottom, next 10 fill right column.
+        //UITextBox defaults (PaddingLeft/Top = 2) keep text centered inside each slot — same
+        //pattern used by MacrosListControl.
+        for (var i = 0; i < MAX_FRIENDS; i++)
         {
-            NamesColumn1[i] = new UILabel
+            var isLeft = i < ROWS_PER_COLUMN;
+            var column = isLeft ? LeftColumnRect : RightColumnRect;
+            var row = isLeft ? i : i - ROWS_PER_COLUMN;
+
+            NameSlots[i] = new UITextBox
             {
-                Name = $"Left{i}",
-                X = LeftColumnRect.X,
-                Y = LeftColumnRect.Y + i * ROW_HEIGHT,
-                Width = LeftColumnRect.Width,
+                Name = $"Slot{i}",
+                X = column.X,
+                Y = column.Y + row * ROW_HEIGHT,
+                Width = column.Width,
                 Height = ROW_HEIGHT,
-                PaddingLeft = 0,
-                PaddingTop = 0
+                MaxLength = NAME_MAX_LENGTH,
+                ForegroundColor = Color.White,
+                IsTabStop = true
             };
 
-            NamesColumn2[i] = new UILabel
-            {
-                Name = $"Right{i}",
-                X = RightColumnRect.X,
-                Y = RightColumnRect.Y + i * ROW_HEIGHT,
-                Width = RightColumnRect.Width,
-                Height = ROW_HEIGHT,
-                PaddingLeft = 0,
-                PaddingTop = 0
-            };
-
-            AddChild(NamesColumn1[i]);
-            AddChild(NamesColumn2[i]);
+            AddChild(NameSlots[i]);
         }
     }
 
@@ -140,16 +139,28 @@ public sealed class FriendsListControl : PrefabPanel
 
         RefreshCaches();
 
-        //labels are children — drawn by base.draw()
+        //textboxes are children — drawn by base.draw()
         base.Draw(spriteBatch);
     }
 
     /// <summary>
-    ///     Returns all friend names in the current list.
+    ///     Returns the current non-empty friend names in slot order — what the user sees in the textboxes right
+    ///     now, not the last SetFriends argument.
     /// </summary>
     public List<string> GetFriendNames()
-        => Friends.Select(f => f.Name)
-                  .ToList();
+    {
+        var names = new List<string>(MAX_FRIENDS);
+
+        for (var i = 0; i < MAX_FRIENDS; i++)
+        {
+            var text = NameSlots[i].Text.Trim();
+
+            if (!string.IsNullOrEmpty(text))
+                names.Add(text);
+        }
+
+        return names;
+    }
 
     public override void Hide()
     {
@@ -171,32 +182,14 @@ public sealed class FriendsListControl : PrefabPanel
 
         RenderedVersion = DataVersion;
 
-        using var onlineFriends = Friends.Where(f => f.IsOnline)
-                                         .ToRented();
-
-        using var offlineFriends = Friends.Where(f => !f.IsOnline)
-                                          .ToRented();
-
-        for (var i = 0; i < MAX_VISIBLE_ROWS; i++)
-        {
-            if (i < onlineFriends.Count)
-            {
-                NamesColumn1[i].Text = onlineFriends.Array[i].Name;
-                NamesColumn1[i].ForegroundColor = new Color(150, 255, 150);
-            } else
-                NamesColumn1[i].Text = string.Empty;
-
-            if (i < offlineFriends.Count)
-            {
-                NamesColumn2[i].Text = offlineFriends.Array[i].Name;
-                NamesColumn2[i].ForegroundColor = new Color(150, 150, 150);
-            } else
-                NamesColumn2[i].Text = string.Empty;
-        }
+        //sequential fill — first MAX_FRIENDS entries populate slots 0..MAX_FRIENDS-1. excess ignored.
+        for (var i = 0; i < MAX_FRIENDS; i++)
+            NameSlots[i].Text = i < Friends.Count ? Friends[i].Name : string.Empty;
     }
 
     /// <summary>
-    ///     Populates the friends list. Online friends on left, offline on right.
+    ///     Populates the friends list. Entries fill slots sequentially — left column first (1-10), then right
+    ///     column (11-20). Online status is not distinguished visually (all text in white).
     /// </summary>
     public void SetFriends(List<FriendEntry> friends)
     {
@@ -223,7 +216,7 @@ public sealed class FriendsListControl : PrefabPanel
     }
 
     /// <summary>
-    ///     Slides out from the left edge of MainOptionsControl (button mode).
+    ///     Slides in from the configured slide anchor (button mode).
     /// </summary>
     public void SlideIn()
     {

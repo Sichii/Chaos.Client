@@ -395,12 +395,12 @@ public sealed partial class WorldScreen
     /// </summary>
     private void ForceCloseOtherTogglePanels(Keys except)
     {
-        if ((except != Keys.Q) && MainOptions.Visible)
+        if ((except != Keys.Q) && PauseMenu.Visible)
         {
             SettingsDialog.Hide();
             MacrosList.Hide();
             FriendsList.Hide();
-            MainOptions.SlideClose();
+            PauseMenu.Hide();
         }
 
         if ((except != Keys.W) && IsAnyBoardPanelVisible())
@@ -761,17 +761,6 @@ public sealed partial class WorldScreen
             hud.ExpandButton.Clicked += () => hud.ToggleExpand();
 
         //action buttons
-        if (hud.OptionButton is not null)
-        {
-            hud.OptionButton.Clicked += () =>
-            {
-                hud.OptionButton!.IsSelected = true;
-                MainOptions.Show();
-            };
-
-            MainOptions.OnClose += () => hud.OptionButton.IsSelected = false;
-        }
-
         if (hud.HelpButton is not null)
             hud.HelpButton.Clicked += () => HotkeyHelp.Show();
 
@@ -949,6 +938,7 @@ public sealed partial class WorldScreen
         Camera.Resize(viewport.Width, viewport.Height);
         UpdateCameraOffset(viewport);
         SystemMessagePane.SetViewportBounds(viewport);
+        PauseMenu.SetViewportBounds(viewport);
         WorldList.SetViewportBounds(viewport);
         BoardList.SetViewportBounds(viewport);
         ArticleList.SetViewportBounds(viewport);
@@ -1021,20 +1011,20 @@ public sealed partial class WorldScreen
     #region Options Dialog Wiring
     private void WireOptionsDialog()
     {
-        MainOptions.OnMacro += () => ToggleSubPanel(MacrosList, SettingsDialog, FriendsList);
-        MainOptions.OnSettings += () => ToggleSubPanel(SettingsDialog, MacrosList, FriendsList);
-        MainOptions.OnFriends += () => ToggleSubPanel(FriendsList, MacrosList, SettingsDialog);
+        PauseMenu.OnMacro += () => ToggleSubPanel(MacrosList, SettingsDialog, FriendsList);
+        PauseMenu.OnSettings += () => ToggleSubPanel(SettingsDialog, MacrosList, FriendsList);
+        PauseMenu.OnFriends += () => ToggleSubPanel(FriendsList, MacrosList, SettingsDialog);
 
-        MainOptions.OnExit += () => Game.Connection.RequestExit();
+        PauseMenu.OnExit += () => Game.Connection.RequestExit();
 
-        MainOptions.OnSoundVolumeChanged += volume =>
+        PauseMenu.OnSoundVolumeChanged += volume =>
         {
             Game.SoundSystem.SetSoundVolume(volume);
             ClientSettings.SoundVolume = volume;
             ClientSettings.Save();
         };
 
-        MainOptions.OnMusicVolumeChanged += volume =>
+        PauseMenu.OnMusicVolumeChanged += volume =>
         {
             Game.SoundSystem.SetMusicVolume(volume);
             ClientSettings.MusicVolume = volume;
@@ -1042,8 +1032,8 @@ public sealed partial class WorldScreen
         };
 
         //apply saved volume settings
-        MainOptions.SetSoundVolume(ClientSettings.SoundVolume);
-        MainOptions.SetMusicVolume(ClientSettings.MusicVolume);
+        PauseMenu.SetSoundVolume(ClientSettings.SoundVolume);
+        PauseMenu.SetMusicVolume(ClientSettings.MusicVolume);
         Game.SoundSystem.SetSoundVolume(ClientSettings.SoundVolume);
         Game.SoundSystem.SetMusicVolume(ClientSettings.MusicVolume);
     }

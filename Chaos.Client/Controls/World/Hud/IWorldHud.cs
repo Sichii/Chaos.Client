@@ -34,7 +34,6 @@ public interface IWorldHud
     bool IsOrangeBarDragging { get; }
     UIButton? LegendButton { get; }
     MailButton? MailButton { get; }
-    UIButton? OptionButton { get; }
     string PlayerName { get; }
     UIButton? ScreenshotButton { get; }
     UIButton? SettingsButton { get; }

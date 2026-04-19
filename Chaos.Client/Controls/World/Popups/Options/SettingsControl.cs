@@ -187,7 +187,7 @@ public sealed class SettingsControl : PrefabPanel
     }
 
     /// <summary>
-    ///     Slides out from the left edge of MainOptionsControl (button mode).
+    ///     Slides in from the configured slide anchor (button mode).
     /// </summary>
     public void SlideIn()
     {

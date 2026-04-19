@@ -127,7 +127,7 @@ public sealed partial class WorldScreen : IScreen
     private MailListControl MailList = null!;
     private MailReadControl MailRead = null!;
     private MailSendControl MailSend = null!;
-    private MainOptionsControl MainOptions = null!;
+    private PauseMenuControl PauseMenu = null!;
     private MapFile? MapFile;
     private MapLoadingBar MapLoading = null!;
     private Pathfinder? MapPathfinder;
@@ -241,15 +241,17 @@ public sealed partial class WorldScreen : IScreen
         NpcSession = new NpcSessionControl();
         WireNpcSession();
 
-        MainOptions = new MainOptionsControl
+        PauseMenu = new PauseMenuControl
         {
             ZIndex = -2
         };
-        MainOptions.SetViewportBounds(WorldHud.ViewportBounds);
+        PauseMenu.SetViewportBounds(WorldHud.ViewportBounds);
         WireOptionsDialog();
 
-        //sub-panels slide out from mainoptions' left edge, render behind it
-        var optionsAnchorX = WorldHud.ViewportBounds.X + WorldHud.ViewportBounds.Width - MainOptions.Width + 10;
+        //sub-panels (Settings/Macros/Friends) slide out leftward from an anchor on the
+        //right side of the viewport
+        const int SUB_PANEL_ANCHOR_X_FROM_RIGHT = 170;
+        var optionsAnchorX = WorldHud.ViewportBounds.X + WorldHud.ViewportBounds.Width - SUB_PANEL_ANCHOR_X_FROM_RIGHT + 10;
         var optionsAnchorY = WorldHud.ViewportBounds.Y;
 
         //initialize client-local settings into useroptions from persisted config
@@ -580,7 +582,7 @@ public sealed partial class WorldScreen : IScreen
         Root.AddChild(SystemMessagePane);
         Root.AddChild(NpcSession);
         Root.AddChild(ItemTooltip);
-        Root.AddChild(MainOptions);
+        Root.AddChild(PauseMenu);
         Root.AddChild(SettingsDialog);
         Root.AddChild(MacrosList);
         Root.AddChild(HotkeyHelp);

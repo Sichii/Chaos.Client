@@ -33,7 +33,7 @@ public struct SlideAnimator
     }
 
     /// <summary>
-    ///     Sets positions for a panel that slides from an anchor point (e.g. sub-panels behind MainOptions).
+    ///     Sets positions for a panel that slides leftward from an anchor point.
     /// </summary>
     public void SetSlideAnchor(int anchorX, int panelWidth)
     {

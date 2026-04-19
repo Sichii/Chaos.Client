@@ -600,6 +600,18 @@ public sealed partial class WorldScreen
             return;
         }
 
+        //escape with nothing else open — toggle pause menu. popups on the control stack
+        //receive the escape key via phase-2 stack dispatch before this handler runs, so
+        //we only reach here when the stack is empty (pause menu itself closes via its own
+        //OnKeyDown while it's the top of the stack).
+        if ((e.Key == Keys.Escape) && (InputDispatcher.Instance?.ControlStackCount == 0))
+        {
+            PauseMenu.Show();
+            e.Handled = true;
+
+            return;
+        }
+
         //enter — toggle chat focus
         if (e.Key == Keys.Enter)
         {
@@ -617,18 +629,14 @@ public sealed partial class WorldScreen
         {
             ForceCloseOtherTogglePanels(Keys.Q);
 
-            if (MainOptions.Visible)
+            if (PauseMenu.Visible)
             {
                 SettingsDialog.Hide();
                 MacrosList.Hide();
                 FriendsList.Hide();
-                MainOptions.SlideClose();
+                PauseMenu.Hide();
             } else
-            {
-                WorldHud.OptionButton?.IsSelected = true;
-
-                MainOptions.Show();
-            }
+                PauseMenu.Show();
 
             e.Handled = true;
 

@@ -57,11 +57,7 @@ public sealed class MacrosListControl : PrefabPanel
                 Height = ROW_HEIGHT,
                 MaxLength = MAX_MACRO_LENGTH,
                 ForegroundColor = LegendColors.White,
-                FocusedBackgroundColor = new Color(
-                    0,
-                    0,
-                    0,
-                    255)
+                IsTabStop = true
             };
 
             AddChild(MacroTextBoxes[i]);
@@ -133,8 +129,7 @@ public sealed class MacrosListControl : PrefabPanel
     }
 
     /// <summary>
-    ///     Sets the slide anchor to the left edge of the parent panel (MainOptionsControl). The sub-panel slides left out of
-    ///     the anchor and back into it on close.
+    ///     Sets the slide anchor. The sub-panel slides left out of the anchor and back into it on close.
     /// </summary>
     public void SetSlideAnchor(int anchorX, int anchorY)
     {
@@ -155,7 +150,7 @@ public sealed class MacrosListControl : PrefabPanel
     }
 
     /// <summary>
-    ///     Slides out from the left edge of MainOptionsControl (button mode).
+    ///     Slides in from the configured slide anchor (button mode).
     /// </summary>
     public void SlideIn()
     {
