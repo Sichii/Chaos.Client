@@ -122,6 +122,69 @@ public static class TextureConverter
     }
 
     /// <summary>
+    ///     Creates a ground-tinted copy of a texture. Blends the lower portion of the source toward
+    ///     <paramref name="tintColor" /> using its alpha as the blend weight. The tint region starts at row
+    ///     (<paramref name="feetAnchorY" /> - <paramref name="paintHeight" />) clamped to texture bounds and extends down to
+    ///     the texture bottom. Used by gndattr water tiles to partially submerge entities and ground items.
+    /// </summary>
+    public static Texture2D CreateGroundTintedTexture(Texture2D source, int paintHeight, int feetAnchorY, Color tintColor)
+    {
+        var count = source.Width * source.Height;
+        var pixels = ArrayPool<Color>.Shared.Rent(count);
+
+        try
+        {
+            source.GetData(pixels, 0, count);
+            ApplyGroundTintToPixels(pixels, source.Width, source.Height, paintHeight, feetAnchorY, tintColor);
+
+            var tinted = new Texture2D(Device, source.Width, source.Height);
+            tinted.SetData(pixels, 0, count);
+
+            return tinted;
+        } finally
+        {
+            ArrayPool<Color>.Shared.Return(pixels);
+        }
+    }
+
+    internal static void ApplyGroundTintToPixels(Color[] pixels, int width, int height, int paintHeight, int feetAnchorY, Color tintColor)
+    {
+        var tintTop = feetAnchorY - paintHeight;
+        var startRow = Math.Clamp(tintTop, 0, height);
+
+        var tintR = tintColor.R;
+        var tintG = tintColor.G;
+        var tintB = tintColor.B;
+        var alpha = tintColor.A / 255f;
+
+        for (var y = startRow; y < height; y++)
+        {
+            var rowStart = y * width;
+
+            for (var x = 0; x < width; x++)
+            {
+                var i = rowStart + x;
+                var pixel = pixels[i];
+
+                if (pixel.A == 0)
+                    continue;
+
+                //unpremultiply, lerp toward tint color, re-premultiply
+                var a = pixel.A / 255f;
+                var r = (byte)(pixel.R / a * (1 - alpha) + tintR * alpha);
+                var g = (byte)(pixel.G / a * (1 - alpha) + tintG * alpha);
+                var b = (byte)(pixel.B / a * (1 - alpha) + tintB * alpha);
+
+                pixels[i] = new Color(
+                    (byte)(r * a),
+                    (byte)(g * a),
+                    (byte)(b * a),
+                    pixel.A);
+            }
+        }
+    }
+
+    /// <summary>
     ///     Applies a 50/50 per-channel additive blend with <paramref name="tint" /> in-place. Alpha is preserved and
     ///     transparent pixels are skipped. Matches the retail DA client's generic tint primitive (see
     ///     <c>Darkages.exe</c> <c>FUN_004548b0</c> for the original RGB565 implementation).

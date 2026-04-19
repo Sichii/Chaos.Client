@@ -583,6 +583,9 @@ public sealed partial class WorldScreen
 
         var tint = ResolveEntityTint(entity);
 
+        //mirror the aisling convention — swimming tiles replace the normal sprite path and must not double-tint the creature.
+        var groundPaintHeight = entity.IsOnSwimmingTile ? 0 : entity.GroundPaintHeight;
+
         return creatureRenderer.Draw(
             spriteBatch,
             Camera,
@@ -593,6 +596,8 @@ public sealed partial class WorldScreen
             tileCenterY,
             entity.VisualOffset,
             tint,
+            groundPaintHeight,
+            entity.GroundTintColor,
             alpha);
     }
 
@@ -736,13 +741,20 @@ public sealed partial class WorldScreen
         WorldEntity entity,
         float tileCenterX,
         float tileCenterY)
-        => Game.ItemRenderer.Draw(
+    {
+        //swim tiles don't normally host ground items, but mirror the aisling/creature convention for safety.
+        var groundPaintHeight = entity.IsOnSwimmingTile ? 0 : entity.GroundPaintHeight;
+
+        Game.ItemRenderer.Draw(
             spriteBatch,
             Camera,
             entity.SpriteId,
             entity.ItemColor,
             tileCenterX,
-            tileCenterY);
+            tileCenterY,
+            groundPaintHeight,
+            entity.GroundTintColor);
+    }
 
     /// <summary>
     ///     Creates a texture containing a dashed ellipse inscribed in the isometric tile diamond. Gaps at the 4 cardinal
