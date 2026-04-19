@@ -197,6 +197,8 @@ public static class WorldState
                 PantsColor = args.PantsColor
             };
         }
+
+        AnimationSystem.CancelAllAnimations(entity);
     }
 
     /// <summary>
@@ -236,6 +238,8 @@ public static class WorldState
 
                     break;
             }
+
+            AnimationSystem.CancelAllAnimations(entity);
         }
 
         SortVersion++;
@@ -399,6 +403,7 @@ public static class WorldState
             return;
 
         entity.Direction = direction;
+        AnimationSystem.CancelAllAnimations(entity);
     }
 
     /// <summary>

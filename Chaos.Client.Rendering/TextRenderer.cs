@@ -488,7 +488,10 @@ public static class TextRenderer
                 activeColorCode = FindLastColorCode(line) ?? activeColorCode;
                 remaining = remaining[lineEnd..];
 
-                if (activeColorCode is not null && (remaining.Length > 0))
+                //only re-prepend the active color code when the prepended length is strictly
+                //less than what we just consumed — otherwise FindLineBreak on the next iteration
+                //returns the same lineEnd and remaining never shrinks (infinite loop).
+                if (activeColorCode is not null && (remaining.Length > 0) && (activeColorCode.Length < lineEnd))
                     remaining = activeColorCode + remaining;
             }
         }

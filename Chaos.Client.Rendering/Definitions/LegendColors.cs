@@ -4,7 +4,7 @@ using Chaos.Client.Data.Definitions;
 using Microsoft.Xna.Framework;
 #endregion
 
-namespace Chaos.Client.Rendering;
+namespace Chaos.Client.Rendering.Definitions;
 
 /// <summary>
 ///     Converts <see cref="LegendColor" /> enum values to MonoGame <see cref="Color" />. Call <see cref="Initialize" />

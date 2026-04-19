@@ -340,10 +340,26 @@ public sealed partial class WorldScreen
             var proj = WorldState.ActiveProjectiles[i];
             proj.ElapsedMs += elapsedMs;
 
-            while (proj.ElapsedMs >= proj.StepDelayMs && !proj.IsComplete)
+            //defensive: a malformed projectile spec (StepDelayMs <= 0 or Step <= 0) would never
+            //drain ElapsedMs or never reach the target, freezing the game thread inside this loop.
+            if (proj.StepDelayMs <= 0f || proj.Step <= 0)
+            {
+                proj.IsComplete = true;
+                WorldState.ActiveProjectiles.RemoveAt(i);
+
+                continue;
+            }
+
+            //iteration cap defends against pathological cases where the projectile genuinely
+            //can't catch a moving target within one frame's worth of elapsed time.
+            const int MAX_STEPS_PER_FRAME = 64;
+            var steps = 0;
+
+            while ((proj.ElapsedMs >= proj.StepDelayMs) && !proj.IsComplete && (steps < MAX_STEPS_PER_FRAME))
             {
                 proj.ElapsedMs -= proj.StepDelayMs;
                 AdvanceProjectileStep(proj);
+                steps++;
             }
 
             if (proj.IsComplete)

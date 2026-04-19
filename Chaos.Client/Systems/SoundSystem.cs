@@ -12,8 +12,9 @@ namespace Chaos.Client.Systems;
 ///     cached as <c>Mix_Chunk</c> pointers; playback uses the mixer's channel pool with per-channel volume. Music
 ///     is streamed from disk via <c>Mix_LoadMUS</c>, with cross-map transitions driven by SDL_mixer's built-in
 ///     <c>Mix_FadeOutMusic</c>/<c>Mix_FadeInMusic</c>. When the same sound id is triggered while an earlier
-///     instance is still audible, the prior live instances have their channel volume halved so the new play stands
-///     out (overlap ducking instead of voice-stealing like the original Miles-based client).
+///     instance is still audible, the prior live instances are faded out via <c>Mix_FadeOutChannel</c> (per-id
+///     voice-stealing), matching the retail Dark Ages client's behavior of restarting the single cached Miles
+///     sample handle on each trigger.
 /// </summary>
 public sealed class SoundSystem : IDisposable
 {
@@ -32,30 +33,23 @@ public sealed class SoundSystem : IDisposable
     private const int VOLUME_STEPS = 10;
     //volume scale multiplier mapping our 0..10 slider to SDL_mixer's 0..128 range; at tick=10 we reach MAX_VOLUME
     private const int VOLUME_SCALE = SdlMixer.MIX_MAX_VOLUME / VOLUME_STEPS;
-    //duck prior live instances of the same sound id on every new play; -3 dB (equal-power) preserves perceived loudness when two copies overlap
-    private const float OVERLAP_EQUAL_POWER_MULTIPLIER = 0.7071068f;
-    //per-frame volume delta while ramping a channel toward its duck target. ~10 units/frame at 60fps
-    //spreads a full duck (a ~38-unit drop) over ~65ms so the volume change never happens in a single
-    //sample — an instant Mix_Volume drop creates a step in the output waveform that's audible as a click
-    //when the chunk happens to be at a high-amplitude moment at the time of the duck
-    private const int DUCK_RAMP_UNITS_PER_FRAME = 10;
+    //when the same sound id fires while a prior instance is still audible, fade the prior one out over this
+    //many milliseconds via Mix_FadeOutChannel. SDL_mixer interpolates the fade sample-accurately inside its mix
+    //callback, so there's no step discontinuity in the output waveform
+    private const int FADE_OUT_MS = 200;
 
     //delegate instance kept as a field so the GC doesn't collect the callback SDL holds a native pointer to
     private readonly SdlMixer.ChannelFinishedCallback ChannelFinishedDelegate;
     //populated on SDL's audio thread when a channel naturally finishes; drained in Update() on the game thread
     private readonly ConcurrentQueue<int> FinishedChannels = new();
-    //channel → sound id mapping for ducking + completion; only touched on the game thread
+    //channel → sound id mapping for voice-steal lookup + finish cleanup; only touched on the game thread
     private readonly Dictionary<int, int> ChannelToSoundId = [];
-    //inverse lookup: sound id → currently-playing channels (for per-id ducking on new plays)
+    //inverse lookup: sound id → currently-playing channels, iterated on each PlaySound to fade out prior instances
     private readonly Dictionary<int, List<int>> SoundIdToChannels = [];
     //decoded Mix_Chunk pointers indexed by sound id, with a monotonic timestamp for LRU eviction
     private readonly Dictionary<int, (nint Chunk, long Timestamp)> SoundCache = [];
     //same-frame dedup (e.g. AOE hitting multiple targets in one tick trying to play the same sound N times)
     private readonly HashSet<int> PlayedThisFrame = [];
-    //channels that are currently being ramped down toward a duck target, mapped to that target volume.
-    //Update() advances current Mix_Volume toward the target by DUCK_RAMP_UNITS_PER_FRAME each frame rather
-    //than applying the full drop in a single Mix_Volume call
-    private readonly Dictionary<int, int> ChannelDuckTargets = [];
 
     private int CurrentMusicId = -1;
     private nint CurrentMusicPtr;
@@ -151,7 +145,7 @@ public sealed class SoundSystem : IDisposable
     /// <summary>
     ///     Plays a sound effect by id. First-time plays decode the MP3 synchronously (minimp3 is fast on short
     ///     files); subsequent plays grab the cached <c>Mix_Chunk</c>. If a previous instance of the same id is
-    ///     still playing, its channel volume is halved so the new play is more audible.
+    ///     still playing, it's faded out via <c>Mix_FadeOutChannel</c> so overlaps don't stack loudness.
     /// </summary>
     public void PlaySound(int soundId)
     {
@@ -181,33 +175,24 @@ public sealed class SoundSystem : IDisposable
                 EvictOldest();
         }
 
-        //duck any currently-playing instances of this sound so the new play is more prominent.
-        //skip any channel that already finished on the audio thread but hasn't been drained by Update()
-        //yet — ducking a silent channel just reduces its persisted Mix_Volume, which would then carry
-        //into the next play SDL_mixer assigns to that channel and cause a volume-step pop.
-        //record the target volume rather than applying the drop instantly; Update() ramps each frame so
-        //the waveform out of the channel has no single-sample discontinuity (which would click)
+        //voice-steal any currently-playing instances of the same sound id so overlaps don't stack loudness.
+        //Mix_FadeOutChannel does a sample-accurate fade-to-zero-then-halt inside SDL_mixer's mix callback,
+        //so the output waveform has no step discontinuity (unlike Mix_Volume, which only takes effect at the
+        //next callback boundary and can click when the delta lands on a high-amplitude sample).
+        //skip channels the audio thread already finished (not drained yet) — calling Mix_FadeOutChannel on an
+        //idle channel would affect whatever play SDL assigns there next.
+        //this matches the retail Dark Ages client's per-id voice stealing: it kept exactly one live Miles sample
+        //handle per sound id and restarted it on each trigger (AIL_start_sample), so only one instance of any
+        //given sound id was audible at a time
         if (SoundIdToChannels.TryGetValue(soundId, out var existing))
             foreach (var ch in existing)
-            {
-                if (SdlMixer.Mix_Playing(ch) == 0)
-                    continue;
-
-                //if a duck ramp is already in flight for this channel, chain off the pending target so
-                //overlapping triggers compound the way they would with the old instant-duck logic; otherwise
-                //read the current channel volume via Mix_Volume(ch, -1) (negative volume queries without setting)
-                var startingVolume = ChannelDuckTargets.TryGetValue(ch, out var pendingTarget)
-                    ? pendingTarget
-                    : SdlMixer.Mix_Volume(ch, -1);
-
-                ChannelDuckTargets[ch] = (int)(startingVolume * OVERLAP_EQUAL_POWER_MULTIPLIER);
-            }
+                if (SdlMixer.Mix_Playing(ch) != 0)
+                    SdlMixer.Mix_FadeOutChannel(ch, FADE_OUT_MS);
 
         //manually find a free channel instead of letting Mix_PlayChannel(-1) pick. this lets us set the channel
         //volume BEFORE starting the play, which closes a race where a channel that finished on the audio thread
-        //mid-frame (before Update() could reset its volume) would be reassigned here at its old ducked level:
-        //the audio callback could then read the first samples at the reduced volume before a post-Mix_PlayChannel
-        //Mix_Volume reset caught up, producing a volume-step pop at the start of the chunk
+        //mid-frame (before Update() could reset its volume) would be reassigned here at its old volume; the audio
+        //callback could then read the first samples at the wrong level before a post-Mix_PlayChannel reset caught up
         var channel = -1;
 
         for (var i = 0; i < CHANNEL_COUNT; i++)
@@ -224,9 +209,19 @@ public sealed class SoundSystem : IDisposable
         //set volume before play begins so the first audio callback after Mix_PlayChannel sees the correct level
         SdlMixer.Mix_Volume(channel, SfxVolume);
 
-        //clear any leftover duck ramp on this channel — the Update() loop would otherwise try to ramp
-        //the volume back down from SfxVolume toward a stale target left over from the previous play
-        ChannelDuckTargets.Remove(channel);
+        //if the channel we just claimed has stale tracking from its previous play (audio-thread finish was
+        //enqueued but not drained yet), scrub it now. the drain will later see ChannelToSoundId[channel] pointing
+        //at the NEW sound id (overwritten below) and would otherwise remove the new play's tracking while leaving
+        //the previous play's SoundIdToChannels entry permanently stale — stale entries cause spurious voice-steals
+        //on unrelated sounds that land on the same channel number later
+        if (ChannelToSoundId.Remove(channel, out var prevSoundId))
+            if (SoundIdToChannels.TryGetValue(prevSoundId, out var prevList))
+            {
+                prevList.Remove(channel);
+
+                if (prevList.Count == 0)
+                    SoundIdToChannels.Remove(prevSoundId);
+            }
 
         //Mix_PlayChannel with an explicit channel index still stops any sound currently on that channel, but we
         //just verified Mix_Playing(ch) == 0 so the channel is idle
@@ -241,9 +236,6 @@ public sealed class SoundSystem : IDisposable
             SoundIdToChannels[soundId] = list;
         }
 
-        //guard against a race where SDL re-assigns a channel we still have tracked (audio thread finished
-        //it between Update()'s drain and this call) — duplicate entries would survive one drain pass each
-        //and accumulate as zombies that the duck loop keeps shrinking the volume on
         if (!list.Contains(channel))
             list.Add(channel);
     }
@@ -276,15 +268,18 @@ public sealed class SoundSystem : IDisposable
         //reset same-frame dedup window; any PlaySound later this frame starts from a clean set
         PlayedThisFrame.Clear();
 
-        //reap channels that finished naturally on the audio thread so their tracking entries don't leak.
-        //restore per-channel volume to the current SFX slider here: SDL_mixer preserves channel volume
-        //across plays, so if this channel was ducked while playing, the reduction would persist and
-        //the next chunk SDL_mixer assigns to it would briefly play at the ducked level before the
-        //post-Mix_PlayChannel volume reset catches up (pop at sound start)
+        //reap channels that finished on the audio thread (either naturally, via Mix_HaltChannel, or at the end
+        //of a Mix_FadeOutChannel fade) so their tracking entries don't leak. reset per-channel volume to the
+        //current SFX slider here: SDL_mixer preserves channel volume across plays, so leaving a faded-out
+        //channel at volume 0 would carry into whatever chunk SDL assigns there next
         while (FinishedChannels.TryDequeue(out var channel))
         {
+            //skip stale events for channels that PlaySound already reassigned before this drain ran. the new
+            //play already set its own volume and tracking; touching either would corrupt the live sound
+            if (SdlMixer.Mix_Playing(channel) != 0)
+                continue;
+
             SdlMixer.Mix_Volume(channel, SfxVolume);
-            ChannelDuckTargets.Remove(channel);
 
             if (!ChannelToSoundId.Remove(channel, out var soundId))
                 continue;
@@ -297,35 +292,6 @@ public sealed class SoundSystem : IDisposable
             if (list.Count == 0)
                 SoundIdToChannels.Remove(soundId);
         }
-
-        //advance any in-flight duck ramps toward their target volumes. stepping by a fixed number of
-        //units per frame spreads the volume change across ~4-8 frames rather than applying it in one
-        //Mix_Volume call — a single-sample volume drop creates a step in the waveform that's audible
-        //as a click, especially when the chunk is at a high-amplitude moment during the duck
-        if (ChannelDuckTargets.Count > 0)
-            foreach (var ch in ChannelDuckTargets.Keys.ToArray())
-            {
-                //audio thread finished this channel while a duck was pending — the finish path above
-                //will already have reset its volume, so just drop the ramp state
-                if (SdlMixer.Mix_Playing(ch) == 0)
-                {
-                    ChannelDuckTargets.Remove(ch);
-
-                    continue;
-                }
-
-                var target = ChannelDuckTargets[ch];
-                var currentVol = SdlMixer.Mix_Volume(ch, -1);
-
-                if (currentVol <= target)
-                {
-                    ChannelDuckTargets.Remove(ch);
-
-                    continue;
-                }
-
-                SdlMixer.Mix_Volume(ch, Math.Max(target, currentVol - DUCK_RAMP_UNITS_PER_FRAME));
-            }
 
         //detect fade-out completion and start the queued track (if any)
         if (MusicFadingOut && (SdlMixer.Mix_PlayingMusic() == 0))

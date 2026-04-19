@@ -81,6 +81,11 @@ internal static partial class SdlMixer
     [UnmanagedCallConv(CallConvs = [typeof(CallConvCdecl)])]
     public static partial int Mix_HaltChannel(int channel);
 
+
+    [LibraryImport("SDL2_mixer")]
+    [UnmanagedCallConv(CallConvs = [typeof(CallConvCdecl)])]
+    public static partial int Mix_FadeOutChannel(int which, int ms);
+
     [LibraryImport("SDL2_mixer")]
     [UnmanagedCallConv(CallConvs = [typeof(CallConvCdecl)])]
     public static partial int Mix_Playing(int channel);

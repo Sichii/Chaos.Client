@@ -315,6 +315,25 @@ public static class AnimationSystem
         entity.AnimElapsedMs = 0;
         entity.VisualOffset = Vector2.Zero;
     }
+
+    /// <summary>
+    ///     Immediately terminates any walk, body animation, and emote overlay on the entity. Leaves the idle cycle
+    ///     running. Callers must update position/direction/appearance first — zeroing <see cref="WorldEntity.VisualOffset"/>
+    ///     snaps the entity to whatever tile <see cref="WorldEntity.TileX"/>/<see cref="WorldEntity.TileY"/> currently holds.
+    /// </summary>
+    public static void CancelAllAnimations(WorldEntity entity)
+    {
+        ResetToIdle(entity);
+
+        entity.BodyAnimRepeatsLeft = 0;
+
+        entity.ActiveEmoteFrame = -1;
+        entity.EmoteElapsedMs = 0;
+        entity.EmoteRemainingMs = 0;
+        entity.EmoteDurationMs = 0;
+        entity.EmoteStartFrame = 0;
+        entity.EmoteFrameCount = 0;
+    }
     #endregion
 
     #region Frame Resolution
