@@ -21,7 +21,7 @@ public static class ClientSettings
     public static int Speed { get; set; } = 100;
     public static bool UseShiftKeyForAltPanels { get; set; } = true;
 
-    private static string FilePath => Path.Combine(AppContext.BaseDirectory, FILE_NAME);
+    private static string FilePath => Path.Combine(GlobalSettings.DataPath, FILE_NAME);
 
     /// <summary>
     ///     Loads settings from Darkages.cfg into static properties. Uses defaults if the file doesn't exist or is corrupt.

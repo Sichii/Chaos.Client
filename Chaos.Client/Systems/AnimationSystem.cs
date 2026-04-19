@@ -198,7 +198,11 @@ public static class AnimationSystem
         var totalDuration = Math.Max(MIN_WALK_DURATION_MS, entity.AnimFrameCount * entity.AnimFrameIntervalMs);
         var progress = Math.Clamp(entity.AnimElapsedMs / totalDuration, 0f, 1f);
 
-        entity.AnimFrameIndex = Math.Clamp((int)(progress * entity.AnimFrameCount), 0, entity.AnimFrameCount - 1);
+        //some entities have no walk frames — that's valid. the walk slide still needs to play out,
+        //but there's no frame stepping to do.
+        entity.AnimFrameIndex = entity.AnimFrameCount > 0
+            ? Math.Clamp((int)(progress * entity.AnimFrameCount), 0, entity.AnimFrameCount - 1)
+            : 0;
 
         //both smooth and stepped use integer-only offsets to prevent sub-pixel wobble.
         //the walk start offsets are always integer (±28, ±14), and integer division
@@ -207,7 +211,9 @@ public static class AnimationSystem
         {
             //smooth: interpolate at 2x the stepped frame rate (double the visual steps).
             var smoothFrameCount = entity.AnimFrameCount * 2;
-            var smoothFrameIndex = Math.Clamp((int)(progress * smoothFrameCount), 0, smoothFrameCount - 1);
+            var smoothFrameIndex = smoothFrameCount > 0
+                ? Math.Clamp((int)(progress * smoothFrameCount), 0, smoothFrameCount - 1)
+                : 0;
             entity.VisualOffset = GetSteppedWalkOffset(entity.WalkStartOffset, smoothFrameIndex, smoothFrameCount);
         } else
 
