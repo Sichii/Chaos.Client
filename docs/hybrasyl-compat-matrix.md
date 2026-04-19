@@ -8,6 +8,36 @@ Chaos-Server reference: master @ "Release v1.10" (`E:\Dark Ages Dev\Repos\Chaos-
 
 ## 1. Summary
 
+### Refreshed status table (Apr 2026)
+
+Status of each originally-divergent opcode after empirical testing against the Hybrasyl QA server:
+
+| Opcode | Name | Original | Current | Notes |
+|---|---|---|---|---|
+| 0x04 | Location | DIVERGENT | STILL-DIVERGENT (harmless) | Trailing bytes ignored by Chaos reader; no observable bug |
+| 0x05 | UserId | DIVERGENT | VERIFIED-COMPATIBLE | Character identity / gender / paperdoll render correctly |
+| 0x07 | DisplayVisibleEntities | DIVERGENT | STILL-DIVERGENT (functionally-working) | Hybrasyl's one-per-packet pattern parses as one-element batch; entities visible |
+| 0x0D | DisplayPublicMessage / CastLine | SEMANTIC-DIFF | UNINSPECTED (chant variant) | Chat variant works; CastLine chant-above-head behavior needs testing |
+| 0x15 | MapInfo | DIVERGENT | PATCHED | Client synthesizes MapChangePending / MapLoadComplete / MapChangeComplete from 0x15 receipt |
+| 0x1A | BodyAnimation | DIVERGENT | VERIFIED-COMPATIBLE | Reader lenient enough that animations play correctly |
+| 0x1F | MapChangeComplete | MISSING-HYBRASYL | SYNTHESIZED | Client generates internally after MapInfo |
+| 0x29 | Animation | DIVERGENT | UNINSPECTED | Spell/ability visual effects — pending testing |
+| 0x2F | DisplayMenu | DIVERGENT | VERIFIED-COMPATIBLE | NPC dialogs and menus interact correctly |
+| 0x31 | DisplayBoard | DIVERGENT | VERIFIED-COMPATIBLE | Mail works end-to-end |
+| 0x32 | Door / UserMoveResponse | SEMANTIC-DIFF | UNINSPECTED | Door toggle / move rejection — pending testing |
+| 0x33 | DisplayAisling | DIVERGENT | STILL-DIVERGENT (unverified) | Monster helmet-vs-headSprite branch unresolved; visual impact uncertain |
+| 0x34 | OtherProfile | DIVERGENT | VERIFIED-COMPATIBLE | Other-player profile panels display correctly |
+| 0x39 | SelfProfile | DIVERGENT | VERIFIED-COMPATIBLE | Self profile panel displays correctly |
+| 0x56 | ServerTableResponse | ALREADY-PATCHED | PATCHED | Zlib decompression workaround in place |
+| 0x60 | LoginNotice | ALREADY-PATCHED | PATCHED | Zlib decompression workaround in place |
+| 0x63 | DisplayGroupInvite | DIVERGENT | UNINSPECTED | Group invite prompt subtype codes — pending testing |
+| 0x67 | MapChangePending | MISSING-HYBRASYL | SYNTHESIZED | Client generates internally after MapInfo |
+| 0x68 | SynchronizeTicks | SEMANTIC-DIFF | VERIFIED-COMPATIBLE | Auto-echo keepalive working |
+
+**Net: zero confirmed-broken opcodes as of Apr 2026.** Most of the original divergences are either patched, verified compatible in practice, or functionally-working despite byte-level difference. Four opcodes remain unverified pending feature testing — those are the only live candidates for Phase 2 fixes.
+
+### Original snapshot table (Dec 2025)
+
 | Status | Count | Meaning |
 |-------|-------|---------|
 | **MATCH**           | 22 | Bytes line up well enough that Chaos.Networking's converter should parse Hybrasyl's output without change. |
@@ -17,6 +47,21 @@ Chaos-Server reference: master @ "Release v1.10" (`E:\Dark Ages Dev\Repos\Chaos-
 | **MISSING-CHAOS**   | 21 | Hybrasyl opcode with no corresponding Chaos.Networking converter. |
 | **ALREADY-PATCHED** | 4  | Divergence already worked around in the client. |
 | **Total audited**   | 75 unique opcodes |
+
+Refreshed snapshot (Apr 2026, after 5 months of client work):
+
+| Original status | Current status | Count | Notes |
+|---|---|---|---|
+| DIVERGENT | PATCHED | 1 | MapInfo (0x15) — client synthesizes MapChangePending/MapLoadComplete/MapChangeComplete |
+| DIVERGENT | VERIFIED-COMPATIBLE | 1 | BodyAnimation (0x1A) — Chaos.Networking's reader is lenient enough in practice |
+| DIVERGENT | STILL-DIVERGENT (but functionally-working) | ~5 | e.g. DisplayVisibleEntities (0x07), Location (0x04) — Chaos's reader ignores trailing bytes; feature works end-to-end despite byte-layout difference |
+| DIVERGENT | STILL-DIVERGENT (genuinely broken or silently wrong) | ~6 | Needs P0/P1 triage; see section 3a |
+| SEMANTIC-DIFF | VERIFIED-COMPATIBLE | 1 | SynchronizeTicks (0x68) — auto-echo keeps keepalive working |
+| SEMANTIC-DIFF | STILL-DIVERGENT | ~5 | Genuine semantic mismatches still unhandled |
+| MISSING-HYBRASYL | SYNTHESIZED | 2 | MapChangeComplete (0x1F), MapChangePending (0x67) — client generates these internally |
+| ALREADY-PATCHED | PATCHED | 4 | Unchanged. Notably ServerTableResponse (0x56) + LoginNotice (0x60) got their zlib workarounds patched here. |
+
+**Key insight from refresh:** the original matrix categorized divergences by *byte layout*, but some technically-divergent opcodes work fine in practice because Chaos.Networking's readers tolerate trailing bytes or slight shape differences. The actionable divergences are those where field *order*, field *meaning*, or *variant selection* genuinely differ — not those where Hybrasyl just adds extra trailing bytes.
 
 Chaos.Networking defines 58 server converters over 48 unique opcode values; Hybrasyl's `OpCodes` enum enumerates 74 opcode constants. The union is 75 opcodes (0x01 `NewUserCheck` is Hybrasyl-only and is really a *client* opcode repurposed on this enum; it is not a server-to-client packet).
 

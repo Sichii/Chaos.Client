@@ -12,6 +12,12 @@
     </ItemGroup>
 
     <ItemGroup>
+        <Content Include="Content\**\*.*">
+            <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+        </Content>
+    </ItemGroup>
+
+    <ItemGroup>
         <ProjectReference Include="..\Chaos.Client.Data\Chaos.Client.Data.csproj"/>
         <ProjectReference Include="..\Chaos.Client.Rendering\Chaos.Client.Rendering.csproj"/>
         <ProjectReference Include="..\Chaos.Client.Networking\Chaos.Client.Networking.csproj"/>

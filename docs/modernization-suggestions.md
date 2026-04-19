@@ -359,6 +359,14 @@ Closed-source plugins that the Hybrasyl team authors are separate work outside t
 
 Listed without effort estimates — each is real pain but lower-leverage than the eight tracks above. Several mostly benefit the Godot port rather than this bridge client, so can be deferred.
 
+- **Map filename modernization (`hyb{id:D5}.map`).** Client currently loads/saves maps at `{DataPath}/maps/lod{id}.map` (no padding). Modernization is purely additive: try `hyb{id:D5}.map` first, fall back to `lod{id}.map`. Initial content identical to lod (rename-only); filename convention signals the deprecation path for the legacy lod format. Decision before implementing: does `SaveMapFile` emit `hyb*` (forward migration) or `lod*` (symmetric with legacy read)? Lean hyb — over time it becomes the authoritative client cache. **Effort:** ~30 min, two code sites in [WorldScreen.Map.cs](../Chaos.Client/Screens/WorldScreen.Map.cs) (`LoadMapFile`, `SaveMapFile`). Pairs naturally with the broader asset-pack-format rollout.
+
+- **Player title selection (the "title dropdown").** No working implementation exists in this client or USDA. Profile's `TitleLabel` is display-only — the server sends the active title, client renders it, no UI to change it. Full implementation:
+  - Client UI: a `TitleSelectControl` popup, invoked by clicking the Title area on the profile equipment tab. List of earned titles + Select/Cancel buttons. Straightforward `UIPanel`+`UIButton`+`UILabel` work.
+  - Protocol: ideally not a new typed opcode — best candidate for the **script-invoke pipe** (see [stats-display-direction.md](stats-display-direction.md) and compat-matrix Phase 5). `profile.list_earned_titles` returns the list; `profile.set_active_title(name)` commits; server pushes updated profile afterward.
+  - Server: Hybrasyl needs to model "earned titles" as queryable state and accept selection. Scope depends on whether titles are already a first-class server concept or derived from legend marks / achievements.
+  - **Effort:** ~1 day client-side once the script-invoke pipe exists. Server-side scope unknown. Blocked on (a) script-invoke protocol decision, (b) Hybrasyl server-side title model.
+
 - **Macros.** `MacrosListControl` exists but legacy DA macros are "send these chant strings, cast this spell." No castsequence, no conditionals (cast X if target < 50%), no focus targeting, no targeting priority. Power-user content; blocks expert play.
 - **Social systems.** Friends list flat, no notes/categories/online notifications. Guild UI likely lacks officer permissions, MOTD formatting, rank management, member notes, guild bank. No group finder.
 - **World traversal.** No persistent corner minimap — Tab toggles full map. No fog-of-war reveal history, no ping-my-location-to-party, no annotations.

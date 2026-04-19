@@ -91,16 +91,18 @@ public static class TextRenderer
 
             var c = text[i];
 
-            if (c is >= (char)33 and <= (char)126)
+            if (c is >= (char)33 and <= (char)0x17F)
             {
-                var glyph = atlas.GetEnglishGlyph(c - 33);
+                var info = atlas.GetEnglishGlyphInfo(c);
 
-                spriteBatch.Draw(
-                    glyph.Atlas,
-                    new Vector2(cursorX, y),
-                    glyph.SourceRect,
-                    activeColor);
-                cursorX += ENGLISH_ADVANCE;
+                if (info.Region.Atlas is not null)
+                    spriteBatch.Draw(
+                        info.Region.Atlas,
+                        new Vector2(cursorX + info.XOffset, y + info.YOffset),
+                        info.Region.SourceRect,
+                        activeColor);
+
+                cursorX += info.XAdvance > 0 ? info.XAdvance : ENGLISH_ADVANCE;
 
                 continue;
             }
@@ -205,16 +207,20 @@ public static class TextRenderer
 
             var c = text[i];
 
-            if (c is >= (char)33 and <= (char)126)
+            if (c is >= (char)33 and <= (char)0x17F)
             {
-                var glyph = atlas.GetEnglishGlyph(c - 33);
-                var glyphPos = new Vector2(cursorX, y);
-                var srcRect = glyph.SourceRect;
+                var info = atlas.GetEnglishGlyphInfo(c);
 
-                if (ClipGlyph(ref glyphPos, ref srcRect, in clipRect))
-                    spriteBatch.Draw(glyph.Atlas, glyphPos, srcRect, activeColor);
+                if (info.Region.Atlas is not null)
+                {
+                    var glyphPos = new Vector2(cursorX + info.XOffset, y + info.YOffset);
+                    var srcRect = info.Region.SourceRect;
 
-                cursorX += ENGLISH_ADVANCE;
+                    if (ClipGlyph(ref glyphPos, ref srcRect, in clipRect))
+                        spriteBatch.Draw(info.Region.Atlas, glyphPos, srcRect, activeColor);
+                }
+
+                cursorX += info.XAdvance > 0 ? info.XAdvance : ENGLISH_ADVANCE;
 
                 continue;
             }
@@ -380,12 +386,14 @@ public static class TextRenderer
     public static bool IsColorCode(string text, int i)
         => ((i + 2) < text.Length) && (text[i] == '{') && (text[i + 1] == '=') && GetColorCode(text[i + 2]) is not null;
 
-    private static bool IsKorean(char c) => c > 127;
+    //Latin-1 Supplement (0x80–0xFF) and Latin Extended-A (0x100–0x17F) are English-side codepoints, not Korean.
+    private static bool IsKorean(char c) => c > 0x17F;
 
     /// <summary>
-    ///     Returns the horizontal pixel advance for a single character (6px for English, 14px for Korean).
+    ///     Returns the horizontal pixel advance for a single character. English uses the per-glyph advance from the
+    ///     active atlas (proportional when a BMFont is loaded, fixed 6px otherwise). Korean is always fixed 14px.
     /// </summary>
-    public static int MeasureCharWidth(char c) => IsKorean(c) ? KOREAN_ADVANCE : ENGLISH_ADVANCE;
+    public static int MeasureCharWidth(char c) => IsKorean(c) ? KOREAN_ADVANCE : FontAtlas.Instance.GetEnglishAdvance(c);
 
     /// <summary>
     ///     Measures the pixel width of a text string. Skips {=x} color codes.
@@ -407,7 +415,7 @@ public static class TextRenderer
                 continue;
             }
 
-            width += IsKorean(text[i]) ? KOREAN_ADVANCE : ENGLISH_ADVANCE;
+            width += IsKorean(text[i]) ? KOREAN_ADVANCE : FontAtlas.Instance.GetEnglishAdvance(text[i]);
         }
 
         return width;

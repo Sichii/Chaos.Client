@@ -1170,6 +1170,12 @@ public sealed partial class WorldScreen
                     {
                         var firstEmptySlot = WorldState.Inventory.GetFirstEmptySlot();
                         Game.Connection.PickupItem(entity.TileX, entity.TileY, firstEmptySlot);
+                    } else if ((entity.Type == ClientEntityType.Aisling) && (entity.Id == Game.Connection.AislingId))
+                    {
+                        //double-clicking self opens the local self-profile (paperdoll / equipment tab), same as alt+click
+                        SelfProfileRequested = true;
+                        SelfProfileRequestedTab = StatusBookTab.Equipment;
+                        Game.Connection.RequestSelfProfile();
                     } else if ((entity.Type != ClientEntityType.Aisling) || ClientSettings.EnableProfileClick)
                         Game.Connection.ClickEntity(entity.Id);
                 }
