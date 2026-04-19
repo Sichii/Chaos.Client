@@ -435,6 +435,13 @@ public sealed class MenuListPanel : FramedDialogPanelBase
             Hide();
             OnClose?.Invoke();
             e.Handled = true;
+            return;
+        }
+
+        if (e.Key is Keys.Enter or Keys.Space && SelectedIndex >= 0)
+        {
+            OnItemSelected?.Invoke(SelectedIndex);
+            e.Handled = true;
         }
     }
 

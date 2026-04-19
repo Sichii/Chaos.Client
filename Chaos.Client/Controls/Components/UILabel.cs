@@ -126,11 +126,14 @@ public class UILabel : UIElement
                 innerW,
                 VerticalAlignment == VerticalAlignment.Top ? TextElement.Height : innerH);
 
+            //center alignment clamps to the left edge when the text is wider than the
+            //bounds, so overflow clips off the right rather than both sides. Right
+            //alignment keeps its natural overflow so clipping stays on the left.
             var textX = HorizontalAlignment switch
             {
-                HorizontalAlignment.Center => bounds.X + (bounds.Width - TextElement.Width) / 2,
-                HorizontalAlignment.Right  => bounds.X + bounds.Width - TextElement.Width,
-                _                    => bounds.X
+                HorizontalAlignment.Center when TextElement.Width <= bounds.Width => bounds.X + (bounds.Width - TextElement.Width) / 2,
+                HorizontalAlignment.Right                                         => bounds.X + bounds.Width - TextElement.Width,
+                _                                                                 => bounds.X
             };
 
             var textY = bounds.Y + (bounds.Height - TextElement.Height) / 2;
@@ -151,9 +154,9 @@ public class UILabel : UIElement
 
         var drawX = HorizontalAlignment switch
         {
-            HorizontalAlignment.Center => innerX + (innerW - TextElement.Width) / 2,
-            HorizontalAlignment.Right  => innerX + innerW - TextElement.Width,
-            _                    => innerX
+            HorizontalAlignment.Center when TextElement.Width <= innerW => innerX + (innerW - TextElement.Width) / 2,
+            HorizontalAlignment.Right                                   => innerX + innerW - TextElement.Width,
+            _                                                           => innerX
         };
 
         var drawY = innerY + (((VerticalAlignment == VerticalAlignment.Top ? TextElement.Height : innerH) - TextElement.Height) / 2);
