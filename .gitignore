@@ -406,3 +406,4 @@ FodyWeavers.xsd
 CLAUDE.local.md
 .superpowers
 /.idea/.idea.Chaos.Client/.idea/workspace.xml
+*.stackdump

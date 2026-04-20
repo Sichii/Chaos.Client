@@ -5,6 +5,7 @@ using Chaos.Client.Controls.World.Hud.Panel;
 using Chaos.Client.Data;
 using Chaos.Client.Models;
 using Chaos.Client.Rendering.Models;
+using Chaos.Client.Rendering.Utility;
 using Chaos.Client.Systems;
 using Chaos.DarkAges.Definitions;
 using Microsoft.Xna.Framework;
@@ -790,76 +791,19 @@ public sealed partial class WorldScreen
             new(-17, -3)
         ];
 
-        foreach (var p in quarter)
-            ProjectQuads(
-                pixels,
-                WIDTH,
-                HEIGHT,
-                cx,
-                cy,
-                p.X,
-                p.Y,
-                color);
+        ImageUtil.DrawProjectedQuadrants(
+            pixels,
+            WIDTH,
+            HEIGHT,
+            cx,
+            cy,
+            quarter,
+            color);
 
         var texture = new Texture2D(device, WIDTH, HEIGHT);
         texture.SetData(pixels);
 
         return texture;
-    }
-
-    private static void ProjectQuads(
-        Color[] pixels,
-        int width,
-        int height,
-        int cx,
-        int cy,
-        int dx,
-        int dy,
-        Color color)
-    {
-        SetPixel(
-            pixels,
-            width,
-            height,
-            cx + dx,
-            cy + dy,
-            color); //top-right
-
-        SetPixel(
-            pixels,
-            width,
-            height,
-            cx - dx,
-            cy + dy,
-            color); //top-left
-
-        SetPixel(
-            pixels,
-            width,
-            height,
-            cx + dx,
-            cy - dy,
-            color); //bottom-right
-
-        SetPixel(
-            pixels,
-            width,
-            height,
-            cx - dx,
-            cy - dy,
-            color); //bottom-left
-    }
-
-    private static void SetPixel(
-        Color[] pixels,
-        int width,
-        int height,
-        int x,
-        int y,
-        Color color)
-    {
-        if (((uint)x < width) && ((uint)y < height))
-            pixels[y * width + x] = color;
     }
 
     private PanelBase? GetDraggingPanel()

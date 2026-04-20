@@ -1,9 +1,7 @@
 #region
 using Chaos.Client.Controls.Components;
 using Chaos.Client.Extensions;
-using Chaos.Client.Models;
 using Chaos.Client.Utilities;
-using Chaos.Extensions.Common;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using Microsoft.Xna.Framework.Input;
@@ -12,23 +10,24 @@ using Microsoft.Xna.Framework.Input;
 namespace Chaos.Client.Controls.World.Popups.Options;
 
 /// <summary>
-///     Friends list popup using _nfriend prefab. Two-column layout: left column (online friends), right column (offline
-///     friends). Row height 16px. OK/Cancel buttons at bottom.
+///     Friends list popup using _nfriend prefab. Two-column layout of 12 slots each (24 total);
+///     column 1 holds slots 1-12, column 2 holds slots 13-24. Row height 16px. OK/Cancel buttons at bottom.
 /// </summary>
 public sealed class FriendsListControl : PrefabPanel
 {
     private const int ROW_HEIGHT = 16;
     private const int MAX_VISIBLE_ROWS = 12;
+    private const int MAX_LENGTH = 28;
 
     private readonly Rectangle LeftColumnRect;
 
-    private readonly UILabel[] NamesColumn1 = new UILabel[MAX_VISIBLE_ROWS];
-    private readonly UILabel[] NamesColumn2 = new UILabel[MAX_VISIBLE_ROWS];
+    private readonly UITextBox[] NamesColumn1 = new UITextBox[MAX_VISIBLE_ROWS];
+    private readonly UITextBox[] NamesColumn2 = new UITextBox[MAX_VISIBLE_ROWS];
     private readonly Rectangle RightColumnRect;
     private bool ClosedWithOk;
     private int DataVersion;
 
-    private List<FriendEntry> Friends = [];
+    private List<string> Friends = [];
     private int RenderedVersion = -1;
     private SlideAnimator Slide;
     private int SlideAnchorY;
@@ -72,29 +71,27 @@ public sealed class FriendsListControl : PrefabPanel
                 40,
                 175,
                 MAX_VISIBLE_ROWS * ROW_HEIGHT);
-
+        
         for (var i = 0; i < MAX_VISIBLE_ROWS; i++)
         {
-            NamesColumn1[i] = new UILabel
+            NamesColumn1[i] = new UITextBox
             {
                 Name = $"Left{i}",
                 X = LeftColumnRect.X,
                 Y = LeftColumnRect.Y + i * ROW_HEIGHT,
                 Width = LeftColumnRect.Width,
                 Height = ROW_HEIGHT,
-                PaddingLeft = 0,
-                PaddingTop = 0
+                MaxLength = MAX_LENGTH
             };
 
-            NamesColumn2[i] = new UILabel
+            NamesColumn2[i] = new UITextBox
             {
                 Name = $"Right{i}",
                 X = RightColumnRect.X,
                 Y = RightColumnRect.Y + i * ROW_HEIGHT,
                 Width = RightColumnRect.Width,
                 Height = ROW_HEIGHT,
-                PaddingLeft = 0,
-                PaddingTop = 0
+                MaxLength = MAX_LENGTH
             };
 
             AddChild(NamesColumn1[i]);
@@ -140,16 +137,46 @@ public sealed class FriendsListControl : PrefabPanel
 
         RefreshCaches();
 
-        //labels are children — drawn by base.draw()
+        //textboxes are children — drawn by base.draw()
         base.Draw(spriteBatch);
     }
 
     /// <summary>
-    ///     Returns all friend names in the current list.
+    ///     Returns all non-empty friend names currently entered in the textboxes
+    ///     (both online and offline columns).
+    /// </summary>
+    /// <summary>
+    ///     Returns all non-empty friend names currently entered in the textboxes.
+    ///     Preserves the original saved order for existing friends and appends
+    ///     any newly typed names at the end, so adding a friend never reorders
+    ///     the existing list across save/reload cycles.
+    /// </summary>
+    /// <summary>
+    ///     Returns all non-empty friend names from the textboxes in slot order
+    ///     (column 1 top-to-bottom, then column 2 top-to-bottom).
     /// </summary>
     public List<string> GetFriendNames()
-        => Friends.Select(f => f.Name)
-                  .ToList();
+    {
+        var names = new List<string>(MAX_VISIBLE_ROWS * 2);
+
+        for (var i = 0; i < MAX_VISIBLE_ROWS; i++)
+        {
+            var text = NamesColumn1[i].Text;
+
+            if (!string.IsNullOrWhiteSpace(text))
+                names.Add(text.Trim());
+        }
+
+        for (var i = 0; i < MAX_VISIBLE_ROWS; i++)
+        {
+            var text = NamesColumn2[i].Text;
+
+            if (!string.IsNullOrWhiteSpace(text))
+                names.Add(text.Trim());
+        }
+
+        return names;
+    }
 
     public override void Hide()
     {
@@ -171,34 +198,24 @@ public sealed class FriendsListControl : PrefabPanel
 
         RenderedVersion = DataVersion;
 
-        using var onlineFriends = Friends.Where(f => f.IsOnline)
-                                         .ToRented();
-
-        using var offlineFriends = Friends.Where(f => !f.IsOnline)
-                                          .ToRented();
-
+        //slots fill column 1 first (rows 0-11), then column 2 (rows 12-23)
         for (var i = 0; i < MAX_VISIBLE_ROWS; i++)
         {
-            if (i < onlineFriends.Count)
-            {
-                NamesColumn1[i].Text = onlineFriends.Array[i].Name;
-                NamesColumn1[i].ForegroundColor = new Color(150, 255, 150);
-            } else
-                NamesColumn1[i].Text = string.Empty;
+            NamesColumn1[i].Text = i < Friends.Count ? Friends[i] : string.Empty;
 
-            if (i < offlineFriends.Count)
-            {
-                NamesColumn2[i].Text = offlineFriends.Array[i].Name;
-                NamesColumn2[i].ForegroundColor = new Color(150, 150, 150);
-            } else
-                NamesColumn2[i].Text = string.Empty;
+            var rightIndex = i + MAX_VISIBLE_ROWS;
+            NamesColumn2[i].Text = rightIndex < Friends.Count ? Friends[rightIndex] : string.Empty;
         }
     }
 
     /// <summary>
     ///     Populates the friends list. Online friends on left, offline on right.
     /// </summary>
-    public void SetFriends(List<FriendEntry> friends)
+    /// <summary>
+    ///     Populates the friends list. Slots fill column 1 first (rows 0-11),
+    ///     then column 2 (rows 12-23).
+    /// </summary>
+    public void SetFriends(List<string> friends)
     {
         Friends = friends;
         DataVersion++;

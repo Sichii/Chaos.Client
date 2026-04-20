@@ -1,8 +1,8 @@
 #region
-using System.Buffers;
 using System.Diagnostics.CodeAnalysis;
 using Chaos.Client.Data;
 using Chaos.Client.Data.Repositories;
+using Chaos.Client.Rendering.Utility;
 using Microsoft.Extensions.Caching.Memory;
 using Chaos.DarkAges.Definitions;
 using DALib.Definitions;
@@ -195,55 +195,6 @@ public sealed class AislingRenderer : IDisposable
         ClearHitTintCache();
     }
 
-    private static void ApplyGroundTint(Texture2D texture, int paintHeight, Color tintColor)
-    {
-        var tintTop = CANVAS_CENTER_Y - paintHeight;
-        var startRow = Math.Clamp(tintTop, 0, texture.Height);
-        var pixelCount = texture.Width * texture.Height;
-        var pixels = ArrayPool<Color>.Shared.Rent(pixelCount);
-
-        try
-        {
-            texture.GetData(pixels, 0, pixelCount);
-
-            var tintR = tintColor.R;
-            var tintG = tintColor.G;
-            var tintB = tintColor.B;
-            var alpha = tintColor.A / 255f;
-
-            for (var y = startRow; y < texture.Height; y++)
-            {
-                var rowStart = y * texture.Width;
-
-                for (var x = 0; x < texture.Width; x++)
-                {
-                    var i = rowStart + x;
-                    var pixel = pixels[i];
-
-                    if (pixel.A == 0)
-                        continue;
-
-                    //unpremultiply, lerp toward tint color, re-premultiply
-                    var a = pixel.A / 255f;
-                    var r = (byte)(pixel.R / a * (1 - alpha) + tintR * alpha);
-                    var g = (byte)(pixel.G / a * (1 - alpha) + tintG * alpha);
-                    var b = (byte)(pixel.B / a * (1 - alpha) + tintB * alpha);
-
-                    pixels[i] = new Color(
-                        (byte)(r * a),
-                        (byte)(g * a),
-                        (byte)(b * a),
-                        pixel.A);
-                }
-            }
-
-            texture.SetData(pixels, 0, pixelCount);
-        } finally
-        {
-            ArrayPool<Color>.Shared.Return(pixels);
-        }
-    }
-
     /// <summary>
     ///     Clears the cached EPF files. Call on map change to free memory.
     /// </summary>
@@ -344,7 +295,11 @@ public sealed class AislingRenderer : IDisposable
                 return 0;
 
             if (p.GroundPaintHeight > 0)
-                ApplyGroundTint(texture, p.GroundPaintHeight, p.GroundTintColor);
+            {
+                using var scope = new PixelBufferScope(texture);
+                ImageUtil.ApplyGroundTint(scope.Pixels, scope.Width, scope.Height, p.GroundPaintHeight, CANVAS_CENTER_Y, p.GroundTintColor);
+                scope.CommitTo(texture);
+            }
 
             if (cached.Texture is not null)
                 DisposeCompositeTexture(cached.Texture);
@@ -375,9 +330,9 @@ public sealed class AislingRenderer : IDisposable
 
         var finalTexture = p.Tint switch
         {
-            EntityTintType.Highlight => TintedTextureCache.GetOrAdd(drawTexture, TextureConverter.CreateTintedTexture),
-            EntityTintType.Group     => GroupTintCache.GetOrAdd(drawTexture, TextureConverter.CreateGroupTintedTexture),
-            EntityTintType.HitTint   => HitTintCache.GetOrAdd(drawTexture, TextureConverter.CreateHitTintedTexture),
+            EntityTintType.Highlight => TintedTextureCache.GetOrAdd(drawTexture, static src => ImageUtil.BuildHoverTinted(TextureConverter.Device, src)),
+            EntityTintType.Group     => GroupTintCache.GetOrAdd(drawTexture, static src => ImageUtil.BuildGroupTinted(TextureConverter.Device, src)),
+            EntityTintType.HitTint   => HitTintCache.GetOrAdd(drawTexture, static src => ImageUtil.BuildHitTinted(TextureConverter.Device, src)),
             _                        => drawTexture
         };
 
@@ -1287,9 +1242,9 @@ public sealed class AislingRenderer : IDisposable
         int idleFallbackFrame)
     {
         // Shields always load from the male archive (khanmns.dat) regardless of gender.
-        // Vanilla Darkages.exe FUN_0048cb30 hardcodes the filename prefix to 'm' for the
-        // shield slot; khanwns.dat only contains vestigial entries for 3 sprite IDs that
-        // the paperdoll builder never requests.
+        // Retail hardcodes the filename prefix to 'm' for the shield slot; khanwns.dat
+        // only contains vestigial entries for 3 sprite IDs that the paperdoll builder
+        // never requests.
         var useMale = typeLetter == 's' || appearance.IsMale;
         var genderPrefix = useMale ? 'm' : 'w';
 

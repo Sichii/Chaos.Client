@@ -1,5 +1,6 @@
 #region
 using Chaos.Client.Controls.Components;
+using Chaos.Client.Rendering.Utility;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 #endregion
@@ -80,25 +81,7 @@ public sealed class WorldMapNode : UIPanel
     }
 
     private static Texture2D CreateBorderTexture(int size)
-    {
-        var pixels = new Color[size * size];
-
-        for (var y = 0; y < size; y++)
-            for (var x = 0; x < size; x++)
-            {
-                var isOnBorder = (x < BOX_BORDER_WIDTH)
-                                 || (x >= (size - BOX_BORDER_WIDTH))
-                                 || (y < BOX_BORDER_WIDTH)
-                                 || (y >= (size - BOX_BORDER_WIDTH));
-
-                pixels[y * size + x] = isOnBorder ? BOX_BORDER_COLOR : Color.Transparent;
-            }
-
-        var texture = new Texture2D(ChaosGame.Device, size, size);
-        texture.SetData(pixels);
-
-        return texture;
-    }
+        => ImageUtil.BuildFilledBorder(ChaosGame.Device, size, BOX_BORDER_WIDTH, BOX_BORDER_COLOR);
 
     public override void Draw(SpriteBatch spriteBatch)
     {

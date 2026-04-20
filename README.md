@@ -97,13 +97,13 @@ This is not an exhaustive list, but other differences are likely too minor to bo
 
 ### Project layout
 
-| Project                                    | Responsibility                                                                                                                                                                                                                                         |
-|--------------------------------------------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| **DALib** (`../dalib/DALib/`, project ref) | Dark Ages file formats and SkiaSharp rendering. Local fork.                                                                                                                                                                                            |
-| **Chaos.Client.Data**                      | Opens the `.dat` archives via memory-mapped files and exposes repositories for sprites, tiles, fonts, metafiles, UI prefabs, etc. Some repositories cache their entries with eviction policies appropriate to the asset type; others are pass-through. |
-| **Chaos.Client.Rendering**                 | Converts DALib's SkiaSharp output into MonoGame `Texture2D` and owns the map, camera, darkness, tab map, and per-entity renderers.                                                                                                                     |
-| **Chaos.Client.Networking**                | TCP, crypto, packet framing, and a state-machine `ConnectionManager` on top of the `Chaos.Networking` NuGet package. Packet handlers are registered into an opcode-indexed delegate array.                                                             |
-| **Chaos.Client**                           | MonoGame `Game`, screens, UI controls, game systems, and world state.                                                                                                                                                                                  |
+| Project                     | Responsibility                                                                                                                                                                                                                                         |
+|-----------------------------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| **DALib**                   | Dark Ages file formats and SkiaSharp rendering.                                                                                                                                                                                                        |
+| **Chaos.Client.Data**       | Opens the `.dat` archives via memory-mapped files and exposes repositories for sprites, tiles, fonts, metafiles, UI prefabs, etc. Some repositories cache their entries with eviction policies appropriate to the asset type; others are pass-through. |
+| **Chaos.Client.Rendering**  | Converts DALib's SkiaSharp output into MonoGame `Texture2D` and owns the map, camera, darkness, tab map, and per-entity renderers.                                                                                                                     |
+| **Chaos.Client.Networking** | TCP, crypto, packet framing, and a state-machine `ConnectionManager` on top of the `Chaos.Networking` NuGet package. Packet handlers are registered into an opcode-indexed delegate array.                                                             |
+| **Chaos.Client**            | MonoGame `Game`, screens, UI controls, game systems, and world state.                                                                                                                                                                                  |
 
 Dependency flow:
 
@@ -629,4 +629,4 @@ a protocol extension, you'll already have the server repo open anyway.
 
 - [Chaos-Server](https://github.com/Sichii/Chaos-Server) — the private server this client targets, and the source of the
   canonical packet shapes.
-- [DALib](https://github.com/Sichii/DALib) — upstream of the local fork at `../dalib/DALib/`.
+- [DALib](https://github.com/eriscorp/dalib) — nuget package for reading and writing Dark Ages `.dat` archives.

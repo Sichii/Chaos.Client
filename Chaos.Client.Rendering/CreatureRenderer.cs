@@ -1,6 +1,7 @@
 #region
 using Chaos.Client.Data;
 using Chaos.Client.Rendering.Models;
+using Chaos.Client.Rendering.Utility;
 using DALib.Definitions;
 using DALib.Drawing;
 using Microsoft.Xna.Framework;
@@ -98,7 +99,8 @@ public sealed class CreatureRenderer : IDisposable
 
                 if (!GroundTintCache.TryGetValue(key, out var groundTinted))
                 {
-                    groundTinted = TextureConverter.CreateGroundTintedTexture(
+                    groundTinted = ImageUtil.BuildGroundTinted(
+                        TextureConverter.Device,
                         frame.Texture,
                         groundPaintHeight,
                         frame.CenterY,
@@ -111,9 +113,9 @@ public sealed class CreatureRenderer : IDisposable
 
             var drawTexture = tint switch
             {
-                EntityTintType.Highlight => HighlightTintCache.GetOrAdd(sourceTexture, TextureConverter.CreateTintedTexture),
-                EntityTintType.Group     => GroupTintCache.GetOrAdd(sourceTexture, TextureConverter.CreateGroupTintedTexture),
-                EntityTintType.HitTint   => HitTintCache.GetOrAdd(sourceTexture, TextureConverter.CreateHitTintedTexture),
+                EntityTintType.Highlight => HighlightTintCache.GetOrAdd(sourceTexture, static src => ImageUtil.BuildHoverTinted(TextureConverter.Device, src)),
+                EntityTintType.Group     => GroupTintCache.GetOrAdd(sourceTexture, static src => ImageUtil.BuildGroupTinted(TextureConverter.Device, src)),
+                EntityTintType.HitTint   => HitTintCache.GetOrAdd(sourceTexture, static src => ImageUtil.BuildHitTinted(TextureConverter.Device, src)),
                 _                        => sourceTexture
             };
 

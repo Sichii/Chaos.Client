@@ -1,5 +1,6 @@
 #region
 using Chaos.Client.Data;
+using Chaos.Client.Rendering.Utility;
 using DALib.Drawing;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
@@ -71,7 +72,8 @@ public sealed class ItemRenderer : IDisposable
 
             if (!GroundTintCache.TryGetValue(key, out var groundTinted))
             {
-                groundTinted = TextureConverter.CreateGroundTintedTexture(
+                groundTinted = ImageUtil.BuildGroundTinted(
+                    TextureConverter.Device,
                     texture,
                     groundPaintHeight,
                     texture.Height,

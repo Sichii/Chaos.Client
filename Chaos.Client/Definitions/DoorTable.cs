@@ -5,8 +5,8 @@ using System.Collections.Frozen;
 namespace Chaos.Client.Definitions;
 
 /// <summary>
-///     Hardcoded door tile mapping extracted from DarkAges.exe (table at 0x0068b8b0). Maps closed foreground tile IDs to
-///     their open counterparts. 66 pairs, bidirectional lookup.
+///     Hardcoded door tile mapping (66 pairs). Maps closed foreground tile IDs to their open counterparts via
+///     bidirectional lookup.
 /// </summary>
 public static class DoorTable
 {

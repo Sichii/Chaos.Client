@@ -1,5 +1,6 @@
 #region
 using Chaos.Client.Controls.Components;
+using Chaos.Client.Rendering.Utility;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 #endregion
@@ -7,9 +8,8 @@ using Microsoft.Xna.Framework.Graphics;
 namespace Chaos.Client.Controls.World.Popups.Dialog;
 
 /// <summary>
-///     Vertical darkness gradient overlay for NPC dialogs. Covers the bottom portion of the screen (y=254 to y=480),
-///     fading linearly from fully transparent at the top to near-opaque black at the bottom. Matches the original client's
-///     AlphaScreenPane (palette index 0x1F shadow color, 0-32 alpha scale).
+///     Vertical darkness gradient overlay for NPC dialogs. Covers the bottom portion of the screen (y=274 to y=372),
+///     fading linearly from slightly-dark to near-opaque black over a 98px height.
 /// </summary>
 public sealed class DialogAlphaGradient : UIElement
 {
@@ -45,26 +45,8 @@ public sealed class DialogAlphaGradient : UIElement
     {
         if (GradientTexture is not null)
             return;
-
         const int HEIGHT = 98;
-
-        GradientTexture = new Texture2D(ChaosGame.Device, 1, HEIGHT);
-        var pixels = new Color[HEIGHT];
-
-        for (var i = 0; i < HEIGHT; i++)
-        {
-            //linear gradient: slightly dark at top, near-opaque black at bottom
-            //shifted +1 on the 0-32 darkness scale (~8/255) to darken uniformly
-            var alpha = (byte)Math.Min(255, i * 247 / (HEIGHT - 1) + 8);
-
-            pixels[i] = new Color(
-                (byte)0,
-                (byte)0,
-                (byte)0,
-                alpha);
-        }
-
-        GradientTexture.SetData(pixels);
+        GradientTexture = ImageUtil.BuildVerticalAlphaGradient(ChaosGame.Device, HEIGHT, Color.Black, 8, 255);
     }
 
 }

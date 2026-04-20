@@ -1,4 +1,5 @@
 #region
+using Chaos.Client.Rendering.Utility;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 #endregion
@@ -7,8 +8,7 @@ namespace Chaos.Client.Models;
 
 /// <summary>
 ///     Procedural horizontal dissolve effect for creature/merchant death. Captures the entity's last sprite, then over 9
-///     frames (540ms) odd scanlines shift rightward while the whole image fades out. Matches the original DA client
-///     behavior (WorldObject_Dying).
+///     frames (540ms) odd scanlines shift rightward while the whole image fades out.
 /// </summary>
 public sealed class EntityRemovalAnimation : IDisposable
 {
@@ -92,24 +92,11 @@ public sealed class EntityRemovalAnimation : IDisposable
     public void Dispose() => Texture.Dispose();
 
     /// <summary>
-    ///     Shifts every odd row right by Step pixels and clears the leftmost Step pixels. Operates on the Pixels array
-    ///     in-place, then uploads to the Texture. Creates horizontal comb dissolve matching the original DA client.
+    ///     Creates horizontal comb dissolve by shifting odd rows right and clearing the leftmost gap.
     /// </summary>
     private void ApplyRowDissolve()
     {
-        for (var row = 1; row < TextureHeight; row += 2)
-        {
-            var rowStart = row * MaxWidth;
-
-            //shift row content right by Step pixels (right to left to avoid overwrite)
-            for (var col = SourceWidth - 1; col >= 0; col--)
-                Pixels[rowStart + col + Step] = Pixels[rowStart + col];
-
-            //clear leftmost Step pixels to transparent
-            for (var col = 0; col < Step; col++)
-                Pixels[rowStart + col] = Color.Transparent;
-        }
-
+        ImageUtil.ShiftOddRowsRight(Pixels, MaxWidth, TextureHeight, SourceWidth, Step);
         SourceWidth += Step;
         Texture.SetData(Pixels);
     }

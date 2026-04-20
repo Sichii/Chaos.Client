@@ -506,9 +506,7 @@ public sealed partial class WorldScreen
     {
         var names = DataContext.LocalPlayerSettings.LoadFriendList();
 
-        var entries = names.Select(n => new FriendEntry(n, false))
-                           .ToList();
-        FriendsList.SetFriends(entries);
+        FriendsList.SetFriends(names);
         WorldList.SetFriendNames(names);
     }
 
