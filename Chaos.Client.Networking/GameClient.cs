@@ -258,17 +258,19 @@ public sealed class GameClient : IDisposable
             return;
 
         packet.IsEncrypted = Crypto.IsClientEncrypted(packet.OpCode);
+        SocketAsyncEventArgs args;
 
-        using var scope = SendLock.EnterScope();
-
-        if (packet.IsEncrypted)
+        using (SendLock.EnterScope())
         {
-            packet.Sequence = (byte)Sequence++;
-            Encrypt(ref packet);
-        }
+            if (packet.IsEncrypted)
+            {
+                packet.Sequence = (byte)Sequence++;
+                Encrypt(ref packet);
+            }
 
-        (var owner, var length) = packet.TransferOwnership();
-        var args = DequeueSendArgs(owner, length);
+            (var owner, var length) = packet.TransferOwnership();
+            args = DequeueSendArgs(owner, length);
+        }
 
         try
         {
