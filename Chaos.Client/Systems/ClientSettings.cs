@@ -66,7 +66,7 @@ public static class ClientSettings
                         break;
 
                     case "SkillSpellSelectByToggle":
-                        UseShiftKeyForAltPanels = value == "1";
+                        UseShiftKeyForAltPanels = value != "1";
 
                         break;
 
@@ -138,7 +138,7 @@ public static class ClientSettings
             writer.WriteLine($"doGroundAnimation : {(DoGroundAnimation ? 1 : 0)}");
             writer.WriteLine($"Sound Volume : {SoundVolume}");
             writer.WriteLine($"Music Volume : {MusicVolume}");
-            writer.WriteLine($"SkillSpellSelectByToggle : {(UseShiftKeyForAltPanels ? 1 : 0)}");
+            writer.WriteLine($"SkillSpellSelectByToggle : {(UseShiftKeyForAltPanels ? 0 : 1)}");
             writer.WriteLine($"GroupAnswer : {(GroupOpen ? 1 : 0)}");
             writer.WriteLine($"ScrollLevel : {ScrollLevel}");
             writer.WriteLine($"UserClickMode : {(EnableProfileClick ? 1 : 0)}");
