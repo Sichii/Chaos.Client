@@ -227,29 +227,53 @@ public sealed class UiRenderer : IDisposable
         if (fullImage is null)
             return MissingTexture;
 
+        // Match retail's 2x2 box downsampler (DarkAges.exe FUN_004809a0): halve each axis via
+        // arithmetic-mean of 2x2 source blocks. Spell icons in spell###.epf are 31x31, and the
+        // scaler's integer-division math yields a 15x15 output: (31 - 0) / 2 = 15. The dst slot
+        // rect in SpelledViewPane::Paint is (3, 3, 18, 18) — also 15x15 — so a 15x15 halved icon
+        // fills the slot pocket exactly, which is why retail has no visible gap. Note this drops
+        // source column/row 30 (the last pixel of 31) because the filter only samples 15*2 = 30
+        // source pixels per axis. Averaging transparent-black pixels with opaque colors produces
+        // the characteristic soft dark outline retail has on spell-icon edges.
         const int HALF_ICON_SIZE = 15;
 
-        var info = new SKImageInfo(
-            HALF_ICON_SIZE,
-            HALF_ICON_SIZE,
-            SKColorType.Rgba8888,
-            SKAlphaType.Premul);
-        using var surface = SKSurface.Create(info);
+        using var fullBitmap = SKBitmap.FromImage(fullImage);
+        var srcPixels = fullBitmap.Pixels;
+        var srcStride = fullBitmap.Width;
+        var halvedPixels = new SKColor[HALF_ICON_SIZE * HALF_ICON_SIZE];
 
-        surface.Canvas.DrawImage(
-            fullImage,
-            new SKRect(
-                0,
-                0,
-                fullImage.Width,
-                fullImage.Height),
-            new SKRect(
-                0,
-                0,
+        for (var y = 0; y < HALF_ICON_SIZE; y++)
+        {
+            var sy = y * 2;
+            var rowA = sy * srcStride;
+            var rowB = rowA + srcStride;
+
+            for (var x = 0; x < HALF_ICON_SIZE; x++)
+            {
+                var sx = x * 2;
+                var p00 = srcPixels[rowA + sx];
+                var p01 = srcPixels[rowA + sx + 1];
+                var p10 = srcPixels[rowB + sx];
+                var p11 = srcPixels[rowB + sx + 1];
+
+                var r = (p00.Red + p01.Red + p10.Red + p11.Red + 2) >> 2;
+                var g = (p00.Green + p01.Green + p10.Green + p11.Green + 2) >> 2;
+                var b = (p00.Blue + p01.Blue + p10.Blue + p11.Blue + 2) >> 2;
+                var a = (p00.Alpha + p01.Alpha + p10.Alpha + p11.Alpha + 2) >> 2;
+
+                halvedPixels[(y * HALF_ICON_SIZE) + x] = new SKColor((byte)r, (byte)g, (byte)b, (byte)a);
+            }
+        }
+
+        using var halfBitmap = new SKBitmap(
+            new SKImageInfo(
                 HALF_ICON_SIZE,
-                HALF_ICON_SIZE));
+                HALF_ICON_SIZE,
+                SKColorType.Rgba8888,
+                SKAlphaType.Premul));
+        halfBitmap.Pixels = halvedPixels;
 
-        using var halfImage = surface.Snapshot();
+        using var halfImage = SKImage.FromBitmap(halfBitmap);
         var texture = Convert(halfImage);
         Cache[key] = texture;
 
