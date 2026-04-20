@@ -32,7 +32,8 @@ public static class InputBuffer
     private static readonly HashSet<Keys> HeldKeys = [];
     private static int RawMouseX;
     private static int RawMouseY;
-    private static float VirtualScale = 1f;
+    private static float VirtualScaleX = 1f;
+    private static float VirtualScaleY = 1f;
 
     //─────────────────────────────────────────────────────────────────────────────
     //  accumulation buffer (filled by the watcher between Update() calls)
@@ -77,17 +78,20 @@ public static class InputBuffer
     ///     <c>SDL_PumpEvents</c>, so it reflects the true end-of-frame cursor position
     ///     even when a macro fires its trailing move mid-frame.
     /// </summary>
-    public static int MouseX => ToVirtual(RawMouseX);
+    public static int MouseX => ToVirtualX(RawMouseX);
 
     /// <summary>
     ///     Current cursor Y in virtual coordinates (640×480). See <see cref="MouseX" />.
     /// </summary>
-    public static int MouseY => ToVirtual(RawMouseY);
+    public static int MouseY => ToVirtualY(RawMouseY);
 
     //single point where raw window pixels → virtual 640×480 coords. called from the
     //MouseX/MouseY getters and from the per-event coordinate capture in the SDL
-    //watcher — must always use the same divisor so polled and event positions agree.
-    private static int ToVirtual(int raw) => (int)(raw / VirtualScale);
+    //watcher — must always use the same transform so polled and event positions agree.
+    //scale is per-axis because the backbuffer can be non-4:3 when the window is maximized
+    //(the render target is stretch-drawn to fill in that case, not letterboxed).
+    private static int ToVirtualX(int raw) => (int)(raw / VirtualScaleX);
+    private static int ToVirtualY(int raw) => (int)(raw / VirtualScaleY);
 
     /// <summary>
     ///     True while the left mouse button is held down. Flipped per-event by the SDL
@@ -138,7 +142,21 @@ public static class InputBuffer
     ///     <see cref="MouseY" /> and by the per-click coordinate capture in the SDL watcher.
     ///     Called by <c>ChaosGame</c> whenever the window size changes.
     /// </summary>
-    public static void SetVirtualScale(float scale) => VirtualScale = scale;
+    public static void SetVirtualScale(float scale)
+    {
+        VirtualScaleX = scale;
+        VirtualScaleY = scale;
+    }
+
+    /// <summary>
+    ///     Sets the per-axis raw→virtual scale. Used when the window is non-4:3 (maximized) and
+    ///     the 640×480 render target is stretched to fill the backbuffer.
+    /// </summary>
+    public static void SetVirtualScale(float scaleX, float scaleY)
+    {
+        VirtualScaleX = scaleX;
+        VirtualScaleY = scaleY;
+    }
 
     //─────────────────────────────────────────────────────────────────────────────
     //  lifecycle
@@ -374,8 +392,8 @@ public static class InputBuffer
         //position.
         var rawX = Marshal.ReadInt32(sdlEvent, Sdl.MOUSEBUTTONEVENT_X_OFFSET);
         var rawY = Marshal.ReadInt32(sdlEvent, Sdl.MOUSEBUTTONEVENT_Y_OFFSET);
-        var virtualX = ToVirtual(rawX);
-        var virtualY = ToVirtual(rawY);
+        var virtualX = ToVirtualX(rawX);
+        var virtualY = ToVirtualY(rawY);
 
         //capture modifier state at the exact moment of the event. SDL maintains its
         //own running modifier state; SDL_GetModState() reads it synchronously from
@@ -402,8 +420,8 @@ public static class InputBuffer
         //tracked cursor position as the wheel target. this is usually accurate because
         //cursor movement between consecutive OS events within the same pump is rare.
         var mods = TranslateSdlMods(Sdl.SDL_GetModState());
-        var virtualX = ToVirtual(RawMouseX);
-        var virtualY = ToVirtual(RawMouseY);
+        var virtualX = ToVirtualX(RawMouseX);
+        var virtualY = ToVirtualY(RawMouseY);
 
         PendingEvents.Add(BufferedInputEvent.ForMouseWheel(y, virtualX, virtualY, mods));
     }

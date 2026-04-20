@@ -93,6 +93,17 @@ internal static partial class Sdl
     [UnmanagedCallConv(CallConvs = [typeof(CallConvCdecl)])]
     public static partial int SDL_GetDisplayBounds(int displayIndex, out SdlRect rect);
 
+    [LibraryImport("SDL2")]
+    [UnmanagedCallConv(CallConvs = [typeof(CallConvCdecl)])]
+    public static partial uint SDL_GetWindowFlags(nint window);
+
+    [LibraryImport("SDL2")]
+    [UnmanagedCallConv(CallConvs = [typeof(CallConvCdecl)])]
+    public static partial void SDL_RestoreWindow(nint window);
+
+    //SDL_WindowFlags bits reported by SDL_GetWindowFlags (consumed by ChaosGame for maximize detection)
+    public const uint SDL_WINDOW_MAXIMIZED = 0x00000080;
+
     //SDL_Init subsystem flag for audio (consumed by SoundSystem during mixer bring-up)
     public const uint SDL_INIT_AUDIO = 0x00000010;
 

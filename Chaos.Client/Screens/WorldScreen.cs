@@ -707,7 +707,7 @@ public sealed partial class WorldScreen : IScreen
         Game.Connection.OnBodyAnimation -= HandleBodyAnimation;
         Game.Connection.OnAnimation -= HandleAnimation;
         Game.Connection.OnSound -= HandleSound;
-        Game.Connection.OnCancelCasting -= CastingSystem.Reset;
+        Game.Connection.OnCancelCasting -= CastingSystem.CancelChant;
         Game.Connection.OnMapChangePending -= HandleMapChangePending;
         Game.Connection.OnExitResponse -= HandleExitResponse;
         Game.Connection.OnRedirectReceived -= HandleRedirectReceived;

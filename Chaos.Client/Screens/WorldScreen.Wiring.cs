@@ -71,7 +71,7 @@ public sealed partial class WorldScreen
         Game.Connection.OnBodyAnimation += HandleBodyAnimation;
         Game.Connection.OnAnimation += HandleAnimation;
         Game.Connection.OnSound += HandleSound;
-        Game.Connection.OnCancelCasting += CastingSystem.Reset;
+        Game.Connection.OnCancelCasting += CastingSystem.CancelChant;
 
         //map transitions
         Game.Connection.OnMapChangePending += HandleMapChangePending;

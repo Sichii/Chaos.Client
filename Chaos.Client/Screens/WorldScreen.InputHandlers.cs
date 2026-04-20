@@ -591,15 +591,6 @@ public sealed partial class WorldScreen
             return;
         }
 
-        //casting mode: escape cancels targeting
-        if (CastingSystem.IsTargeting && (e.Key == Keys.Escape))
-        {
-            CastingSystem.Reset();
-            e.Handled = true;
-
-            return;
-        }
-
         //enter — toggle chat focus
         if (e.Key == Keys.Enter)
         {
@@ -1085,7 +1076,7 @@ public sealed partial class WorldScreen
                     hoverEntity.TileY,
                     Game.Connection);
             else
-                CastingSystem.Reset();
+                CastingSystem.CancelTargeting();
 
             e.Handled = true;
 
