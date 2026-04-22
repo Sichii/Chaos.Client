@@ -70,12 +70,20 @@ public sealed partial class WorldScreen : IScreen
 
     //set of entity ids currently highlighted as group members (auto-expires after 1000ms)
     private readonly HashSet<uint> GroupHighlightedIds = [];
+
+    //authoritative closed/open state for each door we've heard from the server about on the current map.
+    //populated by HandleDoor from 0x32 Door packets and cleared on map change. The sprite-pair table in
+    //Chaos.Client.Definitions.DoorTable is an imperfect oracle — some entries have their (closed, open)
+    //columns reversed relative to reality — so the server's explicit flag is the only reliable source for
+    //the Alt+right-click context menu's Open/Close label.
+    private readonly Dictionary<(int X, int Y), bool> KnownDoorClosedState = [];
     private readonly EntityOverlayManager Overlays = new();
     private readonly PathfindingState Pathfinding = new();
     private readonly Queue<PendingWalk> PendingWalks = new();
 
     private AbilityMetadataDetailsControl AbilityMetadataDetails = null!;
     private AislingContextMenu AislingContext = null!;
+    private DoorContextMenu DoorContext = null!;
 
     private int AnimationTick;
     private ArticleListControl ArticleList = null!;
@@ -566,6 +574,11 @@ public sealed partial class WorldScreen : IScreen
             ZIndex = 3
         };
 
+        DoorContext = new DoorContextMenu
+        {
+            ZIndex = 3
+        };
+
         ItemTooltip = new ItemTooltipControl
         {
             ZIndex = 3
@@ -614,6 +627,7 @@ public sealed partial class WorldScreen : IScreen
         Root.AddChild(WorldMap);
         Root.AddChild(SocialStatusPicker);
         Root.AddChild(AislingContext);
+        Root.AddChild(DoorContext);
 
         Root.AddChild(TownMapControl);
         Root.AddChild(MapLoading);

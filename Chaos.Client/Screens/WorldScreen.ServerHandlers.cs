@@ -1116,13 +1116,17 @@ public sealed partial class WorldScreen
 
     private void HandleDoor(DoorArgs args)
     {
-        if (MapFile is null)
+        if (MapFile is null || args.Doors is null)
             return;
 
         foreach (var door in args.Doors)
         {
             if ((door.X < 0) || (door.X >= MapFile.Width) || (door.Y < 0) || (door.Y >= MapFile.Height))
                 continue;
+
+            //record the server-authoritative state for the Alt+right-click door menu's Open/Close label.
+            //done before the sprite swap so the cache reflects packet truth even if DoorTable is a no-op.
+            KnownDoorClosedState[(door.X, door.Y)] = door.Closed;
 
             var tile = MapFile.Tiles[door.X, door.Y];
 
@@ -1157,6 +1161,7 @@ public sealed partial class WorldScreen
         MapPreloaded = false;
         QueuedWalkDirection = null;
         Pathfinding.Clear();
+        KnownDoorClosedState.Clear();
         WorldMap.HideMap();
         TownMapControl.Hide();
     }

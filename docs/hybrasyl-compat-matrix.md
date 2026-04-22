@@ -24,7 +24,7 @@ Status of each originally-divergent opcode after empirical testing against the H
 | 0x29 | Animation | DIVERGENT | UNINSPECTED | Spell/ability visual effects — pending testing |
 | 0x2F | DisplayMenu | DIVERGENT | VERIFIED-COMPATIBLE | NPC dialogs and menus interact correctly |
 | 0x31 | DisplayBoard | DIVERGENT | VERIFIED-COMPATIBLE | Mail works end-to-end |
-| 0x32 | Door / UserMoveResponse | SEMANTIC-DIFF | UNINSPECTED | Door toggle / move rejection — pending testing |
+| 0x32 | Door / UserMoveResponse | SEMANTIC-DIFF | VERIFIED-COMPATIBLE | Door toggle open/close works end-to-end against Hybrasyl (left-click sends 0x43 ClickArgs TargetPoint → server toggles → 0x32 receipt → DoorTable sprite swap → atlas-preloaded render). Move-response variant (count=0) parses harmlessly as empty door list. |
 | 0x33 | DisplayAisling | DIVERGENT | STILL-DIVERGENT (unverified) | Monster helmet-vs-headSprite branch unresolved; visual impact uncertain |
 | 0x34 | OtherProfile | DIVERGENT | VERIFIED-COMPATIBLE | Other-player profile panels display correctly |
 | 0x39 | SelfProfile | DIVERGENT | VERIFIED-COMPATIBLE | Self profile panel displays correctly |

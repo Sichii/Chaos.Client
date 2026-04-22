@@ -259,6 +259,10 @@ public sealed partial class WorldScreen
             {
                 AislingContext.Hide();
                 skipDispatch = true;
+            } else if (DoorContext.Visible && !DoorContext.ContainsPoint(mx, my))
+            {
+                DoorContext.Hide();
+                skipDispatch = true;
             } else if (AbilityMetadataDetails.Visible && !AbilityMetadataDetails.ContainsPoint(mx, my))
             {
                 AbilityMetadataDetails.Hide();

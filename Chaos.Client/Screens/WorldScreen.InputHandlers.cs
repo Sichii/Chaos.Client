@@ -4,6 +4,7 @@ using Chaos.Client.Controls.Components;
 using Chaos.Client.Controls.World.Hud;
 using Chaos.Client.Controls.World.Hud.Panel;
 using Chaos.Client.Controls.World.Hud.Panel.Slots;
+using Chaos.Client.Controls.World.Popups;
 using Chaos.Client.Data;
 using Chaos.Client.Data.Models;
 using Chaos.Client.Extensions;
@@ -1026,6 +1027,14 @@ public sealed partial class WorldScreen
         if (CastingSystem.IsTargeting)
             return;
 
+        if (e.Alt)
+        {
+            HandleAltRightClick(e.ScreenX, e.ScreenY);
+            e.Handled = true;
+
+            return;
+        }
+
         if (e.Shift)
         {
             HandleShiftRightClick(e.ScreenX, e.ScreenY);
@@ -1456,6 +1465,121 @@ public sealed partial class WorldScreen
         //single right-click — pathfind to ground tile
         Pathfinding.TargetEntityId = null;
         PathfindToTile(player, tileX, tileY);
+    }
+
+    //alt+right-click door context radius — tile-diamond center must be within this many screen pixels
+    //of the cursor to appear in the menu. DoorContextMenu caps entries at MAX_ENTRIES (3) after sort.
+    private const int DOOR_CONTEXT_RADIUS_PX = 40;
+    private const int DOOR_CONTEXT_RADIUS_SQ = DOOR_CONTEXT_RADIUS_PX * DOOR_CONTEXT_RADIUS_PX;
+
+    //5x5 tile scan (±2) covers a 40px radius at default zoom with margin; zoom 2x would still be safe
+    //because 40px / (HALF_TILE_HEIGHT * 2) ≈ 1.4 tiles max.
+    private const int DOOR_SCAN_RADIUS_TILES = 2;
+
+    /// <summary>
+    ///     Alt+right-click: scan a 5x5 tile region around the cursor for doors whose tile-diamond center is within
+    ///     <see cref="DOOR_CONTEXT_RADIUS_PX" /> screen pixels, and if any are found show <see cref="DoorContext" />
+    ///     listing them. Each entry's callback issues a normal ClickTile packet — the server toggles the door and
+    ///     echoes a 0x32 Door update back, exactly as if the player had left-clicked the door tile directly.
+    /// </summary>
+    private void HandleAltRightClick(int mouseX, int mouseY)
+    {
+        if (MapFile is null)
+            return;
+
+        var viewport = WorldHud.ViewportBounds;
+
+        if ((mouseX < viewport.X)
+            || (mouseX >= (viewport.X + viewport.Width))
+            || (mouseY < viewport.Y)
+            || (mouseY >= (viewport.Y + viewport.Height)))
+            return;
+
+        var entries = FindNearbyDoors(mouseX, mouseY);
+
+        if (entries.Count == 0)
+            return;
+
+        DoorContext.Show(mouseX, mouseY, entries);
+    }
+
+    private List<(string Label, Action Callback)> FindNearbyDoors(int mouseX, int mouseY)
+    {
+        var results = new List<(int DistanceSq, string Label, Action Callback)>();
+
+        if (MapFile is null)
+            return [];
+
+        (var cursorTileX, var cursorTileY) = ScreenToTile(mouseX, mouseY);
+        var viewport = WorldHud.ViewportBounds;
+
+        for (var dy = -DOOR_SCAN_RADIUS_TILES; dy <= DOOR_SCAN_RADIUS_TILES; dy++)
+            for (var dx = -DOOR_SCAN_RADIUS_TILES; dx <= DOOR_SCAN_RADIUS_TILES; dx++)
+            {
+                var tx = cursorTileX + dx;
+                var ty = cursorTileY + dy;
+
+                if ((tx < 0) || (ty < 0) || (tx >= MapFile.Width) || (ty >= MapFile.Height))
+                    continue;
+
+                var tile = MapFile.Tiles[tx, ty];
+                var lfg = tile.LeftForeground;
+                var rfg = tile.RightForeground;
+
+                //DoorTable flags any tile whose foreground is a known door sprite — either side of a pair.
+                //Used only to decide whether THIS tile is a door; the Open/Close label comes from the
+                //server-authoritative KnownDoorClosedState cache below, because DoorTable has some pairs
+                //with their (closed, open) columns reversed relative to reality.
+                var isDoorTile = DoorTable.GetOpenTileId(lfg).HasValue
+                                 || DoorTable.GetOpenTileId(rfg).HasValue
+                                 || DoorTable.GetClosedTileId(lfg).HasValue
+                                 || DoorTable.GetClosedTileId(rfg).HasValue;
+
+                if (!isDoorTile)
+                    continue;
+
+                //tile image is 56x27 with diamond centered at (HALF_TILE_WIDTH, HALF_TILE_HEIGHT) relative to top-left
+                var tileWorld = Camera.TileToWorld(tx, ty, MapFile.Height)
+                                + new Vector2(DaLibConstants.HALF_TILE_WIDTH, DaLibConstants.HALF_TILE_HEIGHT);
+                var tileScreen = Camera.WorldToScreen(tileWorld);
+                var screenX = tileScreen.X + viewport.X;
+                var screenY = tileScreen.Y + viewport.Y;
+
+                var dpx = mouseX - screenX;
+                var dpy = mouseY - screenY;
+                var distSq = (int)((dpx * dpx) + (dpy * dpy));
+
+                if (distSq > DOOR_CONTEXT_RADIUS_SQ)
+                    continue;
+
+                //prefer the server-authoritative state; fall back to the table's best guess only if the
+                //server hasn't told us about this door yet (cache gets populated on map-load door blast).
+                string label;
+
+                if (KnownDoorClosedState.TryGetValue((tx, ty), out var knownClosed))
+                    label = knownClosed ? "Open Door" : "Close Door";
+                else
+                {
+                    var isClosedByTable = DoorTable.GetOpenTileId(lfg).HasValue || DoorTable.GetOpenTileId(rfg).HasValue;
+                    label = isClosedByTable ? "Open Door" : "Close Door";
+                }
+
+                var doorX = tx;
+                var doorY = ty;
+                Action callback = () => Game.Connection.ClickTile(doorX, doorY);
+
+                results.Add((distSq, label, callback));
+            }
+
+        results.Sort(static (a, b) => a.DistanceSq.CompareTo(b.DistanceSq));
+
+        var limit = Math.Min(results.Count, DoorContextMenu.MAX_ENTRIES);
+        var final = new List<(string Label, Action Callback)>(limit);
+
+        for (var i = 0; i < limit; i++)
+            final.Add((results[i].Label, results[i].Callback));
+
+        return final;
     }
 
     /// <summary>
