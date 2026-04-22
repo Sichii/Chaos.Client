@@ -57,7 +57,7 @@ public sealed partial class WorldScreen : IScreen
 
     //doubleclick entity cache expiry — slightly larger than the dispatcher's 300ms double-click window so the cache
     //remains valid through the full doubleclick detection window
-    private const int DOUBLE_CLICK_CACHE_WINDOW_MS = 350;
+    private const int DOUBLE_CLICK_CACHE_WINDOW_MS = 550;
 
     private const string SPOUSE_PREFIX = "Spouse: ";
     private const string GROUP_MEMBERS_PREFIX = "Group members";

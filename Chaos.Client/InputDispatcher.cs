@@ -8,7 +8,7 @@ namespace Chaos.Client;
 
 public sealed class InputDispatcher
 {
-    private const float DOUBLE_CLICK_MS = 300f;
+    private const float DOUBLE_CLICK_MS = 500f;
     private const int DRAG_THRESHOLD_SQ = 16; //4px squared
 
     //control stack — ordered list of panels that participate in keyboard dispatch.

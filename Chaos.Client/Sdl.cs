@@ -107,6 +107,14 @@ internal static partial class Sdl
     //SDL_Init subsystem flag for audio (consumed by SoundSystem during mixer bring-up)
     public const uint SDL_INIT_AUDIO = 0x00000010;
 
+    //when "1", SDL delivers the mouse click that focused the window as a normal MOUSEBUTTONDOWN
+    //instead of swallowing it for OS-level window activation. must be set before SDL creates the window.
+    public const string SDL_HINT_MOUSE_FOCUS_CLICKTHROUGH = "SDL_MOUSE_FOCUS_CLICKTHROUGH";
+
+    [LibraryImport("SDL2", StringMarshalling = StringMarshalling.Utf8)]
+    [UnmanagedCallConv(CallConvs = [typeof(CallConvCdecl)])]
+    public static partial int SDL_SetHint(string name, string value);
+
     [LibraryImport("SDL2")]
     [UnmanagedCallConv(CallConvs = [typeof(CallConvCdecl)])]
     public static partial int SDL_InitSubSystem(uint flags);

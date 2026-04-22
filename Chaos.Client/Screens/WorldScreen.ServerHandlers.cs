@@ -491,14 +491,12 @@ public sealed partial class WorldScreen
         if (spf.Count == 0)
             return null;
 
-        var frame = spf[0];
-
-        using var image = spf is { Format: SpfFormatType.Palettized, PrimaryColors: not null }
-            ? Graphics.RenderImage(frame, spf.PrimaryColors)
-            : Graphics.RenderImage(frame);
+        using var image = SpfRenderer.RenderFrame(spf, 0);
 
         return TextureConverter.ToTexture2D(image);
     }
+
+    
 
     private SpriteFrame? RenderCreaturePortrait(ushort spriteId)
     {

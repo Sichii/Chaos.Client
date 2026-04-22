@@ -270,9 +270,7 @@ public sealed class UiComponentRepository : RepositoryBase
         if (spf is null || (frameIndex >= spf.Count))
             return null;
 
-        return spf.Format == SpfFormatType.Colorized
-            ? Graphics.RenderImage(spf[frameIndex])
-            : Graphics.RenderImage(spf[frameIndex], spf.PrimaryColors!);
+        return SpfRenderer.RenderFrame(spf, frameIndex);
     }
 
     /// <summary>
@@ -285,9 +283,7 @@ public sealed class UiComponentRepository : RepositoryBase
         if (spf is null || (frameIndex >= spf.Count))
             return null;
 
-        return spf.Format == SpfFormatType.Colorized
-            ? Graphics.RenderImage(spf[frameIndex])
-            : Graphics.RenderImage(spf[frameIndex], spf.PrimaryColors!);
+        return SpfRenderer.RenderFrame(spf, frameIndex);
     }
 
     /// <summary>
@@ -306,9 +302,7 @@ public sealed class UiComponentRepository : RepositoryBase
         var images = new SKImage[spf.Count];
 
         for (var i = 0; i < spf.Count; i++)
-            images[i] = spf.Format == SpfFormatType.Colorized
-                ? Graphics.RenderImage(spf[i])
-                : Graphics.RenderImage(spf[i], spf.PrimaryColors!);
+            images[i] = SpfRenderer.RenderFrame(spf, i);
 
         return images;
     }
@@ -398,9 +392,7 @@ public sealed class UiComponentRepository : RepositoryBase
         if ((frameIndex < 0) || (frameIndex >= spf.Count))
             return null;
 
-        return spf.Format == SpfFormatType.Colorized
-            ? Graphics.RenderImage(spf[frameIndex])
-            : Graphics.RenderImage(spf[frameIndex], spf.PrimaryColors!);
+        return SpfRenderer.RenderFrame(spf, frameIndex);
     }
 
     private ControlPrefabSet ResolvePrefabSet(string name, ControlFile controlFile)

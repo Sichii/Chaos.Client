@@ -1117,11 +1117,7 @@ public sealed class AislingRenderer : IDisposable
                 if (emoteCache.TryGetValue(emoteCacheKey, out var emoteCached))
                     return emoteCached;
 
-                var emoteSpfFrame = emoteSpf[emoteFrame];
-
-                using var emoteImage = emoteSpf.Format == SpfFormatType.Colorized
-                    ? Graphics.RenderImage(emoteSpfFrame)
-                    : Graphics.RenderImage(emoteSpfFrame, emoteSpf.PrimaryColors!);
+                using var emoteImage = SpfRenderer.RenderFrame(emoteSpf, emoteFrame);
 
                 // ReSharper disable once ConditionIsAlwaysTrueOrFalseAccordingToNullableAPIContract
                 if (emoteImage is null)
@@ -1147,11 +1143,7 @@ public sealed class AislingRenderer : IDisposable
         if (cache.TryGetValue(cacheKey, out var cached))
             return cached;
 
-        var frame = spf[frameIndex];
-
-        using var image = spf.Format == SpfFormatType.Colorized
-            ? Graphics.RenderImage(frame)
-            : Graphics.RenderImage(frame, spf.PrimaryColors!);
+        using var image = SpfRenderer.RenderFrame(spf, frameIndex);
 
         // ReSharper disable once ConditionIsAlwaysTrueOrFalseAccordingToNullableAPIContract
         if (image is null)

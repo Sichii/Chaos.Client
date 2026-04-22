@@ -55,7 +55,7 @@ public static class InputBuffer
     private static int EventCount;
     private static char[] TextBuffer = [];
     private static int TextCount;
-    private static bool WasInactive;
+    private static bool WasActivePreviousFrame = true;
 
     //─────────────────────────────────────────────────────────────────────────────
     //  unmanaged callback lifetime
@@ -211,34 +211,24 @@ public static class InputBuffer
         FrameKeyPresses.Clear();
         FrameKeyReleases.Clear();
 
-        if (!isActive)
+        //clear stuck held state on the active→inactive edge. while another window has
+        //focus SDL doesn't deliver key/button-up events to us, so held flags would
+        //otherwise persist as stale state until the user refocuses and re-taps.
+        if (WasActivePreviousFrame && !isActive)
         {
-            //window not focused — discard buffered input and report nothing
-            PendingEvents.Clear();
             HeldKeys.Clear();
             IsLeftButtonHeld = false;
             IsRightButtonHeld = false;
-
-            //keep the cursor position current so the custom cursor still draws in the
-            //right spot while another window has focus.
-            _ = Sdl.SDL_GetMouseState(out RawMouseX, out RawMouseY);
-            WasInactive = true;
-
-            return;
         }
 
-        //suppress focus-click: drop any mouse button events that queued during
-        //activation so the focus-click doesn't trigger a UI interaction, and clear
-        //button held flags so a press that straddles activation doesn't leave the
-        //dispatcher thinking a button is stuck down. keyboard events are preserved
-        //so held hotkeys remain responsive.
-        if (WasInactive)
-        {
-            WasInactive = false;
-            PendingEvents.RemoveAll(static e => e.Kind == BufferedInputKind.MouseButton);
-            IsLeftButtonHeld = false;
-            IsRightButtonHeld = false;
-        }
+        WasActivePreviousFrame = isActive;
+
+        //do NOT early-return on !isActive: when the user clicks the unfocused window
+        //with SDL_HINT_MOUSE_FOCUS_CLICKTHROUGH enabled, SDL queues MOUSEBUTTONDOWN one
+        //frame before MonoGame's IsActive transitions to true. the watcher has already
+        //captured it into PendingEvents — dropping here would swallow the focus click.
+        //the watcher only delivers events for our window, so buffered events are always
+        //legitimately ours regardless of the IsActive snapshot at Update time.
 
         //freeze the unified event stream and derive the query-style frame snapshot
         //in one pass. FrameKeyPresses/FrameKeyReleases/TextBuffer exist only so that
