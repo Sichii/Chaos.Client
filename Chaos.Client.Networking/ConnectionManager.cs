@@ -859,6 +859,8 @@ public sealed class ConnectionManager : IDisposable
     /// <summary>
     ///     Sends a CreateGroupbox request with recruitment configuration.
     /// </summary>
+    /// <param name="playerName">The owner's (sender's) own character name. The protocol's
+    /// TargetName field on CreateGroupbox is the sender's own name, not the groupbox title.</param>
     /// <param name="name">The group box name.</param>
     /// <param name="note">The recruitment note.</param>
     /// <param name="minLevel">Minimum level requirement.</param>
@@ -869,6 +871,7 @@ public sealed class ConnectionManager : IDisposable
     /// <param name="maxPriests">Maximum number of priests.</param>
     /// <param name="maxMonks">Maximum number of monks.</param>
     public void SendCreateGroupBox(
+        string playerName,
         string name,
         string note,
         byte minLevel,
@@ -882,7 +885,9 @@ public sealed class ConnectionManager : IDisposable
             new GroupInviteArgs
             {
                 ClientGroupSwitch = ClientGroupSwitch.CreateGroupbox,
-                TargetName = name,
+                //TargetName in CreateGroupbox is the owner's (sender's) own name, not
+                //the groupbox title. The title lives in GroupBoxInfo.Name.
+                TargetName = playerName,
                 GroupBoxInfo = new CreateGroupBoxInfo
                 {
                     Name = name,

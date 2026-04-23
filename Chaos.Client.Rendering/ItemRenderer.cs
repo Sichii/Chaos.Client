@@ -1,5 +1,6 @@
 #region
 using Chaos.Client.Data;
+using Chaos.Client.Rendering.Utility;
 using DALib.Drawing;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
@@ -16,6 +17,9 @@ public sealed class ItemRenderer : IDisposable
 {
     private readonly Dictionary<(int SpriteId, byte Color), ItemSprite?> SpriteCache = [];
 
+    //keyed by (source sprite texture, paint height, packed argb) — gndattr water-tile tint applied to the lower portion of the sprite. Cleared on map change.
+    private readonly Dictionary<(Texture2D Source, int PaintHeight, uint PackedColor), Texture2D> GroundTintCache = [];
+
     public void Dispose() => Clear();
 
     /// <summary>
@@ -27,6 +31,7 @@ public sealed class ItemRenderer : IDisposable
             sprite?.Texture.Dispose();
 
         SpriteCache.Clear();
+        GroundTintCache.DisposeAndClear();
     }
 
     /// <summary>
@@ -38,7 +43,9 @@ public sealed class ItemRenderer : IDisposable
         int spriteId,
         byte color,
         float tileCenterX,
-        float tileCenterY)
+        float tileCenterY,
+        int groundPaintHeight,
+        Color groundTintColor)
     {
         var sprite = GetSprite(spriteId, color);
 
@@ -55,7 +62,29 @@ public sealed class ItemRenderer : IDisposable
         var drawY = tileCenterY - contentCenterY;
         var screenPos = camera.WorldToScreen(new Vector2(drawX, drawY));
 
-        batch.Draw(texture, screenPos, Color.White);
+        //items sit at the tile with the whole sprite visually "on the ground" — anchor the tint at the texture bottom so
+        //the lower `paintHeight` pixels are submerged.
+        var drawTexture = texture;
+
+        if (groundPaintHeight > 0)
+        {
+            var key = (Source: texture, PaintHeight: groundPaintHeight, PackedColor: groundTintColor.PackedValue);
+
+            if (!GroundTintCache.TryGetValue(key, out var groundTinted))
+            {
+                groundTinted = ImageUtil.BuildGroundTinted(
+                    TextureConverter.Device,
+                    texture,
+                    groundPaintHeight,
+                    texture.Height,
+                    groundTintColor);
+                GroundTintCache[key] = groundTinted;
+            }
+
+            drawTexture = groundTinted;
+        }
+
+        batch.Draw(drawTexture, screenPos, Color.White);
     }
 
     /// <summary>

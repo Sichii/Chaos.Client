@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-Chaos.Client is a Dark Ages MMORPG client built in C# (.NET 10.0) using MonoGame for windowing/graphics and a local DALib fork for Dark Ages file format handling. Targets the Chaos-Server private server. Licensed under AGPL-3.0-or-later. v0.1.0.
+Chaos.Client is a Dark Ages MMORPG client built in C# (.NET 10.0) using MonoGame for windowing/graphics and DALib for Dark Ages file format handling. Targets Chaos-Server. Licensed under AGPL-3.0-or-later. v0.1.0.
 
 ## Build & Run
 
@@ -12,6 +12,8 @@ Chaos.Client is a Dark Ages MMORPG client built in C# (.NET 10.0) using MonoGame
 dotnet build Chaos.Client.slnx
 dotnet run --project Chaos.Client/Chaos.Client.csproj
 ```
+
+The client requires a Dark Ages game-data directory (the folder containing `*.dat` archives). Point `GlobalSettings.DataPath` at that directory before running; `LobbyHost`/`LobbyPort` and `ClientVersion` also live in `GlobalSettings`.
 
 No test projects exist currently.
 
@@ -23,7 +25,7 @@ Chaos.Client.slnx (.NET 10.0, C# 14)
 ├── Chaos.Client.Data           — Asset repositories, DALib integration, archive loading, caching
 ├── Chaos.Client.Rendering      — Texture conversion, sprite renderers, map rendering, text, camera
 ├── Chaos.Client.Networking     — TCP client, crypto, packet framing, connection state machine
-└── DALib (project ref)         — Local fork at ../dalib/DALib/ — Dark Ages file format support
+└── DALib                       — Dark Ages file format support
 ```
 
 **Dependency flow:** Data <- Rendering <- Client, Networking <- Client
@@ -40,7 +42,7 @@ Chaos.Client.slnx (.NET 10.0, C# 14)
 
 | Package                                    | Purpose                                                                   |
 |--------------------------------------------|---------------------------------------------------------------------------|
-| DALib (project ref, ../dalib/)             | Dark Ages file format support, SkiaSharp rendering                        |
+| DALib                                      | Dark Ages file format support, SkiaSharp rendering                        |
 | MonoGame.Framework.DesktopGL 3.8.4.1       | Cross-platform graphics/windowing                                         |
 | Chaos.Networking 1.11.0-preview            | Complete protocol library: packet converters, crypto, opcodes, args types |
 | Chaos.Common 1.11.0-preview                | Shared extension methods (NuGet)                                          |
@@ -48,7 +50,6 @@ Chaos.Client.slnx (.NET 10.0, C# 14)
 | Chaos.Geometry 1.11.0-preview              | Geometry types -- rectangles, points (NuGet)                              |
 | Chaos.Pathfinding 1.11.0-preview           | A* pathfinding (NuGet)                                                    |
 | Microsoft.Extensions.Caching.Memory 10.0.5 | MemoryCache infrastructure                                                |
-| NAudio 2.3.0                               | MP3 decoding for sound playback                                           |
 | TextCopy 6.2.1                             | Cross-platform clipboard access (used by `Utilities/Clipboard`)           |
 
 ## Build Configuration
@@ -68,14 +69,16 @@ Centralized in `Directory.Build.props`: C# 14, net10.0, nullable enabled, implic
 - **`IconPack`** (`AssetPacks/`) -- Wraps a ZipArchive of `{prefix}_{id:D4}.png` entries. `TryGetIconImage(prefix, spriteId, out SKImage?)` case-insensitive lookup; decode failures treated as "not present" so renderer falls back cleanly to legacy.
 
 ### Rendering Layer (`Chaos.Client.Rendering`)
-- **`TextureConverter`** -- DALib `SKImage` -> MonoGame `Texture2D` (RGBA8888 premul). Also `LoadSpfTexture()`, `LoadEpfTextures()`, `RenderSprite()`.
+- **`TextureConverter`** -- DALib `SKImage` -> MonoGame `Texture2D` (RGBA8888 premul). Entry points: `ConvertImage<T>()`, `ToTexture2D()`.
+- **`ImageUtil`** -- Static class of stateless CPU pixel-manipulation primitives: tint/blend variants (`Blend50`, `ApplyHoverTint`, `ApplyGroundTint`, `BuildGroupTinted`, `BuildHitTinted`, `BuildHoverTinted`, `BuildGroundTinted`, `BuildCooldownTintedCached`), checker pattern, vertical alpha gradient, filled border, rectangle fill, projected-quadrants raster, chat-bubble body + tail, 2x2 box downsampler (`SKColor[]`), comb-dissolve kernel. Naming convention: `Build*` returns a new `Texture2D` (or `CachedTexture2D`); `Apply*`/`Fill*`/`Draw*` mutate a `Color[]` in place. No global state -- all device-requiring helpers take an explicit `GraphicsDevice`.
+- **`PixelBufferScope`** -- `ref struct` RAII wrapper around `ArrayPool<Color>.Shared.Rent` + `Texture2D.GetData`/`SetData`. Use this instead of hand-rolling rent/get/set/return. Two constructors: `(Texture2D source)` reads the texture into a fresh buffer; `(int width, int height)` rents an **uninitialized** buffer (callers must `Array.Clear(scope.Pixels, 0, scope.Count)` if they depend on zeros). Exposes `Pixels`, `Count`, `Width`, `Height`, `AsSpan()` for bounds-safe iteration; `CommitTo(Texture2D)` uploads pixels back via `SetData`. This is the *only* place outside tests that should call `ArrayPool<Color>.Shared.Rent`.
 - **`Camera`** -- Isometric camera: `WorldToScreen`, `ScreenToWorld`, `TileToWorld`, `WorldToTile`, `GetVisibleTileBounds()`.
 - **`MapRenderer`** -- Background + foreground tile rendering. `DrawBackground()`, `DrawForegroundTile()`, `PreloadMapTiles()`.
 - **`TextRenderer`** -- SkiaSharp text rendering: `RenderText()`, `RenderWrappedText()`, `MeasureWidth()`, `WrapText()`.
 - **`UiRenderer`** -- UI panel rendering utilities.
 - **`DarknessRenderer`** -- Light/darkness overlay. Consumes light sources from `LightingSystem`.
 - **`TabMapRenderer`** -- Mini-map rendering. Also consumes from `LightingSystem` for fog-of-war.
-- **`WeatherRenderer`** -- Snow/rain overlay driven by the low nibble of `MapFlags` (1=Snow, 2=Rain, 3=Darkness handled by `DarknessRenderer`). Retail treats case 2 as a no-op; this renderer intentionally diverges.
+- **`WeatherRenderer`** -- Snow/rain overlay driven by the low nibble of `MapFlags` (1=Snow, 2=Rain, 3=Darkness handled by `DarknessRenderer`).
 - **`SilhouetteRenderer`** -- Silhouette effect for blocked entities.
 - **`PaletteCyclingManager`** -- Animated palette shimmer effects.
 - **`FontAtlas`** -- Font glyph atlas management.
@@ -105,7 +108,8 @@ Chaos.Client/
 ├── GlobalSettings.cs         — Static config (ClientVersion, DataPath, LobbyHost/Port)
 ├── InputBuffer.cs            — Event-driven input capture and buffering
 ├── InputDispatcher.cs        — UI event dispatch: hit-test, bubble, drag, click synthesis, control stack
-├── Sdl.cs                    — Centralized SDL2 P/Invoke declarations (keyboard, text, mouse button, mouse wheel event constants consumed by InputBuffer)
+├── Sdl.cs                    — Centralized SDL2 P/Invoke declarations (keyboard, text, mouse button, mouse wheel event constants consumed by InputBuffer; audio subsystem init/quit, SDL_GetError, SDL_RWFromConstMem consumed by SoundSystem)
+├── SdlMixer.cs               — SDL2_mixer P/Invoke wrapper (Mix_* functions and constants, consumed by SoundSystem)
 ├── Collections/              — WorldState, CircularBuffer
 ├── Models/                   — WorldEntity, Animation, EntityRemovalAnimation, WorldFrameState, SlotDragPayload, PathfindingState, etc.
 ├── ViewModel/                — Authoritative state classes owned by WorldState
@@ -153,18 +157,17 @@ Chaos.Client/
 ### Game Systems (`Chaos.Client/Systems/`)
 - **`AnimationSystem`** -- Pure methods for walk/body/creature animations, frame calculation, walk offset lerp.
 - **`CastingSystem`** -- Spell targeting + chant management.
-- **`SoundSystem`** -- NAudio MP3->PCM, cached playback, music looping.
+- **`SoundSystem`** -- SDL2_mixer-based audio. MP3s decoded to PCM once via `Mix_LoadWAV_RW` and cached as `Mix_Chunk` pointers; playback uses the mixer's channel pool with per-channel volume. Music streams via `Mix_LoadMUS` with `Mix_FadeOutMusic`/`Mix_FadeInMusic` for map transitions. Same-sound overlap ducks prior instances by -3 dB (equal-power) instead of voice-stealing.
 - **`Pathfinder`** -- A* pathfinding algorithm.
 - **`LightingSystem`** -- Owns the per-frame light source buffer. Walks world entities, reads `LanternSize`, and gathers into a span consumed read-only by `DarknessRenderer` and `TabMapRenderer` (neither stores its own copy). Caches Euclidean circle offset arrays (radius 3/5) and exposes `BaselineVisibilityOffsets` for the unconditional player-tile reveal on darkness maps.
 - **`LatencyMonitor`** -- Static class. Background ICMP ping loop (15s interval) against the connected server endpoint. Exposes `LatencyMs` and fires `LatencyChanged` for the HUD ping indicator. Started/stopped by `ChaosGame` on connect/disconnect. Events fire on thread-pool threads — consumers must poll from the game-loop thread.
 - **`MachineIdentity`** -- Machine-specific identification for the client.
 - **`ClientSettings`** -- Static class. Persistent user settings. Access via `ClientSettings.SoundVolume`, etc.
-- **`GlobalSettings`** -- Static config: ClientVersion (741), DataPath, LobbyHost/Port, `RequireSwimmingSkill` toggle (default false — when true, water tiles require GM flag or Swimming skill, retail behavior).
 
 ### World State & Models
 - **`WorldState`** (`Collections/`) -- Static class. Entity tracking, sorted rendering, active effects, all ViewModel state. Access via `WorldState.Inventory`, `WorldState.Attributes`, etc.
 - **`WorldEntity`** (`Models/`) -- Full entity data bag: position, direction, appearance, animation state, emotes.
-- **Other models:** `Animation`, `EntityRemovalAnimation`, `WorldFrameState`, `SlotDragPayload`, `PathfindingState`, `TileClickTracker`, `Projectile`, `MailEntry`, `FriendEntry`, `LegendMarkEntry`, `WorldListEntry`.
+- **Other models:** `Animation`, `EntityRemovalAnimation`, `WorldFrameState`, `SlotDragPayload`, `PathfindingState`, `TileClickTracker`, `Projectile`, `MailEntry`, `LegendMarkEntry`, `WorldListEntry`.
 
 ### ViewModel (`Chaos.Client/ViewModel/`)
 Authoritative state objects exposed as static properties on WorldState, updated by server packets:
@@ -192,30 +195,15 @@ Per-frame processor that reads `InputBuffer` state and produces UI events. Key c
 - **Control stack:** popups push themselves via `InputDispatcher.Instance.PushControl(this)` — the topmost entry receives keyboard events in Phase 2 of dispatch. Explicit focus (textboxes) intercepts Phase 1.
 - **Drag:** initiated when the mouse moves ≥4px from the mousedown position while an element is captured. `OnDragStart` lets the source populate a payload; `DragMove`/`DragDrop` bubble to the element under the cursor.
 
-## C# Coding Standards
-
-- Target: .NET 10.0, C# 14 language version
-- Nullable reference types enabled, implicit usings enabled
-- Write high-verbosity code: descriptive names, explicit types, early returns
-- Handle edge cases first
-- Keep comments concise, explain "why" not "what"
-- Follow existing patterns in neighboring code
-- Respect package versions pinned in `Directory.Packages.props`
-
 ## Conventions
 
-### Naming
-- **Private fields:** PascalCase, no prefix -- e.g. `private readonly Lock SendLock = new();`
-- **No backing fields:** Use auto-properties with `field` keyword, `private set`, or `init` instead of manual backing fields
-- **Constants:** UPPER_SNAKE_CASE -- e.g. `private const int RECEIVE_BUFFER_SIZE = ...;`
-- Fields may share a name with their type -- e.g. `private Tileset Tileset`, `private Socket? Socket`
-
 ### Concurrency
-- Use `Lock` with `EnterScope()` instead of the `lock` keyword -- e.g. `using var scope = SendLock.EnterScope();`
+- Use `Lock` with `EnterScope()` instead of the `lock` keyword -- e.g. `using var scope = SendLock.EnterScope();`. This is the new .NET 9+ lock primitive with better usage semantics and performance.
 
 ### Packet Dispatch
 - Use array-indexed handler dispatch (not switch-case) for opcode routing, matching Chaos-Server's pattern
 - Delegate arrays sized `byte.MaxValue + 1`, indexed by opcode byte, registered via `IndexHandlers()`
+- **Adding a handler:** write `private void OnXxx(ref ServerPacket packet)` in `ConnectionManager`, register it in `IndexHandlers()` as `Handlers[(byte)ServerOpCode.Xxx] = OnXxx`, deserialize via the appropriate `Chaos.Networking` converter, then raise an event on the manager for `WorldScreen` to subscribe to.
 
 ### UI Patterns
 - All UI panels derive from `PrefabPanel` (for prefab-based layouts) or `UIPanel` (for manual layouts)
@@ -242,6 +230,7 @@ Per-frame processor that reads `InputBuffer` state and produces UI events. Key c
 - **Pathfinding:** Right-click A* to tile/entity, entity following with auto-assail, arrow/spacebar cancels
 - **Casting flow:** CastingSystem coordinates targeting -> UseSpellOnTarget and chant progress
 
+<<<<<<< HEAD
 ### Other
 - Case-insensitive string operations: `StartsWithI`, `ContainsI`, `EqualsI`, `ReplaceI`
 - Thread-safe cache access via `RepositoryBase.GetOrCreate<T>` (per-instance Lock)
@@ -324,7 +313,7 @@ Draw order (painter's algorithm -- diagonal stripe, see WorldScreen.Draw.cs):
   11. Drag icon -- always topmost
 ```
 
-## DALib Key Types (local fork at ../dalib/DALib/)
+## DALib Key Types
 
 - **`MapFile`** -- `Tiles[x,y]` returns `MapTile` with `.Background`, `.LeftForeground`, `.RightForeground`
 - **`Tileset`** -- `Collection<Tile>`, indexed by background tile ID

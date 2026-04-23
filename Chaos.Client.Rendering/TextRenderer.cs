@@ -474,6 +474,7 @@ public static class TextRenderer
             text = text.Replace("\t\t", "\t");
 
         var paragraphs = text.Split('\r', '\n', '\t');
+        string? activeColorCode = null;
 
         foreach (var paragraph in paragraphs)
         {
@@ -484,17 +485,40 @@ public static class TextRenderer
                 continue;
             }
 
-            var remaining = paragraph;
+            //inherit the active color code from prior lines so inline {=x} codes persist across wraps/paragraphs
+            var remaining = activeColorCode is not null ? activeColorCode + paragraph : paragraph;
 
             while (remaining.Length > 0)
             {
                 var lineEnd = FindLineBreak(remaining, maxWidth);
-                lines.Add(remaining[..lineEnd].TrimEnd());
+                var line = remaining[..lineEnd].TrimEnd();
+                lines.Add(line);
+                activeColorCode = FindLastColorCode(line) ?? activeColorCode;
                 remaining = remaining[lineEnd..];
+
+                //only re-prepend the active color code when the prepended length is strictly
+                //less than what we just consumed — otherwise FindLineBreak on the next iteration
+                //returns the same lineEnd and remaining never shrinks (infinite loop).
+                if (activeColorCode is not null && (remaining.Length > 0) && (activeColorCode.Length < lineEnd))
+                    remaining = activeColorCode + remaining;
             }
         }
 
         return lines;
+    }
+
+    private static string? FindLastColorCode(string line)
+    {
+        string? last = null;
+
+        for (var i = 0; i <= (line.Length - 3); i++)
+            if (IsColorCode(line, i))
+            {
+                last = line[i..(i + 3)];
+                i += 2;
+            }
+
+        return last;
     }
     #endregion
 }

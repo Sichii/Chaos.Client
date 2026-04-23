@@ -2,6 +2,7 @@
 using System.Buffers;
 using Chaos.Client.Data;
 using Chaos.Client.Data.AssetPacks;
+using Chaos.Client.Rendering.Utility;
 using Chaos.DarkAges.Definitions;
 using DALib.Drawing;
 using DALib.Utility;
@@ -43,7 +44,7 @@ public sealed class UiRenderer : IDisposable
     /// <summary>
     ///     A neon green/purple checkerboard texture returned when an asset fails to load. 32x32, 4px cells.
     /// </summary>
-    public Texture2D MissingTexture => MissingTextureField ??= CreateMissingTexture();
+    public Texture2D MissingTexture => MissingTextureField ??= ImageUtil.BuildCheckerCached(Device, CHECKER_SIZE, CELL_SIZE, CheckerA, CheckerB);
 
     public UiRenderer(GraphicsDevice device) => Device = device;
 
@@ -278,27 +279,21 @@ public sealed class UiRenderer : IDisposable
 
         try
         {
-            var info = new SKImageInfo(
-                HALF_ICON_SIZE,
-                HALF_ICON_SIZE,
-                SKColorType.Rgba8888,
-                SKAlphaType.Premul);
-            using var surface = SKSurface.Create(info);
+            //2x2 box filter samples the top-left (HALF_ICON_SIZE*2)x(HALF_ICON_SIZE*2) of the source.
+            //legacy 31x31 EPF drops 1px edge; modern 32x32 .datf drops 2px — imperceptible at 15x15.
+            using var sourceBitmap = SKBitmap.FromImage(sourceImage);
+            var srcPixels = sourceBitmap.Pixels;
+            var halvedPixels = ImageUtil.DownsampleIcon(srcPixels, sourceBitmap.Width, HALF_ICON_SIZE, HALF_ICON_SIZE);
 
-            surface.Canvas.DrawImage(
-                sourceImage,
-                new SKRect(
-                    0,
-                    0,
-                    sourceImage.Width,
-                    sourceImage.Height),
-                new SKRect(
-                    0,
-                    0,
+            using var halfBitmap = new SKBitmap(
+                new SKImageInfo(
                     HALF_ICON_SIZE,
-                    HALF_ICON_SIZE));
+                    HALF_ICON_SIZE,
+                    SKColorType.Rgba8888,
+                    SKAlphaType.Premul));
+            halfBitmap.Pixels = halvedPixels;
 
-            using var halfImage = surface.Snapshot();
+            using var halfImage = SKImage.FromBitmap(halfBitmap);
             var texture = Convert(halfImage);
             Cache[key] = texture;
 
@@ -471,7 +466,7 @@ public sealed class UiRenderer : IDisposable
         if (Cache.TryGetValue(key, out var cached))
             return cached;
 
-        var texture = CreateCooldownTintedTexture(source, tint);
+        var texture = ImageUtil.BuildCooldownTintedCached(Device, source, tint);
         Cache[key] = texture;
 
         return texture;

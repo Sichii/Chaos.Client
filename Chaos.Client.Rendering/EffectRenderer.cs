@@ -224,9 +224,7 @@ public sealed class EffectRenderer : IDisposable
         {
             var spfFrame = spf[i];
 
-            using var skImage = spf.Format == SpfFormatType.Colorized
-                ? Graphics.RenderImage(spfFrame)
-                : Graphics.RenderImage(spfFrame, spf.PrimaryColors!);
+            using var skImage = SpfRenderer.RenderFrame(spf, i);
 
             var texture = TextureConverter.ToTexture2D(skImage);
 

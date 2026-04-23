@@ -396,3 +396,17 @@ FodyWeavers.xsd
 
 # JetBrains Rider
 *.sln.iml
+.idea/workspace.xml
+
+# ai stuff
+.ai
+.claude
+.scratch
+.serena
+CLAUDE.local.md
+.superpowers
+/.idea/.idea.Chaos.Client/.idea/workspace.xml
+*.stackdump
+
+# SDL / etc for non-Windows platforms
+runtimes/*

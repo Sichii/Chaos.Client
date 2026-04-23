@@ -1,6 +1,6 @@
 #region
 using Chaos.Client.Controls.Components;
-using Chaos.Client.Data;
+using Chaos.Client.Data.Repositories;
 using Chaos.DarkAges.Definitions;
 using Microsoft.Xna.Framework.Input;
 #endregion
@@ -16,10 +16,8 @@ public sealed class SocialStatusControl : PrefabPanel
 {
     private const int STATUS_COUNT = 8;
     private const int FRAMES_PER_STATUS = 3;
-    private const int MSG_TBL_FIRST_STATUS_LINE = 36;
     private readonly UILabel? DescriptionLabel;
     private readonly UIButton?[] StatusButtons = new UIButton?[STATUS_COUNT];
-    private readonly string[] StatusNames = new string[STATUS_COUNT];
     public SocialStatus CurrentStatus { get; private set; }
 
     public SocialStatusControl()
@@ -28,9 +26,6 @@ public sealed class SocialStatusControl : PrefabPanel
         Visible = false;
         UsesControlStack = true;
         ZIndex = 2;
-
-        //load status names from msg.tbl
-        LoadStatusNames();
 
         //description label from prefab
         DescriptionLabel = CreateLabel("Description", HorizontalAlignment.Center);
@@ -89,25 +84,6 @@ public sealed class SocialStatusControl : PrefabPanel
         }
     }
 
-    private void LoadStatusNames()
-    {
-        for (var i = 0; i < STATUS_COUNT; i++)
-            StatusNames[i] = ((SocialStatus)i).ToString();
-
-        var lines = DataContext.UserControls.GetMessageTableLines();
-
-        if (lines is null)
-            return;
-
-        for (var i = 0; i < STATUS_COUNT; i++)
-        {
-            var lineIndex = MSG_TBL_FIRST_STATUS_LINE + i;
-
-            if (lineIndex < lines.Length)
-                StatusNames[i] = lines[lineIndex]
-                    .TrimEnd('\r');
-        }
-    }
 
     public event ClosedHandler? OnClosed;
     public event SocialStatusSelectedHandler? OnStatusSelected;
@@ -115,7 +91,7 @@ public sealed class SocialStatusControl : PrefabPanel
     public new void Show()
     {
         UpdateSelectedState();
-        DescriptionLabel?.Text = StatusNames[(int)CurrentStatus];
+        DescriptionLabel?.Text = UiComponentRepository.GetSocialStatusName(CurrentStatus);
         InputDispatcher.Instance?.PushControl(this);
         Visible = true;
     }
@@ -139,7 +115,11 @@ public sealed class SocialStatusControl : PrefabPanel
     }
 
     private void WireButton(UIButton btn, int index)
-        => btn.Clicked += () =>
+    {
+        btn.Hovered += _ => DescriptionLabel?.Text = UiComponentRepository.SocialStatusNames[index];
+        btn.Unhovered += _ => DescriptionLabel?.Text = UiComponentRepository.GetSocialStatusName(CurrentStatus);
+
+        btn.Clicked += () =>
         {
             CurrentStatus = (SocialStatus)index;
             UpdateSelectedState();
@@ -148,4 +128,5 @@ public sealed class SocialStatusControl : PrefabPanel
             Visible = false;
             OnClosed?.Invoke();
         };
+    }
 }

@@ -1,6 +1,7 @@
 #region
 using Chaos.Client.Data;
 using Chaos.Client.Rendering.Models;
+using Chaos.Client.Rendering.Utility;
 using DALib.Definitions;
 using DALib.Drawing;
 using Microsoft.Xna.Framework;
@@ -20,6 +21,9 @@ public sealed class CreatureRenderer : IDisposable
     private readonly Dictionary<Texture2D, Texture2D> HighlightTintCache = [];
     private readonly Dictionary<Texture2D, Texture2D> HitTintCache = [];
 
+    //keyed by (source frame texture, paint height, packed argb) — one entry per unique gndattr/tile combo per frame. Cleared on map change.
+    private readonly Dictionary<(Texture2D Source, int PaintHeight, uint PackedColor), Texture2D> GroundTintCache = [];
+
     //average of (CenterY - Top) across all frames, keyed by spriteId.
     //used by overlay positioning to derive a stable "sprite top" for each creature sprite.
     //uses the frame's visible top row, which differs from the bitmap top row when Top > 0 (transparent padding).
@@ -35,6 +39,7 @@ public sealed class CreatureRenderer : IDisposable
     {
         FrameCache.DisposeAndClear();
         AverageTopOffsetCache.Clear();
+        GroundTintCache.DisposeAndClear();
         ClearTintCaches();
     }
 
@@ -62,6 +67,8 @@ public sealed class CreatureRenderer : IDisposable
         float tileCenterY,
         Vector2 visualOffset,
         EntityTintType tint,
+        int groundPaintHeight,
+        Color groundTintColor,
         float alpha = 1f)
     {
         var spriteFrame = GetFrame(spriteId, frameIndex);
@@ -83,12 +90,33 @@ public sealed class CreatureRenderer : IDisposable
         {
             var effects = flip ? SpriteEffects.FlipHorizontally : SpriteEffects.None;
 
+            //ground tint baked into a per-(source, paintHeight, color) cache first; entity tint chains on top of the result.
+            var sourceTexture = frame.Texture;
+
+            if (groundPaintHeight > 0)
+            {
+                var key = (Source: frame.Texture, PaintHeight: groundPaintHeight, PackedColor: groundTintColor.PackedValue);
+
+                if (!GroundTintCache.TryGetValue(key, out var groundTinted))
+                {
+                    groundTinted = ImageUtil.BuildGroundTinted(
+                        TextureConverter.Device,
+                        frame.Texture,
+                        groundPaintHeight,
+                        frame.CenterY,
+                        groundTintColor);
+                    GroundTintCache[key] = groundTinted;
+                }
+
+                sourceTexture = groundTinted;
+            }
+
             var drawTexture = tint switch
             {
-                EntityTintType.Highlight => HighlightTintCache.GetOrAdd(frame.Texture, TextureConverter.CreateTintedTexture),
-                EntityTintType.Group     => GroupTintCache.GetOrAdd(frame.Texture, TextureConverter.CreateGroupTintedTexture),
-                EntityTintType.HitTint   => HitTintCache.GetOrAdd(frame.Texture, TextureConverter.CreateHitTintedTexture),
-                _                        => frame.Texture
+                EntityTintType.Highlight => HighlightTintCache.GetOrAdd(sourceTexture, static src => ImageUtil.BuildHoverTinted(TextureConverter.Device, src)),
+                EntityTintType.Group     => GroupTintCache.GetOrAdd(sourceTexture, static src => ImageUtil.BuildGroupTinted(TextureConverter.Device, src)),
+                EntityTintType.HitTint   => HitTintCache.GetOrAdd(sourceTexture, static src => ImageUtil.BuildHitTinted(TextureConverter.Device, src)),
+                _                        => sourceTexture
             };
 
             batch.Draw(

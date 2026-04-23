@@ -151,7 +151,13 @@ public sealed class AbilityMetadataDetailsControl : PrefabPanel
         if (WorldState.Attributes.Current is not { } attrs)
             return AbilityIconState.Locked;
 
-        if (attrs.Level < entry.Level)
+        if (entry.RequiresMaster && !WorldState.IsMaster)
+            return AbilityIconState.Locked;
+
+        if ((entry.AbilityLevel > 0) && (attrs.Ability < entry.AbilityLevel))
+            return AbilityIconState.Locked;
+
+        if (!entry.RequiresMaster && (entry.AbilityLevel == 0) && (attrs.Level < entry.Level))
             return AbilityIconState.Locked;
 
         if ((attrs.Str < entry.Str)
@@ -187,10 +193,19 @@ public sealed class AbilityMetadataDetailsControl : PrefabPanel
 
         if (LevelLabel is not null)
         {
-            LevelLabel.Text = entry.RequiresMaster ? "master" : $"level {entry.Level}";
-            LevelLabel.ForegroundColor = entry.RequiresMaster
-                ? (WorldState.IsMaster ? LegendColors.White : UnmetColor)
-                : RequirementColor(entry.Level, attrs?.Level);
+            if (entry.RequiresMaster)
+            {
+                LevelLabel.Text = "master";
+                LevelLabel.ForegroundColor = WorldState.IsMaster ? LegendColors.White : UnmetColor;
+            } else if (entry.AbilityLevel > 0)
+            {
+                LevelLabel.Text = $"ability {entry.AbilityLevel}";
+                LevelLabel.ForegroundColor = RequirementColor(entry.AbilityLevel, attrs?.Ability);
+            } else
+            {
+                LevelLabel.Text = $"level {entry.Level}";
+                LevelLabel.ForegroundColor = RequirementColor(entry.Level, attrs?.Level);
+            }
         }
 
         if (StrLabel is not null)

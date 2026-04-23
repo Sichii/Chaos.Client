@@ -197,6 +197,8 @@ public static class WorldState
                 PantsColor = args.PantsColor
             };
         }
+
+        AnimationSystem.CancelAllAnimations(entity);
     }
 
     /// <summary>
@@ -236,6 +238,8 @@ public static class WorldState
 
                     break;
             }
+
+            AnimationSystem.CancelAllAnimations(entity);
         }
 
         SortVersion++;
@@ -273,7 +277,7 @@ public static class WorldState
         Attributes.Clear();
         Chat.Clear();
         Board.CloseSession();
-        Group.Clear();
+        Group.ResetAll();
         GroupInvite.Clear();
         NpcInteraction.Close();
         Exchange.Close();
@@ -398,7 +402,13 @@ public static class WorldState
         if (!Entities.TryGetValue(id, out var entity))
             return;
 
+        // Only cancel animations when the direction actually changes. A turn to the same direction
+        // the entity is already walking/facing is a no-op and must not snap the walk to its destination.
+        if (entity.Direction == direction)
+            return;
+
         entity.Direction = direction;
+        AnimationSystem.CancelAllAnimations(entity);
     }
 
     /// <summary>

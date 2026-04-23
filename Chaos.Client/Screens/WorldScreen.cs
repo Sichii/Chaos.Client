@@ -12,6 +12,7 @@ using Chaos.Client.Controls.World.Popups.Options;
 using Chaos.Client.Controls.World.Popups.Profile;
 using Chaos.Client.Controls.World.Popups.WorldList;
 using Chaos.Client.Controls.World.ViewPort;
+using Chaos.Client.Data.Repositories;
 using Chaos.Client.Extensions;
 using Chaos.Client.Models;
 using Chaos.Client.Rendering.Models;
@@ -56,7 +57,7 @@ public sealed partial class WorldScreen : IScreen
 
     //doubleclick entity cache expiry — slightly larger than the dispatcher's 300ms double-click window so the cache
     //remains valid through the full doubleclick detection window
-    private const int DOUBLE_CLICK_CACHE_WINDOW_MS = 350;
+    private const int DOUBLE_CLICK_CACHE_WINDOW_MS = 550;
 
     private const string SPOUSE_PREFIX = "Spouse: ";
     private const string GROUP_MEMBERS_PREFIX = "Group members";
@@ -335,7 +336,13 @@ public sealed partial class WorldScreen : IScreen
 
         GroupPanel = new GroupTabControl();
 
-        GroupPanel.MembersPanel.OnKick += name => Game.Connection.SendGroupInvite(ClientGroupSwitch.TryInvite, name);
+        GroupPanel.MembersPanel.OnKick += name =>
+        {
+            Game.Connection.SendGroupInvite(ClientGroupSwitch.TryInvite, name);
+            // Retail sends a SelfProfileRequest (0x2D) after a kick to refresh group state.
+            // Ref: docs/research/group-ui-original-re.md §7.2.7.
+            Game.Connection.RequestSelfProfile();
+        };
 
         GroupPanel.RecruitPanel.OnCreateGroupBox += (
             name,
@@ -346,20 +353,58 @@ public sealed partial class WorldScreen : IScreen
             maxWiz,
             maxR,
             maxP,
-            maxM) => Game.Connection.SendCreateGroupBox(
-            name,
-            note,
-            minLvl,
-            maxLvl,
-            maxW,
-            maxWiz,
-            maxR,
-            maxP,
-            maxM);
+            maxM) =>
+        {
+            Game.Connection.SendCreateGroupBox(
+                WorldState.PlayerName,
+                name,
+                note,
+                minLvl,
+                maxLvl,
+                maxW,
+                maxWiz,
+                maxR,
+                maxP,
+                maxM);
+            WorldState.Group.MarkGroupBoxActive();
+        };
 
-        GroupPanel.RecruitPanel.OnRemoveGroupBox += () => Game.Connection.SendGroupInvite(ClientGroupSwitch.RemoveGroupBox);
+        GroupPanel.RecruitPanel.OnRemoveGroupBox += () =>
+        {
+            //RemoveGroupBox (0x2E/6) writes the owner's own name in the TargetName
+            //field on the wire per the retail client (ref: group-ui-original-re.md
+            //§6.3). The server doesn't validate the value but protocol parity matters.
+            Game.Connection.SendGroupInvite(ClientGroupSwitch.RemoveGroupBox, WorldState.PlayerName);
+            //Retail sends a SelfProfileRequest (0x2D) after RemoveGroupBox so the
+            //server's profile response confirms the state transition. Queue both
+            //packets on the wire before flipping the local flag.
+            //Ref: docs/research/group-ui-original-re.md §7.2.7.
+            Game.Connection.RequestSelfProfile();
+            WorldState.Group.MarkGroupBoxInactive();
+
+            //Server's RemoveGroupBox handler sets Aisling.GroupBox = null but does
+            //NOT broadcast Display(), so no fresh DisplayAisling (0x33) packet
+            //arrives and WorldEntity.GroupBoxText stays stale. Clear our own
+            //overhead banner manually.
+            //Ref: docs/research/group-protocol-spec.md §Gap 2.
+            if (WorldState.GetPlayerEntity() is { } player)
+                player.GroupBoxText = null;
+        };
 
         GroupPanel.RecruitPanel.OnRequestJoin += name => Game.Connection.SendGroupInvite(ClientGroupSwitch.RequestToJoin, name);
+
+        // When the user clicks TAB1, query the server for our own box if we have one active.
+        // The server's ShowGroupBox(self) response routes to GroupPanel.ShowRecruitOwnerEdit
+        // via HandleGroupInviteReceived, populating OwnerEdit mode. Otherwise RecruitPanel
+        // stays in its default OwnerNew (blank) state.
+        GroupPanel.OnRecruitTabOpened += () =>
+        {
+            if (WorldState.Group.HasActiveGroupBox)
+                Game.Connection.SendGroupInvite(ClientGroupSwitch.ViewGroupBox, WorldState.PlayerName);
+            //else: no action. GroupTabControl.ShowMembers already primed RecruitPanel to
+            //OwnerNew mode with defaults once per panel-open, so tab toggles preserve any
+            //in-progress typing in the recruit fields.
+        };
 
         GroupBoxViewer = new GroupRecruitPanel(true);
 
@@ -525,7 +570,7 @@ public sealed partial class WorldScreen : IScreen
         SocialStatusPicker.OnStatusSelected += status =>
         {
             Game.Connection.SendSocialStatus(status);
-            StatusBook.SetEmoticonState((byte)status, status.ToString());
+            StatusBook.SetEmoticonState((byte)status, UiComponentRepository.GetSocialStatusName(status));
 
             var emoteIcon = UiRenderer.Instance?.GetEpfTexture("emot000.epf", (int)status * 3);
 
@@ -678,7 +723,7 @@ public sealed partial class WorldScreen : IScreen
         Game.Connection.OnBodyAnimation -= HandleBodyAnimation;
         Game.Connection.OnAnimation -= HandleAnimation;
         Game.Connection.OnSound -= HandleSound;
-        Game.Connection.OnCancelCasting -= CastingSystem.Reset;
+        Game.Connection.OnCancelCasting -= CastingSystem.CancelChant;
         Game.Connection.OnMapChangePending -= HandleMapChangePending;
         Game.Connection.OnExitResponse -= HandleExitResponse;
         Game.Connection.OnRedirectReceived -= HandleRedirectReceived;

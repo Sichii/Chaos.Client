@@ -1,5 +1,6 @@
 #region
 using Chaos.Client.Controls.Components;
+using Chaos.Client.Rendering.Utility;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 #endregion
@@ -65,8 +66,8 @@ public sealed class GroupBox : UIPanel
     }
 
     /// <summary>
-    ///     Loads gc_pane2.spf and fills the TITLE rect interior with semi-transparent black. The original client fills this
-    ///     area with white then uses blend mode 0x79 to make it see-through with a dark tint.
+    ///     Loads gc_pane2.spf and fills the TITLE rect interior with the given semi-transparent color, producing a banner
+    ///     texture with a readable text backdrop.
     /// </summary>
     private static Texture2D BuildPanelTexture(Color titleFill)
     {
@@ -75,17 +76,12 @@ public sealed class GroupBox : UIPanel
         if ((source.Width < PANEL_WIDTH) || (source.Height < PANEL_HEIGHT))
             return source;
 
-        var pixels = new Color[source.Width * source.Height];
-        source.GetData(pixels);
+        using var scope = new PixelBufferScope(source);
+        ImageUtil.FillRect(scope.Pixels, scope.Width, scope.Height, TITLE_X, TITLE_Y, TITLE_WIDTH, TITLE_HEIGHT, titleFill);
 
-        for (var y = TITLE_Y; y < (TITLE_Y + TITLE_HEIGHT); y++)
-            for (var x = TITLE_X; x < (TITLE_X + TITLE_WIDTH); x++)
-                pixels[y * source.Width + x] = titleFill;
-
-        var texture = new Texture2D(ChaosGame.Device, source.Width, source.Height);
-        texture.SetData(pixels);
-
-        return texture;
+        var tex = new Texture2D(ChaosGame.Device, scope.Width, scope.Height);
+        scope.CommitTo(tex);
+        return tex;
     }
 
     public override void Draw(SpriteBatch spriteBatch)

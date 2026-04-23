@@ -93,6 +93,56 @@ internal static partial class Sdl
     [UnmanagedCallConv(CallConvs = [typeof(CallConvCdecl)])]
     public static partial int SDL_GetDisplayBounds(int displayIndex, out SdlRect rect);
 
+    [LibraryImport("SDL2")]
+    [UnmanagedCallConv(CallConvs = [typeof(CallConvCdecl)])]
+    public static partial uint SDL_GetWindowFlags(nint window);
+
+    [LibraryImport("SDL2")]
+    [UnmanagedCallConv(CallConvs = [typeof(CallConvCdecl)])]
+    public static partial void SDL_RestoreWindow(nint window);
+
+    //SDL_WindowFlags bits reported by SDL_GetWindowFlags (consumed by ChaosGame for maximize detection)
+    public const uint SDL_WINDOW_MAXIMIZED = 0x00000080;
+
+    //SDL_Init subsystem flag for audio (consumed by SoundSystem during mixer bring-up)
+    public const uint SDL_INIT_AUDIO = 0x00000010;
+
+    //when "1", SDL delivers the mouse click that focused the window as a normal MOUSEBUTTONDOWN
+    //instead of swallowing it for OS-level window activation. must be set before SDL creates the window.
+    public const string SDL_HINT_MOUSE_FOCUS_CLICKTHROUGH = "SDL_MOUSE_FOCUS_CLICKTHROUGH";
+
+    [LibraryImport("SDL2", StringMarshalling = StringMarshalling.Utf8)]
+    [UnmanagedCallConv(CallConvs = [typeof(CallConvCdecl)])]
+    public static partial int SDL_SetHint(string name, string value);
+
+    [LibraryImport("SDL2")]
+    [UnmanagedCallConv(CallConvs = [typeof(CallConvCdecl)])]
+    public static partial int SDL_InitSubSystem(uint flags);
+
+    [LibraryImport("SDL2")]
+    [UnmanagedCallConv(CallConvs = [typeof(CallConvCdecl)])]
+    public static partial void SDL_QuitSubSystem(uint flags);
+
+    //SDL_GetError returns a UTF-8 C string owned by SDL; copy with Marshal.PtrToStringUTF8 on demand
+    [LibraryImport("SDL2")]
+    [UnmanagedCallConv(CallConvs = [typeof(CallConvCdecl)])]
+    public static partial nint SDL_GetError();
+
+    //SDL_RWFromConstMem wraps a read-only byte buffer as an SDL_RWops stream for Mix_LoadWAV_RW. The buffer must
+    //stay pinned for the lifetime of the RWops handle. We pass it straight into Mix_LoadWAV_RW with freesrc=1 so
+    //SDL closes the RWops after loading — the caller's buffer can then be freed (SDL has copied the PCM data out).
+    [LibraryImport("SDL2")]
+    [UnmanagedCallConv(CallConvs = [typeof(CallConvCdecl)])]
+    public static partial nint SDL_RWFromConstMem(nint mem, int size);
+
+    /// <summary>Copies the current SDL error string for diagnostics — returns empty if SDL has no pending error.</summary>
+    public static string GetError()
+    {
+        var ptr = SDL_GetError();
+
+        return ptr == nint.Zero ? string.Empty : (Marshal.PtrToStringUTF8(ptr) ?? string.Empty);
+    }
+
     [StructLayout(LayoutKind.Sequential)]
     public struct SdlRect
     {

@@ -120,12 +120,19 @@ public sealed class WorldHudControl : PrefabPanel, IWorldHud
         if (ViewportBounds == Rectangle.Empty)
             ViewportBounds = GetRect("EMPTY");
 
-        //chat input control (say)
-        ChatInput = new ChatInputControl(PrefabSet);
+        //chat input control (say) — clicks must not steal focus; only hotkey/macro activation focuses it
+        ChatInput = new ChatInputControl(PrefabSet)
+        {
+            IsHitTestVisible = false
+        };
         AddChild(ChatInput);
 
         ChatInput.FocusChanged += focused =>
         {
+            //gate hit-testing on focus: idle clicks fall through,
+            //but drag-select works normally once focused via hotkey.
+            ChatInput.IsHitTestVisible = focused;
+
             if (focused)
                 DescriptionLabel?.Text = string.Empty;
         };
@@ -148,6 +155,8 @@ public sealed class WorldHudControl : PrefabPanel, IWorldHud
         ZoneNameLabel = CreateLabel("SZ_ZONE", HorizontalAlignment.Center)!;
         ZoneNameLabel.ForegroundColor = LegendColors.White;
         ZoneNameLabel.TruncateWithEllipsis = false;
+        ZoneNameLabel.X -= 10;
+        ZoneNameLabel.Width += 15;
         
         WeightLabel = CreateLabel("SZ_WEIGHT", HorizontalAlignment.Center)!;
         WeightLabel.PaddingLeft = 0;

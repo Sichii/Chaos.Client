@@ -5,17 +5,8 @@ using System.Collections.Frozen;
 namespace Chaos.Client.Definitions;
 
 /// <summary>
-///     Door sprite pair table. Each entry maps an interactive door panel's closed foreground tile ID to its open
-///     counterpart; the inverse lookup goes open→closed. Bidirectional.
-///     <br /><br />
-///     Source of truth: <c>docs/doors.md</c>, hand-verified against retail DA assets. Supersedes an earlier extraction
-///     from <c>DarkAges.exe</c> at offset <c>0x0068b8b0</c> that was found to contain junk entries (sprites that don't
-///     actually toggle), cross-paired entries (closed sprites of one door paired with open sprites of an unrelated
-///     "no-closed-version" archway), a reversed pair, and missing panels for multi-tile doors.
-///     <br /><br />
-///     For 3-tile doors tagged "only needs center item" in doors.md, only the center-panel pair is emitted — the side
-///     tiles are static jamb art that never toggles. For 3-tile "all change" doors and 2/4-tile doors, every panel is
-///     emitted. Permanently-open archways ("has no closed version") have no entries because there is nothing to pair.
+///     Hardcoded door tile mapping (66 pairs). Maps closed foreground tile IDs to their open counterparts via
+///     bidirectional lookup.
 /// </summary>
 public static class DoorTable
 {

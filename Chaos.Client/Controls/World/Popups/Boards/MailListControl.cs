@@ -39,6 +39,8 @@ public sealed class MailListControl : PrefabPanel
     private int TargetX;
 
     public ushort BoardId { get; private set; }
+    public string CurrentAuthor
+        => (SelectedIndex >= 0) && (SelectedIndex < Entries.Count) ? Entries[SelectedIndex].Author : string.Empty;
     public UIButton? DeleteButton { get; }
     public UIButton? NewButton { get; }
 

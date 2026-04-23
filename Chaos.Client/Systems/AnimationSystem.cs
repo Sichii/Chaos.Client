@@ -198,7 +198,11 @@ public static class AnimationSystem
         var totalDuration = Math.Max(MIN_WALK_DURATION_MS, entity.AnimFrameCount * entity.AnimFrameIntervalMs);
         var progress = Math.Clamp(entity.AnimElapsedMs / totalDuration, 0f, 1f);
 
-        entity.AnimFrameIndex = Math.Clamp((int)(progress * entity.AnimFrameCount), 0, entity.AnimFrameCount - 1);
+        //some entities have no walk frames — that's valid. the walk slide still needs to play out,
+        //but there's no frame stepping to do.
+        entity.AnimFrameIndex = entity.AnimFrameCount > 0
+            ? Math.Clamp((int)(progress * entity.AnimFrameCount), 0, entity.AnimFrameCount - 1)
+            : 0;
 
         //both smooth and stepped use integer-only offsets to prevent sub-pixel wobble.
         //the walk start offsets are always integer (±28, ±14), and integer division
@@ -207,7 +211,9 @@ public static class AnimationSystem
         {
             //smooth: interpolate at 2x the stepped frame rate (double the visual steps).
             var smoothFrameCount = entity.AnimFrameCount * 2;
-            var smoothFrameIndex = Math.Clamp((int)(progress * smoothFrameCount), 0, smoothFrameCount - 1);
+            var smoothFrameIndex = smoothFrameCount > 0
+                ? Math.Clamp((int)(progress * smoothFrameCount), 0, smoothFrameCount - 1)
+                : 0;
             entity.VisualOffset = GetSteppedWalkOffset(entity.WalkStartOffset, smoothFrameIndex, smoothFrameCount);
         } else
 
@@ -308,6 +314,25 @@ public static class AnimationSystem
         entity.AnimFrameIndex = 0;
         entity.AnimElapsedMs = 0;
         entity.VisualOffset = Vector2.Zero;
+    }
+
+    /// <summary>
+    ///     Immediately terminates any walk, body animation, and emote overlay on the entity. Leaves the idle cycle
+    ///     running. Callers must update position/direction/appearance first — zeroing <see cref="WorldEntity.VisualOffset"/>
+    ///     snaps the entity to whatever tile <see cref="WorldEntity.TileX"/>/<see cref="WorldEntity.TileY"/> currently holds.
+    /// </summary>
+    public static void CancelAllAnimations(WorldEntity entity)
+    {
+        ResetToIdle(entity);
+
+        entity.BodyAnimRepeatsLeft = 0;
+
+        entity.ActiveEmoteFrame = -1;
+        entity.EmoteElapsedMs = 0;
+        entity.EmoteRemainingMs = 0;
+        entity.EmoteDurationMs = 0;
+        entity.EmoteStartFrame = 0;
+        entity.EmoteFrameCount = 0;
     }
     #endregion
 

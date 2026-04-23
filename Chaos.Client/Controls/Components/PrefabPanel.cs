@@ -48,6 +48,21 @@ public abstract class PrefabPanel : UIPanel
             Background = UiRenderer.Instance!.GetPrefabTexture(prefabName, anchor.Control.Name, 0);
     }
 
+    /// <summary>
+    ///     Swaps the panel background to the anchor's Nth image frame. Clamped to the available range. No-op if the anchor
+    ///     has no images.
+    /// </summary>
+    protected void SetBackgroundFrame(int frame)
+    {
+        var anchor = PrefabSet[0];
+
+        if (anchor.Images.Count <= 0)
+            return;
+
+        var clamped = Math.Clamp(frame, 0, anchor.Images.Count - 1);
+        Background = UiRenderer.Instance!.GetPrefabTexture(PrefabSet.Name, anchor.Control.Name, clamped);
+    }
+
     protected UIButton? CreateButton(string name) => CreateButton<UIButton>(name);
 
     protected T? CreateButton<T>(string name) where T: UIButton, new()

@@ -12,23 +12,33 @@ public sealed class CastingSystem
 {
     private const float CHANT_INTERVAL_MS = 1000f;
     private float ElapsedMs;
-
     private int LineIndex;
+
+    private uint ChantTargetId;
+    private int ChantTargetX;
+    private int ChantTargetY;
+
+    /// <summary>
+    ///     The spell currently being chanted. Null when no chant is in progress.
+    /// </summary>
+    public SpellSlot? ChantingSlot { get; private set; }
+
+    /// <summary>
+    ///     The spell awaiting target selection. Independent of <see cref="ChantingSlot" /> so the player can
+    ///     pre-aim a new spell while an existing chant is still running; <see cref="SelectTarget" /> aborts the
+    ///     old chant and starts the new one.
+    /// </summary>
+    public SpellSlot? TargetingSlot { get; private set; }
 
     /// <summary>
     ///     True when chant lines are being sent on a timer.
     /// </summary>
-    public bool IsChanting { get; private set; }
+    public bool IsChanting => ChantingSlot is not null;
 
     /// <summary>
     ///     True when waiting for the player to select a target entity.
     /// </summary>
-    public bool IsTargeting { get; private set; }
-
-    public SpellSlot? SpellSlot { get; private set; }
-    public uint TargetId { get; private set; }
-    public int TargetX { get; private set; }
-    public int TargetY { get; private set; }
+    public bool IsTargeting => TargetingSlot is not null;
 
     /// <summary>
     ///     True when any casting activity is in progress (targeting or chanting).
@@ -36,30 +46,41 @@ public sealed class CastingSystem
     public bool IsActive => IsTargeting || IsChanting;
 
     /// <summary>
-    ///     Enters target selection mode for a spell.
+    ///     Enters target selection mode for a spell. Does NOT touch any in-progress chant — the caller can
+    ///     queue up the next spell's aim while the current chant keeps running.
     /// </summary>
-    public void BeginTargeting(SpellSlot spellSlot)
-    {
-        SpellSlot = spellSlot;
-        IsTargeting = true;
-        IsChanting = false;
-    }
+    public void BeginTargeting(SpellSlot spellSlot) => TargetingSlot = spellSlot;
 
     /// <summary>
-    ///     Cancels all casting activity.
+    ///     Exits target selection without starting a cast. Preserves any in-progress chant.
     /// </summary>
-    public void Reset()
+    public void CancelTargeting() => TargetingSlot = null;
+
+    /// <summary>
+    ///     Handles a server-sent CancelCasting — aborts an in-progress chant only. Targeting state is left
+    ///     alone so movement/auto-assail side effects on the server don't kick the player out of cast mode
+    ///     when they haven't selected a target yet.
+    /// </summary>
+    public void CancelChant()
     {
-        IsTargeting = false;
-        IsChanting = false;
-        SpellSlot = null;
+        ChantingSlot = null;
         LineIndex = 0;
         ElapsedMs = 0;
     }
 
     /// <summary>
-    ///     Sets the target and begins the chant sequence (or casts immediately for 0-line spells). Returns true if chanting
-    ///     was started, false if the spell was cast immediately.
+    ///     Clears all casting activity — targeting and chanting alike.
+    /// </summary>
+    public void Reset()
+    {
+        CancelTargeting();
+        CancelChant();
+    }
+
+    /// <summary>
+    ///     Uses the currently-targeting spell on the supplied target. Aborts any in-progress chant (the new
+    ///     spell always takes over) and either casts immediately (0-line spells) or begins a new chant.
+    ///     Returns true if a chant was started, false if the spell was cast immediately or no-op'd.
     /// </summary>
     public bool SelectTarget(
         uint targetId,
@@ -67,37 +88,40 @@ public sealed class CastingSystem
         int targetY,
         ConnectionManager connection)
     {
-        TargetId = targetId;
-        TargetX = targetX;
-        TargetY = targetY;
-        IsTargeting = false;
+        var selected = TargetingSlot;
+        TargetingSlot = null;
 
-        if (SpellSlot is null)
+        if (selected is null)
             return false;
 
-        if (SpellSlot.CastLines == 0)
+        //new spell overrides the current chant whether 0-line or multi-line
+        CancelChant();
+
+        if (selected.CastLines == 0)
         {
             connection.UseSpellOnTarget(
-                SpellSlot.Slot,
+                selected.Slot,
                 targetId,
                 targetX,
                 targetY);
-            Reset();
 
             return false;
         }
 
-        //begin chant sequence
-        connection.SendBeginChant(SpellSlot.CastLines);
+        //begin new chant sequence
+        ChantingSlot = selected;
+        ChantTargetId = targetId;
+        ChantTargetX = targetX;
+        ChantTargetY = targetY;
+        LineIndex = 1;
+        ElapsedMs = 0;
 
-        var firstChant = SpellSlot.Chants[0];
+        connection.SendBeginChant(selected.CastLines);
+
+        var firstChant = selected.Chants[0];
 
         if (!string.IsNullOrEmpty(firstChant))
             connection.SendChant(firstChant);
-
-        LineIndex = 1;
-        ElapsedMs = 0;
-        IsChanting = true;
 
         return true;
     }
@@ -108,7 +132,7 @@ public sealed class CastingSystem
     /// </summary>
     public void Update(float deltaMs, ConnectionManager connection)
     {
-        if (!IsChanting || SpellSlot is null)
+        if (ChantingSlot is null)
             return;
 
         ElapsedMs += deltaMs;
@@ -118,11 +142,11 @@ public sealed class CastingSystem
 
         ElapsedMs -= CHANT_INTERVAL_MS;
 
-        var castLines = SpellSlot.CastLines;
+        var castLines = ChantingSlot.CastLines;
 
         if (LineIndex < castLines)
         {
-            var chant = SpellSlot.Chants[LineIndex];
+            var chant = ChantingSlot.Chants[LineIndex];
 
             if (!string.IsNullOrEmpty(chant))
                 connection.SendChant(chant);
@@ -131,17 +155,17 @@ public sealed class CastingSystem
         } else
         {
             //final: send spell name as chant + cast packet
-            var spellName = SpellSlot.AbilityName ?? string.Empty;
+            var spellName = ChantingSlot.AbilityName ?? string.Empty;
 
             if (!string.IsNullOrEmpty(spellName))
                 connection.SendChant(spellName);
 
             connection.UseSpellOnTarget(
-                SpellSlot.Slot,
-                TargetId,
-                TargetX,
-                TargetY);
-            Reset();
+                ChantingSlot.Slot,
+                ChantTargetId,
+                ChantTargetX,
+                ChantTargetY);
+            CancelChant();
         }
     }
 }

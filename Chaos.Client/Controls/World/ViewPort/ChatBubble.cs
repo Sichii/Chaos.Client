@@ -1,6 +1,6 @@
 #region
-using System.Buffers;
 using Chaos.Client.Controls.Components;
+using Chaos.Client.Rendering.Utility;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 #endregion
@@ -77,47 +77,38 @@ public sealed class ChatBubble : UIImage
 
         var bubbleHeight = Math.Max(BUBBLE_HEIGHT, INNER_PADDING_TOP + lines.Count * LINE_HEIGHT + INNER_PADDING_BOTTOM);
         var totalHeight = bubbleHeight + TAIL_HEIGHT;
-        var totalWidth = bubbleWidth;
 
-        var pixelCount = totalWidth * totalHeight;
-        var pixels = ArrayPool<Color>.Shared.Rent(pixelCount);
+        using var scope = new PixelBufferScope(bubbleWidth, totalHeight);
+        Array.Clear(scope.Pixels, 0, scope.Count);
 
-        try
-        {
-            Array.Clear(pixels, 0, pixelCount);
+        ImageUtil.DrawBubbleBody(
+            scope.Pixels,
+            bubbleWidth,
+            0,
+            0,
+            bubbleWidth,
+            bubbleHeight,
+            BubbleBorderColor,
+            BubbleFillColor);
 
-            DrawBubbleBody(
-                pixels,
-                totalWidth,
-                0,
-                0,
-                bubbleWidth,
-                bubbleHeight,
-                BubbleBorderColor,
-                BubbleFillColor);
+        ImageUtil.DrawBubbleTail(
+            scope.Pixels,
+            bubbleWidth,
+            bubbleWidth / 2,
+            bubbleHeight - 1,
+            BubbleBorderColor,
+            BubbleFillColor);
 
-            DrawTailBottomCenter(
-                pixels,
-                totalWidth,
-                bubbleWidth / 2,
-                bubbleHeight - 1,
-                BubbleBorderColor,
-                BubbleFillColor);
+        var texture = new Texture2D(ChaosGame.Device, bubbleWidth, totalHeight);
+        scope.CommitTo(texture);
 
-            var texture = new Texture2D(ChaosGame.Device, totalWidth, totalHeight);
-            texture.SetData(pixels, 0, pixelCount);
-
-            return new ChatBubble(
-                entityId,
-                texture,
-                lines,
-                textColor,
-                totalWidth,
-                totalHeight);
-        } finally
-        {
-            ArrayPool<Color>.Shared.Return(pixels);
-        }
+        return new ChatBubble(
+            entityId,
+            texture,
+            lines,
+            textColor,
+            bubbleWidth,
+            totalHeight);
     }
 
     public override void Draw(SpriteBatch spriteBatch)
@@ -159,206 +150,6 @@ public sealed class ChatBubble : UIImage
         }
     }
 
-    /// <summary>
-    ///     Draws a horizontally-stretchable rounded capsule similar to the screenshot. This does not rely on measured text
-    ///     width.
-    /// </summary>
-    private static void DrawBubbleBody(
-        Color[] pixels,
-        int stride,
-        int x,
-        int y,
-        int width,
-        int height,
-        Color border,
-        Color fill)
-    {
-        ReadOnlySpan<int> topInset =
-        [
-            5,
-            3,
-            2,
-            1,
-            1
-        ];
-
-        ReadOnlySpan<int> bottomInset =
-        [
-            1,
-            1,
-            2,
-            3,
-            5
-        ];
-
-        for (var row = 0; row < height; row++)
-        {
-            int li,
-                ri;
-
-            if (row < topInset.Length)
-            {
-                li = topInset[row];
-                ri = topInset[row];
-            } else if (row >= (height - bottomInset.Length))
-            {
-                var bottomRow = row - (height - bottomInset.Length);
-                li = bottomInset[bottomRow];
-                ri = bottomInset[bottomRow];
-            } else
-            {
-                li = 0;
-                ri = 0;
-            }
-
-            var startX = x + li;
-            var endX = x + width - 1 - ri;
-
-            if (startX > endX)
-                continue;
-
-            //fill
-            for (var col = startX + 1; col <= (endX - 1); col++)
-                SetPixel(
-                    pixels,
-                    stride,
-                    col,
-                    y + row,
-                    fill);
-
-            //border
-            SetPixel(
-                pixels,
-                stride,
-                startX,
-                y + row,
-                border);
-
-            SetPixel(
-                pixels,
-                stride,
-                endX,
-                y + row,
-                border);
-
-            //top and bottom edge spans
-            if ((row == 0) || (row == (height - 1)))
-                for (var col = startX; col <= endX; col++)
-                    SetPixel(
-                        pixels,
-                        stride,
-                        col,
-                        y + row,
-                        border);
-
-            //smooth horizontal transitions when inset changes from previous row
-            if (row > 0)
-            {
-                var prevLi = GetBubbleInset(
-                    row - 1,
-                    height,
-                    topInset,
-                    bottomInset);
-                var prevRi = prevLi;
-
-                if (li < prevLi)
-                    for (var col = x + li; col < (x + prevLi); col++)
-                        SetPixel(
-                            pixels,
-                            stride,
-                            col,
-                            y + row,
-                            border);
-
-                if (ri < prevRi)
-                    for (var col = x + width - prevRi; col <= (x + width - 1 - ri); col++)
-                        SetPixel(
-                            pixels,
-                            stride,
-                            col,
-                            y + row,
-                            border);
-            }
-
-            if (row < (height - 1))
-            {
-                var nextLi = GetBubbleInset(
-                    row + 1,
-                    height,
-                    topInset,
-                    bottomInset);
-                var nextRi = nextLi;
-
-                if (li < nextLi)
-                    for (var col = x + li; col < (x + nextLi); col++)
-                        SetPixel(
-                            pixels,
-                            stride,
-                            col,
-                            y + row,
-                            border);
-
-                if (ri < nextRi)
-                    for (var col = x + width - nextRi; col <= (x + width - 1 - ri); col++)
-                        SetPixel(
-                            pixels,
-                            stride,
-                            col,
-                            y + row,
-                            border);
-            }
-        }
-    }
-
-    private static void DrawTailBottomCenter(
-        Color[] pixels,
-        int stride,
-        int centerX,
-        int baseY,
-        Color border,
-        Color fill)
-    {
-        var startPx = centerX - 4;
-
-        for (var i = 0; i < 7; i++)
-            SetPixel(
-                pixels,
-                stride,
-                startPx + i,
-                baseY,
-                fill);
-
-        for (var i = 0; i < 7; i++)
-            SetPixel(
-                pixels,
-                stride,
-                startPx + i,
-                baseY + 1,
-                i is < 2 or > 4 ? border : fill);
-
-        for (var i = 2; i < 5; i++)
-            SetPixel(
-                pixels,
-                stride,
-                startPx + i,
-                baseY + 2,
-                i == 3 ? fill : border);
-
-        SetPixel(
-            pixels,
-            stride,
-            startPx + 3,
-            baseY + 3,
-            border);
-
-        SetPixel(
-            pixels,
-            stride,
-            startPx + 3,
-            baseY + 4,
-            border);
-    }
-
     private static string? FindLastColorCode(string line)
     {
         string? last = null;
@@ -371,39 +162,6 @@ public sealed class ChatBubble : UIImage
             }
 
         return last;
-    }
-
-    private static int GetBubbleInset(
-        int row,
-        int height,
-        ReadOnlySpan<int> topInset,
-        ReadOnlySpan<int> bottomInset)
-    {
-        if (row < topInset.Length)
-            return topInset[row];
-
-        if (row >= (height - bottomInset.Length))
-            return bottomInset[row - (height - bottomInset.Length)];
-
-        return 0;
-    }
-
-    private static void SetPixel(
-        Color[] pixels,
-        int stride,
-        int x,
-        int y,
-        Color color)
-    {
-        if ((x < 0) || (y < 0))
-            return;
-
-        var h = pixels.Length / stride;
-
-        if ((x >= stride) || (y >= h))
-            return;
-
-        pixels[y * stride + x] = color;
     }
 
     public override void Update(GameTime gameTime) => ElapsedMs += (float)gameTime.ElapsedGameTime.TotalMilliseconds;

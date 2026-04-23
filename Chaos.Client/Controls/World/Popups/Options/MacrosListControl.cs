@@ -20,7 +20,7 @@ public sealed class MacrosListControl : PrefabPanel
     private const int LABEL_START_Y = 40;
     private const int TEXTBOX_X = 40;
     private const int TEXTBOX_WIDTH = 385;
-    private const int MAX_MACRO_LENGTH = 50;
+    private const int MAX_LENGTH = 63;
 
     private readonly UITextBox[] MacroTextBoxes = new UITextBox[MAX_MACROS];
     private SlideAnimator Slide;
@@ -55,7 +55,7 @@ public sealed class MacrosListControl : PrefabPanel
                 Y = LABEL_START_Y + i * ROW_HEIGHT,
                 Width = TEXTBOX_WIDTH,
                 Height = ROW_HEIGHT,
-                MaxLength = MAX_MACRO_LENGTH,
+                MaxLength = MAX_LENGTH,
                 ForegroundColor = LegendColors.White,
                 IsTabStop = true
             };

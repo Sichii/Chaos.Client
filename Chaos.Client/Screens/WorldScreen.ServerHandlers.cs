@@ -2,6 +2,7 @@
 using Chaos.Client.Collections;
 using Chaos.Client.Controls.Generic;
 using Chaos.Client.Data;
+using Chaos.Client.Data.Repositories;
 using Chaos.Client.Data.Utilities;
 using Chaos.Client.Extensions;
 using Chaos.Client.Models;
@@ -490,14 +491,12 @@ public sealed partial class WorldScreen
         if (spf.Count == 0)
             return null;
 
-        var frame = spf[0];
-
-        using var image = spf is { Format: SpfFormatType.Palettized, PrimaryColors: not null }
-            ? Graphics.RenderImage(frame, spf.PrimaryColors)
-            : Graphics.RenderImage(frame);
+        using var image = SpfRenderer.RenderFrame(spf, 0);
 
         return TextureConverter.ToTexture2D(image);
     }
+
+    
 
     private SpriteFrame? RenderCreaturePortrait(ushort spriteId)
     {
@@ -665,16 +664,11 @@ public sealed partial class WorldScreen
 
             case ServerGroupSwitch.RequestToJoin:
             {
+                // Retail behavior: the leader's client silently auto-forwards as TryInvite
+                // with no UI prompt. Ref: docs/research/group-ui-original-re.md §5.1 / §7.1
+                // (verified round-2). The orange-bar notice is a QoL addition retail omits.
                 WorldState.Chat.AddOrangeBarMessage($"{sourceName} wants to join your group.");
-
-                if (!ClientSettings.UseGroupWindow)
-                {
-                    Game.Connection.SendGroupInvite(ClientGroupSwitch.AcceptInvite, sourceName);
-
-                    break;
-                }
-
-                ShowGroupInvitePopup($"{sourceName} wants to join your group.", sourceName);
+                Game.Connection.SendGroupInvite(ClientGroupSwitch.TryInvite, sourceName);
 
                 break;
             }
@@ -689,8 +683,10 @@ public sealed partial class WorldScreen
                 }
 
                 if (sourceName.EqualsI(WorldState.PlayerName))
+                {
+                    WorldState.Group.MarkGroupBoxActive();
                     GroupPanel.ShowRecruitOwnerEdit(groupBoxInfo);
-                else
+                } else
                     GroupBoxViewer.ShowAsViewer(sourceName, groupBoxInfo);
 
                 break;
@@ -772,7 +768,7 @@ public sealed partial class WorldScreen
 
         //social status display
         var status = SocialStatusPicker.CurrentStatus;
-        StatusBook.SetEmoticonState((byte)status, status.ToString());
+        StatusBook.SetEmoticonState((byte)status, UiComponentRepository.GetSocialStatusName(status));
 
         //populate and show the status book
         StatusBook.SetPlayerInfo(

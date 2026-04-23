@@ -179,7 +179,9 @@ public sealed class ChaosGame : Game
             SaveScreenshot();
         }
 
-        //scale to window (aspect ratio is locked, so it always fills perfectly)
+        //stretch the virtual 640×480 render target to fill the window. when 4:3 is locked this
+        //fills perfectly; when the user has maximized to a non-4:3 window the image stretches
+        //to cover the full backbuffer (by design — "maximize covers the whole screen").
         GraphicsDevice.SetRenderTarget(null);
         SpriteBatch.Begin(samplerState: GlobalSettings.Sampler);
         SpriteBatch.Draw(RenderTarget, GraphicsDevice.Viewport.Bounds, Color.White);
@@ -437,6 +439,11 @@ public sealed class ChaosGame : Game
         WindowSizeMultiplier = nextMultiplier;
 
         ResizingInProgress = true;
+
+        //leave maximized state so the backbuffer resize actually shrinks the OS window
+        if ((Sdl.SDL_GetWindowFlags(Window.Handle) & Sdl.SDL_WINDOW_MAXIMIZED) != 0)
+            Sdl.SDL_RestoreWindow(Window.Handle);
+
         Graphics.PreferredBackBufferWidth = nextWidth;
         Graphics.PreferredBackBufferHeight = nextHeight;
         Graphics.ApplyChanges();
@@ -447,6 +454,13 @@ public sealed class ChaosGame : Game
     ///     Corrects the window size after a resize to enforce 4:3 aspect ratio.
     ///     Uses the larger dimension as the reference and adjusts the other.
     /// </summary>
+/// <summary>
+    ///     Returns the centered, integer-rounded rectangle of virtual 4:3 content inside a
+    ///     backbuffer of the given size. Equal to the full backbuffer when it's already 4:3;
+    ///     pillarboxes (wider windows) or letterboxes (taller windows) otherwise.
+    /// </summary>
+    
+
     private void OnClientSizeChanged(object? sender, EventArgs e)
     {
         if (ResizingInProgress)
@@ -456,6 +470,13 @@ public sealed class ChaosGame : Game
         var height = Window.ClientBounds.Height;
 
         if ((width <= 0) || (height <= 0))
+            return;
+
+        //maximize button → fill the full monitor work area; skip 4:3 correction and let the
+        //Draw path letterbox the 640×480 render target inside the non-4:3 window.
+        var flags = Sdl.SDL_GetWindowFlags(Window.Handle);
+
+        if ((flags & Sdl.SDL_WINDOW_MAXIMIZED) != 0)
             return;
 
         //determine corrected dimensions preserving 4:3
@@ -525,9 +546,13 @@ public sealed class ChaosGame : Game
     {
         DebugOverlay.BeginFrame();
 
-        //compute scale for mouse coordinate transform (window is always 4:3, so uniform scale)
-        var scale = (float)GraphicsDevice.PresentationParameters.BackBufferWidth / VIRTUAL_WIDTH;
-        InputBuffer.SetVirtualScale(scale);
+        //compute mouse coordinate transform. the render target is stretched to fill the
+        //backbuffer, so the raw→virtual scale is per-axis — equal on both axes when 4:3 is
+        //locked, unequal when the user has maximized to a non-4:3 window.
+        var ppt = GraphicsDevice.PresentationParameters;
+        var scaleX = (float)ppt.BackBufferWidth / VIRTUAL_WIDTH;
+        var scaleY = (float)ppt.BackBufferHeight / VIRTUAL_HEIGHT;
+        InputBuffer.SetVirtualScale(scaleX, scaleY);
 
         //freeze buffered input for this frame before anything reads it
         InputBuffer.Update(IsActive);

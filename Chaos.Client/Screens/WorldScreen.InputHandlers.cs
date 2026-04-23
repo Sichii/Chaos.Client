@@ -507,9 +507,7 @@ public sealed partial class WorldScreen
     {
         var names = DataContext.LocalPlayerSettings.LoadFriendList();
 
-        var entries = names.Select(n => new FriendEntry(n, false))
-                           .ToList();
-        FriendsList.SetFriends(entries);
+        FriendsList.SetFriends(names);
         WorldList.SetFriendNames(names);
     }
 
@@ -936,6 +934,7 @@ public sealed partial class WorldScreen
         //y — group panel (members tab)
         if (e.Key == Keys.Y)
         {
+            Game.Connection.RequestSelfProfile();
             GroupPanel.ShowMembers();
             e.Handled = true;
 
@@ -1101,7 +1100,7 @@ public sealed partial class WorldScreen
                     hoverEntity.TileY,
                     Game.Connection);
             else
-                CastingSystem.Reset();
+                CastingSystem.CancelTargeting();
 
             e.Handled = true;
 

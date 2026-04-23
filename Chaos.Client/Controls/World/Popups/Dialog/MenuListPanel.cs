@@ -435,6 +435,13 @@ public sealed class MenuListPanel : FramedDialogPanelBase
             Hide();
             OnClose?.Invoke();
             e.Handled = true;
+            return;
+        }
+
+        if (e.Key is Keys.Enter or Keys.Space && SelectedIndex >= 0)
+        {
+            OnItemSelected?.Invoke(SelectedIndex);
+            e.Handled = true;
         }
     }
 
@@ -498,7 +505,7 @@ public sealed class MenuListPanel : FramedDialogPanelBase
             IconImage.Texture = icon;
             IconImage.Visible = icon is not null;
             NameLabel.Text = name;
-            NameLabel.ForegroundColor = selected ? SELECTED_TEXT_COLOR : TextColors.Default;
+            NameLabel.ForegroundColor = selected ? SELECTED_TEXT_COLOR : LegendColors.White;
         }
 
     }
