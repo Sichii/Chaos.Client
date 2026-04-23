@@ -40,7 +40,7 @@ The rendering code now supports a 3-tier loading hierarchy for English glyphs:
 ## Font candidates evaluated
 
 | Font | Native size | Outcome | Notes |
-|---|---|---|---|
+| --- | --- | --- | --- |
 | Microserif | 8px | Too small, stroke thickness inconsistent | Free-for-personal-use license probably not AGPL-compatible |
 | Timeless | 12px-ish | Proportional — looked weird at fixed 6px advance | Led to the proportional-advance rewrite |
 | MonoSpatial | Unclear (likely 8) | Non-integer scaling, fuzzy | Mono, but renders off-native |
@@ -76,6 +76,58 @@ The real font work is blocked on lifting the 12-pixel constraint. When the UI mo
 - Every UI layout that reserves space per "line" in pixels must transition to a "line count × font-derived line-height" model.
 - Unblocks picking fonts at their native design sizes (14–18px for modern typography fonts, 16–20px for display serifs).
 
+#### Impact map (call-site survey)
+
+32 files reference the font-size constants. Grouped by usage pattern:
+
+**Source of truth** (define the constants — change here propagates everywhere else that goes through `TextRenderer`):
+
+- [TextRenderer.cs:16-22](../Chaos.Client.Rendering/TextRenderer.cs#L16-L22) — `CHAR_WIDTH = 6`, `CHAR_HEIGHT = 12`, `ENGLISH_GLYPH_WIDTH = 8`, `ENGLISH_ADVANCE = 6`
+- [FontAtlas.cs:32](../Chaos.Client.Rendering/FontAtlas.cs#L32) — `GLYPH_HEIGHT = 12` (19 internal uses for atlas unpacking, baseline math)
+- [FontRepository.cs:12-14](../Chaos.Client.Data/Repositories/FontRepository.cs#L12-L14) — duplicate `GLYPH_HEIGHT = 12`, `ENGLISH_GLYPH_WIDTH = 8`
+
+**Local redeclarations** (hardcode `12` instead of referencing `TextRenderer.CHAR_HEIGHT` — these silently stay on 12 if we change the central value; fix first):
+
+- [ChantText.cs:16](../Chaos.Client/Controls/World/ViewPort/ChantText.cs#L16) — `LINE_HEIGHT = 12`
+- [WorldMapNode.cs:21](../Chaos.Client/Controls/World/ViewPort/WorldMapNode.cs#L21) — `GLYPH_HEIGHT = 12`
+- [OrangeBarControl.cs:18](../Chaos.Client/Controls/World/Hud/OrangeBarControl.cs#L18) — `GLYPH_HEIGHT = 12`
+- [ChatPanel.cs:19](../Chaos.Client/Controls/World/Hud/Panel/ChatPanel.cs#L19) — `GLYPH_HEIGHT = 12`
+- [SystemMessagePanel.cs:18](../Chaos.Client/Controls/World/Hud/Panel/SystemMessagePanel.cs#L18) — `GLYPH_HEIGHT = 12`
+
+**Scroll / line math** (`CHAR_HEIGHT` as scroll unit — mechanical to fix, adapts automatically if the constant changes):
+
+- [UITextBox.cs](../Chaos.Client/Controls/Components/UITextBox.cs) — 13 uses (scroll offset, cursor Y, selection rect)
+- [UILabel.cs](../Chaos.Client/Controls/Components/UILabel.cs) — 12 uses
+- [TextPopupControl.cs](../Chaos.Client/Controls/Generic/TextPopupControl.cs) — 6 uses
+- [ArticleReadControl.cs](../Chaos.Client/Controls/World/Popups/Boards/ArticleReadControl.cs), [MailReadControl.cs](../Chaos.Client/Controls/World/Popups/Boards/MailReadControl.cs), [NpcSessionControl.cs](../Chaos.Client/Controls/World/Popups/Dialog/NpcSessionControl.cs), [NotepadControl.cs](../Chaos.Client/Controls/World/Popups/NotepadControl.cs)
+
+**Fixed widths (`N × CHAR_WIDTH`)** — already partly a lie for proportional fonts like Pixellari; should shift to `TextRenderer.MeasureWidth()`:
+
+- [SystemMessagePaneControl.cs:27](../Chaos.Client/Controls/World/ViewPort/SystemMessagePaneControl.cs#L27) — `Width = CHAR_WIDTH * 48`
+- [PersistentMessageControl.cs:15](../Chaos.Client/Controls/World/ViewPort/PersistentMessageControl.cs#L15) — `LABEL_WIDTH = MAX_CHARS * CHAR_WIDTH`
+- [ItemTooltipControl.cs:17](../Chaos.Client/Controls/World/Popups/ItemTooltipControl.cs#L17) — `MAX_CONTENT_WIDTH = 25 * CHAR_WIDTH`
+- [ChatBubble.cs:17](../Chaos.Client/Controls/World/ViewPort/ChatBubble.cs#L17) — `CHAR_CELL_WIDTH = CHAR_WIDTH`
+- [MailListControl.cs:116](../Chaos.Client/Controls/World/Popups/Boards/MailListControl.cs#L116), [ArticleListControl.cs:121](../Chaos.Client/Controls/World/Popups/Boards/ArticleListControl.cs#L121) — subject-char counting
+
+**Fixed heights (`N × CHAR_HEIGHT` or `CHAR_HEIGHT + padding`)** — need measurement-based sizing if height shifts:
+
+- [NpcSessionControl.cs:158](../Chaos.Client/Controls/World/Popups/Dialog/NpcSessionControl.cs#L158) — `Height = 3 * CHAR_HEIGHT + 2`
+- [LargeWorldHudControl.cs:382](../Chaos.Client/Controls/World/Hud/LargeWorldHudControl.cs#L382), [WorldHudControl.cs:353](../Chaos.Client/Controls/World/Hud/WorldHudControl.cs#L353), [OtherProfileEquipmentTab.cs:363](../Chaos.Client/Controls/World/Popups/Profile/OtherProfileEquipmentTab.cs#L363), [SelfProfileEquipmentTab.cs:445](../Chaos.Client/Controls/World/Popups/Profile/SelfProfileEquipmentTab.cs#L445) — `TooltipLabel.Height = CHAR_HEIGHT + 4`
+- [MenuListPanel.cs:480-482](../Chaos.Client/Controls/World/Popups/Dialog/MenuListPanel.cs#L480-L482), [MenuShopPanel.cs:835-847](../Chaos.Client/Controls/World/Popups/Dialog/MenuShopPanel.cs#L835-L847) — dialog row labels, Y centering in rows
+- [DialogOptionPanel.cs:300](../Chaos.Client/Controls/World/Popups/Dialog/DialogOptionPanel.cs#L300) — option-row Y centering
+- [ExchangeItemControl.cs:58-60](../Chaos.Client/Controls/World/Popups/Exchange/ExchangeItemControl.cs#L58-L60), [LegendMarkControl.cs:54-56](../Chaos.Client/Controls/World/Popups/Profile/LegendMarkControl.cs#L54-L56), [ItemTooltipControl.cs:42/53](../Chaos.Client/Controls/World/Popups/ItemTooltipControl.cs#L42)
+
+#### Effort estimate
+
+Honest scope, sequenced:
+
+1. **Centralize constants (~5 min)** — replace the 5 local `GLYPH_HEIGHT = 12` redeclarations above with `TextRenderer.CHAR_HEIGHT`. Gets to single source of truth, unblocks everything else.
+2. **Measurement-based widths (~1 day)** — shift `N × CHAR_WIDTH` layouts to `TextRenderer.MeasureWidth()` where the width represents a string length, not a column count. Partially done in concept since Pixellari already uses per-glyph advance; this completes the migration.
+3. **Bump `CHAR_HEIGHT`** (trivial code change) — change the constant value; dependent layouts adjust via the multiplication/division math.
+4. **Visual audit + touch-ups (~1–3 days)** — walk every text-bearing panel for clipping, overflow, vertical-centering drift, row-alignment issues at the new size. Expect MenuListPanel / MenuShopPanel / NpcSessionControl rows to need per-pixel tweaks.
+
+Total: roughly one week of focused work. The scarier-looking "32 files" collapses fast once step 1 centralizes the constants — most remaining sites are mechanical multiplies/divides that adapt on their own.
+
 Font candidates queued for re-evaluation once the slot constraint is lifted:
 
 - **Alagard** (16px fantasy pixel serif, SIL OFL) — excellent thematic fit for Dark Ages Celtic aesthetic. Blocked only by size.
@@ -102,10 +154,12 @@ For smooth TTFs (non-pixel), enable AA. Anti-aliased edges render correctly thro
 ## Code artifacts produced
 
 New:
+
 - [Chaos.Client.Rendering/BmFont.cs](../Chaos.Client.Rendering/BmFont.cs) — binary + text BMFont parser
 - [Chaos.Client.Rendering/TgaLoader.cs](../Chaos.Client.Rendering/TgaLoader.cs) — 8-bit grayscale + 32-bit BGRA TGA decoder
 
 Modified:
+
 - [Chaos.Client.Rendering/FontAtlas.cs](../Chaos.Client.Rendering/FontAtlas.cs) — 3-tier loading, auto-discovery, `GlyphInfo` record with per-glyph advance/offsets
 - [Chaos.Client.Rendering/TextRenderer.cs](../Chaos.Client.Rendering/TextRenderer.cs) — per-glyph advance, `0x21..0x17F` range, Korean threshold raised
 - [Chaos.Client/Chaos.Client.csproj](../Chaos.Client/Chaos.Client.csproj) — `Content/**` copy-to-output

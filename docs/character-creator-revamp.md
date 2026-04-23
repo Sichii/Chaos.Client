@@ -4,7 +4,7 @@ Starting-point scoping for `feature/character-creator`. Captures the current flo
 
 ## Current Flow
 
-```
+```text
 LobbyLoginScreen
   └── "Create" button
         └── CharacterCreationControl.Show()
@@ -20,7 +20,7 @@ LobbyLoginScreen
 ### File / line pointers
 
 | Area | Location |
-|---|---|
+| --- | --- |
 | Entry from Create button | [Chaos.Client/Screens/LobbyLoginScreen.cs:216-222](../Chaos.Client/Screens/LobbyLoginScreen.cs#L216-L222) |
 | Client-side validation + `CreateCharInitial` send | [Chaos.Client/Screens/LobbyLoginScreen.cs:224-250](../Chaos.Client/Screens/LobbyLoginScreen.cs#L224-L250) |
 | Server response handling + `CreateCharFinalize` send | [Chaos.Client/Screens/LobbyLoginScreen.cs:470-522](../Chaos.Client/Screens/LobbyLoginScreen.cs#L470-L522) |
@@ -41,7 +41,7 @@ LobbyLoginScreen
 ### Wire protocol (Chaos.Networking)
 
 | Packet | Fields |
-|---|---|
+| --- | --- |
 | `CreateCharInitialArgs` | `string Name`, `string Password` |
 | `CreateCharFinalizeArgs` | `byte HairStyle`, `Gender Gender`, `DisplayColor HairColor` |
 
@@ -67,7 +67,7 @@ The branch name stays `feature/character-creator` as a shorthand; the doc covers
 
 1. **Account login + character select** — replace per-character login with an account → character list → select-or-create flow. Prerequisite for anything server-gated per account. Additive: legacy per-character login stays alongside for retail-compat servers.
 2. **Capability handshake** — one-time negotiation so the client knows which modernization features the server supports (species list, clan lookup, new create-char schema, etc.). Amortizes across everything downstream.
-3. **Species selection** — gate on server capability. Fallback to a hardcoded starter five when server doesn't advertise it; server eventually provides an account-filtered list (players earn non-starter species outside the initial five via account manager).
+3. **Species selection** — gate on server capability. Fallback to a hardcoded starter five when server doesn't advertise it; server eventually provides an account-filtered list (players earn non-starter species outside the initial five via account manager). Rendering approach for the first non-human species (dwarves) is scoped in [species-rendering-dwarves.md](species-rendering-dwarves.md).
 4. **Clan names** — client-set at creation initially; server-pulled from account manager once that system exists.
 5. **Full-appearance preview** — render equipment, overcoat, weapon silhouette, dye layers on the preview aisling (not just hair + body).
 6. **Class / path selection** — path chooser with starting-ability preview panel. Confirm how server currently handles starting loadout before scoping client work.
