@@ -57,26 +57,47 @@ Server responses routed through `LoginMessageArgs` with `LoginMessageType` value
 - No password requirements display (length, strength)
 - Generic server error strings on reject
 
+## Scope Expansion
+
+This started as a character-creator-only revamp. It grew to cover the full onboarding flow (lobby → account login → character select → create → world) because several creator features — server-gated species lists, server-provided clan names — require account identity before the server can filter. Splitting them across branches would mean retrofitting the creator against account context later; cheaper to treat onboarding as one coherent modernization.
+
+The branch name stays `feature/character-creator` as a shorthand; the doc covers the full surface.
+
 ## Revamp Candidates (Unordered Punch List)
 
-1. **Full-appearance preview** — render equipment, overcoat, weapon silhouette, dye layers on the preview aisling (not just hair + body)
-2. **Class / path selection** — path chooser with starting-ability preview panel
-3. **Body sprite / overcoat customization** — surface body IDs beyond 1; optional overcoat variant
-4. **Client-side name validation** — live feedback for length, reserved chars, character-class rules before the server round-trip
-5. **Dye preview for worn gear** — full-body swatches, not hair-only
-6. **Password requirements** — strength indicator or min-length hint
-7. **Swatch improvements** — labeled color names, larger / more readable picker
-8. **Server schema extension** — any new fields (class, body, dye) would need a new `CreateCharFinalize` shape. Candidate for a custom opcode starting at `0xFF` per the modernization convention, negotiated via capability handshake.
+1. **Account login + character select** — replace per-character login with an account → character list → select-or-create flow. Prerequisite for anything server-gated per account. Additive: legacy per-character login stays alongside for retail-compat servers.
+2. **Capability handshake** — one-time negotiation so the client knows which modernization features the server supports (species list, clan lookup, new create-char schema, etc.). Amortizes across everything downstream.
+3. **Species selection** — gate on server capability. Fallback to a hardcoded starter five when server doesn't advertise it; server eventually provides an account-filtered list (players earn non-starter species outside the initial five via account manager).
+4. **Clan names** — client-set at creation initially; server-pulled from account manager once that system exists.
+5. **Full-appearance preview** — render equipment, overcoat, weapon silhouette, dye layers on the preview aisling (not just hair + body).
+6. **Class / path selection** — path chooser with starting-ability preview panel. Confirm how server currently handles starting loadout before scoping client work.
+7. **Body sprite / overcoat customization** — surface body IDs beyond 1; optional overcoat variant.
+8. **Client-side name validation** — live feedback for length, reserved chars, character-class rules before the server round-trip.
+9. **Dye preview for worn gear** — full-body swatches, not hair-only.
+10. **Password requirements** — strength indicator or min-length hint.
+11. **Swatch improvements** — labeled color names, larger / more readable picker.
+12. **Server schema extension** — new fields (species, clan, class, body, dye) need a new `CreateCharFinalize` shape. Candidate for a custom opcode starting at `0xFF` per the modernization convention, negotiated via the capability handshake.
+
+## Proposed Order
+
+Coarse → fine. Earlier items unblock later ones.
+
+1. **Account login + character select screen** — introduces account context; legacy per-character login coexists.
+2. **Capability handshake** — amortizes across every modernization feature below.
+3. **Species** — client-local starter list first, then swap to server-provided filtered list once the server exposes it.
+4. **Clan names** — client-set first; server-pulled follow-up once the account manager can serve them.
+5. **Class / path selection** — after species, since class may constrain by species.
+6. **Full-appearance preview** — equipment, overcoat, weapon silhouette, dye layers.
+7. **Polish** — name validation UX, password hints, swatch labels, body / overcoat customization.
 
 ## Strategic Direction
 
-**Additive modernization, not refactor.** Build `CharacterCreationControlV2` alongside the existing `CharacterCreationControl` and gate which one shows via capability handshake with the server. Legacy `CreateCharInitial` / `CreateCharFinalize` opcodes stay untouched and keep working for retail-compatible servers. Any new fields ride a new opcode.
+**Additive modernization, not refactor.** Build `CharacterCreationControlV2` (and an account-login + character-select path) alongside the existing controls. Gate via the capability handshake. Legacy `CreateCharInitial` / `CreateCharFinalize` opcodes stay untouched and keep working for retail-compatible servers. Any new fields ride a new opcode starting at `0xFF`.
 
 ## Out of Scope (For This Branch)
 
-- Implementation decisions (what to actually build first)
-- Server changes (opcode allocation, protocol extensions)
-- DALib changes
-- Asset pipeline changes (new sprite packs, body variants, etc.)
+- Server-side implementation of account manager, species catalog, clan registry, new opcodes. Client-side integration against planned server protocols is in scope; the server work lands in the Hybrasyl repo separately.
+- DALib changes.
+- Asset pipeline changes (new sprite packs, body variants, etc.) beyond what's needed to render new appearance layers the server already supports.
 
-This branch is sketching only. When we converge on a specific target, a follow-up plan with phase-level review gates takes over.
+This doc is sketching. Each item above — once we commit to implementing it — gets its own plan with phase-level review gates per the repo's review policy.
