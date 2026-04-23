@@ -21,17 +21,19 @@ public static class GlobalSettings
     private static ushort ClientVersion => 741;
 
     public static string DataPath
-        => @"C:\Users\Despe\Desktop\Unora\Unora";
+        => Environment.GetEnvironmentVariable("DA_PATH") ??
+            @"C:\Users\Despe\Desktop\Unora\Unora";
             //Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, ".."));
             //@"C:\Users\Despe\Desktop\Dark Ages";
 
     public static string LobbyHost
-        => "chaotic-minds.dynu.net";
+        => Environment.GetEnvironmentVariable("DA_LOBBY_HOST") ??
+            "chaotic-minds.dynu.net";
             //"127.0.0.1";
             //"da0.kru.com";
 
     public static int LobbyPort
-        => 6900;
+        => short.TryParse(Environment.GetEnvironmentVariable("DA_LOBBY_PORT"), out var val) ? val : 6900;
             //4200;
             //2610;
 
