@@ -134,6 +134,11 @@ public sealed partial class WorldScreen : IScreen
     private Pathfinder? MapPathfinder;
     private bool MapPreloaded;
     private List<IPoint> MapWaterTiles = [];
+
+    //coordinates of every tile whose foreground is a door (either side) at map load. pulled out of the static wall grid
+    //so pathfinding can evaluate door walkability on every FindPath call against the live tile state, which reflects any
+    //HandleDoor swaps.
+    private List<Chaos.Geometry.Point> MapDoorTiles = [];
     private MapRenderer MapRenderer = null!;
 
     //overlay panels (rendered on top of hud)

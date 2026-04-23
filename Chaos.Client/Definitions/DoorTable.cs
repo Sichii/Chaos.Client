@@ -109,6 +109,13 @@ public static class DoorTable
     /// </summary>
     public static short? GetOpenTileId(short closedTileId) => ClosedToOpen.TryGetValue(closedTileId, out var open) ? open : null;
 
+    /// <summary>
+    ///     True when the tile id is known to be either side of a door pair. Used by pathfinder construction to record door
+    ///     tile coordinates so their walkability can be evaluated per-<c>FindPath</c> call against the live foreground state
+    ///     rather than being baked into the static wall grid.
+    /// </summary>
+    public static bool IsDoorTileId(short tileId) => ClosedToOpen.ContainsKey(tileId) || OpenToClosed.ContainsKey(tileId);
+
 
     /// <summary>
     ///     Enumerates door counterparts of a given tile id. If the tile is a known closed door, yields its open variant.

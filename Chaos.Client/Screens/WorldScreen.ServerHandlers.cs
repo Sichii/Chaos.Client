@@ -1151,6 +1151,11 @@ public sealed partial class WorldScreen
     private void HandleMapChangePending()
     {
         MapPreloaded = false;
+
+        //stale pathfinder grid has the OLD map's dimensions; right-click guards key on MapPathfinder being null, so
+        //null it here to prevent FindPath from indexing PathNodes[,] out of bounds before FinalizeMapLoad rebuilds it
+        MapPathfinder = null;
+        MapDoorTiles = [];
         QueuedWalkDirection = null;
         Pathfinding.Clear();
         WorldMap.HideMap();

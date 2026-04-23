@@ -56,6 +56,11 @@ public sealed partial class WorldScreen
             args.Height,
             args.CheckSum);
         MapPreloaded = false;
+
+        //see HandleMapChangePending — MapPathfinder's grid no longer matches MapFile's dimensions, so any right-click
+        //arriving before FinalizeMapLoad would index the old PathNodes[,] out of bounds
+        MapPathfinder = null;
+        MapDoorTiles = [];
         AwaitingMapData = false;
         CurrentMapId = args.MapId;
         CurrentMapFlags = (MapFlags)args.Flags;
@@ -68,6 +73,12 @@ public sealed partial class WorldScreen
             InitializeEmptyTiles(MapFile);
             AwaitingMapData = true;
             Game.Connection.RequestMapData();
+        } else
+        {
+            //snapshot tab-map walls from pristine disk state before any DoorArgs can mutate the foreground tiles.
+            //FinalizeMapLoad's later rebuild of the pathfinder intentionally reflects door state, but the tab map
+            //must stay tied to the raw mapfile so clicking a door does not change how the map looks on (Tab).
+            TabMapRenderer.Generate(Device, MapFile);
         }
 
         //clear entity + renderer caches for the new map
@@ -133,6 +144,9 @@ public sealed partial class WorldScreen
         if (AwaitingMapData && (y >= (MapFile.Height - 1)))
         {
             AwaitingMapData = false;
+
+            //snapshot tab-map walls from pristine server-delivered state before any DoorArgs can mutate tiles
+            TabMapRenderer.Generate(Device, MapFile);
             SaveMapFile(CurrentMapId);
             FinalizeMapLoad();
         }
@@ -159,8 +173,11 @@ public sealed partial class WorldScreen
                 MapFile,
                 MapLoading.SetProgress,
                 static id => DoorTable.GetVariants((short)id).Select(static v => (int)v));
-            TabMapRenderer.Generate(Device, MapFile);
-            (MapPathfinder, MapWaterTiles) = BuildPathfinder(MapFile);
+
+            var (pathfinder, waterTiles, doorTiles) = BuildPathfinder(MapFile);
+            MapPathfinder = pathfinder;
+            MapWaterTiles = waterTiles;
+            MapDoorTiles = doorTiles;
             MapPreloaded = true;
         }
 
@@ -169,16 +186,31 @@ public sealed partial class WorldScreen
         Game.GcRequested = true;
     }
 
-    private static (Pathfinder Pathfinder, List<IPoint> WaterTiles) BuildPathfinder(MapFile mapFile)
+    /// <summary>
+    ///     Builds the static pathfinder grid. Tiles whose foreground is a door (either side) are pulled out of the wall set
+    ///     and returned in <c>doorTiles</c> so <see cref="GetPathfindingBlockedPoints" /> can re-evaluate each on every
+    ///     <c>FindPath</c> call against the live foreground state — this keeps the grid immutable while still reflecting
+    ///     runtime door toggles. A static decoration that happens to use a door-side id is harmlessly captured and will be
+    ///     re-blocked each call because <see cref="IsTileWall" /> always returns true for it.
+    /// </summary>
+    private static (Pathfinder Pathfinder, List<IPoint> WaterTiles, List<Point> DoorTiles) BuildPathfinder(MapFile mapFile)
     {
         var gndAttrs = DataContext.Tiles.GroundAttributes;
         var walls = new List<IPoint>();
         var waterTiles = new List<IPoint>();
+        var doorTiles = new List<Point>();
 
         for (var y = 0; y < mapFile.Height; y++)
             for (var x = 0; x < mapFile.Width; x++)
             {
                 var tile = mapFile.Tiles[x, y];
+
+                if (DoorTable.IsDoorTileId(tile.LeftForeground) || DoorTable.IsDoorTileId(tile.RightForeground))
+                {
+                    doorTiles.Add(new Point(x, y));
+
+                    continue;
+                }
 
                 if (IsTileWall(tile.LeftForeground) || IsTileWall(tile.RightForeground))
                     walls.Add(new Point(x, y));
@@ -195,12 +227,13 @@ public sealed partial class WorldScreen
                 BlockingReactors = []
             });
 
-        return (pathfinder, waterTiles);
+        return (pathfinder, waterTiles, doorTiles);
     }
 
     /// <summary>
-    ///     Returns the current set of blocked points for pathfinding: entity positions, plus water tiles when the swim gate
-    ///     is active and the player can't swim. GMs bypass all blocking.
+    ///     Returns the current set of blocked points for pathfinding: entity positions, currently-closed doors (evaluated
+    ///     on the fly from the live tile state so recent HandleDoor swaps are reflected), plus water tiles when the swim
+    ///     gate is active and the player can't swim. GMs bypass all blocking.
     /// </summary>
     private List<IPoint> GetPathfindingBlockedPoints()
     {
@@ -211,6 +244,15 @@ public sealed partial class WorldScreen
 
         if (GlobalSettings.RequireSwimmingSkill && !WorldState.SkillBook.HasSkillByName("swimming"))
             blocked.AddRange(MapWaterTiles);
+
+        if (MapFile is not null)
+            foreach (var door in MapDoorTiles)
+            {
+                var tile = MapFile.Tiles[door.X, door.Y];
+
+                if (IsTileWall(tile.LeftForeground) || IsTileWall(tile.RightForeground))
+                    blocked.Add(door);
+            }
 
         return blocked;
     }
@@ -229,17 +271,15 @@ public sealed partial class WorldScreen
     }
 
     /// <summary>
-    ///     True when the foreground is a walk-blocking wall. Open door tile IDs are treated as walkable even when SOTP still
-    ///     has their Wall bit set — <see cref="DoorTable" /> is the source of truth for "is this foreground a known open
-    ///     door?" because <c>sotp.dat</c> is inconsistent about clearing the flag on some open variants.
+    ///     True when the foreground is a walk-blocking wall. Authoritative source is <c>sotp.dat</c>, indexed by the tile's
+    ///     current fgIndex (after any door-swap from <see cref="HandleDoor" />). Door open/closed state is tracked entirely
+    ///     by mutating the tile's fgIndex — the open-side id's SOTP byte carries the correct walkability, so no override
+    ///     is needed. Jambs and frame pieces of multi-tile doors are not in <see cref="DoorTable" /> and correctly stay
+    ///     walls in both states.
     /// </summary>
     private static bool IsTileWall(int fgIndex)
     {
         if (fgIndex <= 0)
-            return false;
-
-        //an open door foreground is walkable regardless of SOTP
-        if (DoorTable.GetClosedTileId((short)fgIndex).HasValue)
             return false;
 
         var sotpIndex = fgIndex - 1;
