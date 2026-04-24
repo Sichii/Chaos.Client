@@ -25,6 +25,8 @@ public sealed partial class WorldScreen
 
     private void HandleMapInfo(MapInfoArgs args)
     {
+        WorldMap.HideMap();
+        
         //same map (refresh) — skip expensive teardown, just clear transient entity state
         if ((args.MapId == CurrentMapId) && MapFile is not null)
         {
@@ -47,7 +49,6 @@ public sealed partial class WorldScreen
 
         //new map — dispose old caches, load fresh mapfile from local files
         TownMapControl.Hide();
-        WorldMap.HideMap();
         MapRenderer.Dispose();
         MapRenderer = new MapRenderer();
 
