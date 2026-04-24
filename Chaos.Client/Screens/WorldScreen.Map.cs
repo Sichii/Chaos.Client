@@ -47,6 +47,7 @@ public sealed partial class WorldScreen
 
         //new map — dispose old caches, load fresh mapfile from local files
         TownMapControl.Hide();
+        WorldMap.HideMap();
         MapRenderer.Dispose();
         MapRenderer = new MapRenderer();
 

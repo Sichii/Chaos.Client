@@ -1158,7 +1158,6 @@ public sealed partial class WorldScreen
         MapDoorTiles = [];
         QueuedWalkDirection = null;
         Pathfinding.Clear();
-        WorldMap.HideMap();
         TownMapControl.Hide();
     }
 
