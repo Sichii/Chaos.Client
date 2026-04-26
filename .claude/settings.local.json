@@ -1,35 +1,9 @@
 {
-  "env": {
-    "CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS": "1"
-  },
   "permissions": {
     "allow": [
-      "Bash(dotnet build:*)",
-      "Bash(dotnet run:*)",
-      "Bash(find \"e:\\\\\\\\Dark Ages Dev\\\\\\\\Repos\\\\\\\\Chaos.Client\" -name \"*.cs\" -not -path \"*Chaos.Client.Networking*\")",
-      "Bash(find \"e:\\\\Dark Ages Dev\\\\Repos\\\\Chaos.Client\" -name \"*.cs\" -type f -exec grep -l \"using Chaos\\\\.DarkAges\\\\|using Chaos\\\\.Networking\" {} \\\\;)",
-      "Bash(find \"e:\\\\\\\\Dark Ages Dev\\\\\\\\Repos\\\\\\\\Chaos.Client\" -path \"*/ViewModel/*.cs\" -o -path \"*/Models/*.cs\")",
-      "Bash(find \"e:\\\\Dark Ages Dev\\\\Repos\\\\Chaos.Client\" -name \"*.cs\" -type f -exec grep -l \"using Chaos\\\\.Cryptography\" {} \\\\;)",
-      "Bash(xargs -I {} bash -c 'echo {} && grep \"^using Chaos\\\\.\\\\\\(DarkAges\\\\|Networking\\\\|Geometry\\\\|Pathfinding\\\\\\)\" {} | wc -l')",
-      "Bash(awk '$2 > 0')",
-      "Bash(sort -t: -k2 -rn)",
-      "Bash(echo \"---exit:$?\")"
-    ],
-    "deny": [],
-    "ask": []
-  },
-  "hooks": {
-    "SessionStart": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "echo '{\"hookSpecificOutput\":{\"hookEventName\":\"SessionStart\",\"additionalContext\":\"Invoke the using-superpowers skill via the Skill tool before responding to the user.\"}}'",
-            "timeout": 5
-          }
-        ]
-      }
+      "Bash(dotnet build *)",
+      "Read(//private/tmp/opcode-dump/**)",
+      "Bash(dotnet run *)"
     ]
-  },
-  "prefersReducedMotion": true
+  }
 }

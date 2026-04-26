@@ -1158,7 +1158,10 @@ public sealed partial class WorldScreen
         QueuedWalkDirection = null;
         Pathfinding.Clear();
         KnownDoorClosedState.Clear();
-        WorldMap.HideMap();
+        //WorldMap.HideMap() intentionally not called here — retail sends MapChangePending (0x67) immediately
+        //after the WorldMap (0x2E) packet, which would tear down the worldmap UI before the user could
+        //see it. The retail client itself has no handler for 0x67. Worldmap teardown happens naturally
+        //via Show()'s ClearNodes/ClearBackground on the next worldmap, or via Escape/click→new MapInfo.
         TownMapControl.Hide();
     }
 

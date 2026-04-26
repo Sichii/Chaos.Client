@@ -178,8 +178,10 @@ public sealed class WorldMap : UIPanel
                 control.DestY,
                 control.CheckSum);
 
+            //teardown happens in WorldScreen.HandleMapInfo when the destination map's data lands —
+            //keeping the worldmap visible across the click→warp latency masks the brief moment where
+            //the source map would otherwise be visible underneath.
             e.Handled = true;
         }
     }
-
 }

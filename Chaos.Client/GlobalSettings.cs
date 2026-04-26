@@ -20,18 +20,13 @@ public static class GlobalSettings
     public static readonly SamplerState Sampler = SamplerState.PointClamp; //SamplerState.LinearClamp;
     private static ushort ClientVersion => 741;
 
-    public static string DataPath
-        => @"E:\Games\Dark Ages";
-            //Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, ".."));
+    public static string DataPath { get; set; } = Environment.GetEnvironmentVariable("DA_ASSET_PATH") ?? 
+                                                  Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, ".."));
 
-    public static string LobbyHost
-        => "qa.hybrasyl.com";
-            //"127.0.0.1";
-            //"da0.kru.com";
+    public static string LobbyHost { get; set; } = Environment.GetEnvironmentVariable("DA_HOST") ?? "da0.kru.com";
 
-    public static int LobbyPort
-        => 2610;
-            //4200;
+    public static int LobbyPort { get; set; } =
+        short.TryParse(Environment.GetEnvironmentVariable("DA_HOST_PORT"), out var val) ? val : 2610;
 
     /// <summary>
     ///     When true, walking onto a water tile requires either the GM flag or the "Swimming" skill.

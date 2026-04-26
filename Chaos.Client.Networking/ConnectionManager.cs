@@ -679,9 +679,14 @@ public sealed class ConnectionManager : IDisposable
             try
             {
                 HandlePacket(pkt);
-            } catch
+            } catch (Exception ex)
             {
-                //malformed packet — skip
+                //log every downstream failure (deserializer mismatches, NREs in event handlers, etc.) so
+                //protocol divergence between target servers is visible instead of silently dropped.
+                var hex = Convert.ToHexString(pkt.Data, 0, Math.Min(pkt.Length, 128));
+                NoticeDebugLog.Write($"!!! handler threw opcode=0x{pkt.OpCode:X2} len={pkt.Length} {ex.GetType().Name}: {ex.Message}");
+                NoticeDebugLog.Write($"  hex(0..128)={hex}");
+                NoticeDebugLog.Write($"  stack: {ex.StackTrace}");
             } finally
             {
                 ArrayPool<byte>.Shared.Return(pkt.Data);

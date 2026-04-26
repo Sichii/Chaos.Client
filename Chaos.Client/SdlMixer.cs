@@ -13,6 +13,7 @@ namespace Chaos.Client;
 /// </summary>
 internal static partial class SdlMixer
 {
+
     //Mix_Init flags (formats that the mixer should initialize support for)
     public const int MIX_INIT_MP3 = 0x00000008;
 
@@ -80,7 +81,6 @@ internal static partial class SdlMixer
     [LibraryImport("SDL2_mixer")]
     [UnmanagedCallConv(CallConvs = [typeof(CallConvCdecl)])]
     public static partial int Mix_HaltChannel(int channel);
-
 
     [LibraryImport("SDL2_mixer")]
     [UnmanagedCallConv(CallConvs = [typeof(CallConvCdecl)])]

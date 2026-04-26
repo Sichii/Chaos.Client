@@ -25,6 +25,7 @@ public sealed partial class WorldScreen
 
     private void HandleMapInfo(MapInfoArgs args)
     {
+        WorldMap.HideMap();
         //same map (refresh) — skip expensive teardown, just clear transient entity state
         if ((args.MapId == CurrentMapId) && MapFile is not null)
         {
