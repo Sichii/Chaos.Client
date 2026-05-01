@@ -9,6 +9,7 @@ Sdl.SDL_SetHint(Sdl.SDL_HINT_MOUSE_FOCUS_CLICKTHROUGH, "1");
 
 GCSettings.LatencyMode = GCLatencyMode.SustainedLowLatency;
 
+CrashLogger.Install();
 RuntimeHelpers.RunClassConstructor(typeof(GlobalSettings).TypeHandle);
 
 using var game = new ChaosGame();
