@@ -471,10 +471,7 @@ public sealed partial class WorldScreen
             {
                 var skillSlot = panel.GetSkillSlot(slot);
 
-                if (skillSlot is null)
-                    continue;
-
-                skillSlot.Chant = chantLines.Length > 0 ? chantLines[0] : string.Empty;
+                skillSlot?.Chant = chantLines.Length > 0 ? chantLines[0] : string.Empty;
             }
 
             SaveSkillChants();

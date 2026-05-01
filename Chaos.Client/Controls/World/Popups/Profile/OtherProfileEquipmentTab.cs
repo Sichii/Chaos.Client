@@ -211,8 +211,7 @@ public sealed class OtherProfileEquipmentTab : PrefabPanel
         PaperdollTexture?.Dispose();
 
         //clear the emoticon image texture so uiimage.dispose doesn't dispose the cached spf texture
-        if (EmoticonImage is not null)
-            EmoticonImage.Texture = null;
+        EmoticonImage?.Texture = null;
 
         base.Dispose();
     }

@@ -389,8 +389,7 @@ public sealed partial class WorldScreen
         {
             proj.IsComplete = true;
 
-            if (targetEntity is not null)
-                targetEntity.HitTintExpiryMs = HIT_TINT_FLASH_MS;
+            targetEntity?.HitTintExpiryMs = HIT_TINT_FLASH_MS;
 
             return;
         }

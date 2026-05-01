@@ -249,8 +249,7 @@ public sealed class AbilityMetadataDetailsControl : PrefabPanel
 
         DescLabel?.Text = entry.Description;
 
-        if (IconImage is not null)
-            IconImage.Texture = ResolveIcon(entry);
+        IconImage?.Texture = ResolveIcon(entry);
 
         Show();
     }
