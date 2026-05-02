@@ -38,7 +38,6 @@ public sealed class OkPopupMessageControl : UIPanel
 
     public OkPopupMessageControl(bool showCancel = false)
     {
-        Name = "PopupMessage";
         Visible = false;
         UsesControlStack = true;
 
