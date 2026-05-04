@@ -73,7 +73,15 @@ public sealed partial class WorldScreen : IScreen
     private readonly HashSet<uint> GroupHighlightedIds = [];
     private readonly EntityOverlayManager Overlays = new();
     private readonly PathfindingState Pathfinding = new();
-    private readonly Queue<PendingWalk> PendingWalks = new();
+    //count of Walk packets we've sent that the server has not yet acknowledged via ClientWalkResponse.
+    //the server emits one ack per Walk in FIFO order over the same TCP stream, and we never send a walk
+    //the server would reject (the local walkability check in PredictAndWalk gates outbound traffic).
+    //so each ack we receive while this counter is positive corresponds to a walk we predicted and is
+    //treated as a no-op confirmation; only when the counter is zero does an unmatched ack mean a
+    //genuine server-initiated walk (force-walk, push tile, knockback) that the rubberband path applies.
+    //Location packets do not touch this counter — they snap position authoritatively and let the
+    //pending acks drain naturally as no-ops on arrival.
+    private int InFlightWalkAcks;
 
     private AbilityMetadataDetailsControl AbilityMetadataDetails = null!;
     private AislingContextMenu AislingContext = null!;
@@ -759,9 +767,4 @@ public sealed partial class WorldScreen : IScreen
         Overlays.Clear();
         DebugRenderer.Clear();
     }
-
-    private readonly record struct PendingWalk(
-        int FromX,
-        int FromY,
-        Direction Direction);
 }
