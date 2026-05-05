@@ -940,6 +940,28 @@ public sealed partial class WorldScreen
         if (HandleSlotHotkey(e))
             return;
 
+        //shift+up/down scrolls the active chat-style panel (F = chat, shift+F = message history)
+        if (e.Shift && e.Key is Keys.Up or Keys.Down)
+        {
+            var scrollDelta = e.Key == Keys.Up ? 1 : -1;
+
+            if (WorldHud.ChatDisplay.Visible)
+            {
+                WorldHud.ChatDisplay.Scroll(scrollDelta);
+                e.Handled = true;
+
+                return;
+            }
+
+            if (WorldHud.MessageHistory.Visible)
+            {
+                WorldHud.MessageHistory.Scroll(scrollDelta);
+                e.Handled = true;
+
+                return;
+            }
+        }
+
         //player movement — arrow keys and zxcv
         Direction? direction = e.Key switch
         {
@@ -1371,6 +1393,18 @@ public sealed partial class WorldScreen
 
         //single click: check for entity at hitbox first, then tile interaction
         var entity = GetEntityAtScreen(mouseX, mouseY);
+
+        //single-click on self opens own profile when the "click character profile" setting is enabled
+        if (entity is not null
+            && (entity.Type == ClientEntityType.Aisling)
+            && (entity.Id == Game.Connection.AislingId)
+            && ClientSettings.EnableProfileClick)
+        {
+            SelfProfileRequested = true;
+            Game.Connection.RequestSelfProfile();
+
+            return;
+        }
 
         if (entity?.Type is ClientEntityType.Creature)
             Game.Connection.ClickEntity(entity.Id);
