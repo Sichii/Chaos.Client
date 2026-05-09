@@ -443,6 +443,10 @@ public sealed partial class WorldScreen : IScreen
                 Game.Connection.DropGold((int)amount, GoldDrop.TargetTileX, GoldDrop.TargetTileY);
         };
 
+        //match retail: while the gold amount popup is open, the HUD description bar shows what's
+        //being operated on even though nothing is hovered. clear it when the popup closes.
+        GoldDrop.Closed += () => WorldHud.SetDescription(null);
+
         ItemAmount = new ItemAmountControl
         {
             ZIndex = 2
@@ -456,6 +460,8 @@ public sealed partial class WorldScreen : IScreen
                 ItemAmount.ItemSlot,
                 (byte)Math.Min(amount, byte.MaxValue));
         };
+
+        ItemAmount.Closed += () => WorldHud.SetDescription(null);
 
         BoardList = new BoardListControl
         {
