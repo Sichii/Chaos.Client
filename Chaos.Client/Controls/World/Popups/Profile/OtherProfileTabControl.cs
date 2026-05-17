@@ -185,11 +185,8 @@ public sealed class OtherProfileTabControl : PrefabPanel
             equipPage.SetProfileText(args.ProfileText ?? string.Empty);
             equipPage.SetPortrait(args.Portrait);
 
-            //paperdoll from the entity's current appearance on the map
-            var entity = WorldState.GetEntity(args.Id);
-
-            if (entity?.Appearance is { } appearance)
-                equipPage.SetPaperdoll(aislingRenderer, in appearance);
+            //paperdoll from the entity's current appearance on the map; clears when the entity isn't tracked
+            equipPage.SetPaperdoll(aislingRenderer, WorldState.GetEntity(args.Id)?.Appearance);
         }
 
         //legend tab

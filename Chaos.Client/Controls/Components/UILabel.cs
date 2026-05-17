@@ -91,6 +91,12 @@ public class UILabel : UIElement
 
         base.Draw(spriteBatch);
 
+        //base.Draw refreshed ClipRect; if it collapsed to empty, the label is fully outside its
+        //parent's clip region. Bail before TextElement.Draw — it treats an empty rect as the
+        //"no clipping" sentinel and would otherwise draw the text unclipped at its full screen position.
+        if ((ClipRect.Width <= 0) || (ClipRect.Height <= 0))
+            return;
+
         var innerX = ScreenX + PaddingLeft;
         var innerY = ScreenY + PaddingTop;
         var innerW = Width - PaddingLeft - PaddingRight;

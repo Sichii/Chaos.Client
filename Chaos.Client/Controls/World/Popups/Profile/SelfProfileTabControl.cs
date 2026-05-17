@@ -48,6 +48,7 @@ public sealed class SelfProfileTabControl : PrefabPanel
         IsPassThrough = true;
         WorldState.Equipment.SlotChanged += OnEquipmentSlotChanged;
         WorldState.Equipment.SlotCleared += OnEquipmentSlotCleared;
+        WorldState.Attributes.Changed += OnAttributesChanged;
         X = 0;
         Y = 0;
 
@@ -174,6 +175,7 @@ public sealed class SelfProfileTabControl : PrefabPanel
     {
         WorldState.Equipment.SlotChanged -= OnEquipmentSlotChanged;
         WorldState.Equipment.SlotCleared -= OnEquipmentSlotCleared;
+        WorldState.Attributes.Changed -= OnAttributesChanged;
 
         base.Dispose();
     }
@@ -336,6 +338,24 @@ public sealed class SelfProfileTabControl : PrefabPanel
         var equipPage = GetOrCreateEquipmentPage();
 
         equipPage?.ClearSlot(slot);
+    }
+
+    /// <summary>
+    ///     Refreshes the equipment tab's stat labels when the server pushes new attributes (e.g. after equipping or
+    ///     unequipping an item). Keeps the open status book in sync instead of waiting for a reopen.
+    /// </summary>
+    private void OnAttributesChanged()
+    {
+        if (WorldState.Attributes.Current is not { } attrs)
+            return;
+
+        UpdateEquipmentStats(
+            attrs.Str,
+            attrs.Int,
+            attrs.Wis,
+            attrs.Con,
+            attrs.Dex,
+            attrs.Ac);
     }
 
     /// <summary>

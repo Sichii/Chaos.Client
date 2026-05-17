@@ -224,20 +224,15 @@ public sealed class MenuShopPanel : PrefabPanel
                 Categories.Add(category);
         }
 
-        //sort alphabetically, but keep "other" at the end
-        Categories.Sort((a, b) =>
+        //categories follow the order items arrive over the wire (first-seen), but keep "other" at the end
+        var otherIndex = Categories.FindIndex(static c => c.EqualsI("Other"));
+
+        if (otherIndex >= 0)
         {
-            var aIsOther = a.EqualsI("Other");
-            var bIsOther = b.EqualsI("Other");
-
-            if (aIsOther && !bIsOther)
-                return 1;
-
-            if (!aIsOther && bIsOther)
-                return -1;
-
-            return string.Compare(a, b, StringComparison.OrdinalIgnoreCase);
-        });
+            var other = Categories[otherIndex];
+            Categories.RemoveAt(otherIndex);
+            Categories.Add(other);
+        }
     }
 
     private void BuildFilteredIndices()

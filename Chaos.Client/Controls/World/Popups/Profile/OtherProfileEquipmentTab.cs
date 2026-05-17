@@ -285,10 +285,15 @@ public sealed class OtherProfileEquipmentTab : PrefabPanel
     /// <summary>
     ///     Renders the paperdoll using the entity's current appearance.
     /// </summary>
-    public void SetPaperdoll(AislingRenderer renderer, in AislingAppearance appearance)
+    public void SetPaperdoll(AislingRenderer renderer, AislingAppearance? appearance)
     {
         PaperdollTexture?.Dispose();
-        PaperdollTexture = renderer.Render(in appearance, PAPERDOLL_IDLE_FRAME, flipHorizontal: true);
+
+        //render from the live appearance, or clear when the entity isn't tracked so a
+        //previously-shown character's paperdoll doesn't linger on this reused page
+        PaperdollTexture = appearance is { } currentAppearance
+            ? renderer.Render(in currentAppearance, PAPERDOLL_IDLE_FRAME, flipHorizontal: true)
+            : null;
 
         PaperdollImage?.Texture = PaperdollTexture;
     }

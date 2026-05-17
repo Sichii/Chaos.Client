@@ -388,6 +388,8 @@ public sealed partial class WorldScreen
 
             case HudTab.Chat:
             case HudTab.MessageHistory:
+            case HudTab.Stats:
+            case HudTab.ExtendedStats:
             {
                 var macroText = MacrosList.GetMacroValue(slot - 1);
 

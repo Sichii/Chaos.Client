@@ -151,7 +151,11 @@ public sealed class LocalPlayerSettingsRepository
     /// </summary>
     public string[] LoadMacros()
     {
+        //pre-fill with empties so a missing/partial file (or parse failure) can never propagate
+        //null entries to UITextBox.Text — slot-hotkey dispatch reads MacroTextBoxes[i].Text.Length
+        //and would NRE on first-launch otherwise.
         var macros = new string[10];
+        Array.Fill(macros, string.Empty);
 
         try
         {
@@ -179,7 +183,7 @@ public sealed class LocalPlayerSettingsRepository
             }
         } catch
         {
-            //return whatever was parsed so far
+            //return whatever was parsed so far (remaining slots stay empty)
         }
 
         return macros;
