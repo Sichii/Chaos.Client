@@ -393,11 +393,13 @@ public sealed partial class WorldScreen
             {
                 var macroText = MacrosList.GetMacroValue(slot - 1);
 
+                //focus regardless of whether the slot is bound — pressing a macro key
+                //is also the user's "start typing in chat" shortcut, so an empty slot
+                //should just open the input without prefilling text
+                WorldHud.ChatInput.Focus($"{WorldHud.PlayerName}: ", Color.White);
+
                 if (macroText.Length > 0)
-                {
-                    WorldHud.ChatInput.Focus($"{WorldHud.PlayerName}: ", Color.White);
                     WorldHud.ChatInput.SetText(macroText, macroText.Length);
-                }
 
                 break;
             }
