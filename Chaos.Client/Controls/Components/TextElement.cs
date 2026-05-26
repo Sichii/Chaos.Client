@@ -89,6 +89,11 @@ public sealed class TextElement
     ///     applying <see cref="ShadowStyle" /> and clipping each pass to <paramref name="clipRect" />. Pass
     ///     <see cref="Rectangle.Empty" /> (or omit) to skip clipping entirely.
     /// </summary>
+    /// <summary>
+    ///     Draws <paramref name="text" /> (or <see cref="Text" /> when null) at <paramref name="position" />,
+    ///     applying <see cref="ShadowStyle" /> and clipping each pass to <paramref name="clipRect" />. Pass
+    ///     <see cref="Rectangle.Empty" /> (or omit) to skip clipping entirely.
+    /// </summary>
     public void Draw(SpriteBatch spriteBatch, Vector2 position, Rectangle clipRect = default, string? text = null, float opacity = 1f)
     {
         text ??= Text;
@@ -99,33 +104,40 @@ public sealed class TextElement
         switch (ShadowStyle)
         {
             case ShadowStyle.None:
-                DrawClipped(spriteBatch, position, text, Color, clipRect, opacity);
+                DrawClipped(spriteBatch, position, text, Color, clipRect, opacity, applyCodeColors: true);
 
                 break;
             case ShadowStyle.BottomLeft:
-                DrawClipped(spriteBatch, position + new Vector2(0, 1), text, ShadowColor, clipRect, opacity);
-                DrawClipped(spriteBatch, position + new Vector2(1, 0), text, Color, clipRect, opacity);
+                DrawClipped(spriteBatch, position + new Vector2(0, 1), text, ShadowColor, clipRect, opacity, applyCodeColors: false);
+                DrawClipped(spriteBatch, position + new Vector2(1, 0), text, Color, clipRect, opacity, applyCodeColors: true);
 
                 break;
             case ShadowStyle.BottomRight:
-                DrawClipped(spriteBatch, position + new Vector2(1, 1), text, ShadowColor, clipRect, opacity);
-                DrawClipped(spriteBatch, position, text, Color, clipRect, opacity);
+                DrawClipped(spriteBatch, position + new Vector2(1, 1), text, ShadowColor, clipRect, opacity, applyCodeColors: false);
+                DrawClipped(spriteBatch, position, text, Color, clipRect, opacity, applyCodeColors: true);
 
                 break;
             case ShadowStyle.BothSides:
-                DrawClipped(spriteBatch, position + new Vector2(2, 1), text, ShadowColor, clipRect, opacity);
-                DrawClipped(spriteBatch, position + new Vector2(0, 1), text, ShadowColor, clipRect, opacity);
-                DrawClipped(spriteBatch, position + new Vector2(1, 0), text, Color, clipRect, opacity);
+                DrawClipped(spriteBatch, position + new Vector2(2, 1), text, ShadowColor, clipRect, opacity, applyCodeColors: false);
+                DrawClipped(spriteBatch, position + new Vector2(0, 1), text, ShadowColor, clipRect, opacity, applyCodeColors: false);
+                DrawClipped(spriteBatch, position + new Vector2(1, 0), text, Color, clipRect, opacity, applyCodeColors: true);
 
                 break;
         }
     }
 
-    private void DrawClipped(SpriteBatch spriteBatch, Vector2 position, string text, Color color, Rectangle clipRect, float opacity)
+    private void DrawClipped(
+        SpriteBatch spriteBatch,
+        Vector2 position,
+        string text,
+        Color color,
+        Rectangle clipRect,
+        float opacity,
+        bool applyCodeColors)
     {
         if (clipRect.IsEmpty)
         {
-            TextRenderer.DrawText(spriteBatch, position, text, color, ColorCodesEnabled, opacity);
+            TextRenderer.DrawText(spriteBatch, position, text, color, ColorCodesEnabled, opacity, applyCodeColors);
 
             return;
         }
@@ -138,11 +150,11 @@ public sealed class TextElement
 
         if (clipRect.Contains(textBounds))
         {
-            TextRenderer.DrawText(spriteBatch, position, text, color, ColorCodesEnabled, opacity);
+            TextRenderer.DrawText(spriteBatch, position, text, color, ColorCodesEnabled, opacity, applyCodeColors);
 
             return;
         }
 
-        TextRenderer.DrawTextClipped(spriteBatch, position, text, color, clipRect, ColorCodesEnabled, opacity);
+        TextRenderer.DrawTextClipped(spriteBatch, position, text, color, clipRect, ColorCodesEnabled, opacity, applyCodeColors);
     }
 }

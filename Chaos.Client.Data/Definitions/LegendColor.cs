@@ -3,6 +3,14 @@ namespace Chaos.Client.Data.Definitions;
 /// <summary>
 ///     Named colors from legend.pal (palette bank 0). The underlying byte value is the palette index.
 /// </summary>
+/// <remarks>
+///     Member names are not arbitrary: each index's RGB (documented per member, scanned from legend.pal) was matched to the
+///     nearest recognizable color name using a best-of-three pick across the CSS/X11 (~148), NTC "Name That Color" (~1500+),
+///     and xkcd color-survey (949) name sets. No single set named every shade well — CSS is too sparse, NTC/xkcd cover oddball
+///     shades better — so the clearest name per index wins, which is why the names look eclectic (e.g. CSS-style CornflowerBlue
+///     beside survey-flavored Seafoam). When adding or renaming an entry, scan its RGB and apply the same per-index comparison.
+///     The value is the palette index; semantic aliases (Shout/Whisper/GroupChat) live in TextColors and must not rename these.
+/// </remarks>
 public enum LegendColor : byte
 {
     /// <summary>

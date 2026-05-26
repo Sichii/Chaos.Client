@@ -66,7 +66,8 @@ public static class TextRenderer
         string text,
         Color color,
         bool colorCodesEnabled = true,
-        float opacity = 1f)
+        float opacity = 1f,
+        bool applyCodeColors = true)
     {
         if (string.IsNullOrEmpty(text))
             return;
@@ -82,8 +83,14 @@ public static class TextRenderer
         {
             if (colorCodesEnabled && IsColorCode(text, i))
             {
-                var codeColor = GetColorCode(text[i + 2])!.Value;
-                activeColor = opacity < 1f ? codeColor * opacity : codeColor;
+                //always skip the 3-char code; only adopt its color when colorizing.
+                //the shadow pass passes applyCodeColors=false so it keeps its fixed color and stays visible behind colored text.
+                if (applyCodeColors)
+                {
+                    var codeColor = GetColorCode(text[i + 2])!.Value;
+                    activeColor = opacity < 1f ? codeColor * opacity : codeColor;
+                }
+
                 i += 2;
 
                 continue;
@@ -180,7 +187,8 @@ public static class TextRenderer
         Color color,
         Rectangle clipRect,
         bool colorCodesEnabled = true,
-        float opacity = 1f)
+        float opacity = 1f,
+        bool applyCodeColors = true)
     {
         if (string.IsNullOrEmpty(text))
             return;
@@ -196,8 +204,14 @@ public static class TextRenderer
         {
             if (colorCodesEnabled && IsColorCode(text, i))
             {
-                var codeColor = GetColorCode(text[i + 2])!.Value;
-                activeColor = opacity < 1f ? codeColor * opacity : codeColor;
+                //always skip the 3-char code; only adopt its color when colorizing.
+                //the shadow pass passes applyCodeColors=false so it keeps its fixed color and stays visible behind colored text.
+                if (applyCodeColors)
+                {
+                    var codeColor = GetColorCode(text[i + 2])!.Value;
+                    activeColor = opacity < 1f ? codeColor * opacity : codeColor;
+                }
+
                 i += 2;
 
                 continue;
