@@ -72,8 +72,13 @@ public class UITextBox : UIElement
 
                 FocusedTextBox = this;
                 TextBoxFocusGained?.Invoke(this);
-            } else if (FocusedTextBox == this)
-                FocusedTextBox = null;
+            } else
+            {
+                if (FocusedTextBox == this)
+                    FocusedTextBox = null;
+
+                LostFocus?.Invoke(this);
+            }
         }
     }
 
@@ -87,6 +92,14 @@ public class UITextBox : UIElement
     public bool IsMultiLine { get; set; }
 
     public bool IsReadOnly { get; set; }
+
+    /// <summary>
+    ///     When true (default), focusing this box modally restricts mouse input to the panel that contains it —
+    ///     clicks elsewhere are swallowed by the dispatcher. Inline fields embedded in non-modal panels (e.g. the
+    ///     exchange gold box) set this false so the surrounding UI stays interactive; a press outside the box then
+    ///     blurs it instead of being consumed.
+    /// </summary>
+    public bool BlocksMouseWhenFocused { get; set; } = true;
 
     /// <summary>
     ///     When true, Tab key cycles focus to the next sibling UITextBox with IsTabStop=true
@@ -749,6 +762,13 @@ public class UITextBox : UIElement
 
     public event TextBoxFocusHandler? OnFocused;
 
+    /// <summary>
+    ///     Fired when this box loses focus (IsFocused transitions true → false), regardless of cause (user pressing
+    ///     elsewhere, programmatic blur, or auto-unfocus when hidden). Subscribers must guard against blurs that occur
+    ///     during teardown — see <see cref="ExchangeControl" />'s commit guards.
+    /// </summary>
+    public event TextBoxFocusHandler? LostFocus;
+
     private void HandlePaste()
     {
         var clipText = Clipboard.GetText();
@@ -759,6 +779,12 @@ public class UITextBox : UIElement
         //strip newlines for single-line textboxes
         if (!IsMultiLine)
             clipText = clipText.Replace("\r", "").Replace("\n", "");
+
+        //honour the subclass character filter (e.g. digit-only fields) for pasted content too
+        clipText = new string(clipText.Where(AcceptsCharacter).ToArray());
+
+        if (clipText.Length == 0)
+            return;
 
         //snapshot for potential clamptovisiblearea revert
         var savedText = Text;
@@ -1140,6 +1166,12 @@ public class UITextBox : UIElement
             EnsureCursorVisible();
     }
 
+    /// <summary>
+    ///     Override to restrict which characters the box accepts. Applies to both typed and pasted input. The default
+    ///     accepts every printable character.
+    /// </summary>
+    protected virtual bool AcceptsCharacter(char c) => true;
+
     public override void OnTextInput(TextInputEvent e)
     {
         if (!IsFocused || IsReadOnly || !Enabled)
@@ -1195,6 +1227,14 @@ public class UITextBox : UIElement
 
         if (char.IsControl(c))
             return;
+
+        //subclasses (e.g. NumericTextBox) can restrict the accepted set — reject anything they disallow
+        if (!AcceptsCharacter(c))
+        {
+            e.Handled = true;
+
+            return;
+        }
 
         //snapshot state before additive mutation for potential overflow revert
         var priorText = Text;

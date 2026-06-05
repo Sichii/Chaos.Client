@@ -1110,15 +1110,8 @@ public sealed partial class WorldScreen
         if (e.Button != MouseButton.Left)
             return;
 
-        //exchange gold-click coordination — clicking the money label opens the gold amount popup
-        if (Exchange.Visible && Exchange.IsMyMoneyClicked(e.ScreenX, e.ScreenY))
-        {
-            GoldDrop.ShowForTarget(Exchange.OtherUserId, 0, 0);
-            WorldHud.SetDescription($"Gold( {WorldState.Inventory.Gold} )");
-            e.Handled = true;
-
-            return;
-        }
+        //exchange gold is now set via the inline editable money field (see ExchangeControl.MyMoneyTextBox),
+        //which owns its own click/focus — no viewport-level coordination needed here.
 
         //cast mode — target selection or cancel
         if (CastingSystem.IsTargeting)

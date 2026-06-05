@@ -109,6 +109,12 @@ public delegate void ExchangeItemAddedHandler(bool isOtherSide, byte index);
 public delegate void ExchangeGoldSetHandler(bool isOtherSide);
 
 /// <summary>
+///     The local player committed a gold amount in the exchange's inline money field (on blur — Enter, click-away, or
+///     accept).
+/// </summary>
+public delegate void ExchangeGoldEnteredHandler(int amount);
+
+/// <summary>
 ///     The other player accepted the exchange.
 /// </summary>
 public delegate void ExchangeOtherAcceptedHandler();

@@ -250,19 +250,21 @@ public abstract class PrefabPanel : UIPanel
         return bar;
     }
 
-    protected UITextBox? CreateTextBox(string name, int maxLength = 12)
+    protected UITextBox? CreateTextBox(string name, int maxLength = 12) => CreateTextBox<UITextBox>(name, maxLength);
+
+    protected T? CreateTextBox<T>(string name, int maxLength = 12) where T: UITextBox, new()
     {
         if (!PrefabSet.Contains(name))
             return null;
 
-        if (ReuseOrRemoveExistingChild<UITextBox>(name) is { } existing)
+        if (ReuseOrRemoveExistingChild<T>(name) is { } existing)
         {
             existing.MaxLength = maxLength;
 
             return existing;
         }
 
-        var textBox = CreateTextBoxFromPrefab(PrefabSet[name]);
+        var textBox = CreateTextBoxFromPrefab<T>(PrefabSet[name]);
 
         if (textBox is not null)
         {
@@ -273,7 +275,7 @@ public abstract class PrefabPanel : UIPanel
         return textBox;
     }
 
-    private UITextBox? CreateTextBoxFromPrefab(ControlPrefab prefab)
+    private T? CreateTextBoxFromPrefab<T>(ControlPrefab prefab) where T: UITextBox, new()
     {
         var rect = prefab.Control.Rect;
 
@@ -282,7 +284,7 @@ public abstract class PrefabPanel : UIPanel
 
         var r = rect.Value;
 
-        return new UITextBox
+        return new T
         {
             Name = prefab.Control.Name,
             X = (int)r.Left,

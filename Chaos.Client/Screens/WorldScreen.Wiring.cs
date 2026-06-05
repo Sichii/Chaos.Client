@@ -115,6 +115,10 @@ public sealed partial class WorldScreen
     {
         Exchange.OnOk += () => Game.Connection.SendExchangeInteraction(ExchangeRequestType.Accept, Exchange.OtherUserId);
 
+        //inline money field committed the amount (Enter) — server treats it as a set and echoes the confirmed value
+        Exchange.OnSetGold += amount
+            => Game.Connection.SendExchangeInteraction(ExchangeRequestType.SetGold, Exchange.OtherUserId, goldAmount: amount);
+
         Exchange.OnCancel += () =>
         {
             Game.Connection.SendExchangeInteraction(ExchangeRequestType.Cancel, Exchange.OtherUserId);

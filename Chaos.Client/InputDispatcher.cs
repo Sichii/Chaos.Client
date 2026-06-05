@@ -231,9 +231,11 @@ public sealed class InputDispatcher
 
         //mouse blocking: when a textbox has explicit focus, restrict mouse events
         //to the panel containing the focused textbox. clicks outside are consumed.
+        //exception: a non-modal textbox (BlocksMouseWhenFocused = false, e.g. the inline exchange gold box) never
+        //blocks — the surrounding UI stays interactive and an outside press blurs it (see ProcessMouseButton).
         var mouseBlocked = false;
 
-        if (ExplicitFocusElement is not null)
+        if (ExplicitFocusElement is not null and not UITextBox { BlocksMouseWhenFocused: false })
         {
             var containingPanel = FindContainingStackEntry(ExplicitFocusElement) ?? ExplicitFocusElement.Parent;
 
@@ -448,6 +450,18 @@ public sealed class InputDispatcher
         if (wasPressed)
         {
             var target = HitTest(root, mouseX, mouseY) ?? root;
+
+            //a non-modal focused textbox (e.g. the inline exchange gold field) commits and releases focus when the
+            //user presses anywhere outside it — mirroring "click away to apply" in a form. its LostFocus handler runs
+            //the commit; here we just drop focus and let the press proceed normally, so the same click can start a
+            //drag, hit a button, etc.
+            if ((ExplicitFocusElement is UITextBox { BlocksMouseWhenFocused: false } inlineBox) && (target != inlineBox))
+            {
+                inlineBox.IsFocused = false;
+
+                if (ExplicitFocusElement == inlineBox)
+                    ClearExplicitFocus();
+            }
 
             //set capture
             CapturedElement = target;
