@@ -194,13 +194,15 @@ public sealed class AislingDrawDataRepository
     private bool SwimLoaded;
 
     /// <summary>
-    ///     Returns the swimming sprite data for the given gender, or null if the swim EPF is unavailable.
+    ///     Returns the swimming sprite data for the given gender, or null if the swim EPF is unavailable. There is no
+    ///     dedicated female swim sprite (<see cref="SWIM_FEMALE_EPF" /> is absent from the data set), so females fall back
+    ///     to the male swim sprite. If a female sprite is ever added it will be preferred automatically.
     /// </summary>
     public SwimSpriteData? GetSwimData(bool isFemale)
     {
         EnsureSwimLoaded();
 
-        return isFemale ? SwimFemaleData : SwimMaleData;
+        return isFemale ? SwimFemaleData ?? SwimMaleData : SwimMaleData;
     }
 
     private void EnsureSwimLoaded()
