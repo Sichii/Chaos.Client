@@ -1,5 +1,7 @@
 #region
+using Chaos.Client.Controls.Bindings;
 using Chaos.Client.Controls.Components;
+using Chaos.Client.Controls.Generic;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Input;
 #endregion
@@ -14,6 +16,9 @@ public sealed class MailSendControl : PrefabPanel
 {
     //content area — multi-line body
     private readonly UITextBox BodyBox;
+
+    //scrollbar for the multi-line body
+    private readonly ScrollBarControl ScrollBar;
 
     //receiver — editable overlay
     private readonly UITextBox? ReceiverEditBox;
@@ -55,14 +60,19 @@ public sealed class MailSendControl : PrefabPanel
         TitleBox?.ForegroundColor = LegendColors.White;
         TitleBox?.IsTabStop = true;
 
-        //content rect for multi-line body text entry
+        //content rect for multi-line body text entry. the compose prefabs (_nmails/_nartin) inset the
+        //editable Content 2px further right than the read prefabs (_nmailr/_narti), so anchoring the
+        //scrollbar to this Content's right edge would push it 2px past the read panels' scrollbar column.
+        //trim the body and place the scrollbar flush against it so the compose and read views line up.
         var contentRect = GetRect("Content");
+        const int ComposeContentRightOvershoot = 2;
+        var bodyWidth = contentRect.Width - ScrollBarControl.DEFAULT_WIDTH - ComposeContentRightOvershoot;
 
         BodyBox = new UITextBox
         {
             X = contentRect.X,
             Y = contentRect.Y,
-            Width = contentRect.Width - 2,
+            Width = bodyWidth,
             Height = contentRect.Height,
             IsMultiLine = true,
             IsSelectable = true,
@@ -76,6 +86,18 @@ public sealed class MailSendControl : PrefabPanel
         };
 
         AddChild(BodyBox);
+
+        ScrollBar = new ScrollBarControl
+        {
+            Name = "ScrollBar",
+            X = contentRect.X + bodyWidth,
+            Y = contentRect.Y,
+            Height = contentRect.Height
+        };
+
+        TextBoxScrollBinding.Bind(ScrollBar, BodyBox);
+
+        AddChild(ScrollBar);
     }
 
     private void HandleSend()
@@ -87,6 +109,20 @@ public sealed class MailSendControl : PrefabPanel
             return;
 
         OnSend?.Invoke(recipient, subject, BodyBox.Text);
+    }
+
+    public override void Update(GameTime gameTime)
+    {
+        base.Update(gameTime);
+
+        if (Visible)
+            TextBoxScrollBinding.Sync(ScrollBar, BodyBox);
+    }
+
+    public override void OnMouseScroll(MouseScrollEvent e)
+    {
+        if (TextBoxScrollBinding.HandleWheel(ScrollBar, BodyBox, e.Delta))
+            e.Handled = true;
     }
 
     public override void Hide()

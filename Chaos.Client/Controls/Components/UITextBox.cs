@@ -151,7 +151,16 @@ public class UITextBox : UIElement
 
     public int SelectionStart => Math.Min(SelectionAnchor, CursorPosition);
 
-    private int VisibleLineCount => (Height - PaddingTop + PaddingBottom) / TextRenderer.CHAR_HEIGHT;
+    /// <summary>
+    ///     Total number of laid-out display lines (hard newlines plus soft-wrapped continuations). Only meaningful for
+    ///     multiline boxes once layout has been computed in <see cref="Update" />. Read by the external scrollbar binding.
+    /// </summary>
+    internal int LineCount => LineStarts.Count;
+
+    /// <summary>
+    ///     Number of display lines that fit within the box height. Read by the external scrollbar binding to size the bar.
+    /// </summary>
+    internal int VisibleLineCount => (Height - PaddingTop + PaddingBottom) / TextRenderer.CHAR_HEIGHT;
 
     public UITextBox()
     {
@@ -818,6 +827,39 @@ public class UITextBox : UIElement
         }
     }
 
+    /// <summary>
+    ///     Inserts a newline at the cursor for multiline boxes. Driven by <see cref="OnKeyDown" /> (Keys.Enter) rather
+    ///     than text input because SDL never delivers a text-input event for the Return key. Honors <see cref="MaxLength" />
+    ///     and reverts the insertion when <see cref="ClampToVisibleArea" /> would be exceeded.
+    /// </summary>
+    private void InsertNewLine()
+    {
+        //snapshot state before additive mutation for potential overflow revert
+        var savedText = Text;
+        var savedCursor = CursorPosition;
+        var savedAnchor = SelectionAnchor;
+
+        if (HasSelection)
+            DeleteSelection();
+
+        if (Text.Length < MaxLength)
+        {
+            var nlInsertPos = CursorPosition;
+            Text = Text.Insert(nlInsertPos, "\n");
+            CursorPosition = nlInsertPos + 1;
+            SelectionAnchor = CursorPosition;
+            ResetCursor();
+        }
+
+        if (ClampToVisibleArea && ExceedsVisibleArea())
+        {
+            Text = savedText;
+            CursorPosition = savedCursor;
+            SelectionAnchor = savedAnchor;
+            CachedLayoutText = string.Empty;
+        }
+    }
+
     private void ResetCursor()
     {
         CursorVisible = true;
@@ -1152,6 +1194,16 @@ public class UITextBox : UIElement
 
                 break;
 
+            //── newline (multiline only) ──
+            //SDL never delivers a text-input event for Return, so newline insertion is driven
+            //here rather than in OnTextInput. single-line boxes fall through to default and let
+            //Enter bubble so parent panels (chat send, field cycling) can act on it.
+            case Keys.Enter when IsMultiLine && !IsReadOnly:
+                InsertNewLine();
+                e.Handled = true;
+
+                break;
+
             default:
                 //consume all other key presses while focused so they don't bubble
                 //to hotkey handlers. actual character insertion happens via ontextinput.
@@ -1187,43 +1239,11 @@ public class UITextBox : UIElement
         if ((c == '\t') && IsTabStop)
             return;
 
+        //newline insertion is driven by OnKeyDown (Keys.Enter); SDL never delivers Return as
+        //text input. drop any newline that does arrive this way (e.g. via an IME) so it can't
+        //double-insert on top of the key-driven path.
         if ((c == '\r') || (c == '\n'))
-        {
-            if (!IsMultiLine)
-                return;
-
-            //snapshot state before additive mutation for potential overflow revert
-            var savedText = Text;
-            var savedCursor = CursorPosition;
-            var savedAnchor = SelectionAnchor;
-
-            if (HasSelection)
-                DeleteSelection();
-
-            if (Text.Length < MaxLength)
-            {
-                var nlInsertPos = CursorPosition;
-                Text = Text.Insert(nlInsertPos, "\n");
-                CursorPosition = nlInsertPos + 1;
-                SelectionAnchor = CursorPosition;
-                ResetCursor();
-            }
-
-            if (ClampToVisibleArea && IsMultiLine && ExceedsVisibleArea())
-            {
-                Text = savedText;
-                CursorPosition = savedCursor;
-                SelectionAnchor = savedAnchor;
-                CachedLayoutText = string.Empty;
-            }
-
-            e.Handled = true;
-
-            if (IsMultiLine)
-                EnsureCursorVisible();
-
             return;
-        }
 
         if (char.IsControl(c))
             return;

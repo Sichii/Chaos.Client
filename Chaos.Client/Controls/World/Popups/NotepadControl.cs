@@ -88,9 +88,6 @@ public sealed class NotepadControl : UIPanel
             if (text.Length > MAX_MESSAGE_LENGTH)
                 text = text[..MAX_MESSAGE_LENGTH];
 
-            //convert newlines back to tab for the protocol
-            text = text.Replace('\n', '\t');
-
             OnSave?.Invoke(EditSlot, text);
         }
 
@@ -276,15 +273,6 @@ public sealed class NotepadControl : UIPanel
         return CachedEpfFrames;
     }
 
-    private static string NormalizeMessage(string message)
-    {
-        if (string.IsNullOrEmpty(message))
-            return string.Empty;
-
-        //protocol uses tab (0x09) as line separator; convert to newlines for display
-        return message.Replace('\t', '\n');
-    }
-
     /// <summary>
     ///     Fired when the editable notepad is closed. Parameters: slot, message text.
     /// </summary>
@@ -304,7 +292,7 @@ public sealed class NotepadControl : UIPanel
         IsEditable = true;
         ConfigureSize(notepadType, width, height);
 
-        ContentBox.Text = NormalizeMessage(message);
+        ContentBox.Text = message;
         ContentBox.CursorPosition = 0;
         ContentBox.ScrollOffset = 0;
         ContentBox.Visible = true;
@@ -327,7 +315,7 @@ public sealed class NotepadControl : UIPanel
         IsEditable = false;
         ConfigureSize(notepadType, width, height);
 
-        ReadonlyLabel.Text = NormalizeMessage(message);
+        ReadonlyLabel.Text = message;
         ReadonlyLabel.ScrollOffset = 0;
         ReadonlyLabel.Visible = true;
 

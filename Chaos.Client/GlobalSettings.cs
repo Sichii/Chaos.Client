@@ -22,19 +22,19 @@ public static class GlobalSettings
 
     public static string DataPath
         => Environment.GetEnvironmentVariable("DA_PATH") ??
-            @"C:\Users\Despe\Desktop\Unora\Unora";
+            //@"C:\Users\Despe\Desktop\Unora\Unora";
             //Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, ".."));
-            //@"C:\Users\Despe\Desktop\Dark Ages";
+            @"C:\Users\Despe\Desktop\Dark Ages";
 
     public static string LobbyHost
         => Environment.GetEnvironmentVariable("DA_LOBBY_HOST") ??
-            "chaotic-minds.dynu.net";
-            //"127.0.0.1";
+            //"chaotic-minds.dynu.net";
+            "127.0.0.1";
             //"da0.kru.com";
 
     public static int LobbyPort
-        => short.TryParse(Environment.GetEnvironmentVariable("DA_LOBBY_PORT"), out var val) ? val : 6900;
-            //4200;
+        => short.TryParse(Environment.GetEnvironmentVariable("DA_LOBBY_PORT"), out var val) ? val : //6900;
+            4200;
             //2610;
 
     /// <summary>

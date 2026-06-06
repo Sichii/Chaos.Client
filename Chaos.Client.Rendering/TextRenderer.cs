@@ -464,8 +464,8 @@ public static class TextRenderer
     }
 
     /// <summary>
-    ///     Word-wraps text with full escape sequence preprocessing. Handles literal \n, \r, tab collapsing, and splits on \r,
-    ///     \n, \t delimiters before word-wrapping each paragraph.
+    ///     Word-wraps text with full escape sequence preprocessing. Handles literal \n, \r and splits on \r, \n delimiters
+    ///     before word-wrapping each paragraph.
     /// </summary>
     public static List<string> WrapText(string text, int maxWidth)
     {
@@ -475,11 +475,7 @@ public static class TextRenderer
         text = text.Replace("\\n", "\n")
                    .Replace("\\r", "\r");
 
-        //collapse consecutive tabs into a single newline
-        while (text.Contains("\t\t"))
-            text = text.Replace("\t\t", "\t");
-
-        var paragraphs = text.Split('\r', '\n', '\t');
+        var paragraphs = text.Split('\r', '\n');
         string? activeColorCode = null;
 
         foreach (var paragraph in paragraphs)
