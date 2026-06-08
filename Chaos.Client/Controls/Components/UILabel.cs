@@ -1,4 +1,5 @@
 #region
+using Chaos.Client.Controls.Scrolling;
 using Chaos.Client.Utilities;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
@@ -14,7 +15,7 @@ namespace Chaos.Client.Controls.Components;
 /// </summary>
 
 // ReSharper disable once ClassCanBeSealed.Global
-public class UILabel : UIElement
+public class UILabel : UIElement, IVerticalScrollable
 {
     private readonly TextElement TextElement = new();
     private int CursorPosition;
@@ -23,6 +24,7 @@ public class UILabel : UIElement
     private long LastClickTime;
     private int LastClickPosition = -1;
     private int ClickCount;
+    private int LastEffectiveWrapWidth;
 
     public HorizontalAlignment HorizontalAlignment { get; set; } = HorizontalAlignment.Left;
 
@@ -66,6 +68,16 @@ public class UILabel : UIElement
     /// </summary>
     public int ContentHeight => TextElement.Height;
 
+    // IVerticalScrollable — lets a ScrollViewerControl drive this label's pixel ScrollOffset in whole-line units.
+    int IVerticalScrollable.VerticalExtent => ContentHeight / TextRenderer.CHAR_HEIGHT;
+    int IVerticalScrollable.VerticalViewport => Height / TextRenderer.CHAR_HEIGHT;
+
+    int IVerticalScrollable.VerticalOffset
+    {
+        get => ScrollOffset / TextRenderer.CHAR_HEIGHT;
+        set => ScrollOffset = value * TextRenderer.CHAR_HEIGHT;
+    }
+
     public UILabel()
     {
         PaddingLeft = 1;
@@ -76,6 +88,17 @@ public class UILabel : UIElement
 
     public override void Draw(SpriteBatch spriteBatch)
     {
+        // Re-wrap when WordWrap is on and the available width changed since the last invalidation
+        // (e.g. ScrollViewerControl narrowed the label after the Text setter ran).
+        // TextElement.Update is a no-op when WrapWidth is unchanged, so this is cheap every frame.
+        if (WordWrap)
+        {
+            var effectiveWrapWidth = Width - PaddingLeft - PaddingRight;
+
+            if (effectiveWrapWidth != LastEffectiveWrapWidth)
+                Invalidate(TextElement.Text, TextElement.Color);
+        }
+
         if (!Visible)
             return;
 
@@ -256,9 +279,11 @@ public class UILabel : UIElement
             SelectionAnchor = 0;
         }
 
-        TextElement.WrapWidth = WordWrap ? Width - PaddingLeft - PaddingRight : 0;
+        var effectiveWrapWidth = Width - PaddingLeft - PaddingRight;
+        TextElement.WrapWidth = WordWrap ? effectiveWrapWidth : 0;
         TextElement.ShadowStyle = ShadowStyle;
         TextElement.Update(text, color);
+        LastEffectiveWrapWidth = effectiveWrapWidth;
     }
 
     public override void ResetInteractionState()

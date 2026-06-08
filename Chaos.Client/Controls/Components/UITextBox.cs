@@ -1,4 +1,5 @@
 #region
+using Chaos.Client.Controls.Scrolling;
 using Chaos.Client.Utilities;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
@@ -8,7 +9,7 @@ using Microsoft.Xna.Framework.Input;
 namespace Chaos.Client.Controls.Components;
 
 // ReSharper disable once ClassCanBeSealed.Global
-public class UITextBox : UIElement
+public class UITextBox : UIElement, IVerticalScrollable
 {
     private const int CURSOR_BLINK_MS = 530;
     private const int CURSOR_WIDTH = 1;
@@ -153,14 +154,28 @@ public class UITextBox : UIElement
 
     /// <summary>
     ///     Total number of laid-out display lines (hard newlines plus soft-wrapped continuations). Only meaningful for
-    ///     multiline boxes once layout has been computed in <see cref="Update" />. Read by the external scrollbar binding.
+    ///     multiline boxes once layout has been computed in <see cref="Update" />. Surfaced via
+    ///     <see cref="IVerticalScrollable.VerticalExtent" /> so a hosting <see cref="ScrollViewerControl" /> can size its bar.
     /// </summary>
     internal int LineCount => LineStarts.Count;
 
     /// <summary>
-    ///     Number of display lines that fit within the box height. Read by the external scrollbar binding to size the bar.
+    ///     Number of display lines that fit within the box height. Surfaced via
+    ///     <see cref="IVerticalScrollable.VerticalViewport" /> so a hosting <see cref="ScrollViewerControl" /> can size its bar.
     /// </summary>
     internal int VisibleLineCount => (Height - PaddingTop + PaddingBottom) / TextRenderer.CHAR_HEIGHT;
+
+    // IVerticalScrollable — line units. ScrollOffset is stored in pixels but is always a whole number of CHAR_HEIGHT
+    // lines (set only to line multiples by EnsureCursorVisible / the wheel / this setter), so the conversion is lossless.
+    // A hosting ScrollViewerControl owns the bar and is the clamp authority, replacing the old TextBoxScrollBinding.
+    int IVerticalScrollable.VerticalExtent => LineCount;
+    int IVerticalScrollable.VerticalViewport => VisibleLineCount;
+
+    int IVerticalScrollable.VerticalOffset
+    {
+        get => ScrollOffset / TextRenderer.CHAR_HEIGHT;
+        set => ScrollOffset = value * TextRenderer.CHAR_HEIGHT;
+    }
 
     public UITextBox()
     {
@@ -435,6 +450,12 @@ public class UITextBox : UIElement
 
     private void EnsureCursorVisible()
     {
+        //the mutation paths (typing, newline, paste, delete) defer the line-layout recompute to Update, so refresh it
+        //here before reading the cursor's line. Otherwise a just-inserted newline isn't in LineStarts yet, so the view
+        //doesn't scroll to follow the cursor onto the new line until the next keystroke. Cache-guarded: a no-op when the
+        //text and width are unchanged.
+        ComputeLineLayout();
+
         var cursorLine = GetLineForPosition(CursorPosition);
         var firstVisible = FirstVisibleLine;
         var visibleCount = VisibleLineCount;

@@ -2,6 +2,7 @@
 using Chaos.Client.Collections;
 using Chaos.Client.Controls.Components;
 using Chaos.Client.Controls.Generic;
+using Chaos.Client.Controls.Scrolling;
 using Chaos.Client.ViewModel;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
@@ -11,7 +12,9 @@ namespace Chaos.Client.Controls.World.Hud.Panel;
 
 /// <summary>
 ///     Chat display panel (F key). Shows chat message history with word-wrap. Background loaded from _nchatbk.spf (shown
-///     in tab area). Text rendered at ChatDisplayBounds (separate area of the HUD).
+///     in tab area). Text is rendered by a <see cref="VirtualizedRowList{T}" /> (one row per wrapped line) hosted in a
+///     <see cref="ScrollViewerControl" /> placed over the chat display area. The list pins to the bottom: new lines
+///     appear at the bottom and follow while the view is sitting there; scrolling up into history holds position.
 /// </summary>
 public sealed class ChatPanel : ExpandablePanel
 {
@@ -21,15 +24,11 @@ public sealed class ChatPanel : ExpandablePanel
     private readonly Rectangle NormalDisplayBounds;
     private readonly int PanelOriginX;
     private readonly int PanelOriginY;
-    private readonly ScrollBarControl ScrollBar;
+    private readonly VirtualizedRowList<ChatLine> RowList;
+    private readonly ScrollViewerControl Viewer;
 
     private Rectangle DisplayBounds;
     private Rectangle ExpandedDisplayBounds;
-    private UILabel[] Lines;
-    private int LogVersion;
-    private int MaxVisibleLines;
-    private int RenderedVersion = -1;
-    private int ScrollOffset;
 
     public ChatPanel(Rectangle displayBounds, Rectangle panelBounds)
     {
@@ -41,45 +40,35 @@ public sealed class ChatPanel : ExpandablePanel
 
         Background = UiRenderer.Instance!.GetSpfTexture("_nchatbk.spf");
 
-        MaxVisibleLines = displayBounds.Height > 0 ? displayBounds.Height / GLYPH_HEIGHT : 0;
-        Lines = new UILabel[MaxVisibleLines];
-
-        var relX = displayBounds.X - panelBounds.X;
-
-        for (var i = 0; i < MaxVisibleLines; i++)
-        {
-            Lines[i] = new UILabel
+        RowList = new VirtualizedRowList<ChatLine>(
+            displayBounds.Width,
+            displayBounds.Height,
+            GLYPH_HEIGHT,
+            static () => new UILabel
             {
-                Name = $"ChatLine{i}",
-                X = relX,
-                Width = displayBounds.Width - ScrollBarControl.DEFAULT_WIDTH,
-                Height = GLYPH_HEIGHT,
                 PaddingLeft = 0,
                 PaddingTop = 0
-            };
+            },
+            static (row, line, _) =>
+            {
+                var label = (UILabel)row;
+                label.Text = line.Text;
+                label.ForegroundColor = line.Color;
+            },
+            pinToBottom: true);
 
-            AddChild(Lines[i]);
-        }
+        RowList.SetItems(ChatLog);
 
-        RepositionLabels();
-
-        //position relative to panel origin (panel is placed at panelbounds by registertab)
-        var relY = displayBounds.Y - panelBounds.Y;
-
-        ScrollBar = new ScrollBarControl
+        //position relative to panel origin (panel is placed at panelbounds by registertab); LayoutViewer sets Y/Height
+        Viewer = new ScrollViewerControl(RowList)
         {
-            X = relX + displayBounds.Width - ScrollBarControl.DEFAULT_WIDTH,
-            Y = relY,
-            Height = displayBounds.Height
+            X = displayBounds.X - panelBounds.X,
+            Width = displayBounds.Width
         };
 
-        ScrollBar.OnValueChanged += v =>
-        {
-            ScrollOffset = ScrollBar.MaxValue - v;
-            LogVersion++;
-        };
+        LayoutViewer(NormalDisplayBounds);
 
-        AddChild(ScrollBar);
+        AddChild(Viewer);
         WorldState.Chat.MessageAdded += OnMessageAdded;
     }
 
@@ -106,22 +95,16 @@ public sealed class ChatPanel : ExpandablePanel
         }
 
         if (ChatLog.Count > MAX_CHAT_LINES)
-            ChatLog.RemoveRange(0, ChatLog.Count - MAX_CHAT_LINES);
-
-        var wasAtBottom = ScrollOffset == 0;
-
-        ScrollBar.TotalItems = ChatLog.Count;
-        ScrollBar.VisibleItems = MaxVisibleLines;
-        ScrollBar.MaxValue = Math.Max(0, ChatLog.Count - MaxVisibleLines);
-
-        if (wasAtBottom)
         {
-            ScrollOffset = 0;
-            ScrollBar.Value = ScrollBar.MaxValue;
-        } else
-            ScrollBar.Value = ScrollBar.MaxValue - ScrollOffset;
+            var trimmed = ChatLog.Count - MAX_CHAT_LINES;
+            ChatLog.RemoveRange(0, trimmed);
 
-        LogVersion++;
+            //front-trim shifts every surviving line's index down; keep a scrolled-up reader on the same lines
+            RowList.NotifyRemovedFromFront(trimmed);
+        }
+
+        //pin-aware: follows the new lines to the bottom if the view was sitting there, else holds position
+        RowList.Invalidate();
     }
 
     /// <summary>
@@ -138,36 +121,12 @@ public sealed class ChatPanel : ExpandablePanel
 
         ConfigureExpand(expandedBackground);
 
-        //create additional labels needed for the expanded line count
-        var expandedMaxLines = expandedBounds.Height / GLYPH_HEIGHT;
+        //grow the recycled row pool to cover the expanded line count (kept across expand/collapse)
+        RowList.EnsureViewportCapacity(expandedBounds.Height / GLYPH_HEIGHT);
 
-        if (expandedMaxLines > Lines.Length)
-        {
-            var relX = NormalDisplayBounds.X - PanelOriginX;
-            var relY = NormalDisplayBounds.Y - PanelOriginY;
-            var oldCount = Lines.Length;
-            Array.Resize(ref Lines, expandedMaxLines);
-
-            for (var i = oldCount; i < expandedMaxLines; i++)
-            {
-                Lines[i] = new UILabel
-                {
-                    Name = $"ChatLine{i}",
-                    X = relX,
-                    Y = relY + NormalDisplayBounds.Height - (MaxVisibleLines - i) * GLYPH_HEIGHT,
-                    Width = NormalDisplayBounds.Width - ScrollBarControl.DEFAULT_WIDTH,
-                    Height = GLYPH_HEIGHT,
-                    PaddingLeft = 0,
-                    PaddingTop = 0,
-                    Visible = false
-                };
-
-                AddChild(Lines[i]);
-            }
-        }
-
-        //in the large hud, the compact chat area is too small for a scrollbar
-        ScrollBar.Visible = false;
+        //in the large hud the compact chat area hides the bar but keeps the right-edge gap; SetExpanded shows it
+        Viewer.VerticalScrollBarVisibility = ScrollBarVisibility.Hidden;
+        Viewer.ContentRightPadding = ScrollBarControl.DEFAULT_WIDTH;
     }
 
     public override void Dispose()
@@ -177,71 +136,40 @@ public sealed class ChatPanel : ExpandablePanel
         base.Dispose();
     }
 
-    //labels are children — drawn automatically by base.draw()
-
     private void OnMessageAdded(Chat.ChatMessage msg) => AddMessage(msg.Text, msg.Color);
-
-    private void RefreshDisplay()
-    {
-        if (RenderedVersion == LogVersion)
-            return;
-
-        RenderedVersion = LogVersion;
-
-        var maxLines = Math.Min(MaxVisibleLines, Lines.Length);
-        var startIndex = Math.Max(0, ChatLog.Count - maxLines - ScrollOffset);
-        var lineIndex = 0;
-
-        for (var i = startIndex; (i < ChatLog.Count) && (lineIndex < maxLines); i++)
-        {
-            var line = ChatLog[i];
-            Lines[lineIndex].Text = line.Text;
-            Lines[lineIndex].ForegroundColor = line.Color;
-            lineIndex++;
-        }
-
-        for (; lineIndex < maxLines; lineIndex++)
-            Lines[lineIndex].Text = string.Empty;
-    }
-
-    private void RepositionLabels()
-    {
-        var relY = DisplayBounds.Y - PanelOriginY;
-        var maxLines = Math.Min(MaxVisibleLines, Lines.Length);
-
-        for (var i = 0; i < Lines.Length; i++)
-            if (i < maxLines)
-            {
-                //bottom-up: line 0 at top, line maxlines-1 at bottom
-                Lines[i].Y = relY + DisplayBounds.Height - (maxLines - i) * GLYPH_HEIGHT;
-                Lines[i].Visible = true;
-            } else
-                Lines[i].Visible = false;
-    }
 
     public override void SetExpanded(bool expanded)
     {
         base.SetExpanded(expanded);
 
+        if (!CanExpand)
+            return;
+
         DisplayBounds = expanded ? ExpandedDisplayBounds : NormalDisplayBounds;
-        MaxVisibleLines = Math.Min(DisplayBounds.Height / GLYPH_HEIGHT, Lines.Length);
-        ScrollBar.Visible = expanded;
-        ScrollBar.Height = DisplayBounds.Height;
 
-        //show/hide labels based on current line count
-        for (var i = 0; i < Lines.Length; i++)
-            Lines[i].Visible = i < MaxVisibleLines;
+        //re-anchor the viewer to the current mode's box (also makes VisibleRows current for the re-pin below). X/Width
+        //stay normal and the panel's Y-shift grows the area upward, so the newest line stays pinned at the box bottom.
+        LayoutViewer(DisplayBounds);
+        Viewer.VerticalScrollBarVisibility = expanded ? ScrollBarVisibility.Visible : ScrollBarVisibility.Hidden;
+        Viewer.ContentRightPadding = expanded ? 0 : ScrollBarControl.DEFAULT_WIDTH;
 
-        //force re-render with new line count
-        LogVersion++;
+        //collapse shrinks the viewport (MaxOffset grows): re-pin to the new bottom if we were sitting there
+        RowList.Invalidate();
     }
 
-    public void ScrollToBottom()
+    //bottom-anchors the viewer: floors the height to whole GLYPH_HEIGHT rows and pushes it down by the remainder so the
+    //newest line sits flush with the box bottom (matching the bottom-anchored labels). The shipped chat rects (36 normal,
+    //96 expanded) are whole multiples of GLYPH_HEIGHT, so the remainder is 0 in every mode and this is a no-op; the floor
+    //keeps the bottom flush should a rect ever not be. X/Width are fixed at the normal position; the panel Y-shift expands.
+    private void LayoutViewer(Rectangle bounds)
     {
-        ScrollOffset = 0;
-        ScrollBar.Value = ScrollBar.MaxValue;
-        LogVersion++;
+        var usedHeight = bounds.Height / GLYPH_HEIGHT * GLYPH_HEIGHT;
+        Viewer.Y = NormalDisplayBounds.Y - PanelOriginY + (bounds.Height - usedHeight);
+        Viewer.Height = usedHeight;
+        RowList.Height = usedHeight;
     }
+
+    public void ScrollToBottom() => RowList.ScrollToBottom();
 
     public override void OnMouseScroll(MouseScrollEvent e)
     {
@@ -249,27 +177,9 @@ public sealed class ChatPanel : ExpandablePanel
             e.Handled = true;
     }
 
-    public bool Scroll(int delta)
-    {
-        if (ChatLog.Count <= MaxVisibleLines)
-            return false;
-
-        ScrollOffset = Math.Clamp(ScrollOffset + delta, 0, ChatLog.Count - MaxVisibleLines);
-        ScrollBar.Value = ScrollBar.MaxValue - ScrollOffset;
-        LogVersion++;
-
-        return true;
-    }
-
-    public override void Update(GameTime gameTime)
-    {
-        if (!Visible || !Enabled)
-            return;
-
-        base.Update(gameTime);
-
-        RefreshDisplay();
-    }
+    //positive delta scrolls toward older messages (matching the wheel + Shift+Up); top-anchored offset moves the
+    //opposite way, hence the sign flip into the list.
+    public bool Scroll(int delta) => RowList.ScrollByRows(-delta);
 
     private record struct ChatLine(string Text, Color Color);
 }

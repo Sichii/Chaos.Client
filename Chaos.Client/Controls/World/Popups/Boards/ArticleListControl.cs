@@ -1,9 +1,9 @@
 #region
 using Chaos.Client.Controls.Components;
 using Chaos.Client.Controls.Generic;
+using Chaos.Client.Controls.Scrolling;
 using Chaos.Client.Models;
 using Microsoft.Xna.Framework;
-using Microsoft.Xna.Framework.Graphics;
 using Microsoft.Xna.Framework.Input;
 #endregion
 
@@ -25,18 +25,10 @@ public sealed class ArticleListControl : PrefabPanel
     private const string SPACER5 = "     ";
     private const string SPACER3 = "   ";
 
-    private readonly Rectangle ArticleListRect;
     private readonly int MaxSubjectChars;
-    private readonly int MaxVisibleRows;
-    private readonly UILabel[] RowLabels;
-    private readonly ScrollBarControl ScrollBar;
-    private int DataVersion;
+    private readonly VirtualizedRowList<MailEntry> RowList;
 
     private List<MailEntry> Entries = [];
-    private bool HasMorePosts;
-    private int RenderedVersion = -1;
-    private int ScrollOffset;
-    private int SelectedIndex = -1;
     private int TargetX;
 
     public ushort BoardId { get; private set; }
@@ -59,15 +51,60 @@ public sealed class ArticleListControl : PrefabPanel
         DeleteButton = CreateButton("Delete");
         UpButton = CreateButton("Up");
         CloseButton = CreateButton("Close");
+        HighlightButton = CreateButton("Hilight");
 
+        if (HighlightButton is not null)
+            HighlightButton.Visible = false;
+
+        var articleListRect = GetRect("ArticleList");
+
+        //columns are faked via fixed-width string formatting; subject is truncated to whatever fits past the
+        //postid/author/date prefix in the box that remains after the scrollbar gutter.
+        var usableWidth = articleListRect.Width - ScrollBarControl.DEFAULT_WIDTH;
+        MaxSubjectChars = Math.Max(0, (usableWidth / TextRenderer.CHAR_WIDTH) - PREFIX_CHARS);
+
+        RowList = new VirtualizedRowList<MailEntry>(
+            articleListRect.Width,
+            articleListRect.Height,
+            ROW_HEIGHT,
+            static () => new UILabel
+            {
+                PaddingLeft = 0,
+                PaddingTop = 0
+            },
+            BindRow,
+            selectable: true)
+        {
+            SentinelBinder = BindSentinel,
+            SentinelActivated = () =>
+            {
+                if (Entries.Count > 0)
+                    OnLoadMorePosts?.Invoke(Entries[^1].PostId);
+            }
+        };
+
+        RowList.SelectionChanged += UpdateButtonStates;
+        RowList.RowActivated += entry => OnViewPost?.Invoke(entry.PostId);
+
+        var viewer = new ScrollViewerControl(RowList)
+        {
+            X = articleListRect.X,
+            Y = articleListRect.Y,
+            Width = articleListRect.Width,
+            Height = articleListRect.Height
+        };
+
+        AddChild(viewer);
+
+        //button handlers are wired after RowList exists so the selection-reading lambdas capture a non-null list
         if (CloseButton is not null)
             CloseButton.Clicked += () => OnClose?.Invoke();
 
         if (ViewButton is not null)
             ViewButton.Clicked += () =>
             {
-                if ((SelectedIndex >= 0) && (SelectedIndex < Entries.Count))
-                    OnViewPost?.Invoke(Entries[SelectedIndex].PostId);
+                if (RowList.SelectedItem is { } entry)
+                    OnViewPost?.Invoke(entry.PostId);
             };
 
         if (NewButton is not null)
@@ -76,84 +113,45 @@ public sealed class ArticleListControl : PrefabPanel
         if (DeleteButton is not null)
             DeleteButton.Clicked += () =>
             {
-                if ((SelectedIndex >= 0) && (SelectedIndex < Entries.Count))
-                    OnDeletePost?.Invoke(Entries[SelectedIndex].PostId);
+                if (RowList.SelectedItem is { } entry)
+                    OnDeletePost?.Invoke(entry.PostId);
             };
 
         if (UpButton is not null)
             UpButton.Clicked += () => OnUp?.Invoke();
 
-        HighlightButton = CreateButton("Hilight");
-
         if (HighlightButton is not null)
-        {
-            HighlightButton.Visible = false;
-
             HighlightButton.Clicked += () =>
             {
-                if ((SelectedIndex >= 0) && (SelectedIndex < Entries.Count))
-                    OnHighlight?.Invoke(Entries[SelectedIndex].PostId);
+                if (RowList.SelectedItem is { } entry)
+                    OnHighlight?.Invoke(entry.PostId);
             };
-        }
-
-        ArticleListRect = GetRect("ArticleList");
-        MaxVisibleRows = ArticleListRect.Height > 0 ? ArticleListRect.Height / ROW_HEIGHT : 0;
-
-        //scrollbar
-        ScrollBar = new ScrollBarControl
-        {
-            Name = "ScrollBar",
-            X = ArticleListRect.X + ArticleListRect.Width - ScrollBarControl.DEFAULT_WIDTH,
-            Y = ArticleListRect.Y,
-            Height = ArticleListRect.Height
-        };
-
-        ScrollBar.OnValueChanged += v =>
-        {
-            ScrollOffset = v;
-            DataVersion++;
-        };
-
-        AddChild(ScrollBar);
-
-        //row labels — one per visible row, columns via fixed-width string formatting
-        var usableWidth = ArticleListRect.Width - ScrollBarControl.DEFAULT_WIDTH;
-        MaxSubjectChars = Math.Max(0, usableWidth / TextRenderer.CHAR_WIDTH - PREFIX_CHARS);
-
-        RowLabels = new UILabel[MaxVisibleRows];
-
-        for (var i = 0; i < MaxVisibleRows; i++)
-        {
-            RowLabels[i] = new UILabel
-            {
-                X = ArticleListRect.X,
-                Y = ArticleListRect.Y + i * ROW_HEIGHT,
-                Width = usableWidth,
-                Height = ROW_HEIGHT,
-                PaddingLeft = 0,
-                PaddingTop = 0
-            };
-
-            AddChild(RowLabels[i]);
-        }
     }
 
     public void AppendEntries(List<MailEntry> entries)
     {
         Entries.AddRange(entries);
-        HasMorePosts = entries.Count >= MAX_POSTS_PER_PAGE;
-        DataVersion++;
-
-        UpdateScrollBar();
+        RowList.ShowSentinel = entries.Count >= MAX_POSTS_PER_PAGE;
+        RowList.Invalidate();
     }
 
-    public override void Draw(SpriteBatch spriteBatch)
+    private void BindRow(UIElement row, MailEntry entry, bool selected)
     {
-        if (!Visible)
-            return;
+        var label = (UILabel)row;
 
-        RefreshLabels();
-        base.Draw(spriteBatch);
+        label.ForegroundColor = selected
+            ? new Color(100, 149, 237)
+            : entry.IsHighlighted
+                ? Color.Yellow
+                : TextColors.Default;
+        label.Text = FormatRow(entry);
+    }
+
+    private static void BindSentinel(UIElement row)
+    {
+        var label = (UILabel)row;
+        label.ForegroundColor = Color.LightGray;
+        label.Text = "-- Load More --";
     }
 
     private string FormatRow(MailEntry entry)
@@ -185,37 +183,8 @@ public sealed class ArticleListControl : PrefabPanel
     public event UpHandler? OnUp;
     public event ViewPostHandler? OnViewPost;
 
-    private void RefreshLabels()
-    {
-        if (RenderedVersion == DataVersion)
-            return;
-
-        RenderedVersion = DataVersion;
-
-        for (var i = 0; i < MaxVisibleRows; i++)
-        {
-            var entryIndex = ScrollOffset + i;
-
-            if (entryIndex < Entries.Count)
-            {
-                var entry = Entries[entryIndex];
-                var isSelected = entryIndex == SelectedIndex;
-
-                var textColor = isSelected
-                    ? new Color(100, 149, 237)
-                    : entry.IsHighlighted
-                        ? Color.Yellow
-                        : TextColors.Default;
-
-                RowLabels[i].ForegroundColor = textColor;
-                RowLabels[i].Text = FormatRow(entry);
-            } else
-                RowLabels[i].Text = string.Empty;
-        }
-    }
-
     /// <summary>
-    ///     Appends additional entries from a subsequent page to the existing list.
+    ///     Removes a post from the list (after a successful delete) and clamps the selection to the new bounds.
     /// </summary>
     public void RemoveEntry(short postId)
     {
@@ -225,12 +194,7 @@ public sealed class ArticleListControl : PrefabPanel
             return;
 
         Entries.RemoveAt(index);
-
-        if (SelectedIndex >= Entries.Count)
-            SelectedIndex = Entries.Count - 1;
-
-        DataVersion++;
-        UpdateScrollBar();
+        RowList.Invalidate();
     }
 
     public void ToggleHighlight(short postId)
@@ -242,16 +206,13 @@ public sealed class ArticleListControl : PrefabPanel
 
         var entry = Entries[index];
         Entries[index] = entry with { IsHighlighted = !entry.IsHighlighted };
-        DataVersion++;
+        RowList.Invalidate();
     }
 
     /// <summary>
     ///     Shows or hides the Highlight button based on GM status.
     /// </summary>
-    public void SetHighlightEnabled(bool enabled)
-    {
-        HighlightButton?.Visible = enabled;
-    }
+    public void SetHighlightEnabled(bool enabled) => HighlightButton?.Visible = enabled;
 
     public void SetViewportBounds(Rectangle viewport)
     {
@@ -273,80 +234,9 @@ public sealed class ArticleListControl : PrefabPanel
     {
         BoardId = boardId;
         Entries = entries;
-        HasMorePosts = entries.Count >= MAX_POSTS_PER_PAGE;
-        SelectedIndex = -1;
-        ScrollOffset = 0;
-        DataVersion++;
-
-        UpdateScrollBar();
-        UpdateButtonStates();
+        RowList.ShowSentinel = entries.Count >= MAX_POSTS_PER_PAGE;
+        RowList.SetItems(Entries);
         Show();
-    }
-
-    public override void OnClick(ClickEvent e)
-    {
-        base.OnClick(e);
-
-        if (e.Button != MouseButton.Left)
-            return;
-
-        var localX = e.ScreenX - ScreenX - ArticleListRect.X;
-        var localY = e.ScreenY - ScreenY - ArticleListRect.Y;
-
-        if ((localX < 0) || (localX >= ArticleListRect.Width) || (localY < 0) || (localY >= ArticleListRect.Height))
-            return;
-
-        var row = localY / ROW_HEIGHT;
-
-        if (row >= MaxVisibleRows)
-            return;
-
-        var entryIndex = ScrollOffset + row;
-
-        //"load more" row
-        if (HasMorePosts && (entryIndex == Entries.Count))
-        {
-            if (Entries.Count > 0)
-                OnLoadMorePosts?.Invoke(Entries[^1].PostId);
-
-            return;
-        }
-
-        if (entryIndex >= Entries.Count)
-            return;
-
-        SelectedIndex = entryIndex;
-        DataVersion++;
-        UpdateButtonStates();
-    }
-
-    public override void OnDoubleClick(DoubleClickEvent e)
-    {
-        base.OnDoubleClick(e);
-
-        if (e.Button != MouseButton.Left)
-            return;
-
-        var localX = e.ScreenX - ScreenX - ArticleListRect.X;
-        var localY = e.ScreenY - ScreenY - ArticleListRect.Y;
-
-        if ((localX < 0) || (localX >= ArticleListRect.Width) || (localY < 0) || (localY >= ArticleListRect.Height))
-            return;
-
-        var row = localY / ROW_HEIGHT;
-
-        if (row >= MaxVisibleRows)
-            return;
-
-        var entryIndex = ScrollOffset + row;
-
-        if (entryIndex >= Entries.Count)
-            return;
-
-        SelectedIndex = entryIndex;
-        DataVersion++;
-        UpdateButtonStates();
-        OnViewPost?.Invoke(Entries[entryIndex].PostId);
     }
 
     public override void OnKeyDown(KeyDownEvent e)
@@ -358,26 +248,9 @@ public sealed class ArticleListControl : PrefabPanel
         }
     }
 
-    public override void OnMouseScroll(MouseScrollEvent e)
-    {
-        if (ScrollBar.TotalItems <= ScrollBar.VisibleItems)
-            return;
-
-        var newValue = Math.Clamp(ScrollBar.Value - e.Delta, 0, ScrollBar.MaxValue);
-
-        if (newValue != ScrollBar.Value)
-        {
-            ScrollBar.Value = newValue;
-            ScrollOffset = newValue;
-            DataVersion++;
-        }
-
-        e.Handled = true;
-    }
-
     private void UpdateButtonStates()
     {
-        var hasSelection = (SelectedIndex >= 0) && (SelectedIndex < Entries.Count);
+        var hasSelection = RowList.HasSelection;
 
         ViewButton?.Enabled = hasSelection;
 
@@ -385,15 +258,5 @@ public sealed class ArticleListControl : PrefabPanel
 
         if (HighlightButton is { Visible: true })
             HighlightButton.Enabled = hasSelection;
-    }
-
-    private void UpdateScrollBar()
-    {
-        //add 1 virtual row for the "load more" indicator when more posts exist
-        var totalRows = Entries.Count + (HasMorePosts ? 1 : 0);
-
-        ScrollBar.TotalItems = totalRows;
-        ScrollBar.VisibleItems = MaxVisibleRows;
-        ScrollBar.MaxValue = Math.Max(0, totalRows - MaxVisibleRows);
     }
 }

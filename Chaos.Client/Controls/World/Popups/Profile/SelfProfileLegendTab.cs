@@ -1,6 +1,6 @@
 #region
 using Chaos.Client.Controls.Components;
-using Chaos.Client.Controls.Generic;
+using Chaos.Client.Controls.Scrolling;
 using Chaos.Client.Models;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
@@ -17,15 +17,7 @@ public sealed class SelfProfileLegendTab : PrefabPanel
     private const int MAX_VISIBLE_ROWS = 12;
 
     private readonly Texture2D[] IconFrames;
-    private readonly Rectangle LegendListRect;
-    private readonly int RowHeight;
-    private readonly LegendMarkControl[] Rows;
-    private readonly ScrollBarControl ScrollBar;
-
-    private int DataVersion;
-    private List<LegendMarkEntry> Marks = [];
-    private int RenderedVersion = -1;
-    private int ScrollOffset;
+    private readonly VirtualizedRowList<LegendMarkEntry> RowList;
 
     public SelfProfileLegendTab(string prefabName)
         : base(prefabName, false)
@@ -33,51 +25,16 @@ public sealed class SelfProfileLegendTab : PrefabPanel
         Name = prefabName;
         Visible = false;
 
-        LegendListRect = GetRect("LegendList");
+        var legendListRect = GetRect("LegendList");
 
-        if (LegendListRect == Rectangle.Empty)
-            LegendListRect = new Rectangle(
+        if (legendListRect == Rectangle.Empty)
+            legendListRect = new Rectangle(
                 38,
                 33,
                 524,
                 237);
 
-        RowHeight = LegendListRect.Height / MAX_VISIBLE_ROWS;
-
-        //create row controls
-        Rows = new LegendMarkControl[MAX_VISIBLE_ROWS];
-
-        for (var i = 0; i < MAX_VISIBLE_ROWS; i++)
-        {
-            Rows[i] = new LegendMarkControl
-            {
-                Name = $"LegendRow{i}",
-                X = LegendListRect.X,
-                Y = LegendListRect.Y + i * (RowHeight + 1),
-                Width = LegendListRect.Width,
-                Height = RowHeight
-            };
-
-            AddChild(Rows[i]);
-        }
-
-        //scrollbar on the right side of the legend list
-        ScrollBar = new ScrollBarControl
-        {
-            Name = "LegendScrollBar",
-            X = LegendListRect.X + LegendListRect.Width - 16,
-            Y = LegendListRect.Y,
-            Height = LegendListRect.Height,
-            VisibleItems = MAX_VISIBLE_ROWS
-        };
-
-        ScrollBar.OnValueChanged += v =>
-        {
-            ScrollOffset = v;
-            DataVersion++;
-        };
-
-        AddChild(ScrollBar);
+        var rowHeight = legendListRect.Height / MAX_VISIBLE_ROWS;
 
         //legend mark icons from legends.epf
         var cache = UiRenderer.Instance!;
@@ -86,6 +43,40 @@ public sealed class SelfProfileLegendTab : PrefabPanel
 
         for (var i = 0; i < frameCount; i++)
             IconFrames[i] = cache.GetEpfTexture("legends.epf", i);
+
+        //display-only virtualized list (no selection) hosted in a scroll viewer; rows keep the original 1px gap.
+        RowList = new VirtualizedRowList<LegendMarkEntry>(
+            legendListRect.Width,
+            legendListRect.Height,
+            rowHeight,
+            static () => new LegendMarkControl(),
+            BindRow,
+            rowGap: 1);
+
+        var viewer = new ScrollViewerControl(RowList)
+        {
+            X = legendListRect.X,
+            Y = legendListRect.Y,
+            Width = legendListRect.Width,
+            Height = legendListRect.Height
+        };
+
+        AddChild(viewer);
+    }
+
+    private void BindRow(UIElement row, LegendMarkEntry mark, bool selected)
+    {
+        var legendRow = (LegendMarkControl)row;
+        var icon = mark.Icon < IconFrames.Length ? IconFrames[mark.Icon] : null;
+        var iconWidth = icon?.Width ?? 21;
+        var iconHeight = icon?.Height ?? 20;
+
+        legendRow.SetMark(
+            icon,
+            mark.Text,
+            mark.Color,
+            iconWidth,
+            iconHeight);
     }
 
     public override void Dispose()
@@ -96,71 +87,8 @@ public sealed class SelfProfileLegendTab : PrefabPanel
         base.Dispose();
     }
 
-    public override void Draw(SpriteBatch spriteBatch)
-    {
-        if (!Visible)
-            return;
-
-        RefreshRows();
-        base.Draw(spriteBatch);
-    }
-
-    private void RefreshRows()
-    {
-        if (RenderedVersion == DataVersion)
-            return;
-
-        RenderedVersion = DataVersion;
-
-        for (var i = 0; i < MAX_VISIBLE_ROWS; i++)
-        {
-            var markIndex = ScrollOffset + i;
-
-            if (markIndex < Marks.Count)
-            {
-                var mark = Marks[markIndex];
-                var icon = mark.Icon < IconFrames.Length ? IconFrames[mark.Icon] : null;
-                var iconWidth = icon?.Width ?? 21;
-                var iconHeight = icon?.Height ?? 20;
-
-                Rows[i]
-                    .SetMark(
-                        icon,
-                        mark.Text,
-                        mark.Color,
-                        iconWidth,
-                        iconHeight);
-                Rows[i].Visible = true;
-            } else
-            {
-                Rows[i]
-                    .Clear();
-                Rows[i].Visible = false;
-            }
-        }
-    }
-
     /// <summary>
     ///     Sets the legend mark entries to display.
     /// </summary>
-    public void SetMarks(List<LegendMarkEntry> marks)
-    {
-        Marks = marks;
-        ScrollOffset = 0;
-        ScrollBar.Value = 0;
-        ScrollBar.TotalItems = marks.Count;
-        ScrollBar.MaxValue = Math.Max(0, marks.Count - MAX_VISIBLE_ROWS);
-        DataVersion++;
-    }
-
-    public override void OnMouseScroll(MouseScrollEvent e)
-    {
-        if (Marks.Count > MAX_VISIBLE_ROWS)
-        {
-            ScrollOffset = Math.Clamp(ScrollOffset - e.Delta, 0, Marks.Count - MAX_VISIBLE_ROWS);
-            ScrollBar.Value = ScrollOffset;
-            DataVersion++;
-            e.Handled = true;
-        }
-    }
+    public void SetMarks(List<LegendMarkEntry> marks) => RowList.SetItems(marks);
 }

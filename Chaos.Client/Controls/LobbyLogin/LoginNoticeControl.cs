@@ -1,6 +1,6 @@
 #region
 using Chaos.Client.Controls.Components;
-using Chaos.Client.Controls.Generic;
+using Chaos.Client.Controls.Scrolling;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Input;
 #endregion
@@ -10,9 +10,6 @@ namespace Chaos.Client.Controls.LobbyLogin;
 public sealed class LoginNoticeControl : PrefabPanel
 {
     private readonly UILabel? AgreementTextLabel;
-    private readonly ScrollBarControl? ScrollBar;
-    private readonly int TextAreaHeight;
-    private readonly int TextAreaWidth;
     public UIButton? CancelButton { get; }
 
     public UIButton? OkButton { get; }
@@ -39,48 +36,30 @@ public sealed class LoginNoticeControl : PrefabPanel
 
         if (textRect != Rectangle.Empty)
         {
-            TextAreaWidth = textRect.Width - 25;
-            TextAreaHeight = textRect.Height;
-
             AgreementTextLabel = new UILabel
             {
                 Name = "AgreementText",
-                X = textRect.X,
-                Y = textRect.Y,
-                Width = TextAreaWidth,
-                Height = TextAreaHeight,
+                Width = textRect.Width,
+                Height = textRect.Height,
                 PaddingLeft = 0,
                 PaddingTop = 0,
-                WordWrap = true,
-                Visible = false
+                WordWrap = true
             };
 
-            AddChild(AgreementTextLabel);
-
-            ScrollBar = new ScrollBarControl
+            //the prefab leaves a 9px gap between the text and the scrollbar column (the old label was inset
+            //25px from the right while the viewer's bar gutter is 16px); ContentRightPadding reproduces it.
+            var viewer = new ScrollViewerControl(AgreementTextLabel)
             {
                 Name = "AgreementScroll",
-                X = textRect.X + textRect.Width - ScrollBarControl.DEFAULT_WIDTH,
+                X = textRect.X,
                 Y = textRect.Y,
-                Height = TextAreaHeight
+                Width = textRect.Width,
+                Height = textRect.Height,
+                ContentRightPadding = 9
             };
 
-            ScrollBar.OnValueChanged += value =>
-            {
-                AgreementTextLabel?.ScrollOffset = value * TextRenderer.CHAR_HEIGHT;
-            };
-
-            AddChild(ScrollBar);
+            AddChild(viewer);
         }
-    }
-
-    public override void Hide()
-    {
-        AgreementTextLabel?.Visible = false;
-
-        ScrollBar?.Visible = false;
-
-        base.Hide();
     }
 
     public event CancelHandler? OnCancel;
@@ -94,20 +73,6 @@ public sealed class LoginNoticeControl : PrefabPanel
             AgreementTextLabel.ForegroundColor = TextColors.Default;
             AgreementTextLabel.ScrollOffset = 0;
             AgreementTextLabel.Text = agreementText;
-            AgreementTextLabel.Visible = true;
-
-            if (ScrollBar is not null)
-            {
-                var visibleLines = TextAreaHeight / TextRenderer.CHAR_HEIGHT;
-                var totalLines = AgreementTextLabel.ContentHeight / TextRenderer.CHAR_HEIGHT;
-                var scrollMax = Math.Max(0, totalLines - visibleLines);
-
-                ScrollBar.Value = 0;
-                ScrollBar.MaxValue = scrollMax;
-                ScrollBar.TotalItems = totalLines;
-                ScrollBar.VisibleItems = visibleLines;
-                ScrollBar.Enabled = scrollMax > 0;
-            }
         }
 
         base.Show();
@@ -131,24 +96,4 @@ public sealed class LoginNoticeControl : PrefabPanel
         }
     }
 
-    public override void OnMouseScroll(MouseScrollEvent e)
-    {
-        if ((AgreementTextLabel is null) || (ScrollBar is null))
-            return;
-
-        if (AgreementTextLabel.ContentHeight <= TextAreaHeight)
-            return;
-
-        var visibleLines = TextAreaHeight / TextRenderer.CHAR_HEIGHT;
-        var totalLines = AgreementTextLabel.ContentHeight / TextRenderer.CHAR_HEIGHT;
-        var maxScroll = Math.Max(0, totalLines - visibleLines);
-        var newValue = Math.Clamp(ScrollBar.Value - e.Delta, 0, maxScroll);
-
-        if (newValue == ScrollBar.Value)
-            return;
-
-        ScrollBar.Value = newValue;
-        AgreementTextLabel.ScrollOffset = newValue * TextRenderer.CHAR_HEIGHT;
-        e.Handled = true;
-    }
 }

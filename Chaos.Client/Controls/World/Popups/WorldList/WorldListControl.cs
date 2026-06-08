@@ -2,6 +2,7 @@
 using Chaos.Client.Collections;
 using Chaos.Client.Controls.Components;
 using Chaos.Client.Controls.Generic;
+using Chaos.Client.Controls.Scrolling;
 using Chaos.Client.Data.Models;
 using Chaos.Client.Models;
 using Chaos.Client.Utilities;
@@ -27,9 +28,7 @@ public sealed class WorldListControl : PrefabPanel
     private const int STATUS_ICON_COUNT = 8;
     private readonly List<WorldListEntry> FilterBuffer = [];
 
-    private readonly int MaxVisibleRows;
-    private readonly WorldListEntryControl[] RowEntries;
-    private readonly ScrollBarControl ScrollBar;
+    private readonly VirtualizedRowList<WorldListEntry> RowList;
     private readonly Texture2D?[] StatusIcons = new Texture2D?[STATUS_ICON_COUNT];
 
     //tab buttons
@@ -46,8 +45,6 @@ public sealed class WorldListControl : PrefabPanel
     private HashSet<string> FamilyNames = new(StringComparer.OrdinalIgnoreCase);
     private HashSet<string> FriendNames = new(StringComparer.OrdinalIgnoreCase);
     private IReadOnlyList<WorldListEntry> FilteredEntries = [];
-    private bool RowsDirty;
-    private int ScrollOffset;
 
     //slide animation
     private SlideAnimator Slide;
@@ -74,23 +71,6 @@ public sealed class WorldListControl : PrefabPanel
 
         //userslist rect
         UsersListRect = GetRect("UsersList");
-        MaxVisibleRows = UsersListRect.Height > 0 ? UsersListRect.Height / ROW_HEIGHT : 0;
-
-        //scrollbar
-        ScrollBar = new ScrollBarControl
-        {
-            Name = "ScrollBar",
-            X = UsersListRect.X + UsersListRect.Width - ScrollBarControl.DEFAULT_WIDTH,
-            Y = UsersListRect.Y,
-            Height = UsersListRect.Height
-        };
-
-        ScrollBar.OnValueChanged += v =>
-        {
-            ScrollOffset = v;
-            RowsDirty = true;
-        };
-        AddChild(ScrollBar);
 
         //count labels
         var totalNumRect = GetRect("TotalNum");
@@ -112,24 +92,33 @@ public sealed class WorldListControl : PrefabPanel
         TotalNumLabel.Text = "0";
         AddChild(TotalNumLabel);
 
-        //row entries
+        //row entries hosted in a virtualized list (no selection; each row whispers on its own double-click). the row
+        //width keeps the original 5px gap before the scrollbar gutter via ContentRightPadding.
         var rowWidth = UsersListRect.Width - ScrollBarControl.DEFAULT_WIDTH - 5;
-        RowEntries = new WorldListEntryControl[MaxVisibleRows];
 
-        for (var i = 0; i < MaxVisibleRows; i++)
-        {
-            RowEntries[i] = new WorldListEntryControl(rowWidth)
+        RowList = new VirtualizedRowList<WorldListEntry>(
+            rowWidth,
+            UsersListRect.Height,
+            ROW_HEIGHT,
+            () =>
             {
-                Name = $"Row{i}",
-                X = UsersListRect.X,
-                Y = UsersListRect.Y + i * ROW_HEIGHT,
-                Width = rowWidth,
-                Visible = false
-            };
+                var row = new WorldListEntryControl(rowWidth);
+                row.OnWhisper += name => OnWhisperRequested?.Invoke(name);
 
-            RowEntries[i].OnWhisper += name => OnWhisperRequested?.Invoke(name);
-            AddChild(RowEntries[i]);
-        }
+                return row;
+            },
+            BindRow);
+
+        var viewer = new ScrollViewerControl(RowList)
+        {
+            X = UsersListRect.X,
+            Y = UsersListRect.Y,
+            Width = UsersListRect.Width,
+            Height = UsersListRect.Height,
+            ContentRightPadding = 5
+        };
+
+        AddChild(viewer);
 
         //social status icons from _nemots.spf (frame 0 of each 3-frame group)
         LoadStatusIcons();
@@ -226,15 +215,12 @@ public sealed class WorldListControl : PrefabPanel
             FilteredEntries = FilterBuffer;
         }
 
-        ScrollBar.TotalItems = FilteredEntries.Count;
-        ScrollBar.VisibleItems = MaxVisibleRows;
-        ScrollBar.MaxValue = Math.Max(0, FilteredEntries.Count - MaxVisibleRows);
-        ScrollBar.Value = ScrollOffset;
+        RowList.SetItems(FilteredEntries);
     }
 
     private void AutoScrollToSelf()
     {
-        if ((PlayerName.Length == 0) || (MaxVisibleRows <= 0))
+        if (PlayerName.Length == 0)
             return;
 
         for (var i = 0; i < FilteredEntries.Count; i++)
@@ -242,10 +228,7 @@ public sealed class WorldListControl : PrefabPanel
                 .Name
                 .EqualsI(PlayerName))
             {
-                ScrollOffset = Math.Max(0, i - MaxVisibleRows / 2);
-
-                if (FilteredEntries.Count > MaxVisibleRows)
-                    ScrollOffset = Math.Min(ScrollOffset, FilteredEntries.Count - MaxVisibleRows);
+                RowList.ScrollToIndex(i);
 
                 return;
             }
@@ -332,31 +315,18 @@ public sealed class WorldListControl : PrefabPanel
 
     private void OnWorldListChanged() => Show(WorldState.WorldList.Entries, WorldState.WorldList.TotalOnline);
 
-    private void RefreshRowEntries()
+    private void BindRow(UIElement row, WorldListEntry entry, bool selected)
     {
-        for (var i = 0; i < MaxVisibleRows; i++)
-        {
-            var entryIndex = ScrollOffset + i;
+        var nameColor = FamilyNames.Contains(entry.Name)
+            ? LegendColors.HotPink
+            : FriendNames.Contains(entry.Name)
+                ? LegendColors.Lime
+                : MapWorldListColor(entry.Color);
 
-            if (entryIndex < FilteredEntries.Count)
-            {
-                var entry = FilteredEntries[entryIndex];
+        var statusIdx = (int)entry.SocialStatus;
+        var statusIcon = (statusIdx >= 0) && (statusIdx < StatusIcons.Length) ? StatusIcons[statusIdx] : null;
 
-                var nameColor = FamilyNames.Contains(entry.Name)
-                    ? LegendColors.HotPink
-                    : FriendNames.Contains(entry.Name)
-                        ? LegendColors.Lime
-                        : MapWorldListColor(entry.Color);
-
-                var statusIdx = (int)entry.SocialStatus;
-                var statusIcon = (statusIdx >= 0) && (statusIdx < StatusIcons.Length) ? StatusIcons[statusIdx] : null;
-
-                RowEntries[i]
-                    .SetEntry(entry, statusIcon, nameColor);
-            } else
-                RowEntries[i]
-                    .Clear();
-        }
+        ((WorldListEntryControl)row).SetEntry(entry, statusIcon, nameColor);
     }
 
     private void SelectTab(int tab)
@@ -364,10 +334,8 @@ public sealed class WorldListControl : PrefabPanel
         TabButtons[ActiveTab].IsSelected = false;
         ActiveTab = tab;
         TabButtons[ActiveTab].IsSelected = true;
-        ScrollOffset = 0;
         ApplyFilter();
         UpdateCountLabels();
-        RowsDirty = true;
     }
 
     public void SetViewportBounds(Rectangle viewport)
@@ -382,13 +350,10 @@ public sealed class WorldListControl : PrefabPanel
         TotalOnline = totalOnline;
         ActiveTab = 0;
         TabButtons[0].IsSelected = true;
-        ScrollOffset = 0;
 
         ApplyFilter();
         UpdateCountLabels();
         AutoScrollToSelf();
-        ScrollBar.Value = ScrollOffset;
-        RowsDirty = true;
 
         if (!Visible)
         {
@@ -415,12 +380,6 @@ public sealed class WorldListControl : PrefabPanel
             return;
         }
 
-        if (RowsDirty)
-        {
-            RefreshRowEntries();
-            RowsDirty = false;
-        }
-
         base.Update(gameTime);
     }
 
@@ -434,23 +393,6 @@ public sealed class WorldListControl : PrefabPanel
             SlideClose();
             e.Handled = true;
         }
-    }
-
-    public override void OnMouseScroll(MouseScrollEvent e)
-    {
-        if (ScrollBar.TotalItems <= ScrollBar.VisibleItems)
-            return;
-
-        var newValue = Math.Clamp(ScrollBar.Value - e.Delta, 0, ScrollBar.MaxValue);
-
-        if (newValue != ScrollBar.Value)
-        {
-            ScrollBar.Value = newValue;
-            ScrollOffset = newValue;
-            RowsDirty = true;
-        }
-
-        e.Handled = true;
     }
 
     private void UpdateCountLabels()

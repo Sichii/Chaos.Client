@@ -162,3 +162,14 @@ public enum ScrollOrientation
     Vertical,
     Horizontal
 }
+
+/// <summary>
+///     Per-axis scrollbar visibility for <c>ScrollViewerControl</c>. <see cref="Hidden" /> suppresses the bar but the
+///     wheel still scrolls the content.
+/// </summary>
+public enum ScrollBarVisibility
+{
+    Auto,     // show the bar only when the content overflows the axis
+    Visible,  // always show the bar (ScrollBarControl renders it disabled when content fits)
+    Hidden    // never show the bar (wheel still scrolls)
+}

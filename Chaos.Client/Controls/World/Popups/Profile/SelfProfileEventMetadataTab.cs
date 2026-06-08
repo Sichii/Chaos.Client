@@ -1,7 +1,7 @@
 #region
 using Chaos.Client.Collections;
 using Chaos.Client.Controls.Components;
-using Chaos.Client.Controls.Generic;
+using Chaos.Client.Controls.Scrolling;
 using Chaos.Client.Data.Models;
 using Chaos.DarkAges.Definitions;
 using Microsoft.Xna.Framework;
@@ -18,33 +18,21 @@ namespace Chaos.Client.Controls.World.Popups.Profile;
 public sealed class SelfProfileEventMetadataTab : PrefabPanel
 {
     private const int ROW_HEIGHT = 45;
-    private const int MAX_VISIBLE_ROWS = 5;
-    private const int DISPLAY_ROWS = MAX_VISIBLE_ROWS + 1;
     private const int MAX_DISPLAY_PAGES = 3;
     private const int COLUMNS_PER_PAGE = 2;
     private const int MAX_DISPLAY_SLOTS = MAX_DISPLAY_PAGES * COLUMNS_PER_PAGE;
 
     //6 display slots (3 pages x 2 columns), each holding events for that slot
     private readonly List<EventMetadataEntry>[] DisplaySlots = new List<EventMetadataEntry>[MAX_DISPLAY_SLOTS];
-    private readonly UIPanel LeftContainer;
-    private readonly Rectangle LeftRect;
-
-    private readonly EventMetadataEntryControl[] LeftRows;
-    private readonly ScrollBarControl LeftScrollBar;
+    private readonly VirtualizedRowList<EventMetadataEntry> LeftList;
     private readonly UIButton? NextButton;
     private readonly UIButton? PrevButton;
-    private readonly UIPanel RightContainer;
-    private readonly Rectangle RightRect;
-    private readonly EventMetadataEntryControl[] RightRows;
-    private readonly ScrollBarControl RightScrollBar;
+    private readonly VirtualizedRowList<EventMetadataEntry> RightList;
 
     private BaseClass BaseClass;
     private HashSet<string> CompletedEventIds = new(StringComparer.OrdinalIgnoreCase);
     private int CurrentPage;
-    private bool Dirty = true;
     private bool EnableMasterQuests;
-    private int LeftScrollOffset;
-    private int RightScrollOffset;
 
     public SelfProfileEventMetadataTab(string prefabName)
         : base(prefabName, false)
@@ -52,74 +40,28 @@ public sealed class SelfProfileEventMetadataTab : PrefabPanel
         Name = prefabName;
         Visible = false;
 
-        VisibilityChanged += visible =>
-        {
-            if (visible)
-                Dirty = true;
-        };
-
         for (var i = 0; i < MAX_DISPLAY_SLOTS; i++)
             DisplaySlots[i] = [];
 
-        LeftRect = GetRect("EV1");
-        RightRect = GetRect("EV2");
+        var leftRect = GetRect("EV1");
+        var rightRect = GetRect("EV2");
 
-        if (LeftRect == Rectangle.Empty)
-            LeftRect = new Rectangle(
+        if (leftRect == Rectangle.Empty)
+            leftRect = new Rectangle(
                 32,
                 33,
                 233,
                 239);
 
-        if (RightRect == Rectangle.Empty)
-            RightRect = new Rectangle(
+        if (rightRect == Rectangle.Empty)
+            rightRect = new Rectangle(
                 331,
                 33,
                 233,
                 239);
 
-        LeftContainer = new UIPanel
-        {
-            Name = "LeftContainer",
-            X = LeftRect.X,
-            Y = LeftRect.Y,
-            Width = LeftRect.Width,
-            Height = LeftRect.Height,
-            IsPassThrough = true
-        };
-
-        AddChild(LeftContainer);
-
-        RightContainer = new UIPanel
-        {
-            Name = "RightContainer",
-            X = RightRect.X,
-            Y = RightRect.Y,
-            Width = RightRect.Width,
-            Height = RightRect.Height,
-            IsPassThrough = true
-        };
-
-        AddChild(RightContainer);
-
-        LeftRows = CreateColumn(LeftContainer, LeftRect.Height);
-        RightRows = CreateColumn(RightContainer, RightRect.Height);
-
-        LeftScrollBar = CreateScrollBar(
-            LeftRect,
-            v =>
-            {
-                LeftScrollOffset = v;
-                Dirty = true;
-            });
-
-        RightScrollBar = CreateScrollBar(
-            RightRect,
-            v =>
-            {
-                RightScrollOffset = v;
-                Dirty = true;
-            });
+        LeftList = CreateColumn(leftRect);
+        RightList = CreateColumn(rightRect);
 
         NextButton = CreateButton("NEXT");
         PrevButton = CreateButton("PREV");
@@ -130,10 +72,8 @@ public sealed class SelfProfileEventMetadataTab : PrefabPanel
                 if (CurrentPage < (MAX_DISPLAY_PAGES - 1))
                 {
                     CurrentPage++;
-                    LeftScrollOffset = 0;
-                    RightScrollOffset = 0;
                     SetBackgroundFrame(CurrentPage);
-                    Dirty = true;
+                    ShowCurrentPage();
                 }
             };
 
@@ -143,12 +83,21 @@ public sealed class SelfProfileEventMetadataTab : PrefabPanel
                 if (CurrentPage > 0)
                 {
                     CurrentPage--;
-                    LeftScrollOffset = 0;
-                    RightScrollOffset = 0;
                     SetBackgroundFrame(CurrentPage);
-                    Dirty = true;
+                    ShowCurrentPage();
                 }
             };
+
+        //event state depends on the player's attrs/completed events, which can change while the tab is hidden, so
+        //re-bind both columns whenever the tab becomes visible again.
+        VisibilityChanged += visible =>
+        {
+            if (visible)
+            {
+                LeftList.Invalidate();
+                RightList.Invalidate();
+            }
+        };
     }
 
     /// <summary>
@@ -161,103 +110,47 @@ public sealed class SelfProfileEventMetadataTab : PrefabPanel
 
         CompletedEventIds = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         CurrentPage = 0;
-        LeftScrollOffset = 0;
-        RightScrollOffset = 0;
-        LeftScrollBar.TotalItems = 0;
-        LeftScrollBar.MaxValue = 0;
-        LeftScrollBar.Value = 0;
-        RightScrollBar.TotalItems = 0;
-        RightScrollBar.MaxValue = 0;
-        RightScrollBar.Value = 0;
         SetBackgroundFrame(0);
-        Dirty = true;
+        ShowCurrentPage();
     }
 
-    private EventMetadataEntryControl[] CreateColumn(UIPanel container, int columnHeight)
+    private VirtualizedRowList<EventMetadataEntry> CreateColumn(Rectangle columnRect)
     {
-        var rows = new EventMetadataEntryControl[DISPLAY_ROWS];
-
-        for (var i = 0; i < DISPLAY_ROWS; i++)
-        {
-            var row = new EventMetadataEntryControl
+        //overscanRows:1 gives the bottom "peek" row; the generic clips it to the column bounds.
+        var list = new VirtualizedRowList<EventMetadataEntry>(
+            columnRect.Width,
+            columnRect.Height,
+            ROW_HEIGHT,
+            () =>
             {
-                X = 0,
-                Y = i * ROW_HEIGHT,
-                Visible = false
-            };
+                var row = new EventMetadataEntryControl();
+                row.OnClicked += (entry, state) => OnEntryClicked?.Invoke(entry, state);
 
-            //clip the peek row's hit-test area to the column bounds
-            var maxHeight = columnHeight - row.Y;
+                return row;
+            },
+            BindRow,
+            overscanRows: 1);
 
-            if (maxHeight < row.Height)
-                row.Height = maxHeight;
-
-            row.OnClicked += (entry, state) => OnEntryClicked?.Invoke(entry, state);
-            container.AddChild(row);
-            rows[i] = row;
-        }
-
-        return rows;
-    }
-
-    private ScrollBarControl CreateScrollBar(Rectangle columnRect, ScrollValueChangedHandler onValueChanged)
-    {
-        var scrollBar = new ScrollBarControl
+        var viewer = new ScrollViewerControl(list)
         {
-            X = columnRect.X + columnRect.Width - ScrollBarControl.DEFAULT_WIDTH,
+            X = columnRect.X,
             Y = columnRect.Y,
-            Height = columnRect.Height,
-            VisibleItems = MAX_VISIBLE_ROWS
+            Width = columnRect.Width,
+            Height = columnRect.Height
         };
 
-        scrollBar.OnValueChanged += onValueChanged;
-        AddChild(scrollBar);
+        AddChild(viewer);
 
-        return scrollBar;
+        return list;
     }
+
+    private void BindRow(UIElement row, EventMetadataEntry entry, bool selected)
+        => ((EventMetadataEntryControl)row).SetEntry(entry, ResolveEventState(entry));
 
     /// <summary>
     ///     Fired when any entry row is clicked. Passes the entry and its resolved state.
     /// </summary>
     public event EventMetadataClickedHandler? OnEntryClicked;
-
-    private void RefreshColumn(EventMetadataEntryControl[] rows, IReadOnlyList<EventMetadataEntry> entries, int scrollOffset)
-    {
-        for (var i = 0; i < rows.Length; i++)
-        {
-            var entryIndex = scrollOffset + i;
-
-            if (entryIndex < entries.Count)
-            {
-                var entry = entries[entryIndex];
-                var state = ResolveEventState(entry);
-
-                rows[i]
-                    .SetEntry(entry, state);
-            } else
-                rows[i]
-                    .Clear();
-        }
-    }
-
-    private void RefreshRows()
-    {
-        if (!Dirty)
-            return;
-
-        Dirty = false;
-        UpdateScrollBars();
-
-        var leftSlot = CurrentPage * COLUMNS_PER_PAGE;
-        var rightSlot = leftSlot + 1;
-
-        var leftEntries = leftSlot < MAX_DISPLAY_SLOTS ? DisplaySlots[leftSlot] : [];
-        var rightEntries = rightSlot < MAX_DISPLAY_SLOTS ? DisplaySlots[rightSlot] : [];
-
-        RefreshColumn(LeftRows, leftEntries, LeftScrollOffset);
-
-        RefreshColumn(RightRows, rightEntries, RightScrollOffset);
-    }
 
     private EventState ResolveEventState(EventMetadataEntry entry)
     {
@@ -335,33 +228,18 @@ public sealed class SelfProfileEventMetadataTab : PrefabPanel
         }
 
         CurrentPage = 0;
-        LeftScrollOffset = 0;
-        RightScrollOffset = 0;
         SetBackgroundFrame(0);
-        UpdateScrollBars();
-        Dirty = true;
+        ShowCurrentPage();
     }
 
-    public override void OnMouseScroll(MouseScrollEvent e)
+    //binds each column to its current page's display slot; SetItems resets that column's scroll to the top.
+    private void ShowCurrentPage()
     {
         var leftSlot = CurrentPage * COLUMNS_PER_PAGE;
         var rightSlot = leftSlot + 1;
-        var leftCount = leftSlot < MAX_DISPLAY_SLOTS ? DisplaySlots[leftSlot].Count : 0;
-        var rightCount = rightSlot < MAX_DISPLAY_SLOTS ? DisplaySlots[rightSlot].Count : 0;
 
-        if (LeftContainer.ContainsPoint(e.ScreenX, e.ScreenY) && (leftCount > MAX_VISIBLE_ROWS))
-        {
-            LeftScrollOffset = Math.Clamp(LeftScrollOffset - e.Delta, 0, leftCount - MAX_VISIBLE_ROWS);
-            LeftScrollBar.Value = LeftScrollOffset;
-            Dirty = true;
-            e.Handled = true;
-        } else if (RightContainer.ContainsPoint(e.ScreenX, e.ScreenY) && (rightCount > MAX_VISIBLE_ROWS))
-        {
-            RightScrollOffset = Math.Clamp(RightScrollOffset - e.Delta, 0, rightCount - MAX_VISIBLE_ROWS);
-            RightScrollBar.Value = RightScrollOffset;
-            Dirty = true;
-            e.Handled = true;
-        }
+        LeftList.SetItems(leftSlot < MAX_DISPLAY_SLOTS ? DisplaySlots[leftSlot] : []);
+        RightList.SetItems(rightSlot < MAX_DISPLAY_SLOTS ? DisplaySlots[rightSlot] : []);
     }
 
     public override void Update(GameTime gameTime)
@@ -369,24 +247,6 @@ public sealed class SelfProfileEventMetadataTab : PrefabPanel
         if (!Visible || !Enabled)
             return;
 
-        RefreshRows();
         base.Update(gameTime);
-    }
-
-    private void UpdateScrollBars()
-    {
-        var leftSlot = CurrentPage * COLUMNS_PER_PAGE;
-        var rightSlot = leftSlot + 1;
-
-        var leftCount = leftSlot < MAX_DISPLAY_SLOTS ? DisplaySlots[leftSlot].Count : 0;
-        var rightCount = rightSlot < MAX_DISPLAY_SLOTS ? DisplaySlots[rightSlot].Count : 0;
-
-        LeftScrollBar.TotalItems = leftCount;
-        LeftScrollBar.MaxValue = Math.Max(0, leftCount - MAX_VISIBLE_ROWS);
-        LeftScrollBar.Value = Math.Min(LeftScrollOffset, LeftScrollBar.MaxValue);
-
-        RightScrollBar.TotalItems = rightCount;
-        RightScrollBar.MaxValue = Math.Max(0, rightCount - MAX_VISIBLE_ROWS);
-        RightScrollBar.Value = Math.Min(RightScrollOffset, RightScrollBar.MaxValue);
     }
 }

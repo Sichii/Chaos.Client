@@ -1,7 +1,7 @@
 #region
-using Chaos.Client.Controls.Bindings;
 using Chaos.Client.Controls.Components;
 using Chaos.Client.Controls.Generic;
+using Chaos.Client.Controls.Scrolling;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Input;
 #endregion
@@ -17,8 +17,8 @@ public sealed class MailSendControl : PrefabPanel
     //content area — multi-line body
     private readonly UITextBox BodyBox;
 
-    //scrollbar for the multi-line body
-    private readonly ScrollBarControl ScrollBar;
+    //scroll container hosting the body (owns the bar + wheel routing)
+    private readonly ScrollViewerControl Viewer;
 
     //receiver — editable overlay
     private readonly UITextBox? ReceiverEditBox;
@@ -60,19 +60,16 @@ public sealed class MailSendControl : PrefabPanel
         TitleBox?.ForegroundColor = LegendColors.White;
         TitleBox?.IsTabStop = true;
 
-        //content rect for multi-line body text entry. the compose prefabs (_nmails/_nartin) inset the
-        //editable Content 2px further right than the read prefabs (_nmailr/_narti), so anchoring the
-        //scrollbar to this Content's right edge would push it 2px past the read panels' scrollbar column.
-        //trim the body and place the scrollbar flush against it so the compose and read views line up.
+        //content rect for multi-line body text entry. the compose prefabs (_nmails/_nartin) inset the editable Content
+        //2px further right than the read prefabs (_nmailr/_narti), so the scrollbar gutter would otherwise land 2px past
+        //the read panels' bar column. trimming the viewer width by that overshoot keeps the body width and the bar
+        //column identical to the pre-binding layout (and aligned with the read views).
         var contentRect = GetRect("Content");
-        const int ComposeContentRightOvershoot = 2;
-        var bodyWidth = contentRect.Width - ScrollBarControl.DEFAULT_WIDTH - ComposeContentRightOvershoot;
+        const int COMPOSE_CONTENT_RIGHT_OVERSHOOT = 2;
 
         BodyBox = new UITextBox
         {
-            X = contentRect.X,
-            Y = contentRect.Y,
-            Width = bodyWidth,
+            Width = contentRect.Width - ScrollBarControl.DEFAULT_WIDTH - COMPOSE_CONTENT_RIGHT_OVERSHOOT,
             Height = contentRect.Height,
             IsMultiLine = true,
             IsSelectable = true,
@@ -85,19 +82,17 @@ public sealed class MailSendControl : PrefabPanel
             IsTabStop = true
         };
 
-        AddChild(BodyBox);
-
-        ScrollBar = new ScrollBarControl
+        //the viewer owns the bar + wheel routing and sizes the body each frame (UITextBox is IVerticalScrollable in
+        //line units). width is trimmed by the overshoot so the gutter lands exactly on the read panels' bar column.
+        Viewer = new ScrollViewerControl(BodyBox)
         {
-            Name = "ScrollBar",
-            X = contentRect.X + bodyWidth,
+            X = contentRect.X,
             Y = contentRect.Y,
+            Width = contentRect.Width - COMPOSE_CONTENT_RIGHT_OVERSHOOT,
             Height = contentRect.Height
         };
 
-        TextBoxScrollBinding.Bind(ScrollBar, BodyBox);
-
-        AddChild(ScrollBar);
+        AddChild(Viewer);
     }
 
     private void HandleSend()
@@ -111,19 +106,9 @@ public sealed class MailSendControl : PrefabPanel
         OnSend?.Invoke(recipient, subject, BodyBox.Text);
     }
 
-    public override void Update(GameTime gameTime)
-    {
-        base.Update(gameTime);
-
-        if (Visible)
-            TextBoxScrollBinding.Sync(ScrollBar, BodyBox);
-    }
-
-    public override void OnMouseScroll(MouseScrollEvent e)
-    {
-        if (TextBoxScrollBinding.HandleWheel(ScrollBar, BodyBox, e.Delta))
-            e.Handled = true;
-    }
+    //a wheel anywhere over the compose panel scrolls the body, even when focus is on a header field — restoring the
+    //pre-migration panel-wide wheel. Wheel directly over the body/bar is handled deeper and never bubbles here.
+    public override void OnMouseScroll(MouseScrollEvent e) => Viewer.OnMouseScroll(e);
 
     public override void Hide()
     {

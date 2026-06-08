@@ -1,6 +1,6 @@
 #region
 using Chaos.Client.Controls.Components;
-using Chaos.Client.Controls.Generic;
+using Chaos.Client.Controls.Scrolling;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Input;
 #endregion
@@ -16,9 +16,7 @@ public sealed class ArticleReadControl : PrefabPanel
     private readonly UILabel? AuthorLabel;
     private readonly UILabel BodyLabel;
     private readonly UILabel? DateLabel;
-    private readonly ScrollBarControl ScrollBar;
     private readonly UILabel? TitleLabel;
-    private readonly int VisibleHeight;
     private int TargetX;
 
     public ushort BoardId { get; set; }
@@ -75,13 +73,10 @@ public sealed class ArticleReadControl : PrefabPanel
 
         //body content area
         var contentRect = GetRect("Content");
-        VisibleHeight = contentRect.Height;
 
         BodyLabel = new UILabel
         {
-            X = contentRect.X,
-            Y = contentRect.Y,
-            Width = contentRect.Width - ScrollBarControl.DEFAULT_WIDTH,
+            Width = contentRect.Width,
             Height = contentRect.Height,
             PaddingLeft = 0,
             PaddingRight = 2,
@@ -91,22 +86,15 @@ public sealed class ArticleReadControl : PrefabPanel
             IsSelectable = true
         };
 
-        AddChild(BodyLabel);
-
-        ScrollBar = new ScrollBarControl
+        var viewer = new ScrollViewerControl(BodyLabel)
         {
-            Name = "ScrollBar",
-            X = contentRect.X + contentRect.Width - ScrollBarControl.DEFAULT_WIDTH,
+            X = contentRect.X,
             Y = contentRect.Y,
+            Width = contentRect.Width,
             Height = contentRect.Height
         };
 
-        ScrollBar.OnValueChanged += v =>
-        {
-            BodyLabel.ScrollOffset = v * TextRenderer.CHAR_HEIGHT;
-        };
-
-        AddChild(ScrollBar);
+        AddChild(viewer);
     }
 
     public override void Hide()
@@ -158,7 +146,6 @@ public sealed class ArticleReadControl : PrefabPanel
 
         BodyLabel.ScrollOffset = 0;
         BodyLabel.Text = message;
-        UpdateScrollBar();
 
         Show();
     }
@@ -170,32 +157,5 @@ public sealed class ArticleReadControl : PrefabPanel
             OnUp?.Invoke();
             e.Handled = true;
         }
-    }
-
-    public override void OnMouseScroll(MouseScrollEvent e)
-    {
-        if (ScrollBar.TotalItems <= ScrollBar.VisibleItems)
-            return;
-
-        var newValue = Math.Clamp(ScrollBar.Value - e.Delta, 0, ScrollBar.MaxValue);
-
-        if (newValue != ScrollBar.Value)
-        {
-            ScrollBar.Value = newValue;
-            BodyLabel.ScrollOffset = newValue * TextRenderer.CHAR_HEIGHT;
-        }
-
-        e.Handled = true;
-    }
-
-    private void UpdateScrollBar()
-    {
-        var totalLines = BodyLabel.ContentHeight / TextRenderer.CHAR_HEIGHT;
-        var visibleLines = VisibleHeight / TextRenderer.CHAR_HEIGHT;
-
-        ScrollBar.TotalItems = totalLines;
-        ScrollBar.VisibleItems = visibleLines;
-        ScrollBar.MaxValue = Math.Max(0, totalLines - visibleLines);
-        ScrollBar.Value = 0;
     }
 }
