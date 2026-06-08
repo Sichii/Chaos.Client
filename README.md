@@ -10,8 +10,45 @@ Targets Dark Ages client version **7.4.1** for feature parity.
 
 Runs on **Windows, macOS, and Linux** — anywhere the .NET 10 SDK and MonoGame's DesktopGL backend are supported.
 
+## Configuration
+
+Almost everything a fork needs to change is in `Chaos.Client/GlobalSettings.cs`:
+
+| Setting                | What it is                                                                                                                          |
+|------------------------|-------------------------------------------------------------------------------------------------------------------------------------|
+| `ClientVersion`        | Version sent to the server on handshake. Default `741`.                                                                             |
+| `DataPath`             | Absolute path to the Dark Ages data folder (contains the `.dat` archives).                                                          |
+| `LobbyHost`            | Lobby server hostname or IP.                                                                                                        |
+| `LobbyPort`            | Lobby server port.                                                                                                                  |
+| `RequireSwimmingSkill` | When `true`, restores retail swim gate — water tiles require the GM flag or the `Swimming` skill. Default `false` (no requirement). |
+
+## Build & Run
+
+Requires the **.NET 10 SDK**. Builds and runs on Windows, macOS, and Linux.  
+Windows and macOS ship fully self-contained binaries — no extra install step.
+
+
+```bash
+dotnet build Chaos.Client.slnx
+dotnet run --project Chaos.Client/Chaos.Client.csproj
+```
+
+### Linux:
+
+Install SDL2_mixer's runtime deps via your package manager — the bundled `libSDL2_mixer.so` relies on system-provided
+codec libraries (`libmpg123`, `libvorbisfile`, `libFLAC`, `libfluidsynth`, etc.) that come free with the distro package:
+
+```bash
+sudo apt install libsdl2-mixer-2.0-0       # Debian/Ubuntu
+sudo dnf install SDL2_mixer                # Fedora/RHEL
+sudo pacman -S sdl2_mixer                  # Arch
+```
+
 ## Contents
 
+- [Configuration](#configuration)
+- [Build & Run](#build--run)
+    - [Linux: SDL2_mixer dependencies](#linux-sdl2_mixer-dependencies)
 - [Status](#status)
 - [Differences from the Retail Client](#differences-from-the-retail-client)
 - [Architecture](#architecture)
@@ -36,8 +73,6 @@ Runs on **Windows, macOS, and Linux** — anywhere the .NET 10 SDK and MonoGame'
     - [TextRenderer + FontAtlas](#textrenderer--fontatlas)
     - [UiRenderer](#uirenderer)
     - [Per-entity renderers](#per-entity-renderers-creaturerenderer-aislingrenderer-effectrenderer-itemrenderer)
-- [Build & Run](#build--run)
-- [Configuration](#configuration)
 - [Extending](#extending)
     - [Adding a UI panel](#adding-a-ui-panel)
     - [Adding a packet handler](#adding-a-packet-handler)
@@ -522,54 +557,6 @@ change, leak GPU memory if you forget to call `Clear`.
 - **`ItemRenderer`** — ground items. Deliberately separate from `UiRenderer`'s permanent icon cache because ground-item
   textures are evicted on map change while UI icons are not. Cache key includes dye color, and per-frame `(Left, Top)`
   offsets are stored so items center visually on their tile.
-
-## Build & Run
-
-Requires the **.NET 10 SDK**. Builds and runs on Windows, macOS, and Linux.
-
-> [!IMPORTANT]
-> The solution has a `ProjectReference` to [DALib](https://github.com/Sichii/DALib) at `../dalib/DALib/DALib.csproj`.
-> DALib must be checked out into a sibling `dalib/` directory before the build will resolve. From inside this repo:
->
-> ```bash
-> git clone https://github.com/Sichii/DALib ../dalib
-> ```
-
-Then:
-
-```bash
-dotnet build Chaos.Client.slnx
-dotnet run --project Chaos.Client/Chaos.Client.csproj
-```
-
-> [!NOTE]
-> The client also needs a retail Dark Ages data folder to load its archives from. Point `GlobalSettings.DataPath` at
-> yours before the first run, or the game will fail to start.
-
-> [!NOTE]
-> **Linux users:** install SDL2_mixer's runtime deps via your package manager — the bundled `libSDL2_mixer.so` relies on
-> system-provided codec libraries (`libmpg123`, `libvorbisfile`, `libFLAC`, `libfluidsynth`, etc.) that come free with
-> the distro package:
->
-> ```bash
-> sudo apt install libsdl2-mixer-2.0-0       # Debian/Ubuntu
-> sudo dnf install SDL2_mixer                # Fedora/RHEL
-> sudo pacman -S sdl2_mixer                  # Arch
-> ```
->
-> Windows and macOS ship fully self-contained binaries — no extra install step.
-
-## Configuration
-
-Almost everything a fork needs to change is in `Chaos.Client/GlobalSettings.cs`:
-
-| Setting                | What it is                                                                                                                          |
-|------------------------|-------------------------------------------------------------------------------------------------------------------------------------|
-| `ClientVersion`        | Version sent to the server on handshake. Default `741`.                                                                             |
-| `DataPath`             | Absolute path to the Dark Ages data folder (contains the `.dat` archives).                                                          |
-| `LobbyHost`            | Lobby server hostname or IP.                                                                                                        |
-| `LobbyPort`            | Lobby server port.                                                                                                                  |
-| `RequireSwimmingSkill` | When `true`, restores retail swim gate — water tiles require the GM flag or the `Swimming` skill. Default `false` (no requirement). |
 
 ## Extending
 

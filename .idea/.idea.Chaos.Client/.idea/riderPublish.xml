@@ -3,7 +3,6 @@
   <component name="LocationsWithSilentDeleteHolder">
     <option name="locations">
       <list>
-        <option value="$PROJECT_DIR$/../dalib/DALib/bin/publish" />
         <option value="$PROJECT_DIR$/Chaos.Client/bin/publish" />
       </list>
     </option>
