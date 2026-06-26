@@ -177,9 +177,11 @@ public static class AnimationSystem
     public static void Advance(WorldEntity entity, float elapsedMs, bool smoothScroll = false)
     {
         //idle animation ticks independently so it survives body animations.
-        //aislings use idleanimframecount (from "04" epf); creatures always tick.
+        //aislings use idleanimframecount (from "04" epf); creature sprites always tick — this includes
+        //aislings in monster form (IsRenderedAsCreatureSprite), whose IdleAnimFrameCount is 0 but whose
+        //mns idle still needs the tick to advance, or the form freezes on a single frame.
         //swimming aislings always tick so the swim animation cycles while idle.
-        if ((entity.IdleAnimFrameCount > 0) || (entity.Type == ClientEntityType.Creature) || entity.IsOnSwimmingTile)
+        if ((entity.IdleAnimFrameCount > 0) || entity.IsRenderedAsCreatureSprite || entity.IsOnSwimmingTile)
             AdvanceIdleAnim(entity, elapsedMs);
 
         switch (entity.AnimState)
@@ -603,11 +605,12 @@ public static class AnimationSystem
     /// </summary>
     public static (int FrameIndex, bool Flip) GetCreatureIdleFrame(in CreatureAnimInfo info, Direction direction)
     {
-        var baseIndex = info.StandingFrameCount > 0 ? info.StandingFrameIndex : info.WalkFrameIndex;
+        //StaticNoIdle (OptionalAnimationFrameCount == 0) shows the walk frame; an animated idle starts at
+        //the standing block with the optional-frame stride. keys off OptionalAnimationFrameCount to match
+        //the entity overload and retail, which ignore StandingFrameCount when there is no idle animation.
+        var baseIndex = info.OptionalAnimationFrameCount == 0 ? info.WalkFrameIndex : info.StandingFrameIndex;
 
-        var dirOffset = info.StandingFrameCount > 0
-            ? info.OptionalAnimationFrameCount > 0 ? info.OptionalAnimationFrameCount : info.StandingFrameCount
-            : info.WalkFrameCount;
+        var dirOffset = info.OptionalAnimationFrameCount == 0 ? info.WalkFrameCount : info.OptionalAnimationFrameCount;
 
         if ((baseIndex + dirOffset) >= info.TotalFrameCount)
             dirOffset = 0;

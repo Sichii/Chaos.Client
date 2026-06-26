@@ -6,6 +6,12 @@
     <PackageVersion Include="Chaos.Networking" Version="1.11.0-preview-0017-gd51f7c445e" />
     <PackageVersion Include="Chaos.Pathfinding" Version="1.11.0-preview-0017-gd51f7c445e" />
     <PackageVersion Include="DALib" Version="0.7.0" />
+    <!-- SkiaSharp managed + Linux native (libSkiaSharp.so), pinned to one version. DALib pulls SkiaSharp
+         transitively, but the Linux native must be referenced explicitly or a Linux publish ships none.
+         The managed pin (via a direct PackageReference in Chaos.Client.Data) makes a future DALib-driven
+         SkiaSharp bump fail the restore rather than silently ship a mismatched managed/native pair. -->
+    <PackageVersion Include="SkiaSharp" Version="3.116.0" />
+    <PackageVersion Include="SkiaSharp.NativeAssets.Linux" Version="3.116.0" />
     <PackageVersion Include="Microsoft.Extensions.Caching.Memory" Version="10.0.5" />
     <PackageVersion Include="TextCopy" Version="6.2.1" />
     <PackageVersion Include="MonoGame.Framework.DesktopGL" Version="3.8.4.1" />

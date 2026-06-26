@@ -4,6 +4,8 @@
         <PackageReference Include="Chaos.DarkAges"/>
         <PackageReference Include="Chaos.Geometry"/>
         <PackageReference Include="DALib" />
+        <PackageReference Include="SkiaSharp" />
+        <PackageReference Include="SkiaSharp.NativeAssets.Linux" />
         <PackageReference Include="Microsoft.Extensions.Caching.Memory"/>
     </ItemGroup>
 </Project>

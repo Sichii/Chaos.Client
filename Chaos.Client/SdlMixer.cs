@@ -9,7 +9,10 @@ namespace Chaos.Client;
 ///     P/Invoke declarations for SDL2_mixer 2.8.x. The native binary (SDL2_mixer.dll on Windows) is copied to
 ///     runtimes/{rid}/native/ via the csproj and resolved through the standard .NET native library probe. SDL2.dll
 ///     itself is shipped by MonoGame.Framework.DesktopGL. Since SDL2_mixer 2.6 the MP3 path uses minimp3 compiled
-///     directly into SDL2_mixer.dll, so no libmpg123/libogg/libvorbis chain is required.
+///     directly into the mixer binary, so no libmpg123/libogg/libvorbis chain is required — PROVIDED the bundled
+///     binary is built that way. The Windows/macOS payloads are the official self-contained SDL releases. The
+///     linux-x64 .so MUST be a self-contained build with codecs compiled in; a distro package build
+///     DT_NEEDED-links system codec libs (libmpg123/libFLAC/...) and yields no audio without them.
 /// </summary>
 internal static partial class SdlMixer
 {

@@ -43,8 +43,11 @@ public sealed partial class WorldScreen
             var isSmooth = (entity == player) && smoothScroll;
             AnimationSystem.Advance(entity, elapsedMs, isSmooth);
 
-            //update creature optional standing animation cycle
-            if (entity.Type == ClientEntityType.Creature)
+            //update creature optional standing animation cycle — covers native creatures AND aislings
+            //in monster form (both render as creature sprites), so gate on IsRenderedAsCreatureSprite
+            //rather than Type. Otherwise a player-form's IdleOptionalActive/IdleFrameIntervalMs never
+            //update, freezing forms whose idle motion lives in the optional loop (StandingFrameCount<=1).
+            if (entity.IsRenderedAsCreatureSprite)
             {
                 var animInfo = Game.CreatureRenderer.GetAnimInfo(entity.SpriteId);
 

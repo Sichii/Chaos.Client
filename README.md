@@ -24,8 +24,7 @@ Almost everything a fork needs to change is in `Chaos.Client/GlobalSettings.cs`:
 
 ## Build & Run
 
-Requires the **.NET 10 SDK**. Builds and runs on Windows, macOS, and Linux.  
-Windows and macOS ship fully self-contained binaries — no extra install step.
+Requires the **.NET 10 SDK**. Builds and runs on Windows, macOS, and Linux
 
 
 ```bash
@@ -33,22 +32,26 @@ dotnet build Chaos.Client.slnx
 dotnet run --project Chaos.Client/Chaos.Client.csproj
 ```
 
-### Linux:
+### Linux
 
-Install SDL2_mixer's runtime deps via your package manager — the bundled `libSDL2_mixer.so` relies on system-provided
-codec libraries (`libmpg123`, `libvorbisfile`, `libFLAC`, `libfluidsynth`, etc.) that come free with the distro package:
+No package-manager step is needed for audio or rendering — the `linux-x64` natives are bundled and self-contained:
 
-```bash
-sudo apt install libsdl2-mixer-2.0-0       # Debian/Ubuntu
-sudo dnf install SDL2_mixer                # Fedora/RHEL
-sudo pacman -S sdl2_mixer                  # Arch
-```
+- `libSDL2_mixer.so` is built with its codecs compiled in (minimp3 for MP3, etc.), so it needs **no**
+  `libmpg123` / `libFLAC` / `libvorbis` system packages. Its only dynamic dependencies are `libc` and base
+  `libSDL2` (the latter shipped by MonoGame).
+- `libSkiaSharp.so` ships via the `SkiaSharp.NativeAssets.Linux` package, referenced from `Chaos.Client.Data`.
+
+Two Linux-specific notes:
+
+- You need a desktop Linux with working OpenGL drivers (Mesa or vendor) for MonoGame's DesktopGL backend.
+- Linux filesystems are case-sensitive: point `DataPath` at a data folder whose archive files (and the `npc/`,
+  `maps/`, … subfolders) are lowercase. The client lowercases `.dat` archive names to match.
 
 ## Contents
 
 - [Configuration](#configuration)
 - [Build & Run](#build--run)
-    - [Linux: SDL2_mixer dependencies](#linux-sdl2_mixer-dependencies)
+    - [Linux](#linux)
 - [Status](#status)
 - [Differences from the Retail Client](#differences-from-the-retail-client)
 - [Architecture](#architecture)

@@ -57,7 +57,10 @@ public static class DatArchives
 
     public static DataArchive Load(string key)
     {
-        key = key.WithExtension(".dat");
+        // Linux filesystems are case-sensitive and DA .dat archives ship lowercase, so normalize the
+        // nameof()-derived keys (e.g. "Cious") to match the on-disk names. Harmless on Windows.
+        key = key.WithExtension(".dat")
+                 .ToLowerInvariant();
 
         if (key.StartsWithI("npcbase"))
             return DataArchive.FromFile(Path.Combine(DataContext.DataPath, "npc", key));

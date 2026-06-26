@@ -930,8 +930,11 @@ public sealed partial class WorldScreen
         if ((entity.AnimState == EntityAnimState.BodyAnim) || (entity.ActiveEmoteFrame >= 0))
             return;
 
-        //creatures use their mpffile attack frame counts; aislings use epf suffix-based frame counts
-        if (entity.Type == ClientEntityType.Creature)
+        //creature sprites (native creatures AND aislings in monster form) use their mpf attack frame
+        //counts; normal aislings use epf suffix-based frame counts. Gate on IsRenderedAsCreatureSprite
+        //so a form attacks with its mns frames, not garbled aisling-epf frames. Emotes are no-ops here
+        //(StartCreatureBodyAnimation skips them — a form has no aisling face overlay to composite).
+        if (entity.IsRenderedAsCreatureSprite)
         {
             var animInfo = Game.CreatureRenderer.GetAnimInfo(entity.SpriteId);
 
