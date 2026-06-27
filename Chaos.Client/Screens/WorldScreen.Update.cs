@@ -56,7 +56,10 @@ public sealed partial class WorldScreen
                     var info = animInfo.Value;
                     AnimationSystem.UpdateCreatureIdleCycle(entity, in info);
                 }
-            }
+            } else
+                //leaving a form stops UpdateCreatureIdleCycle from running, but the creature's fast frame
+                //interval would otherwise stick — clear it so the aisling idle falls back to DEFAULT_IDLE_FRAME_MS.
+                entity.IdleFrameIntervalMs = 0f;
 
             //tick emote overlay timer and cycle animated emote frames
             if (entity.ActiveEmoteFrame >= 0)
