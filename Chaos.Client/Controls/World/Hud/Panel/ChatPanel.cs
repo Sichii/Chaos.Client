@@ -83,7 +83,9 @@ public sealed class ChatPanel : ExpandablePanel
 
         while (remaining.Length > 0)
         {
-            var lineEnd = TextRenderer.FindLineBreak(remaining, maxWidth);
+            //ponytail: FindLineBreak already returns >= 1 for non-empty input; clamp anyway so a future measure change
+            //(e.g. a glyph wider than the box yielding 0) can never leave `remaining` un-shrunk and spin this forever.
+            var lineEnd = Math.Max(1, TextRenderer.FindLineBreak(remaining, maxWidth));
 
             var line = remaining[..lineEnd]
                 .TrimEnd();

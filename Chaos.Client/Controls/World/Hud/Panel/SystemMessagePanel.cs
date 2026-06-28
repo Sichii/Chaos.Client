@@ -1,4 +1,5 @@
 #region
+using Chaos.Client.Collections;
 using Chaos.Client.Controls.Components;
 using Chaos.Client.Controls.Generic;
 using Chaos.Client.Controls.Scrolling;
@@ -69,6 +70,9 @@ public sealed class SystemMessagePanel : ExpandablePanel
         LayoutViewer(NormalDisplayBounds);
 
         AddChild(Viewer);
+
+        LastHistoryCount = History.Count;
+        WorldState.Chat.OrangeBarMessageAdded += OnOrangeBarMessageAdded;
     }
 
     /// <summary>
@@ -136,19 +140,24 @@ public sealed class SystemMessagePanel : ExpandablePanel
     //opposite way, hence the sign flip into the list.
     public bool Scroll(int delta) => RowList.ScrollByRows(-delta);
 
-    public override void Update(GameTime gameTime)
+    public override void Dispose()
     {
-        if (!Visible || !Enabled)
-            return;
+        WorldState.Chat.OrangeBarMessageAdded -= OnOrangeBarMessageAdded;
 
-        //the history buffer is owned elsewhere; re-render when it grows (matches the pre-migration count poll). Done
-        //before base.Update so the viewer syncs the re-pinned offset to the bar in this same frame.
-        if (History.Count != LastHistoryCount)
-        {
-            LastHistoryCount = History.Count;
-            RowList.Invalidate();
-        }
+        base.Dispose();
+    }
 
-        base.Update(gameTime);
+    //event-driven re-render (matches ChatPanel). The old per-frame `History.Count != Last` poll silently died once the
+    //backing CircularBuffer hit its cap: Count saturates at capacity, so it never changed again and new messages stopped
+    //appearing until a manual scroll bumped the row list's version. The event fires on every add regardless of the cap.
+    private void OnOrangeBarMessageAdded(Chat.OrangeBarMessage _)
+    {
+        //at cap each add evicts the oldest (front), shifting every surviving index down one. Count == Last is that
+        //saturated signal: drop a scrolled-up reader's offset to match so it holds position (pinned views re-pin).
+        if (History.Count == LastHistoryCount)
+            RowList.NotifyRemovedFromFront(1);
+
+        LastHistoryCount = History.Count;
+        RowList.Invalidate();
     }
 }
