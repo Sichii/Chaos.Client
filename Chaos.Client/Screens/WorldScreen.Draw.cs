@@ -688,16 +688,12 @@ public sealed partial class WorldScreen
 
         var tint = ResolveEntityTint(entity);
 
-        //transparent aislings draw faded in both passes so they compound multiplicatively with occlusion:
-        //stripe at TRANSPARENT_ALPHA + silhouette RT at TRANSPARENT_SILHOUETTE_ALPHA → ~50% open, ~25% behind FG.
-        //non-transparent aislings draw opaque in both passes → 100% open, ~50% behind FG.
-        var alpha = entity.IsTransparent
+        //dead wins over transparent: a ghost uses the opaque base alpha so AislingRenderer's GHOST_ALPHA isn't
+        //stacked with TRANSPARENT_ALPHA into an effectively-invisible result. Living transparent aislings draw faded
+        //in both passes (stripe TRANSPARENT_ALPHA + silhouette TRANSPARENT_SILHOUETTE_ALPHA → ~50% open, ~25% behind FG).
+        var alpha = entity.IsTransparent && !entity.IsDead
             ? DrawingForSilhouette ? TRANSPARENT_SILHOUETTE_ALPHA : TRANSPARENT_ALPHA
             : 1f;
-
-        //transparent wins over dead — "invisible ghost" isn't a sensible visual state, and stacking both alpha
-        //modulations would produce an effectively-invisible result.
-        var isDead = entity.IsDead && !entity.IsTransparent;
 
         var drawParams = new AislingDrawParams(
             entity.Id,
@@ -713,7 +709,7 @@ public sealed partial class WorldScreen
             tileCenterY,
             entity.VisualOffset,
             tint,
-            isDead,
+            entity.IsDead,
             alpha);
 
         return Game.AislingRenderer.Draw(spriteBatch, Camera, in drawParams);

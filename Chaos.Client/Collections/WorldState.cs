@@ -180,7 +180,9 @@ public static class WorldState
             {
                 Gender = args.BodySprite is BodySprite.Female or BodySprite.FemaleGhost ? Gender.Female : Gender.Male,
                 BodySpriteId = GetBodySpriteId(args.BodySprite),
-                BodyColor = (int)args.BodyColor,
+                BodyColor = args.BodySprite is BodySprite.MaleGhost or BodySprite.FemaleGhost
+                    ? GHOST_BODY_COLOR
+                    : (int)args.BodyColor,
                 HeadSprite = args.HeadSprite,
                 HeadColor = args.HeadColor,
                 FaceSprite = args.FaceSprite,
@@ -309,6 +311,12 @@ public static class WorldState
 
         return blocked;
     }
+
+    //a dead aisling renders its body via the 'b' wraith sprite, so the face overlay (the only palm[bodyColor]
+    //layer still drawn) is what carries body color. the server zeroes the body-palette fields for the dead
+    //packet, so bodyColor arrives as 0 (White) and the face renders skin-toned on the wraith. force the pale
+    //ghost palette entry instead so the face matches the wraith body.
+    private const int GHOST_BODY_COLOR = (int)BodyColor.LightBlue;
 
     private static int GetBodySpriteId(BodySprite bodySprite)
         => bodySprite switch

@@ -336,8 +336,8 @@ public sealed class AislingRenderer : IDisposable
             _                        => drawTexture
         };
 
-        //dead aislings render as translucent ghosts via uniform alpha; transparent wins over dead at the call site
-        //so we never stack both modulations here.
+        //dead aislings render as translucent ghosts via uniform alpha; the call site uses the opaque base alpha for
+        //dead entities (dead wins over transparent) so we never stack both modulations here.
         var effectiveAlpha = p.IsDead ? p.Alpha * GHOST_ALPHA : p.Alpha;
         batch.Draw(finalTexture, screenPos, Color.White * effectiveAlpha);
 
