@@ -1173,7 +1173,7 @@ public sealed partial class WorldScreen
 
     //--- health / effects / light ---
 
-    private void HandleEffect(EffectArgs args) => WorldHud.EffectBar.SetEffect(args.EffectIcon, args.EffectColor);
+    private void HandleEffect(EffectArgs args) => UpdateHuds(HudOps.SetEffect, args.EffectIcon, args.EffectColor);
 
     private void HandleHealthBar(HealthBarArgs args)
     {
