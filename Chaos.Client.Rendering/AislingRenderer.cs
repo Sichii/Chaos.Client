@@ -78,6 +78,8 @@ public readonly record struct AislingDrawParams(
 public sealed class AislingRenderer : IDisposable
 {
     private const int BODY_ID = 1;
+    private const int HEAD_BODY_ID = 5;
+    private const int NO_BODY_ID = 0;
     private const int PANTS_ID = 1;
     private const int MAX_MALE_HAIR_STYLE = 18;
     private const int MAX_FEMALE_HAIR_STYLE = 17;
@@ -608,6 +610,7 @@ public sealed class AislingRenderer : IDisposable
         var appearance = new AislingAppearance
         {
             Gender = gender,
+            BodySpriteId = BODY_ID,
             HeadSprite = hairStyle,
             HeadColor = hairColor
         };
@@ -632,21 +635,24 @@ public sealed class AislingRenderer : IDisposable
         string anim,
         int idleFallbackFrame = -1)
     {
-        var bodySpriteId = appearance.BodySpriteId > 0 ? appearance.BodySpriteId : BODY_ID;
+        var bodySpriteId = appearance.BodySpriteId;
 
-        layers[(int)LayerSlot.BodyB] = RenderEquipLayer(
-            'b',
-            bodySpriteId,
-            DisplayColor.Default,
-            in appearance,
-            frameIndex,
-            anim,
-            idleFallbackFrame);
+        //head forms have no 'b' outline layer — only the skin layer, which is a floating head.
+        //blank forms have neither, so nothing composites and the aisling renders as nothing.
+        if (bodySpriteId is not (NO_BODY_ID or HEAD_BODY_ID))
+            layers[(int)LayerSlot.BodyB] = RenderEquipLayer(
+                'b',
+                bodySpriteId,
+                DisplayColor.Default,
+                in appearance,
+                frameIndex,
+                anim,
+                idleFallbackFrame);
 
-        if (bodySpriteId == BODY_ID)
+        if (bodySpriteId is BODY_ID or HEAD_BODY_ID)
             layers[(int)LayerSlot.Body] = RenderBodyPaletteLayer(
                 'm',
-                BODY_ID,
+                bodySpriteId,
                 in appearance,
                 frameIndex,
                 anim,

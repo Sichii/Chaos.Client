@@ -1,6 +1,7 @@
 #region
 using Chaos.Client.Data;
 using Chaos.Client.Data.Models;
+using Chaos.Client.Data.Utilities;
 using Chaos.Client.Extensions;
 using Chaos.Client.Models;
 using Chaos.Client.Networking;
@@ -178,7 +179,7 @@ public static class WorldState
 
             entity.Appearance = new AislingAppearance
             {
-                Gender = args.BodySprite is BodySprite.Female or BodySprite.FemaleGhost ? Gender.Female : Gender.Male,
+                Gender = DataUtilities.DetermineGender(args.BodySprite) == Gender.Female ? Gender.Female : Gender.Male,
                 BodySpriteId = GetBodySpriteId(args.BodySprite),
                 BodyColor = args.BodySprite is BodySprite.MaleGhost or BodySprite.FemaleGhost
                     ? GHOST_BODY_COLOR
@@ -318,13 +319,19 @@ public static class WorldState
     //ghost palette entry instead so the face matches the wraith body.
     private const int GHOST_BODY_COLOR = (int)BodyColor.LightBlue;
 
+    //khan body sprite number used by the 'b' (body) and 'm' (skin) layer file names.
+    //0 means the form has no body sprite at all.
+    //khan body sprite number used by the 'b' (body) and 'm' (skin) layer file names.
+    //0 means the form has no body sprite at all.
     private static int GetBodySpriteId(BodySprite bodySprite)
         => bodySprite switch
         {
-            BodySprite.MaleGhost or BodySprite.FemaleGhost => 2,
-            BodySprite.MaleInvis or BodySprite.FemaleInvis => 3,
-            BodySprite.MaleJester                          => 4,
-            _                                              => 1
+            BodySprite.MaleGhost or BodySprite.FemaleGhost  => 2,
+            BodySprite.MaleInvis or BodySprite.FemaleInvis  => 3,
+            BodySprite.MaleJester                           => 4,
+            BodySprite.MaleHead or BodySprite.FemaleHead    => 5,
+            BodySprite.BlankMale or BodySprite.BlankFemale  => 0,
+            _                                               => 1
         };
 
     /// <summary>
