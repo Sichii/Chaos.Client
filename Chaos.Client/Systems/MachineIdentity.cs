@@ -1,6 +1,8 @@
 #region
+using System.Buffers.Binary;
 using System.Runtime.Versioning;
 using System.Xml.Linq;
+using Chaos.Cryptography;
 using Microsoft.Win32;
 #endregion
 
@@ -8,8 +10,8 @@ namespace Chaos.Client.Systems;
 
 public static class MachineIdentity
 {
-    private const uint DEFAULT_CLIENT_ID1 = 4278255360;
-    private const uint DEFAULT_CLIENT_ID2 = 4278255360;
+    //identity the retail client falls back to when the registry can't be read or written
+    private const uint DEFAULT_CLIENT_ID1 = 0xFF00FF00;
 
     public static uint ClientId1 { get; }
     public static uint ClientId2 { get; }
@@ -19,76 +21,120 @@ public static class MachineIdentity
         try
         {
             if (OperatingSystem.IsWindows())
-                (ClientId1, ClientId2) = LoadOrCreateWindows();
+                ClientId1 = LoadOrCreateWindows();
             else if (OperatingSystem.IsMacOS())
-                (ClientId1, ClientId2) = LoadOrCreateMacOs();
+                ClientId1 = LoadOrCreateMacOs();
             else if (OperatingSystem.IsLinux())
-                (ClientId1, ClientId2) = LoadOrCreateLinux();
+                ClientId1 = LoadOrCreateLinux();
             else
-                (ClientId1, ClientId2) = (DEFAULT_CLIENT_ID1, DEFAULT_CLIENT_ID2);
+                ClientId1 = DEFAULT_CLIENT_ID1;
         } catch
         {
             ClientId1 = DEFAULT_CLIENT_ID1;
-            ClientId2 = DEFAULT_CLIENT_ID2;
         }
+
+        //id2 is not an independent value - it is always the checksum of id1
+        ClientId2 = Checksum(ClientId1);
     }
 
-    private static (uint Id1, uint Id2) Generate()
-    {
-        var id1 = (uint)Random.Shared.Next(1, int.MaxValue);
-        var id2 = (uint)Random.Shared.Next(1, int.MaxValue);
+    private static ushort Checksum(uint clientId1) => Crc.Generate16(BitConverter.GetBytes(clientId1));
 
-        return (id1, id2);
+    //4 random bytes; zero is reserved to mean "not set"
+    private static uint Generate() => (uint)Random.Shared.NextInt64(1, uint.MaxValue + 1L);
+
+    #region Checksum obfuscation
+    /// <summary>
+    ///     Packs a checksum the way the retail client stores it: checksum low byte, a random byte, checksum high byte, another
+    ///     random byte - each xor'd with 0xAC plus its index.
+    /// </summary>
+    private static uint EncodeChecksum(ushort checksum)
+    {
+        Span<byte> bytes =
+        [
+            (byte)checksum,
+            (byte)Random.Shared.Next(256),
+            (byte)(checksum >> 8),
+            (byte)Random.Shared.Next(256)
+        ];
+
+        for (var i = 0; i < bytes.Length; i++)
+            bytes[i] ^= (byte)(0xAC + i);
+
+        return BinaryPrimitives.ReadUInt32LittleEndian(bytes);
     }
 
-    #region Windows - Registry keys disguised as COM control registrations
-    [SupportedOSPlatform("windows")]
-    private static (uint, uint) LoadOrCreateWindows()
+    private static ushort DecodeChecksum(uint stored)
     {
-        //read from hkcr (merged view of hklm + hkcu, no admin needed for reads)
-        using var readKey1 = Registry.ClassesRoot.OpenSubKey(@"NXKRI.Ctrl.1");
-        using var readKey2 = Registry.ClassesRoot.OpenSubKey(@"KRIHC.Ctrl.1");
+        Span<byte> bytes = stackalloc byte[4];
+        BinaryPrimitives.WriteUInt32LittleEndian(bytes, stored);
 
-        var val1 = readKey1?.GetValue("CLSID");
-        var val2 = readKey2?.GetValue("CLSID");
+        for (var i = 0; i < bytes.Length; i++)
+            bytes[i] ^= (byte)(0xAC + i);
 
-        if (val1 is int i1 && val2 is int i2)
-            return (unchecked((uint)i1), unchecked((uint)i2));
-
-        (var newId1, var newId2) = Generate();
-
-        //write to hkcu\software\classes (no admin needed, visible via hkcr)
-        using var writeKey1 = Registry.CurrentUser.CreateSubKey(@"Software\Classes\NXKRI.Ctrl.1");
-        using var writeKey2 = Registry.CurrentUser.CreateSubKey(@"Software\Classes\KRIHC.Ctrl.1");
-
-        writeKey1.SetValue("CLSID", unchecked((int)newId1), RegistryValueKind.DWord);
-        writeKey2.SetValue("CLSID", unchecked((int)newId2), RegistryValueKind.DWord);
-
-        return (newId1, newId2);
+        return (ushort)(bytes[0] | (bytes[2] << 8));
     }
     #endregion
 
-    #region macOS - Plist files disguised as app preferences
-    [SupportedOSPlatform("macos")]
-    private static (uint, uint) LoadOrCreateMacOs()
+    #region Windows - Registry keys disguised as COM control registrations
+    [SupportedOSPlatform("windows")]
+    private static uint LoadOrCreateWindows()
     {
-        var prefsDir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), "Library", "Preferences");
+        var clientId1 = ReadDword("NXKRI.Ctrl.1");
 
-        var plist1 = Path.Combine(prefsDir, "com.nxkri.Ctrl.1.plist");
-        var plist2 = Path.Combine(prefsDir, "com.krihc.Ctrl.1.plist");
+        if (clientId1 is null or 0)
+        {
+            clientId1 = Generate();
+            WriteDword("NXKRI.Ctrl.1", clientId1.Value);
+        }
 
-        var id1 = ReadPlistDword(plist1);
-        var id2 = ReadPlistDword(plist2);
+        var checksum = Checksum(clientId1.Value);
+        var stored = ReadDword("KRIHC.Ctrl.1");
 
-        if (id1.HasValue && id2.HasValue)
-            return (id1.Value, id2.Value);
+        //rewrite whenever the stored value doesn't decode back to the checksum of id1
+        if (stored is null or 0 || (DecodeChecksum(stored.Value) != checksum))
+            WriteDword("KRIHC.Ctrl.1", EncodeChecksum(checksum));
 
-        (var newId1, var newId2) = Generate();
+        return clientId1.Value;
+    }
 
-        WritePlistDword(plist1, newId1);
-        WritePlistDword(plist2, newId2);
+    //read from hkcr (merged view of hklm + hkcu, no admin needed for reads)
+    [SupportedOSPlatform("windows")]
+    private static uint? ReadDword(string keyName)
+    {
+        using var key = Registry.ClassesRoot.OpenSubKey(keyName);
 
-        return (newId1, newId2);
+        return key?.GetValue("CLSID") is int value ? unchecked((uint)value) : null;
+    }
+
+    //write to hkcu\software\classes (no admin needed, visible via hkcr)
+    [SupportedOSPlatform("windows")]
+    private static void WriteDword(string keyName, uint value)
+    {
+        using var key = Registry.CurrentUser.CreateSubKey($@"Software\Classes\{keyName}");
+
+        key.SetValue("CLSID", unchecked((int)value), RegistryValueKind.DWord);
+    }
+    #endregion
+
+    #region macOS - Plist file disguised as app preferences
+    [SupportedOSPlatform("macos")]
+    private static uint LoadOrCreateMacOs()
+    {
+        var path = Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
+            "Library",
+            "Preferences",
+            "com.nxkri.Ctrl.1.plist");
+
+        var id = ReadPlistDword(path);
+
+        if (id is null or 0)
+        {
+            id = Generate();
+            WritePlistDword(path, id.Value);
+        }
+
+        return id.Value;
     }
 
     private static uint? ReadPlistDword(string path)
@@ -131,30 +177,25 @@ public static class MachineIdentity
              """);
     #endregion
 
-    #region Linux - Binary files disguised as app data
+    #region Linux - Binary file disguised as app data
     [SupportedOSPlatform("linux")]
-    private static (uint, uint) LoadOrCreateLinux()
+    private static uint LoadOrCreateLinux()
     {
         var dataDir = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
 
         if (string.IsNullOrEmpty(dataDir))
             dataDir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".local", "share");
 
-        var file1 = Path.Combine(dataDir, "nxkri.ctrl.1");
-        var file2 = Path.Combine(dataDir, "krihc.ctrl.1");
+        var path = Path.Combine(dataDir, "nxkri.ctrl.1");
+        var id = ReadBinaryDword(path);
 
-        var id1 = ReadBinaryDword(file1);
-        var id2 = ReadBinaryDword(file2);
+        if (id is null or 0)
+        {
+            id = Generate();
+            WriteBinaryDword(path, id.Value);
+        }
 
-        if (id1.HasValue && id2.HasValue)
-            return (id1.Value, id2.Value);
-
-        (var newId1, var newId2) = Generate();
-
-        WriteBinaryDword(file1, newId1);
-        WriteBinaryDword(file2, newId2);
-
-        return (newId1, newId2);
+        return id.Value;
     }
 
     private static uint? ReadBinaryDword(string path)
