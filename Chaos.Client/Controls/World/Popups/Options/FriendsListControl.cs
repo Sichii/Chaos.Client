@@ -9,13 +9,14 @@ using Microsoft.Xna.Framework.Graphics;
 namespace Chaos.Client.Controls.World.Popups.Options;
 
 /// <summary>
-///     Friends list popup using _nfriend prefab. Two-column layout of 12 slots each (24 total);
-///     column 1 holds slots 1-12, column 2 holds slots 13-24. Row height 16px. OK/Cancel buttons at bottom.
+///     Friends list popup using _nfriend prefab. Two-column layout of 10 slots each (20 total);
+///     column 1 holds slots 1-10, column 2 holds slots 11-20. OK/Cancel buttons at bottom.
 /// </summary>
 public sealed class FriendsListControl : PrefabPanel
 {
     private const int ROW_HEIGHT = 16;
-    private const int MAX_VISIBLE_ROWS = 12;
+    private const int ROW_PITCH = 21;
+    private const int MAX_VISIBLE_ROWS = 10;
     private const int MAX_LENGTH = 28;
 
     private readonly Rectangle LeftColumnRect;
@@ -52,7 +53,7 @@ public sealed class FriendsListControl : PrefabPanel
         if (OkButton is not null)
             OkButton.Clicked += CloseWithOk;
 
-        //column rects from prefab
+        //first-row rects from prefab
         LeftColumnRect = GetRect("TextTopLeft");
         RightColumnRect = GetRect("TextTopRight");
 
@@ -62,14 +63,18 @@ public sealed class FriendsListControl : PrefabPanel
                 40,
                 40,
                 175,
-                MAX_VISIBLE_ROWS * ROW_HEIGHT);
+                ROW_HEIGHT);
 
         if (RightColumnRect == Rectangle.Empty)
             RightColumnRect = new Rectangle(
                 251,
                 40,
                 175,
-                MAX_VISIBLE_ROWS * ROW_HEIGHT);
+                ROW_HEIGHT);
+
+        //the prefab's second row gives the row pitch — rows are 16px tall with a 5px gap between them
+        var secondRowRect = GetRect("TextBottomLeft");
+        var rowPitch = secondRowRect == Rectangle.Empty ? ROW_PITCH : secondRowRect.Y - LeftColumnRect.Y;
 
         for (var i = 0; i < MAX_VISIBLE_ROWS; i++)
         {
@@ -77,9 +82,9 @@ public sealed class FriendsListControl : PrefabPanel
             {
                 Name = $"Left{i}",
                 X = LeftColumnRect.X,
-                Y = LeftColumnRect.Y + i * ROW_HEIGHT,
+                Y = LeftColumnRect.Y + i * rowPitch,
                 Width = LeftColumnRect.Width,
-                Height = ROW_HEIGHT,
+                Height = LeftColumnRect.Height,
                 MaxLength = MAX_LENGTH
             };
 
@@ -87,9 +92,9 @@ public sealed class FriendsListControl : PrefabPanel
             {
                 Name = $"Right{i}",
                 X = RightColumnRect.X,
-                Y = RightColumnRect.Y + i * ROW_HEIGHT,
+                Y = RightColumnRect.Y + i * rowPitch,
                 Width = RightColumnRect.Width,
-                Height = ROW_HEIGHT,
+                Height = RightColumnRect.Height,
                 MaxLength = MAX_LENGTH
             };
 
@@ -141,16 +146,6 @@ public sealed class FriendsListControl : PrefabPanel
     }
 
     /// <summary>
-    ///     Returns all non-empty friend names currently entered in the textboxes
-    ///     (both online and offline columns).
-    /// </summary>
-    /// <summary>
-    ///     Returns all non-empty friend names currently entered in the textboxes.
-    ///     Preserves the original saved order for existing friends and appends
-    ///     any newly typed names at the end, so adding a friend never reorders
-    ///     the existing list across save/reload cycles.
-    /// </summary>
-    /// <summary>
     ///     Returns all non-empty friend names from the textboxes in slot order
     ///     (column 1 top-to-bottom, then column 2 top-to-bottom).
     /// </summary>
@@ -197,7 +192,7 @@ public sealed class FriendsListControl : PrefabPanel
 
         RenderedVersion = DataVersion;
 
-        //slots fill column 1 first (rows 0-11), then column 2 (rows 12-23)
+        //slots fill column 1 first (rows 0-9), then column 2 (rows 10-19)
         for (var i = 0; i < MAX_VISIBLE_ROWS; i++)
         {
             NamesColumn1[i].Text = i < Friends.Count ? Friends[i] : string.Empty;
@@ -208,11 +203,8 @@ public sealed class FriendsListControl : PrefabPanel
     }
 
     /// <summary>
-    ///     Populates the friends list. Online friends on left, offline on right.
-    /// </summary>
-    /// <summary>
-    ///     Populates the friends list. Slots fill column 1 first (rows 0-11),
-    ///     then column 2 (rows 12-23).
+    ///     Populates the friends list. Slots fill column 1 first (rows 0-9),
+    ///     then column 2 (rows 10-19).
     /// </summary>
     public void SetFriends(List<string> friends)
     {
