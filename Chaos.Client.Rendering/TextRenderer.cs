@@ -43,13 +43,13 @@ public static class TextRenderer
         var lead = bytes[0];
         var trail = bytes[1];
 
-        //hangul jamo: lead 0xa4, trail 0xa1-0xd3 -> indices 0-50
-        if ((lead == 0xA4) && trail is >= 0xA1 and <= 0xD3)
-            return trail - 0xA1;
-
-        //hangul syllables: lead 0xb0-0xc8, trail 0xa1-0xfe -> indices 51-2400
+        //hangul syllables: lead 0xb0-0xc8, trail 0xa1-0xfe -> indices 0-2349
         if (lead is >= 0xB0 and <= 0xC8 && trail is >= 0xA1 and <= 0xFE)
-            return 51 + (lead - 0xB0) * 94 + (trail - 0xA1);
+            return (lead - 0xB0) * 94 + (trail - 0xA1);
+
+        //hangul jamo: lead 0xa4, trail 0xa1-0xd3 -> indices 2350-2400
+        if ((lead == 0xA4) && trail is >= 0xA1 and <= 0xD3)
+            return 2350 + (trail - 0xA1);
 
         return -1;
     }
